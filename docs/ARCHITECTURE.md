@@ -64,24 +64,27 @@ Write endpoints (admin, sync, webhooks) require a Bearer token matching an activ
 Middleware implementation:
 
 ```typescript
-import { createMiddleware } from "hono/factory";
-import { eq, and } from "drizzle-orm";
-import type { Env } from "../types/env";
-import { apiKeys } from "../db/schema/system";
+import { createMiddleware } from 'hono/factory';
+import { eq, and } from 'drizzle-orm';
+import type { Env } from '../types/env';
+import { apiKeys } from '../db/schema/system';
 
-export const requireAuth = (requiredScope: "read" | "admin" = "read") =>
+export const requireAuth = (requiredScope: 'read' | 'admin' = 'read') =>
   createMiddleware<{ Bindings: Env }>(async (c, next) => {
-    const header = c.req.header("Authorization");
-    if (!header?.startsWith("Bearer rw_")) {
-      return c.json({ error: "Unauthorized", status: 401 }, 401);
+    const header = c.req.header('Authorization');
+    if (!header?.startsWith('Bearer rw_')) {
+      return c.json({ error: 'Unauthorized', status: 401 }, 401);
     }
 
     const token = header.slice(7); // strip "Bearer "
     const encoder = new TextEncoder();
-    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(token));
+    const hashBuffer = await crypto.subtle.digest(
+      'SHA-256',
+      encoder.encode(token)
+    );
     const keyHash = [...new Uint8Array(hashBuffer)]
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
 
     const db = drizzle(c.env.DB);
     const [key] = await db
@@ -90,20 +93,20 @@ export const requireAuth = (requiredScope: "read" | "admin" = "read") =>
       .where(and(eq(apiKeys.keyHash, keyHash), eq(apiKeys.isActive, 1)));
 
     if (!key) {
-      return c.json({ error: "Unauthorized", status: 401 }, 401);
+      return c.json({ error: 'Unauthorized', status: 401 }, 401);
     }
 
     if (key.expiresAt && new Date(key.expiresAt) < new Date()) {
-      return c.json({ error: "Token expired", status: 401 }, 401);
+      return c.json({ error: 'Token expired', status: 401 }, 401);
     }
 
-    if (requiredScope === "admin" && key.scope !== "admin") {
-      return c.json({ error: "Forbidden", status: 403 }, 403);
+    if (requiredScope === 'admin' && key.scope !== 'admin') {
+      return c.json({ error: 'Forbidden', status: 403 }, 403);
     }
 
     // Attach user context for downstream handlers
-    c.set("userId", key.userId);
-    c.set("keyScope", key.scope);
+    c.set('userId', key.userId);
+    c.set('keyScope', key.scope);
 
     // Update last_used_at and request_count asynchronously
     c.executionCtx.waitUntil(
@@ -124,13 +127,13 @@ Usage on route groups:
 
 ```typescript
 const admin = new Hono<{ Bindings: Env }>();
-admin.use("/*", requireAuth("admin"));
-admin.post("/sync/listening", syncListeningHandler);
-admin.post("/sync/running", syncRunningHandler);
+admin.use('/*', requireAuth('admin'));
+admin.post('/sync/listening', syncListeningHandler);
+admin.post('/sync/running', syncRunningHandler);
 
 const protectedReads = new Hono<{ Bindings: Env }>();
-protectedReads.use("/*", requireAuth("read"));
-protectedReads.get("/me/keys", listApiKeysHandler);
+protectedReads.use('/*', requireAuth('read'));
+protectedReads.get('/me/keys', listApiKeysHandler);
 ```
 
 ## CORS
@@ -138,19 +141,21 @@ protectedReads.get("/me/keys", listApiKeysHandler);
 Cross-origin requests are handled by Hono's built-in CORS middleware. Allowed origins are configured via the `ALLOWED_ORIGINS` environment variable (comma-separated), defaulting to `patdugan.me` and `localhost:3000`.
 
 ```typescript
-import { cors } from "hono/cors";
+import { cors } from 'hono/cors';
 
 app.use(
-  "/*",
+  '/*',
   cors({
     origin: (origin) => {
-      const allowed = (c.env.ALLOWED_ORIGINS ?? "https://patdugan.me,http://localhost:3000")
-        .split(",")
+      const allowed = (
+        c.env.ALLOWED_ORIGINS ?? 'https://patdugan.me,http://localhost:3000'
+      )
+        .split(',')
         .map((o: string) => o.trim());
       return allowed.includes(origin) ? origin : null;
     },
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
   })
 );
 ```
@@ -783,22 +788,22 @@ CREATE INDEX idx_collection_listening_xref_user_id ON collection_listening_xref(
 Each SQL table maps to a Drizzle `sqliteTable` definition in the corresponding schema file. Example mapping for `lastfm_artists`:
 
 ```typescript
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-export const lastfmArtists = sqliteTable("lastfm_artists", {
-  id: integer("id").primaryKey(),
-  userId: integer("user_id").notNull().default(1),
-  mbid: text("mbid"),
-  name: text("name").notNull().unique(),
-  url: text("url"),
-  playcount: integer("playcount").default(0),
-  isFiltered: integer("is_filtered").default(0),
-  imageKey: text("image_key"),
-  createdAt: text("created_at")
+export const lastfmArtists = sqliteTable('lastfm_artists', {
+  id: integer('id').primaryKey(),
+  userId: integer('user_id').notNull().default(1),
+  mbid: text('mbid'),
+  name: text('name').notNull().unique(),
+  url: text('url'),
+  playcount: integer('playcount').default(0),
+  isFiltered: integer('is_filtered').default(0),
+  imageKey: text('image_key'),
+  createdAt: text('created_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at")
+  updatedAt: text('updated_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
 });
@@ -808,34 +813,34 @@ Schema changes are made in the Drizzle schema files, then `npm run db:generate` 
 
 ## Caching Strategy
 
-| Endpoint Pattern | Cache-Control | Rationale |
-| --- | --- | --- |
-| `/v1/listening/now-playing` | `no-store` | Real-time, always fresh |
-| `/v1/listening/recent/*` | `public, max-age=60` | Updates frequently with new scrobbles |
-| `/v1/listening/stats/*` | `public, max-age=3600` | Computed aggregates, hourly refresh sufficient |
-| `/v1/listening/top/*` | `public, max-age=3600` | Top lists recomputed daily, hourly cache is fine |
-| `/v1/running/recent/*` | `public, max-age=60` | New activities appear in real-time via webhook |
-| `/v1/running/stats/*` | `public, max-age=3600` | Computed summaries |
-| `/v1/running/calendar/{currentYear}` | `public, max-age=3600` | Current year still accumulating data |
-| `/v1/running/calendar/{pastYear}` | `public, max-age=86400, immutable` | Historical data does not change |
-| `/v1/watching/recent/*` | `public, max-age=60` | Webhook-driven updates |
-| `/v1/watching/stats/*` | `public, max-age=3600` | Computed aggregates |
-| `/v1/collecting/collection/*` | `public, max-age=86400` | Collection changes infrequently |
-| `/v1/collecting/stats/*` | `public, max-age=86400` | Weekly sync only |
-| `/v1/images/*` | `public, max-age=31536000, immutable` | Images in R2 are content-addressed, never change |
-| `/v1/feed` | `public, max-age=300` | Cross-domain feed, 5-minute freshness |
-| `/v1/health` | `no-store` | Diagnostic, always fresh |
-| `/v1/health/sync` | `no-store` | Diagnostic, always fresh |
-| `/v1/admin/*` | `no-store` | Admin operations, never cached |
+| Endpoint Pattern                     | Cache-Control                         | Rationale                                        |
+| ------------------------------------ | ------------------------------------- | ------------------------------------------------ |
+| `/v1/listening/now-playing`          | `no-store`                            | Real-time, always fresh                          |
+| `/v1/listening/recent/*`             | `public, max-age=60`                  | Updates frequently with new scrobbles            |
+| `/v1/listening/stats/*`              | `public, max-age=3600`                | Computed aggregates, hourly refresh sufficient   |
+| `/v1/listening/top/*`                | `public, max-age=3600`                | Top lists recomputed daily, hourly cache is fine |
+| `/v1/running/recent/*`               | `public, max-age=60`                  | New activities appear in real-time via webhook   |
+| `/v1/running/stats/*`                | `public, max-age=3600`                | Computed summaries                               |
+| `/v1/running/calendar/{currentYear}` | `public, max-age=3600`                | Current year still accumulating data             |
+| `/v1/running/calendar/{pastYear}`    | `public, max-age=86400, immutable`    | Historical data does not change                  |
+| `/v1/watching/recent/*`              | `public, max-age=60`                  | Webhook-driven updates                           |
+| `/v1/watching/stats/*`               | `public, max-age=3600`                | Computed aggregates                              |
+| `/v1/collecting/collection/*`        | `public, max-age=86400`               | Collection changes infrequently                  |
+| `/v1/collecting/stats/*`             | `public, max-age=86400`               | Weekly sync only                                 |
+| `/v1/images/*`                       | `public, max-age=31536000, immutable` | Images in R2 are content-addressed, never change |
+| `/v1/feed`                           | `public, max-age=300`                 | Cross-domain feed, 5-minute freshness            |
+| `/v1/health`                         | `no-store`                            | Diagnostic, always fresh                         |
+| `/v1/health/sync`                    | `no-store`                            | Diagnostic, always fresh                         |
+| `/v1/admin/*`                        | `no-store`                            | Admin operations, never cached                   |
 
 ## Sync Strategy
 
-| Domain | Trigger | Schedule | Strategy | Rate Limit |
-| --- | --- | --- | --- | --- |
-| Listening (Last.fm) | Cron | Every 15 min (scrobbles), daily 3 AM (top lists, stats) | Incremental from last scrobble timestamp | 5 req/sec |
-| Running (Strava) | Cron + Webhook | Daily 4 AM catch-up + real-time webhook on activity create/update | Incremental since last synced activity | 200 req/15min, 2000 req/day |
-| Watching (Plex) | Webhook + Cron | Real-time scrobble webhook + daily 5 AM library scan | Webhook-driven for watch events, cron catch-up for library changes | ~50 req/sec (TMDB) |
-| Collecting (Discogs) | Cron | Weekly, Sunday 6 AM | Full collection sync (replace all) | 60 req/min |
+| Domain               | Trigger        | Schedule                                                          | Strategy                                                           | Rate Limit                  |
+| -------------------- | -------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------- |
+| Listening (Last.fm)  | Cron           | Every 15 min (scrobbles), daily 3 AM (top lists, stats)           | Incremental from last scrobble timestamp                           | 5 req/sec                   |
+| Running (Strava)     | Cron + Webhook | Daily 4 AM catch-up + real-time webhook on activity create/update | Incremental since last synced activity                             | 200 req/15min, 2000 req/day |
+| Watching (Plex)      | Webhook + Cron | Real-time scrobble webhook + daily 5 AM library scan              | Webhook-driven for watch events, cron catch-up for library changes | ~50 req/sec (TMDB)          |
+| Collecting (Discogs) | Cron           | Weekly, Sunday 6 AM                                               | Full collection sync (replace all)                                 | 60 req/min                  |
 
 Each sync run is recorded in the `sync_runs` table with status (`running`, `completed`, `failed`), item count, duration, and any error message. The `/v1/health/sync` endpoint exposes the most recent sync run per domain for monitoring.
 
@@ -897,30 +902,30 @@ During automatic sync/pipeline runs, images with `is_override = 1` are skipped. 
 
 ## Environment Variables
 
-| Variable | Domain | Description |
-| --- | --- | --- |
-| `ALLOWED_ORIGINS` | System | Comma-separated list of allowed CORS origins (default: `https://patdugan.me,http://localhost:3000`) |
-| `LASTFM_API_KEY` | Listening | Last.fm API key for fetching scrobbles, top charts, and user info |
-| `LASTFM_USERNAME` | Listening | Last.fm account username (`pdugan20`) to query scrobble history for |
-| `STRAVA_CLIENT_ID` | Running | Strava OAuth2 application client ID for token exchange |
-| `STRAVA_CLIENT_SECRET` | Running | Strava OAuth2 application client secret for token exchange |
-| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Running | Token used to validate Strava webhook subscription verification requests |
-| `PLEX_URL` | Watching | Base URL of the Plex Media Server (e.g., `http://192.168.1.x:32400`) |
-| `PLEX_TOKEN` | Watching | Plex authentication token for server API access |
-| `PLEX_WEBHOOK_SECRET` | Watching | Shared secret to verify incoming Plex webhook payloads |
-| `TMDB_API_KEY` | Watching | TMDB (The Movie Database) API read access token for movie metadata and images |
-| `LETTERBOXD_USERNAME` | Watching | Letterboxd username for RSS feed sync |
-| `DISCOGS_PERSONAL_TOKEN` | Collecting | Discogs personal access token for collection and wantlist access |
-| `DISCOGS_USERNAME` | Collecting | Discogs account username (`patdugan`) to query collection for |
-| `APPLE_MUSIC_DEVELOPER_TOKEN` | Images | Apple Music API JWT for artist and album artwork lookups |
-| `FANART_TV_API_KEY` | Images | Fanart.tv project API key for high-quality artist images |
+| Variable                      | Domain     | Description                                                                                         |
+| ----------------------------- | ---------- | --------------------------------------------------------------------------------------------------- |
+| `ALLOWED_ORIGINS`             | System     | Comma-separated list of allowed CORS origins (default: `https://patdugan.me,http://localhost:3000`) |
+| `LASTFM_API_KEY`              | Listening  | Last.fm API key for fetching scrobbles, top charts, and user info                                   |
+| `LASTFM_USERNAME`             | Listening  | Last.fm account username (`pdugan20`) to query scrobble history for                                 |
+| `STRAVA_CLIENT_ID`            | Running    | Strava OAuth2 application client ID for token exchange                                              |
+| `STRAVA_CLIENT_SECRET`        | Running    | Strava OAuth2 application client secret for token exchange                                          |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Running    | Token used to validate Strava webhook subscription verification requests                            |
+| `PLEX_URL`                    | Watching   | Base URL of the Plex Media Server (e.g., `http://192.168.1.x:32400`)                                |
+| `PLEX_TOKEN`                  | Watching   | Plex authentication token for server API access                                                     |
+| `PLEX_WEBHOOK_SECRET`         | Watching   | Shared secret to verify incoming Plex webhook payloads                                              |
+| `TMDB_API_KEY`                | Watching   | TMDB (The Movie Database) API read access token for movie metadata and images                       |
+| `LETTERBOXD_USERNAME`         | Watching   | Letterboxd username for RSS feed sync                                                               |
+| `DISCOGS_PERSONAL_TOKEN`      | Collecting | Discogs personal access token for collection and wantlist access                                    |
+| `DISCOGS_USERNAME`            | Collecting | Discogs account username (`patdugan`) to query collection for                                       |
+| `APPLE_MUSIC_DEVELOPER_TOKEN` | Images     | Apple Music API JWT for artist and album artwork lookups                                            |
+| `FANART_TV_API_KEY`           | Images     | Fanart.tv project API key for high-quality artist images                                            |
 
 Cloudflare bindings (not environment variables -- configured in `wrangler.toml`):
 
-| Binding | Type | Purpose |
-| --- | --- | --- |
-| `DB` | D1 | Primary SQLite database for all structured data |
-| `IMAGES` | R2 | Object storage bucket for images served via `cdn.rewind.rest` |
+| Binding  | Type | Purpose                                                       |
+| -------- | ---- | ------------------------------------------------------------- |
+| `DB`     | D1   | Primary SQLite database for all structured data               |
+| `IMAGES` | R2   | Object storage bucket for images served via `cdn.rewind.rest` |
 
 ## Error Handling
 
@@ -935,15 +940,15 @@ All error responses follow a consistent shape:
 
 HTTP status codes used:
 
-| Status | Meaning | When Used |
-| --- | --- | --- |
-| 200 | OK | Successful GET or POST |
-| 400 | Bad Request | Invalid query parameters, malformed request body |
-| 401 | Unauthorized | Missing or invalid Bearer token on protected endpoints |
-| 403 | Forbidden | Valid token but insufficient scope (e.g., `read` token on `admin` endpoint) |
-| 404 | Not Found | Resource does not exist (activity, artist, movie, etc.) |
-| 429 | Too Many Requests | Rate limit exceeded (forwarded from upstream API) |
-| 500 | Internal Server Error | Unhandled exception, database error, upstream failure |
+| Status | Meaning               | When Used                                                                   |
+| ------ | --------------------- | --------------------------------------------------------------------------- |
+| 200    | OK                    | Successful GET or POST                                                      |
+| 400    | Bad Request           | Invalid query parameters, malformed request body                            |
+| 401    | Unauthorized          | Missing or invalid Bearer token on protected endpoints                      |
+| 403    | Forbidden             | Valid token but insufficient scope (e.g., `read` token on `admin` endpoint) |
+| 404    | Not Found             | Resource does not exist (activity, artist, movie, etc.)                     |
+| 429    | Too Many Requests     | Rate limit exceeded (forwarded from upstream API)                           |
+| 500    | Internal Server Error | Unhandled exception, database error, upstream failure                       |
 
 External API error handling:
 
@@ -966,11 +971,11 @@ Server-side (Rewind API):
 ```typescript
 // src/index.ts
 const app = new Hono<{ Bindings: Env }>()
-  .route("/v1/listening", listeningRoutes)
-  .route("/v1/running", runningRoutes)
-  .route("/v1/watching", watchingRoutes)
-  .route("/v1/collecting", collectingRoutes)
-  .route("/v1/feed", feedRoutes);
+  .route('/v1/listening', listeningRoutes)
+  .route('/v1/running', runningRoutes)
+  .route('/v1/watching', watchingRoutes)
+  .route('/v1/collecting', collectingRoutes)
+  .route('/v1/feed', feedRoutes);
 
 export type AppType = typeof app;
 ```
@@ -978,14 +983,14 @@ export type AppType = typeof app;
 Client-side (pat-portfolio):
 
 ```typescript
-import { hc } from "hono/client";
-import type { AppType } from "rewind";
+import { hc } from 'hono/client';
+import type { AppType } from 'rewind';
 
-const client = hc<AppType>("https://api.rewind.rest");
+const client = hc<AppType>('https://api.rewind.rest');
 
 // Fully typed -- IDE autocomplete on routes, params, and response shapes
 const res = await client.v1.listening.top.artists.$get({
-  query: { period: "7day", limit: "10" },
+  query: { period: '7day', limit: '10' },
 });
 const data = await res.json();
 // data is typed as the exact response shape from the route handler

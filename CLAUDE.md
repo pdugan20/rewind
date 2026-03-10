@@ -79,23 +79,23 @@ docs/                      -- Project documentation
 
 ## Environment Variables
 
-| Variable | Domain | Description |
-| -------- | ------ | ----------- |
-| `ALLOWED_ORIGINS` | System | CORS allowed origins (comma-separated, default: patdugan.me,localhost:3000) |
-| `LASTFM_API_KEY` | Listening | Last.fm API key |
-| `LASTFM_USERNAME` | Listening | Last.fm username (pdugan20) |
-| `STRAVA_CLIENT_ID` | Running | Strava OAuth app client ID |
-| `STRAVA_CLIENT_SECRET` | Running | Strava OAuth app client secret |
-| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Running | Strava webhook validation token |
-| `PLEX_URL` | Watching | Plex server URL |
-| `PLEX_TOKEN` | Watching | Plex authentication token |
-| `PLEX_WEBHOOK_SECRET` | Watching | Webhook source verification |
-| `TMDB_API_KEY` | Watching | TMDB API read access token |
-| `LETTERBOXD_USERNAME` | Watching | Letterboxd username for RSS feed sync |
-| `DISCOGS_PERSONAL_TOKEN` | Collecting | Discogs personal access token |
-| `DISCOGS_USERNAME` | Collecting | Discogs username (patdugan) |
-| `APPLE_MUSIC_DEVELOPER_TOKEN` | Images | Apple Music JWT |
-| `FANART_TV_API_KEY` | Images | Fanart.tv project API key |
+| Variable                      | Domain     | Description                                                                 |
+| ----------------------------- | ---------- | --------------------------------------------------------------------------- |
+| `ALLOWED_ORIGINS`             | System     | CORS allowed origins (comma-separated, default: patdugan.me,localhost:3000) |
+| `LASTFM_API_KEY`              | Listening  | Last.fm API key                                                             |
+| `LASTFM_USERNAME`             | Listening  | Last.fm username (pdugan20)                                                 |
+| `STRAVA_CLIENT_ID`            | Running    | Strava OAuth app client ID                                                  |
+| `STRAVA_CLIENT_SECRET`        | Running    | Strava OAuth app client secret                                              |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Running    | Strava webhook validation token                                             |
+| `PLEX_URL`                    | Watching   | Plex server URL                                                             |
+| `PLEX_TOKEN`                  | Watching   | Plex authentication token                                                   |
+| `PLEX_WEBHOOK_SECRET`         | Watching   | Webhook source verification                                                 |
+| `TMDB_API_KEY`                | Watching   | TMDB API read access token                                                  |
+| `LETTERBOXD_USERNAME`         | Watching   | Letterboxd username for RSS feed sync                                       |
+| `DISCOGS_PERSONAL_TOKEN`      | Collecting | Discogs personal access token                                               |
+| `DISCOGS_USERNAME`            | Collecting | Discogs username (patdugan)                                                 |
+| `APPLE_MUSIC_DEVELOPER_TOKEN` | Images     | Apple Music JWT                                                             |
+| `FANART_TV_API_KEY`           | Images     | Fanart.tv project API key                                                   |
 
 Cloudflare bindings (D1, R2) are configured in `wrangler.toml`, not as env vars.
 

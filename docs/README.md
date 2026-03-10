@@ -1,5 +1,7 @@
 # Rewind
 
+[![CI](https://github.com/pdugan20/rewind/actions/workflows/ci.yml/badge.svg)](https://github.com/pdugan20/rewind/actions/workflows/ci.yml)
+
 Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, and Plex into a centralized database, serves it via REST API, and manages an image CDN for album art, movie posters, and artist images. All endpoints require `Authorization: Bearer rw_...` header for authentication.
 
 - **API**: `api.rewind.rest`
@@ -8,48 +10,48 @@ Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, and
 
 ## Tech Stack
 
-| Layer | Technology | Purpose |
-| ----- | ---------- | ------- |
-| Runtime | Cloudflare Workers | V8 isolate serverless compute |
-| Framework | Hono | Lightweight web framework with RPC type inference |
-| Database | Cloudflare D1 (SQLite) | Structured data storage |
-| ORM | Drizzle ORM | Type-safe database access, migration generation |
-| Image Storage | Cloudflare R2 | Zero-egress object storage |
-| Image Transforms | Cloudflare Images | On-the-fly resize, format conversion, blur |
-| Blur Placeholders | ThumbHash | Compact image placeholder encoding |
-| Scheduling | Cloudflare Cron Triggers | Periodic data sync |
-| Type Safety | Hono RPC | End-to-end typed client for consuming apps |
-| Testing | Vitest | Unit and integration tests with Workers pool |
-| Linting | ESLint + Prettier | Code quality and formatting |
+| Layer             | Technology               | Purpose                                           |
+| ----------------- | ------------------------ | ------------------------------------------------- |
+| Runtime           | Cloudflare Workers       | V8 isolate serverless compute                     |
+| Framework         | Hono                     | Lightweight web framework with RPC type inference |
+| Database          | Cloudflare D1 (SQLite)   | Structured data storage                           |
+| ORM               | Drizzle ORM              | Type-safe database access, migration generation   |
+| Image Storage     | Cloudflare R2            | Zero-egress object storage                        |
+| Image Transforms  | Cloudflare Images        | On-the-fly resize, format conversion, blur        |
+| Blur Placeholders | ThumbHash                | Compact image placeholder encoding                |
+| Scheduling        | Cloudflare Cron Triggers | Periodic data sync                                |
+| Type Safety       | Hono RPC                 | End-to-end typed client for consuming apps        |
+| Testing           | Vitest                   | Unit and integration tests with Workers pool      |
+| Linting           | ESLint + Prettier        | Code quality and formatting                       |
 
 ## Data Domains
 
-| Domain | Source | Data | Endpoints |
-| ------ | ------ | ---- | --------- |
-| Listening | Last.fm, Apple Music | 123K+ scrobbles, top lists, stats | 12 |
-| Running | Strava | 14+ years of activities, PRs, gear | 18 |
-| Watching | Plex, Letterboxd, TMDB | Movie and TV show watch history, metadata | 15 |
-| Collecting | Discogs | Vinyl/CD collection, wantlist | 9 |
-| System | -- | Health checks, sync admin, API key management | 7 |
-| Feed | All domains | Cross-domain activity feed | 2 |
-| Images | 6 sources | Centralized image pipeline + overrides | 4 |
-| Webhooks | Strava, Plex | Real-time event receivers | 3 |
-| Search | All domains | Cross-domain full-text search | 1 |
-| Export | All domains | Full domain data export | 1 |
+| Domain     | Source                 | Data                                          | Endpoints |
+| ---------- | ---------------------- | --------------------------------------------- | --------- |
+| Listening  | Last.fm, Apple Music   | 123K+ scrobbles, top lists, stats             | 12        |
+| Running    | Strava                 | 14+ years of activities, PRs, gear            | 18        |
+| Watching   | Plex, Letterboxd, TMDB | Movie and TV show watch history, metadata     | 15        |
+| Collecting | Discogs                | Vinyl/CD collection, wantlist                 | 9         |
+| System     | --                     | Health checks, sync admin, API key management | 7         |
+| Feed       | All domains            | Cross-domain activity feed                    | 2         |
+| Images     | 6 sources              | Centralized image pipeline + overrides        | 4         |
+| Webhooks   | Strava, Plex           | Real-time event receivers                     | 3         |
+| Search     | All domains            | Cross-domain full-text search                 | 1         |
+| Export     | All domains            | Full domain data export                       | 1         |
 
 **Total: 72 endpoints across 10 route groups**
 
 ## Documentation
 
-| File | Description |
-| ---- | ----------- |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System overview, database schema, caching, sync, deployment |
-| [API.md](API.md) | Complete API reference with examples |
-| [domains/listening.md](domains/listening.md) | Last.fm + Apple Music integration |
-| [domains/running.md](domains/running.md) | Strava integration (OAuth, webhooks, bulk import) |
-| [domains/watching.md](domains/watching.md) | Plex + TMDB integration (webhooks, enrichment) |
-| [domains/collecting.md](domains/collecting.md) | Discogs integration (cross-reference with Last.fm) |
-| [domains/images.md](domains/images.md) | Image pipeline (sources, R2, ThumbHash, CDN) |
+| File                                           | Description                                                 |
+| ---------------------------------------------- | ----------------------------------------------------------- |
+| [ARCHITECTURE.md](ARCHITECTURE.md)             | System overview, database schema, caching, sync, deployment |
+| [API.md](API.md)                               | Complete API reference with examples                        |
+| [domains/listening.md](domains/listening.md)   | Last.fm + Apple Music integration                           |
+| [domains/running.md](domains/running.md)       | Strava integration (OAuth, webhooks, bulk import)           |
+| [domains/watching.md](domains/watching.md)     | Plex + TMDB integration (webhooks, enrichment)              |
+| [domains/collecting.md](domains/collecting.md) | Discogs integration (cross-reference with Last.fm)          |
+| [domains/images.md](domains/images.md)         | Image pipeline (sources, R2, ThumbHash, CDN)                |
 
 ## Task Tracker
 
@@ -70,81 +72,81 @@ Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, and
 
 **0.2 -- Repository**
 
-- [ ] **0.2.1** Initialize git repository
-- [ ] **0.2.2** Create .gitignore (node_modules, .wrangler, .dev.vars, dist)
-- [ ] **0.2.3** Create GitHub repository (pdugan20/rewind)
-- [ ] **0.2.4** Push initial commit
-- [ ] **0.2.5** Configure GitHub ruleset with required status checks
-- [ ] **0.2.6** Add Dependabot configuration
-- [ ] **0.2.7** Add dependabot-auto-merge workflow
+- [x] **0.2.1** Initialize git repository
+- [x] **0.2.2** Create .gitignore (node_modules, .wrangler, .dev.vars, dist)
+- [x] **0.2.3** Create GitHub repository (pdugan20/rewind)
+- [x] **0.2.4** Push initial commit
+- [x] **0.2.5** Configure GitHub ruleset with required status checks
+- [x] **0.2.6** Add Dependabot configuration
+- [x] **0.2.7** Add dependabot-auto-merge workflow
 
 **0.3 -- Project Initialization**
 
-- [ ] **0.3.1** Initialize npm project (package.json)
-- [ ] **0.3.2** Install runtime dependencies (hono, drizzle-orm, zod, @hono/zod-validator)
-- [ ] **0.3.3** Install dev dependencies (typescript, wrangler, vitest, @cloudflare/vitest-pool-workers, drizzle-kit)
-- [ ] **0.3.4** Install linting/formatting dependencies (eslint, @typescript-eslint/*, prettier, eslint-config-prettier, eslint-plugin-drizzle)
-- [ ] **0.3.5** Install pre-commit tooling (husky, lint-staged)
-- [ ] **0.3.6** Install claude-code-lint as dev dependency
-- [ ] **0.3.7** Configure TypeScript (tsconfig.json)
-- [ ] **0.3.8** Configure ESLint (eslint.config.js with TypeScript, Prettier, Drizzle plugins)
-- [ ] **0.3.9** Configure Prettier (.prettierrc)
-- [ ] **0.3.10** Configure Vitest with @cloudflare/vitest-pool-workers
-- [ ] **0.3.11** Create .editorconfig
-- [ ] **0.3.12** Create .nvmrc (pin Node.js version)
-- [ ] **0.3.13** Set up Husky pre-commit hook with lint-staged (lint, format, typecheck)
-- [ ] **0.3.14** Set up claudelint to validate Claude Code files
-- [ ] **0.3.15** Add npm scripts (dev, deploy, lint, format, test, db:*, lint:claude)
+- [x] **0.3.1** Initialize npm project (package.json)
+- [x] **0.3.2** Install runtime dependencies (hono, drizzle-orm, zod, @hono/zod-validator)
+- [x] **0.3.3** Install dev dependencies (typescript, wrangler, vitest, @cloudflare/vitest-pool-workers, drizzle-kit)
+- [x] **0.3.4** Install linting/formatting dependencies (eslint, @typescript-eslint/\*, prettier, eslint-config-prettier, eslint-plugin-drizzle)
+- [x] **0.3.5** Install pre-commit tooling (husky, lint-staged)
+- [x] **0.3.6** Install claude-code-lint as dev dependency
+- [x] **0.3.7** Configure TypeScript (tsconfig.json)
+- [x] **0.3.8** Configure ESLint (eslint.config.ts with TypeScript, Prettier, Drizzle plugins)
+- [x] **0.3.9** Configure Prettier (.prettierrc + .prettierignore)
+- [x] **0.3.10** Configure Vitest with @cloudflare/vitest-pool-workers
+- ~~**0.3.11** Create .editorconfig~~ (skipped -- not used in other projects)
+- [x] **0.3.12** Create .nvmrc (pin Node.js 22)
+- [x] **0.3.13** Set up Husky pre-commit hook with lint-staged + pre-push hook with type-check
+- [x] **0.3.14** Set up claudelint to validate Claude Code files
+- [x] **0.3.15** Add npm scripts (dev, deploy, build, lint, lint:fix, format, format:check, type-check, test, db:\*, lint:claude)
 
 **0.4 -- Cloudflare Setup**
 
-- [ ] **0.4.1** Create wrangler.toml with Worker configuration
-- [ ] **0.4.2** Create D1 database (rewind-db)
-- [ ] **0.4.3** Create R2 bucket (rewind-images)
-- [ ] **0.4.4** Configure D1 and R2 bindings in wrangler.toml
-- [ ] **0.4.5** Configure cron triggers in wrangler.toml
-- [ ] **0.4.6** Set up .dev.vars for local environment variables
-- [ ] **0.4.7** Configure custom domain api.rewind.rest
-- [ ] **0.4.8** Configure custom domain cdn.rewind.rest for R2
+- [x] **0.4.1** Create wrangler.toml with Worker configuration
+- [x] **0.4.2** Create D1 database (rewind-db)
+- [x] **0.4.3** Create R2 bucket (rewind-images)
+- [x] **0.4.4** Configure D1 and R2 bindings in wrangler.toml
+- [x] **0.4.5** Configure cron triggers in wrangler.toml
+- [x] **0.4.6** Set up .dev.vars for local environment variables
+- [x] **0.4.7** Configure custom domain api.rewind.rest
+- [x] **0.4.8** Configure custom domain cdn.rewind.rest for R2
 
 **0.5 -- Application Skeleton**
 
-- [ ] **0.5.1** Create src/types/env.ts (Env interface with all bindings and vars)
-- [ ] **0.5.2** Create src/db/client.ts (Drizzle D1 client setup)
-- [ ] **0.5.3** Create src/lib/auth.ts (API key middleware)
-- [ ] **0.5.4** Create src/lib/cors.ts (CORS middleware with configurable origins)
-- [ ] **0.5.5** Create src/lib/rate-limit.ts (per-key rate limit checking)
-- [ ] **0.5.6** Create src/lib/errors.ts (error response helpers)
-- [ ] **0.5.7** Create src/lib/cache.ts (Cache-Control header helpers)
-- [ ] **0.5.8** Create src/index.ts (Hono app entry, route registration, cron handler)
-- [ ] **0.5.9** Create src/routes/system.ts (GET /v1/health, GET /v1/health/sync)
-- [ ] **0.5.10** Verify local dev server starts (npm run dev)
-- [ ] **0.5.11** Deploy skeleton to Cloudflare Workers
-- [ ] **0.5.12** Verify /v1/health endpoint responds in production
+- [x] **0.5.1** Create src/types/env.ts (Env interface with all bindings and vars)
+- [x] **0.5.2** Create src/db/client.ts (Drizzle D1 client setup)
+- [x] **0.5.3** Create src/lib/auth.ts (API key middleware with SHA-256 hash validation)
+- [x] **0.5.4** Create src/lib/cors.ts (CORS middleware with configurable origins)
+- [x] **0.5.5** Create src/lib/rate-limit.ts (per-key rate limit checking)
+- [x] **0.5.6** Create src/lib/errors.ts (error response helpers)
+- [x] **0.5.7** Create src/lib/cache.ts (Cache-Control header helpers)
+- [x] **0.5.8** Create src/index.ts (Hono app entry, route registration, cron handler)
+- [x] **0.5.9** Create src/routes/system.ts (GET /v1/health, GET /v1/health/sync)
+- [x] **0.5.10** Verify local dev server starts (npm run dev)
+- [x] **0.5.11** Deploy skeleton to Cloudflare Workers
+- [x] **0.5.12** Verify /v1/health endpoint responds in production
 
 **0.6 -- Database Foundation**
 
-- [ ] **0.6.1** Create src/db/schema/system.ts (sync_runs, activity_feed, images, api_keys, webhook_events, revalidation_hooks tables)
-- [ ] **0.6.2** Configure drizzle.config.ts
-- [ ] **0.6.3** Generate initial migration (npm run db:generate)
-- [ ] **0.6.4** Apply migration locally (npm run db:migrate)
-- [ ] **0.6.5** Apply migration to remote D1 (npm run db:remote)
-- [ ] **0.6.6** Verify tables via Drizzle Studio (npm run db:studio)
-- [ ] **0.6.7** Create initial API keys (rw_admin_ for sync, rw_live_ for development)
+- [x] **0.6.1** Create src/db/schema/system.ts (sync_runs, activity_feed, images, api_keys, webhook_events, revalidation_hooks tables)
+- [x] **0.6.2** Configure drizzle.config.ts
+- [x] **0.6.3** Generate initial migration (npm run db:generate)
+- [x] **0.6.4** Apply migration locally (npm run db:migrate)
+- [x] **0.6.5** Apply migration to remote D1 (npm run db:remote)
+- [x] **0.6.6** Verify tables via Drizzle Studio (npm run db:studio)
+- [x] **0.6.7** Create initial API keys (rw*admin* for sync, rw*live* for development)
 
 **0.7 -- CI/CD**
 
-- [ ] **0.7.1** Create .github/workflows/ci.yml (lint, test)
-- [ ] **0.7.2** Create .github/workflows/deploy.yml (migrate + deploy on push to main)
-- [ ] **0.7.3** Add Cloudflare API token to GitHub secrets
+- [x] **0.7.1** Create .github/workflows/ci.yml (lint, format:check, type-check, test, claude-code-lint)
+- [x] **0.7.2** Create .github/workflows/deploy.yml (migrate + deploy on push to main)
+- [x] **0.7.3** Add Cloudflare API token to GitHub secrets
 - [ ] **0.7.4** Verify CI passes on first push
-- [ ] **0.7.5** Add CI badge to project README
+- [x] **0.7.5** Add CI badge to project README
 
 ### Phase 1: Listening (Last.fm)
 
 **1.1 -- Schema**
 
-- [ ] **1.1.1** Create src/db/schema/lastfm.ts (artists, albums, tracks, scrobbles, top_*, filters, user_stats)
+- [ ] **1.1.1** Create src/db/schema/lastfm.ts (artists, albums, tracks, scrobbles, top\_\*, filters, user_stats)
 - [ ] **1.1.2** Generate migration for Last.fm tables
 - [ ] **1.1.3** Apply migration locally and verify schema
 - [ ] **1.1.4** Apply migration to remote D1
@@ -577,7 +579,7 @@ Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, and
 - [ ] **7.1.3** Replace Last.fm direct API calls with rewind client calls
 - [ ] **7.1.4** Remove lib/listening/lastfm.ts from pat-portfolio
 - [ ] **7.1.5** Remove lib/listening/filters.ts from pat-portfolio
-- [ ] **7.1.6** Remove app/api/listening/* routes from pat-portfolio
+- [ ] **7.1.6** Remove app/api/listening/\* routes from pat-portfolio
 - [ ] **7.1.7** Update listening UI components to use rewind response types
 - [ ] **7.1.8** Add ThumbHash blur placeholder rendering
 - [ ] **7.1.9** Register revalidation hook URL for on-demand ISR revalidation

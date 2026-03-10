@@ -98,33 +98,33 @@ Plex transcode             Store metadata in D1         cdn.rewind.rest
 
 ### Music -- Album Art
 
-| Priority | Source | Match By | Resolution | Notes |
-| -------- | ------ | -------- | ---------- | ----- |
-| 1 | Cover Art Archive | MBID | Up to 1200px thumbnail + original | Free, no auth, open |
-| 2 | iTunes Search API | artist + album name | Up to 3000x3000 | Free, no auth |
-| 3 | Apple Music API | artist + album name | Up to 3000x3000 | Requires dev token |
+| Priority | Source            | Match By            | Resolution                        | Notes               |
+| -------- | ----------------- | ------------------- | --------------------------------- | ------------------- |
+| 1        | Cover Art Archive | MBID                | Up to 1200px thumbnail + original | Free, no auth, open |
+| 2        | iTunes Search API | artist + album name | Up to 3000x3000                   | Free, no auth       |
+| 3        | Apple Music API   | artist + album name | Up to 3000x3000                   | Requires dev token  |
 
 ### Music -- Artist Images
 
-| Priority | Source | Match By | Resolution | Notes |
-| -------- | ------ | -------- | ---------- | ----- |
-| 1 | Apple Music API | artist name search | Up to 3000x3000 | Official images |
-| 2 | Fanart.tv | MBID | 1000x1000 thumbnail, 1920x1080 background | Community-curated |
+| Priority | Source          | Match By           | Resolution                                | Notes             |
+| -------- | --------------- | ------------------ | ----------------------------------------- | ----------------- |
+| 1        | Apple Music API | artist name search | Up to 3000x3000                           | Official images   |
+| 2        | Fanart.tv       | MBID               | 1000x1000 thumbnail, 1920x1080 background | Community-curated |
 
 ### Movie -- Posters & Backdrops
 
-| Priority | Source | Match By | Resolution | Notes |
-| -------- | ------ | -------- | ---------- | ----- |
-| 1 | TMDB | TMDB ID or IMDB ID | Up to 2000x3000 | Industry standard |
-| 2 | Fanart.tv | TMDB ID | 1000x1426 poster, 1920x1080 background | Extra art types |
-| 3 | Plex transcode | Plex thumb path | Configurable | Fallback only |
+| Priority | Source         | Match By           | Resolution                             | Notes             |
+| -------- | -------------- | ------------------ | -------------------------------------- | ----------------- |
+| 1        | TMDB           | TMDB ID or IMDB ID | Up to 2000x3000                        | Industry standard |
+| 2        | Fanart.tv      | TMDB ID            | 1000x1426 poster, 1920x1080 background | Extra art types   |
+| 3        | Plex transcode | Plex thumb path    | Configurable                           | Fallback only     |
 
 ### Vinyl/CD Collection -- Cover Art
 
-| Priority | Source | Match By | Resolution | Notes |
-| -------- | ------ | -------- | ---------- | ----- |
-| 1 | Cover Art Archive | MBID (if matched) | Up to 1200px + original | Better quality |
-| 2 | Discogs | Release ID | ~500-600px | Actual release artwork |
+| Priority | Source            | Match By          | Resolution              | Notes                  |
+| -------- | ----------------- | ----------------- | ----------------------- | ---------------------- |
+| 1        | Cover Art Archive | MBID (if matched) | Up to 1200px + original | Better quality         |
+| 2        | Discogs           | Release ID        | ~500-600px              | Actual release artwork |
 
 ## R2 Storage
 
@@ -171,28 +171,28 @@ Cloudflare Images provides on-the-fly image transformation via the cf-images bin
 
 ### Transform Parameters
 
-| Parameter | Values | Description |
-| --------- | ------ | ----------- |
-| width | number | Target width in pixels |
-| height | number | Target height in pixels |
-| fit | cover, contain, scale-down, crop | How to fit image to dimensions |
-| format | auto, webp, avif, jpeg | Output format (auto picks best for browser) |
-| quality | 1-100 | Output quality (default 85) |
-| blur | 1-250 | Blur radius |
-| gravity | auto, center, top, bottom, left, right | Crop anchor point |
+| Parameter | Values                                 | Description                                 |
+| --------- | -------------------------------------- | ------------------------------------------- |
+| width     | number                                 | Target width in pixels                      |
+| height    | number                                 | Target height in pixels                     |
+| fit       | cover, contain, scale-down, crop       | How to fit image to dimensions              |
+| format    | auto, webp, avif, jpeg                 | Output format (auto picks best for browser) |
+| quality   | 1-100                                  | Output quality (default 85)                 |
+| blur      | 1-250                                  | Blur radius                                 |
+| gravity   | auto, center, top, bottom, left, right | Crop anchor point                           |
 
 ### Size Presets
 
-| Name | Dimensions | Fit | Use Case |
-| ---- | ---------- | --- | -------- |
-| thumbnail | 64x64 | cover | Inline icons, tiny previews |
-| small | 150x150 | cover | List items, compact grids |
-| medium | 300x300 | cover | Card views, album grids |
-| large | 600x600 | cover | Detail views, hero images |
-| poster | 342x513 | cover | Movie poster cards (2:3 ratio) |
-| poster-lg | 500x750 | cover | Movie poster detail (2:3 ratio) |
-| backdrop | 780x439 | cover | Movie backdrop (16:9 ratio) |
-| original | as-is | scale-down | Full resolution download |
+| Name      | Dimensions | Fit        | Use Case                        |
+| --------- | ---------- | ---------- | ------------------------------- |
+| thumbnail | 64x64      | cover      | Inline icons, tiny previews     |
+| small     | 150x150    | cover      | List items, compact grids       |
+| medium    | 300x300    | cover      | Card views, album grids         |
+| large     | 600x600    | cover      | Detail views, hero images       |
+| poster    | 342x513    | cover      | Movie poster cards (2:3 ratio)  |
+| poster-lg | 500x750    | cover      | Movie poster detail (2:3 ratio) |
+| backdrop  | 780x439    | cover      | Movie backdrop (16:9 ratio)     |
+| original  | as-is      | scale-down | Full resolution download        |
 
 ### CDN URL Pattern
 
@@ -340,11 +340,11 @@ Cache-Control: public, max-age=31536000, immutable
 
 ## Environment Variables
 
-| Variable | Description |
-| -------- | ----------- |
-| FANART_TV_API_KEY | Fanart.tv project API key (free) |
-| APPLE_MUSIC_DEVELOPER_TOKEN | Apple Music JWT (shared with listening domain) |
-| TMDB_API_KEY | TMDB read access token (shared with watching domain) |
+| Variable                    | Description                                          |
+| --------------------------- | ---------------------------------------------------- |
+| FANART_TV_API_KEY           | Fanart.tv project API key (free)                     |
+| APPLE_MUSIC_DEVELOPER_TOKEN | Apple Music JWT (shared with listening domain)       |
+| TMDB_API_KEY                | TMDB read access token (shared with watching domain) |
 
 R2 bucket binding (IMAGES) configured in wrangler.toml.
 
@@ -368,13 +368,32 @@ DELETE /v1/admin/images/:domain/:entity_type/:entity_id/override
 
 ```json
 {
-  "entity": { "domain": "listening", "entity_type": "albums", "entity_id": "abc123-mbid" },
+  "entity": {
+    "domain": "listening",
+    "entity_type": "albums",
+    "entity_id": "abc123-mbid"
+  },
   "current_source": "cover-art-archive",
   "is_override": false,
   "alternatives": [
-    { "source": "cover-art-archive", "url": "https://coverartarchive.org/release/abc123/front", "width": 1200, "height": 1200 },
-    { "source": "itunes", "url": "https://is1-ssl.mzstatic.com/image/thumb/Music/.../600x600bb.jpg", "width": 600, "height": 600 },
-    { "source": "apple-music", "url": "https://is1-ssl.mzstatic.com/image/thumb/Music/.../3000x3000bb.jpg", "width": 3000, "height": 3000 }
+    {
+      "source": "cover-art-archive",
+      "url": "https://coverartarchive.org/release/abc123/front",
+      "width": 1200,
+      "height": 1200
+    },
+    {
+      "source": "itunes",
+      "url": "https://is1-ssl.mzstatic.com/image/thumb/Music/.../600x600bb.jpg",
+      "width": 600,
+      "height": 600
+    },
+    {
+      "source": "apple-music",
+      "url": "https://is1-ssl.mzstatic.com/image/thumb/Music/.../3000x3000bb.jpg",
+      "width": 3000,
+      "height": 3000
+    }
   ]
 }
 ```
@@ -386,7 +405,9 @@ DELETE /v1/admin/images/:domain/:entity_type/:entity_id/override
 **Option A -- pick from alternatives (JSON body):**
 
 ```json
-{ "source_url": "https://is1-ssl.mzstatic.com/image/thumb/Music/.../3000x3000bb.jpg" }
+{
+  "source_url": "https://is1-ssl.mzstatic.com/image/thumb/Music/.../3000x3000bb.jpg"
+}
 ```
 
 **Option B -- upload custom image (multipart/form-data):**

@@ -20,14 +20,14 @@ Movie and TV show watch history from three sources: Plex webhooks (real-time), L
 
 ### Key Endpoints
 
-| Method | Endpoint | Description |
-| ------ | -------- | ----------- |
-| GET | /library/sections | List all libraries |
-| GET | /library/sections/{id}/all | All items in a library |
-| GET | /library/sections/{id}/all?sort=lastViewedAt:desc&unwatched=0 | Watched items |
-| GET | /library/metadata/{id} | Single item detail |
-| GET | /status/sessions | Currently playing |
-| GET | /photo/:/transcode?url=...&width=...&height=... | Image resize/transcode |
+| Method | Endpoint                                                      | Description            |
+| ------ | ------------------------------------------------------------- | ---------------------- |
+| GET    | /library/sections                                             | List all libraries     |
+| GET    | /library/sections/{id}/all                                    | All items in a library |
+| GET    | /library/sections/{id}/all?sort=lastViewedAt:desc&unwatched=0 | Watched items          |
+| GET    | /library/metadata/{id}                                        | Single item detail     |
+| GET    | /status/sessions                                              | Currently playing      |
+| GET    | /photo/:/transcode?url=...&width=...&height=...               | Image resize/transcode |
 
 ### Metadata Fields
 
@@ -53,14 +53,14 @@ Movie and TV show watch history from three sources: Plex webhooks (real-time), L
 
 ### Events
 
-| Event | Description | Use |
-| ----- | ----------- | --- |
-| media.play | Playback started | Log (optional) |
-| media.pause | Playback paused | Ignore |
-| media.resume | Playback resumed | Ignore |
-| media.stop | Playback stopped | Log (optional) |
+| Event          | Description                         | Use                           |
+| -------------- | ----------------------------------- | ----------------------------- |
+| media.play     | Playback started                    | Log (optional)                |
+| media.pause    | Playback paused                     | Ignore                        |
+| media.resume   | Playback resumed                    | Ignore                        |
+| media.stop     | Playback stopped                    | Log (optional)                |
 | media.scrobble | Item marked watched (~90% complete) | Primary -- record watch event |
-| media.rate | Item rated by user | Update rating (optional) |
+| media.rate     | Item rated by user                  | Update rating (optional)      |
 
 ### Payload Format
 
@@ -99,10 +99,7 @@ Plex sends webhooks as `multipart/form-data` POST with a "payload" JSON field:
     "studio": "Warner Bros.",
     "thumb": "/library/metadata/12345/thumb/1680000000",
     "art": "/library/metadata/12345/art/1680000000",
-    "Guid": [
-      { "id": "imdb://tt1375666" },
-      { "id": "tmdb://27205" }
-    ],
+    "Guid": [{ "id": "imdb://tt1375666" }, { "id": "tmdb://27205" }],
     "Genre": [{ "tag": "Science Fiction" }, { "tag": "Action" }],
     "Director": [{ "tag": "Christopher Nolan" }]
   }
@@ -130,12 +127,12 @@ Plex sends `multipart/form-data`, not JSON. Use a multipart parser to extract th
 
 ### Key Endpoints
 
-| Method | Endpoint | Description | Key Params |
-| ------ | -------- | ----------- | ---------- |
-| GET | /movie/{id} | Movie details | append_to_response=credits |
-| GET | /search/movie | Search by title | query, year, page |
-| GET | /movie/{id}/credits | Cast and crew | none |
-| GET | /movie/{id}/images | Posters and backdrops | none |
+| Method | Endpoint            | Description           | Key Params                 |
+| ------ | ------------------- | --------------------- | -------------------------- |
+| GET    | /movie/{id}         | Movie details         | append_to_response=credits |
+| GET    | /search/movie       | Search by title       | query, year, page          |
+| GET    | /movie/{id}/credits | Cast and crew         | none                       |
+| GET    | /movie/{id}/images  | Posters and backdrops | none                       |
 
 ### Matching Strategy
 
@@ -151,14 +148,14 @@ Plex sends `multipart/form-data`, not JSON. Use a multipart parser to extract th
 
 ### Image Sizes
 
-| Size | Dimensions | Use |
-| ---- | ---------- | --- |
-| w92 | 92px wide | Tiny thumbnails |
-| w185 | 185px wide | Small cards |
-| w342 | 342px wide | Medium cards |
-| w500 | 500px wide | Large cards |
-| w780 | 780px wide | Detail view |
-| original | Full resolution | Source for R2 |
+| Size     | Dimensions      | Use             |
+| -------- | --------------- | --------------- |
+| w92      | 92px wide       | Tiny thumbnails |
+| w185     | 185px wide      | Small cards     |
+| w342     | 342px wide      | Medium cards    |
+| w500     | 500px wide      | Large cards     |
+| w780     | 780px wide      | Detail view     |
+| original | Full resolution | Source for R2   |
 
 ## Letterboxd RSS Feed
 
@@ -242,23 +239,23 @@ Watching the same movie on different dates always creates separate watch events.
 
 All endpoints require `Authorization: Bearer rw_...` header.
 
-| Method | Path | Description | Cache | Query Params |
-| ------ | ---- | ----------- | ----- | ------------ |
-| GET | /v1/watching/recent | Recently watched movies | 60s | limit (default 5, max 20) |
-| GET | /v1/watching/movies | All watched movies | 3600s | page, limit, genre, decade, director, year, sort, order |
-| GET | /v1/watching/movies/:id | Single movie detail | 86400s | none |
-| GET | /v1/watching/stats | Overall watch statistics | 3600s | none |
-| GET | /v1/watching/stats/genres | Genre breakdown | 3600s | none |
-| GET | /v1/watching/stats/decades | Movies by decade | 3600s | none |
-| GET | /v1/watching/stats/directors | Top directors | 3600s | none |
-| GET | /v1/watching/calendar | Watch activity heatmap | 3600s | year |
-| GET | /v1/watching/trends | Watching trends over time | 86400s | period |
-| GET | /v1/watching/shows | All watched shows | 3600s | page, limit, sort, order |
-| GET | /v1/watching/shows/:id | Show detail with seasons | 86400s | none |
-| GET | /v1/watching/shows/:id/seasons/:season | Season episodes with watch status | 3600s | none |
-| POST | /v1/admin/watching/movies | Log a movie watch event (admin) | -- | tmdb_id or title+year, watched_at, rating |
-| PUT | /v1/admin/watching/movies/:id | Edit a watch event (admin) | -- | watched_at, rating |
-| DELETE | /v1/admin/watching/movies/:id | Remove a watch event (admin) | -- | none |
+| Method | Path                                   | Description                       | Cache  | Query Params                                            |
+| ------ | -------------------------------------- | --------------------------------- | ------ | ------------------------------------------------------- |
+| GET    | /v1/watching/recent                    | Recently watched movies           | 60s    | limit (default 5, max 20)                               |
+| GET    | /v1/watching/movies                    | All watched movies                | 3600s  | page, limit, genre, decade, director, year, sort, order |
+| GET    | /v1/watching/movies/:id                | Single movie detail               | 86400s | none                                                    |
+| GET    | /v1/watching/stats                     | Overall watch statistics          | 3600s  | none                                                    |
+| GET    | /v1/watching/stats/genres              | Genre breakdown                   | 3600s  | none                                                    |
+| GET    | /v1/watching/stats/decades             | Movies by decade                  | 3600s  | none                                                    |
+| GET    | /v1/watching/stats/directors           | Top directors                     | 3600s  | none                                                    |
+| GET    | /v1/watching/calendar                  | Watch activity heatmap            | 3600s  | year                                                    |
+| GET    | /v1/watching/trends                    | Watching trends over time         | 86400s | period                                                  |
+| GET    | /v1/watching/shows                     | All watched shows                 | 3600s  | page, limit, sort, order                                |
+| GET    | /v1/watching/shows/:id                 | Show detail with seasons          | 86400s | none                                                    |
+| GET    | /v1/watching/shows/:id/seasons/:season | Season episodes with watch status | 3600s  | none                                                    |
+| POST   | /v1/admin/watching/movies              | Log a movie watch event (admin)   | --     | tmdb_id or title+year, watched_at, rating               |
+| PUT    | /v1/admin/watching/movies/:id          | Edit a watch event (admin)        | --     | watched_at, rating                                      |
+| DELETE | /v1/admin/watching/movies/:id          | Remove a watch event (admin)      | --     | none                                                    |
 
 All tables include `user_id` for multi-user support (default 1).
 
@@ -338,13 +335,13 @@ Required attribution for any project using the TMDB API:
 
 ## Environment Variables
 
-| Variable | Description |
-| -------- | ----------- |
-| PLEX_URL | Plex server URL (e.g., https://plex.example.com) |
-| PLEX_TOKEN | Plex authentication token |
-| PLEX_WEBHOOK_SECRET | Shared secret for webhook verification |
-| TMDB_API_KEY | TMDB v4 read access token |
-| LETTERBOXD_USERNAME | Letterboxd username for RSS feed URL |
+| Variable            | Description                                      |
+| ------------------- | ------------------------------------------------ |
+| PLEX_URL            | Plex server URL (e.g., https://plex.example.com) |
+| PLEX_TOKEN          | Plex authentication token                        |
+| PLEX_WEBHOOK_SECRET | Shared secret for webhook verification           |
+| TMDB_API_KEY        | TMDB v4 read access token                        |
+| LETTERBOXD_USERNAME | Letterboxd username for RSS feed URL             |
 
 ## Known Issues
 

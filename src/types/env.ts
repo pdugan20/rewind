@@ -1,0 +1,36 @@
+export interface Env {
+  // Cloudflare bindings
+  DB: D1Database;
+  IMAGES: R2Bucket;
+
+  // System
+  ALLOWED_ORIGINS: string;
+
+  // Last.fm
+  LASTFM_API_KEY: string;
+  LASTFM_USERNAME: string;
+
+  // Strava
+  STRAVA_CLIENT_ID: string;
+  STRAVA_CLIENT_SECRET: string;
+  STRAVA_WEBHOOK_VERIFY_TOKEN: string;
+
+  // Plex
+  PLEX_URL: string;
+  PLEX_TOKEN: string;
+  PLEX_WEBHOOK_SECRET: string;
+
+  // TMDB (shared across watching sources)
+  TMDB_API_KEY: string;
+
+  // Letterboxd
+  LETTERBOXD_USERNAME: string;
+
+  // Discogs
+  DISCOGS_PERSONAL_TOKEN: string;
+  DISCOGS_USERNAME: string;
+
+  // Images
+  APPLE_MUSIC_DEVELOPER_TOKEN: string;
+  FANART_TV_API_KEY: string;
+}

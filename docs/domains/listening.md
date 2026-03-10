@@ -20,15 +20,15 @@ Last.fm scrobble data (123,769+ scrobbles since 2012), top artists/albums/tracks
 
 ### Key Methods
 
-| Method | Description | Key Params |
-| ------ | ----------- | ---------- |
+| Method               | Description                                | Key Params                  |
+| -------------------- | ------------------------------------------ | --------------------------- |
 | user.getRecentTracks | Recent scrobbles, includes nowplaying flag | user, limit, page, from, to |
-| user.getTopArtists | Top artists by period | user, period, limit, page |
-| user.getTopAlbums | Top albums by period | user, period, limit, page |
-| user.getTopTracks | Top tracks by period | user, period, limit, page |
-| user.getInfo | Total scrobbles, registration date | user |
-| artist.getInfo | Artist details, tags, bio | artist, mbid |
-| album.getInfo | Album details, tracks | artist, album, mbid |
+| user.getTopArtists   | Top artists by period                      | user, period, limit, page   |
+| user.getTopAlbums    | Top albums by period                       | user, period, limit, page   |
+| user.getTopTracks    | Top tracks by period                       | user, period, limit, page   |
+| user.getInfo         | Total scrobbles, registration date         | user                        |
+| artist.getInfo       | Artist details, tags, bio                  | artist, mbid                |
+| album.getInfo        | Album details, tracks                      | artist, album, mbid         |
 
 Note: Artist images deprecated since ~2020. All artist image URLs return placeholder stars.
 
@@ -120,20 +120,20 @@ Over-fetch 30 items from top lists, filter out matches, re-rank remaining, retur
 
 All endpoints require `Authorization: Bearer rw_...` header.
 
-| Method | Path | Description | Cache | Query Params |
-| ------ | ---- | ----------- | ----- | ------------ |
-| GET | /v1/listening/now-playing | Current or last played track | no-store | none |
-| GET | /v1/listening/recent | Recent scrobbles | 60s | limit (default 10, max 50) |
-| GET | /v1/listening/top/artists | Top artists by period | 3600s | period, limit (default 10), page |
-| GET | /v1/listening/top/albums | Top albums by period with art | 3600s | period, limit (default 10), page |
-| GET | /v1/listening/top/tracks | Top tracks by period | 3600s | period, limit (default 10), page |
-| GET | /v1/listening/stats | Overall listening statistics | 3600s | none |
-| GET | /v1/listening/history | Full scrobble history | 3600s | from, to, artist, album, limit, page |
-| GET | /v1/listening/artists/:id | Single artist detail | 3600s | none |
-| GET | /v1/listening/albums/:id | Single album detail | 3600s | none |
-| GET | /v1/listening/calendar | Daily scrobble counts | 3600s (current), 86400s (past) | year (default current) |
-| GET | /v1/listening/trends | Listening trends over time | 86400s | metric, from, to |
-| GET | /v1/listening/streaks | Current/longest listening streaks | 3600s | none |
+| Method | Path                      | Description                       | Cache                          | Query Params                         |
+| ------ | ------------------------- | --------------------------------- | ------------------------------ | ------------------------------------ |
+| GET    | /v1/listening/now-playing | Current or last played track      | no-store                       | none                                 |
+| GET    | /v1/listening/recent      | Recent scrobbles                  | 60s                            | limit (default 10, max 50)           |
+| GET    | /v1/listening/top/artists | Top artists by period             | 3600s                          | period, limit (default 10), page     |
+| GET    | /v1/listening/top/albums  | Top albums by period with art     | 3600s                          | period, limit (default 10), page     |
+| GET    | /v1/listening/top/tracks  | Top tracks by period              | 3600s                          | period, limit (default 10), page     |
+| GET    | /v1/listening/stats       | Overall listening statistics      | 3600s                          | none                                 |
+| GET    | /v1/listening/history     | Full scrobble history             | 3600s                          | from, to, artist, album, limit, page |
+| GET    | /v1/listening/artists/:id | Single artist detail              | 3600s                          | none                                 |
+| GET    | /v1/listening/albums/:id  | Single album detail               | 3600s                          | none                                 |
+| GET    | /v1/listening/calendar    | Daily scrobble counts             | 3600s (current), 86400s (past) | year (default current)               |
+| GET    | /v1/listening/trends      | Listening trends over time        | 86400s                         | metric, from, to                     |
+| GET    | /v1/listening/streaks     | Current/longest listening streaks | 3600s                          | none                                 |
 
 ## Streaks
 
@@ -151,7 +151,12 @@ interface NowPlayingResponse {
   track: {
     name: string;
     artist: { id: number; name: string };
-    album: { id: number; name: string; image_url: string | null; thumbhash: string | null };
+    album: {
+      id: number;
+      name: string;
+      image_url: string | null;
+      thumbhash: string | null;
+    };
     url: string;
   } | null;
   scrobbled_at: string | null;
@@ -205,7 +210,12 @@ interface Pagination {
 
 interface ListeningStreaks {
   current: { days: number; start_date: string; total_scrobbles: number };
-  longest: { days: number; start_date: string; end_date: string; total_scrobbles: number };
+  longest: {
+    days: number;
+    start_date: string;
+    end_date: string;
+    total_scrobbles: number;
+  };
 }
 ```
 
@@ -213,10 +223,10 @@ All tables include `user_id` for multi-user support (default 1).
 
 ## Environment Variables
 
-| Variable | Description |
-| -------- | ----------- |
-| LASTFM_API_KEY | Last.fm API key (read-only) |
-| LASTFM_USERNAME | Last.fm username (pdugan20) |
+| Variable                    | Description                                 |
+| --------------------------- | ------------------------------------------- |
+| LASTFM_API_KEY              | Last.fm API key (read-only)                 |
+| LASTFM_USERNAME             | Last.fm username (pdugan20)                 |
 | APPLE_MUSIC_DEVELOPER_TOKEN | Apple Music JWT (regenerate every 6 months) |
 
 ## Migration from pat-portfolio

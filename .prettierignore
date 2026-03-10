@@ -1,0 +1,8 @@
+node_modules
+dist
+.wrangler
+coverage
+*.log
+.env
+.dev.vars
+migrations

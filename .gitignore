@@ -8,3 +8,4 @@ dist/
 .DS_Store
 .turbo/
 coverage/
+.claudelint-cache/

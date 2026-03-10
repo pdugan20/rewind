@@ -19,14 +19,14 @@ Physical vinyl and CD collection from Discogs with wantlist tracking and cross-r
 
 ### Key Endpoints
 
-| Method | Endpoint | Description | Key Params |
-| ------ | -------- | ----------- | ---------- |
-| GET | /users/{username}/collection/folders/0/releases | All collection items | page, per_page, sort, sort_order |
-| GET | /users/{username}/collection/folders | Collection folders | none |
-| GET | /users/{username}/wants | Wantlist items | page, per_page |
-| GET | /releases/{id} | Release detail | none |
-| GET | /artists/{id} | Artist detail | none |
-| GET | /users/{username}/collection/value | Collection value estimate | none |
+| Method | Endpoint                                        | Description               | Key Params                       |
+| ------ | ----------------------------------------------- | ------------------------- | -------------------------------- |
+| GET    | /users/{username}/collection/folders/0/releases | All collection items      | page, per_page, sort, sort_order |
+| GET    | /users/{username}/collection/folders            | Collection folders        | none                             |
+| GET    | /users/{username}/wants                         | Wantlist items            | page, per_page                   |
+| GET    | /releases/{id}                                  | Release detail            | none                             |
+| GET    | /artists/{id}                                   | Artist detail             | none                             |
+| GET    | /users/{username}/collection/value              | Collection value estimate | none                             |
 
 ### Release Fields
 
@@ -81,17 +81,17 @@ Physical vinyl and CD collection from Discogs with wantlist tracking and cross-r
 
 All endpoints require `Authorization: Bearer rw_...` header.
 
-| Method | Path | Description | Cache | Query Params |
-| ------ | ---- | ----------- | ----- | ------------ |
-| GET | /v1/collection | Full collection | 86400s | page, limit, format, genre, artist, sort, order, q |
-| GET | /v1/collection/stats | Collection statistics | 86400s | none |
-| GET | /v1/collection/recent | Recently added items | 3600s | limit (default 5, max 20) |
-| GET | /v1/collection/:id | Single release detail | 86400s | none |
-| GET | /v1/collection/wantlist | Wantlist items | 86400s | page, limit, sort, order |
-| GET | /v1/collection/formats | Format breakdown | 86400s | none |
-| GET | /v1/collection/genres | Genre breakdown | 86400s | none |
-| GET | /v1/collection/artists | Top artists in collection | 86400s | limit (default 20) |
-| GET | /v1/collection/cross-reference | Collection matched to listening data | 86400s | sort (plays/added), filter (listened/unlistened/all) |
+| Method | Path                           | Description                          | Cache  | Query Params                                         |
+| ------ | ------------------------------ | ------------------------------------ | ------ | ---------------------------------------------------- |
+| GET    | /v1/collection                 | Full collection                      | 86400s | page, limit, format, genre, artist, sort, order, q   |
+| GET    | /v1/collection/stats           | Collection statistics                | 86400s | none                                                 |
+| GET    | /v1/collection/recent          | Recently added items                 | 3600s  | limit (default 5, max 20)                            |
+| GET    | /v1/collection/:id             | Single release detail                | 86400s | none                                                 |
+| GET    | /v1/collection/wantlist        | Wantlist items                       | 86400s | page, limit, sort, order                             |
+| GET    | /v1/collection/formats         | Format breakdown                     | 86400s | none                                                 |
+| GET    | /v1/collection/genres          | Genre breakdown                      | 86400s | none                                                 |
+| GET    | /v1/collection/artists         | Top artists in collection            | 86400s | limit (default 20)                                   |
+| GET    | /v1/collection/cross-reference | Collection matched to listening data | 86400s | sort (plays/added), filter (listened/unlistened/all) |
 
 All tables include `user_id` for multi-user support (default 1).
 
@@ -155,10 +155,10 @@ interface CrossReferenceResponse {
 
 ## Environment Variables
 
-| Variable | Description |
-| -------- | ----------- |
+| Variable               | Description                   |
+| ---------------------- | ----------------------------- |
 | DISCOGS_PERSONAL_TOKEN | Discogs personal access token |
-| DISCOGS_USERNAME | Discogs username (patdugan) |
+| DISCOGS_USERNAME       | Discogs username (patdugan)   |
 
 ## Known Issues
 
