@@ -102,9 +102,7 @@ describe('watching endpoints (e2e shape)', () => {
     const paths = routes.map((r) => r.path);
 
     // All routes should be prefixed with /v1/watching
-    const watchingRoutes = paths.filter((p) =>
-      p.startsWith('/v1/watching')
-    );
+    const watchingRoutes = paths.filter((p) => p.startsWith('/v1/watching'));
     expect(watchingRoutes.length).toBeGreaterThan(0);
   });
 });

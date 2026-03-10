@@ -113,7 +113,7 @@ describe('TV show endpoints', () => {
             {
               season: 1,
               episode: 2,
-              title: 'Cat\'s in the Bag...',
+              title: "Cat's in the Bag...",
               watched_at: '2026-01-02T00:00:00.000Z',
             },
           ],
@@ -183,8 +183,10 @@ describe('TV show endpoints', () => {
   });
 
   it('show list defaults to sorting by title ascending', () => {
-    const sort = undefined || 'title';
-    const order = undefined || 'asc';
+    const rawSort: string | undefined = undefined;
+    const rawOrder: string | undefined = undefined;
+    const sort = rawSort || 'title';
+    const order = rawOrder || 'asc';
     expect(sort).toBe('title');
     expect(order).toBe('asc');
   });
@@ -227,7 +229,7 @@ describe('manual entry endpoints', () => {
   it('POST /admin/watching/movies requires tmdb_id or title', () => {
     const bodyWithTmdbId = { tmdb_id: 27205 };
     const bodyWithTitle = { title: 'Inception' };
-    const bodyEmpty = {};
+    const bodyEmpty: Record<string, unknown> = {};
 
     expect(bodyWithTmdbId.tmdb_id || bodyWithTitle.title).toBeTruthy();
     expect(!bodyEmpty.tmdb_id && !bodyEmpty.title).toBe(true);
@@ -257,14 +259,16 @@ describe('manual entry endpoints', () => {
   });
 
   it('manual entry defaults watched_at to current ISO time', () => {
-    const body = {};
-    const watchedAt = body.watched_at || new Date().toISOString();
+    const body: Record<string, unknown> = {};
+    const watchedAt = (body.watched_at as string) || new Date().toISOString();
     expect(watchedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
 
   it('manual entry converts rewatch boolean to integer', () => {
-    expect(true ? 1 : 0).toBe(1);
-    expect(false ? 1 : 0).toBe(0);
+    const rewatchTrue = true as boolean;
+    const rewatchFalse = false as boolean;
+    expect(rewatchTrue ? 1 : 0).toBe(1);
+    expect(rewatchFalse ? 1 : 0).toBe(0);
   });
 
   it('duplicate watch event on same date returns 409', () => {
@@ -386,7 +390,9 @@ describe('manual entry endpoints', () => {
     expect(body.title).toBe('Inception');
     expect(body.year).toBe(2010);
 
-    const bodyNoYear = { title: 'Inception' };
+    const bodyNoYear: { title: string; year?: number } = {
+      title: 'Inception',
+    };
     expect(bodyNoYear.year).toBeUndefined();
   });
 });

@@ -4,8 +4,13 @@ import { cors } from './lib/cors.js';
 import { requireAuth } from './lib/auth.js';
 import { createDb } from './db/client.js';
 import system from './routes/system.js';
+import listening from './routes/listening.js';
+import running from './routes/running.js';
 import watching from './routes/watching.js';
 import webhooks from './routes/webhooks.js';
+import { LastfmClient } from './services/lastfm/client.js';
+import { syncListening } from './services/lastfm/sync.js';
+import { syncRunning } from './services/strava/sync.js';
 import { syncWatching } from './services/plex/sync.js';
 import { syncLetterboxd } from './services/letterboxd/sync.js';
 
@@ -45,6 +50,8 @@ app.use('/v1/*', async (c, next) => {
 const routes = app
   .basePath('/v1')
   .route('/', system)
+  .route('/listening', listening)
+  .route('/running', running)
   .route('/watching', watching)
   .route('/', webhooks);
 
@@ -60,14 +67,49 @@ export default {
     const db = createDb(env.DB);
 
     switch (event.cron) {
-      case '*/15 * * * *':
+      case '*/15 * * * *': {
         console.log('[SYNC] Last.fm scrobble sync');
+        const client = new LastfmClient(
+          env.LASTFM_API_KEY,
+          env.LASTFM_USERNAME
+        );
+        ctx.waitUntil(
+          syncListening(db, client, { type: 'scrobbles' }).catch((err) =>
+            console.log(
+              `[ERROR] Scrobble sync cron failed: ${err instanceof Error ? err.message : String(err)}`
+            )
+          )
+        );
         break;
-      case '0 3 * * *':
+      }
+      case '0 3 * * *': {
         console.log(
           '[SYNC] Daily sync: Last.fm top lists, Strava, Plex, Discogs (Sunday)'
         );
-        // Plex library sync (daily 5 AM equivalent -- multiplexed into 3 AM cron)
+        const lastfmClient = new LastfmClient(
+          env.LASTFM_API_KEY,
+          env.LASTFM_USERNAME
+        );
+        // Last.fm top lists + stats
+        ctx.waitUntil(
+          (async () => {
+            try {
+              await syncListening(db, lastfmClient, { type: 'top_lists' });
+              await syncListening(db, lastfmClient, { type: 'stats' });
+            } catch (err) {
+              console.log(
+                `[ERROR] Last.fm daily sync failed: ${err instanceof Error ? err.message : String(err)}`
+              );
+            }
+          })()
+        );
+        // Strava sync
+        ctx.waitUntil(
+          syncRunning(env, db).catch((e) =>
+            console.log(`[ERROR] Strava cron sync failed: ${e}`)
+          )
+        );
+        // Plex library sync
         ctx.waitUntil(
           syncWatching(db, env).catch((error) => {
             console.log(
@@ -76,6 +118,7 @@ export default {
           })
         );
         break;
+      }
       case '0 */6 * * *':
         console.log('[SYNC] Letterboxd RSS sync');
         ctx.waitUntil(

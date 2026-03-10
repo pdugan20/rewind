@@ -1,11 +1,11 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "461d30c7-80d7-4397-ac84-bfc010b60c7e",
+  "id": "42a4cf12-6ac1-458e-8abb-5ad22ddabedd",
   "prevId": "2e9d65a0-2855-4556-8c45-cba8524f1cb7",
   "tables": {
-    "lastfm_albums": {
-      "name": "lastfm_albums",
+    "strava_activities": {
+      "name": "strava_activities",
       "columns": {
         "id": {
           "name": "id",
@@ -22,11 +22,11 @@
           "autoincrement": false,
           "default": 1
         },
-        "mbid": {
-          "name": "mbid",
-          "type": "text",
+        "strava_id": {
+          "name": "strava_id",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "name": {
@@ -36,38 +36,237 @@
           "notNull": true,
           "autoincrement": false
         },
-        "artist_id": {
-          "name": "artist_id",
+        "sport_type": {
+          "name": "sport_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Run'"
+        },
+        "workout_type": {
+          "name": "workout_type",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "distance_meters": {
+          "name": "distance_meters",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "distance_miles": {
+          "name": "distance_miles",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "moving_time_seconds": {
+          "name": "moving_time_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "elapsed_time_seconds": {
+          "name": "elapsed_time_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "total_elevation_gain_meters": {
+          "name": "total_elevation_gain_meters",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "total_elevation_gain_feet": {
+          "name": "total_elevation_gain_feet",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "url": {
-          "name": "url",
+        "start_date_local": {
+          "name": "start_date_local",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timezone": {
+          "name": "timezone",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "playcount": {
-          "name": "playcount",
+        "start_lat": {
+          "name": "start_lat",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "start_lng": {
+          "name": "start_lng",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "average_speed_ms": {
+          "name": "average_speed_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "max_speed_ms": {
+          "name": "max_speed_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pace_min_per_mile": {
+          "name": "pace_min_per_mile",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pace_formatted": {
+          "name": "pace_formatted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "average_heartrate": {
+          "name": "average_heartrate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "max_heartrate": {
+          "name": "max_heartrate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "average_cadence": {
+          "name": "average_cadence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "calories": {
+          "name": "calories",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "suffer_score": {
+          "name": "suffer_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "map_polyline": {
+          "name": "map_polyline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gear_id": {
+          "name": "gear_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "achievement_count": {
+          "name": "achievement_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
           "default": 0
         },
-        "is_filtered": {
-          "name": "is_filtered",
+        "pr_count": {
+          "name": "pr_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
           "default": 0
         },
-        "image_key": {
-          "name": "image_key",
+        "is_race": {
+          "name": "is_race",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "is_deleted": {
+          "name": "is_deleted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "strava_url": {
+          "name": "strava_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -89,151 +288,52 @@
         }
       },
       "indexes": {
-        "idx_lastfm_albums_unique": {
-          "name": "idx_lastfm_albums_unique",
+        "idx_strava_activities_strava_id": {
+          "name": "idx_strava_activities_strava_id",
           "columns": [
-            "name",
-            "artist_id"
+            "strava_id"
           ],
           "isUnique": true
         },
-        "idx_lastfm_albums_artist_id": {
-          "name": "idx_lastfm_albums_artist_id",
-          "columns": [
-            "artist_id"
-          ],
-          "isUnique": false
-        },
-        "idx_lastfm_albums_user_id": {
-          "name": "idx_lastfm_albums_user_id",
+        "idx_strava_activities_user_id": {
+          "name": "idx_strava_activities_user_id",
           "columns": [
             "user_id"
           ],
           "isUnique": false
         },
-        "idx_lastfm_albums_filtered": {
-          "name": "idx_lastfm_albums_filtered",
+        "idx_strava_activities_start_date": {
+          "name": "idx_strava_activities_start_date",
           "columns": [
-            "is_filtered"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "lastfm_albums_artist_id_lastfm_artists_id_fk": {
-          "name": "lastfm_albums_artist_id_lastfm_artists_id_fk",
-          "tableFrom": "lastfm_albums",
-          "tableTo": "lastfm_artists",
-          "columnsFrom": [
-            "artist_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "lastfm_artists": {
-      "name": "lastfm_artists",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "mbid": {
-          "name": "mbid",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "url": {
-          "name": "url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "playcount": {
-          "name": "playcount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": 0
-        },
-        "is_filtered": {
-          "name": "is_filtered",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": 0
-        },
-        "image_key": {
-          "name": "image_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "lastfm_artists_name_unique": {
-          "name": "lastfm_artists_name_unique",
-          "columns": [
-            "name"
-          ],
-          "isUnique": true
-        },
-        "idx_lastfm_artists_user_id": {
-          "name": "idx_lastfm_artists_user_id",
-          "columns": [
-            "user_id"
+            "start_date"
           ],
           "isUnique": false
         },
-        "idx_lastfm_artists_filtered": {
-          "name": "idx_lastfm_artists_filtered",
+        "idx_strava_activities_city": {
+          "name": "idx_strava_activities_city",
           "columns": [
-            "is_filtered"
+            "city"
+          ],
+          "isUnique": false
+        },
+        "idx_strava_activities_gear_id": {
+          "name": "idx_strava_activities_gear_id",
+          "columns": [
+            "gear_id"
+          ],
+          "isUnique": false
+        },
+        "idx_strava_activities_workout_type": {
+          "name": "idx_strava_activities_workout_type",
+          "columns": [
+            "workout_type"
+          ],
+          "isUnique": false
+        },
+        "idx_strava_activities_is_deleted": {
+          "name": "idx_strava_activities_is_deleted",
+          "columns": [
+            "is_deleted"
           ],
           "isUnique": false
         }
@@ -243,8 +343,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "lastfm_filters": {
-      "name": "lastfm_filters",
+    "strava_gear": {
+      "name": "strava_gear",
       "columns": {
         "id": {
           "name": "id",
@@ -261,33 +361,57 @@
           "autoincrement": false,
           "default": 1
         },
-        "filter_type": {
-          "name": "filter_type",
+        "strava_gear_id": {
+          "name": "strava_gear_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "pattern": {
-          "name": "pattern",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "scope": {
-          "name": "scope",
+        "brand": {
+          "name": "brand",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "reason": {
-          "name": "reason",
+        "model": {
+          "name": "model",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "distance_meters": {
+          "name": "distance_meters",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "distance_miles": {
+          "name": "distance_miles",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "is_retired": {
+          "name": "is_retired",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         },
         "created_at": {
           "name": "created_at",
@@ -295,18 +419,25 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {
-        "idx_lastfm_filters_type": {
-          "name": "idx_lastfm_filters_type",
+        "idx_strava_gear_strava_gear_id": {
+          "name": "idx_strava_gear_strava_gear_id",
           "columns": [
-            "filter_type"
+            "strava_gear_id"
           ],
-          "isUnique": false
+          "isUnique": true
         },
-        "idx_lastfm_filters_user_id": {
-          "name": "idx_lastfm_filters_user_id",
+        "idx_strava_gear_user_id": {
+          "name": "idx_strava_gear_user_id",
           "columns": [
             "user_id"
           ],
@@ -318,8 +449,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "lastfm_scrobbles": {
-      "name": "lastfm_scrobbles",
+    "strava_lifetime_stats": {
+      "name": "strava_lifetime_stats",
       "columns": {
         "id": {
           "name": "id",
@@ -336,15 +467,203 @@
           "autoincrement": false,
           "default": 1
         },
-        "track_id": {
-          "name": "track_id",
+        "total_runs": {
+          "name": "total_runs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "total_distance_miles": {
+          "name": "total_distance_miles",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "total_elevation_feet": {
+          "name": "total_elevation_feet",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "total_duration_seconds": {
+          "name": "total_duration_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "avg_pace_formatted": {
+          "name": "avg_pace_formatted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "years_active": {
+          "name": "years_active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "first_run": {
+          "name": "first_run",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "eddington_number": {
+          "name": "eddington_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "current_streak_days": {
+          "name": "current_streak_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "current_streak_start": {
+          "name": "current_streak_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "current_streak_end": {
+          "name": "current_streak_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "longest_streak_days": {
+          "name": "longest_streak_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "longest_streak_start": {
+          "name": "longest_streak_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "longest_streak_end": {
+          "name": "longest_streak_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_strava_lifetime_stats_user_id": {
+          "name": "idx_strava_lifetime_stats_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "strava_personal_records": {
+      "name": "strava_personal_records",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "distance": {
+          "name": "distance",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "distance_label": {
+          "name": "distance_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "time_seconds": {
+          "name": "time_seconds",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "scrobbled_at": {
-          "name": "scrobbled_at",
+        "time_formatted": {
+          "name": "time_formatted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pace_formatted": {
+          "name": "pace_formatted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "activity_strava_id": {
+          "name": "activity_strava_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "activity_name": {
+          "name": "activity_name",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -359,49 +678,29 @@
         }
       },
       "indexes": {
-        "idx_lastfm_scrobbles_track_id": {
-          "name": "idx_lastfm_scrobbles_track_id",
+        "idx_strava_prs_unique": {
+          "name": "idx_strava_prs_unique",
           "columns": [
-            "track_id"
+            "user_id",
+            "distance"
           ],
-          "isUnique": false
+          "isUnique": true
         },
-        "idx_lastfm_scrobbles_scrobbled_at": {
-          "name": "idx_lastfm_scrobbles_scrobbled_at",
-          "columns": [
-            "scrobbled_at"
-          ],
-          "isUnique": false
-        },
-        "idx_lastfm_scrobbles_user_id": {
-          "name": "idx_lastfm_scrobbles_user_id",
+        "idx_strava_prs_user_id": {
+          "name": "idx_strava_prs_user_id",
           "columns": [
             "user_id"
           ],
           "isUnique": false
         }
       },
-      "foreignKeys": {
-        "lastfm_scrobbles_track_id_lastfm_tracks_id_fk": {
-          "name": "lastfm_scrobbles_track_id_lastfm_tracks_id_fk",
-          "tableFrom": "lastfm_scrobbles",
-          "tableTo": "lastfm_tracks",
-          "columnsFrom": [
-            "track_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "lastfm_top_albums": {
-      "name": "lastfm_top_albums",
+    "strava_splits": {
+      "name": "strava_splits",
       "columns": {
         "id": {
           "name": "id",
@@ -418,36 +717,167 @@
           "autoincrement": false,
           "default": 1
         },
-        "period": {
-          "name": "period",
+        "activity_strava_id": {
+          "name": "activity_strava_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "split_number": {
+          "name": "split_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "distance_meters": {
+          "name": "distance_meters",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "distance_miles": {
+          "name": "distance_miles",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "moving_time_seconds": {
+          "name": "moving_time_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "elapsed_time_seconds": {
+          "name": "elapsed_time_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "elevation_difference_meters": {
+          "name": "elevation_difference_meters",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "elevation_difference_feet": {
+          "name": "elevation_difference_feet",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "average_speed_ms": {
+          "name": "average_speed_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pace_min_per_mile": {
+          "name": "pace_min_per_mile",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pace_formatted": {
+          "name": "pace_formatted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "average_heartrate": {
+          "name": "average_heartrate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "average_cadence": {
+          "name": "average_cadence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_strava_splits_activity": {
+          "name": "idx_strava_splits_activity",
+          "columns": [
+            "activity_strava_id"
+          ],
+          "isUnique": false
+        },
+        "idx_strava_splits_user_id": {
+          "name": "idx_strava_splits_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "strava_tokens": {
+      "name": "strava_tokens",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "access_token": {
+          "name": "access_token",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "rank": {
-          "name": "rank",
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "album_id": {
-          "name": "album_id",
-          "type": "integer",
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "playcount": {
-          "name": "playcount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "computed_at": {
-          "name": "computed_at",
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -455,50 +885,21 @@
         }
       },
       "indexes": {
-        "idx_lastfm_top_albums_unique": {
-          "name": "idx_lastfm_top_albums_unique",
-          "columns": [
-            "period",
-            "album_id"
-          ],
-          "isUnique": true
-        },
-        "idx_lastfm_top_albums_period": {
-          "name": "idx_lastfm_top_albums_period",
-          "columns": [
-            "period"
-          ],
-          "isUnique": false
-        },
-        "idx_lastfm_top_albums_user_id": {
-          "name": "idx_lastfm_top_albums_user_id",
+        "idx_strava_tokens_user_id": {
+          "name": "idx_strava_tokens_user_id",
           "columns": [
             "user_id"
           ],
           "isUnique": false
         }
       },
-      "foreignKeys": {
-        "lastfm_top_albums_album_id_lastfm_albums_id_fk": {
-          "name": "lastfm_top_albums_album_id_lastfm_albums_id_fk",
-          "tableFrom": "lastfm_top_albums",
-          "tableTo": "lastfm_albums",
-          "columnsFrom": [
-            "album_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "lastfm_top_artists": {
-      "name": "lastfm_top_artists",
+    "strava_year_summaries": {
+      "name": "strava_year_summaries",
       "columns": {
         "id": {
           "name": "id",
@@ -515,247 +916,65 @@
           "autoincrement": false,
           "default": 1
         },
-        "period": {
-          "name": "period",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rank": {
-          "name": "rank",
+        "year": {
+          "name": "year",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "artist_id": {
-          "name": "artist_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "playcount": {
-          "name": "playcount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "computed_at": {
-          "name": "computed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "idx_lastfm_top_artists_unique": {
-          "name": "idx_lastfm_top_artists_unique",
-          "columns": [
-            "period",
-            "artist_id"
-          ],
-          "isUnique": true
-        },
-        "idx_lastfm_top_artists_period": {
-          "name": "idx_lastfm_top_artists_period",
-          "columns": [
-            "period"
-          ],
-          "isUnique": false
-        },
-        "idx_lastfm_top_artists_user_id": {
-          "name": "idx_lastfm_top_artists_user_id",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "lastfm_top_artists_artist_id_lastfm_artists_id_fk": {
-          "name": "lastfm_top_artists_artist_id_lastfm_artists_id_fk",
-          "tableFrom": "lastfm_top_artists",
-          "tableTo": "lastfm_artists",
-          "columnsFrom": [
-            "artist_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "lastfm_top_tracks": {
-      "name": "lastfm_top_tracks",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "user_id": {
-          "name": "user_id",
+        "total_runs": {
+          "name": "total_runs",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": 1
+          "default": 0
         },
-        "period": {
-          "name": "period",
-          "type": "text",
+        "total_distance_miles": {
+          "name": "total_distance_miles",
+          "type": "real",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": 0
         },
-        "rank": {
-          "name": "rank",
-          "type": "integer",
+        "total_elevation_feet": {
+          "name": "total_elevation_feet",
+          "type": "real",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": 0
         },
-        "track_id": {
-          "name": "track_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "playcount": {
-          "name": "playcount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "computed_at": {
-          "name": "computed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "idx_lastfm_top_tracks_unique": {
-          "name": "idx_lastfm_top_tracks_unique",
-          "columns": [
-            "period",
-            "track_id"
-          ],
-          "isUnique": true
-        },
-        "idx_lastfm_top_tracks_period": {
-          "name": "idx_lastfm_top_tracks_period",
-          "columns": [
-            "period"
-          ],
-          "isUnique": false
-        },
-        "idx_lastfm_top_tracks_user_id": {
-          "name": "idx_lastfm_top_tracks_user_id",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "lastfm_top_tracks_track_id_lastfm_tracks_id_fk": {
-          "name": "lastfm_top_tracks_track_id_lastfm_tracks_id_fk",
-          "tableFrom": "lastfm_top_tracks",
-          "tableTo": "lastfm_tracks",
-          "columnsFrom": [
-            "track_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "lastfm_tracks": {
-      "name": "lastfm_tracks",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "user_id": {
-          "name": "user_id",
+        "total_duration_seconds": {
+          "name": "total_duration_seconds",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": 1
+          "default": 0
         },
-        "mbid": {
-          "name": "mbid",
+        "avg_pace_formatted": {
+          "name": "avg_pace_formatted",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "name": {
-          "name": "name",
-          "type": "text",
+        "longest_run_miles": {
+          "name": "longest_run_miles",
+          "type": "real",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": 0
         },
-        "artist_id": {
-          "name": "artist_id",
+        "race_count": {
+          "name": "race_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "album_id": {
-          "name": "album_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "url": {
-          "name": "url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "duration_ms": {
-          "name": "duration_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "is_filtered": {
-          "name": "is_filtered",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false,
           "default": 0
         },
@@ -775,143 +994,16 @@
         }
       },
       "indexes": {
-        "idx_lastfm_tracks_unique": {
-          "name": "idx_lastfm_tracks_unique",
+        "idx_strava_year_summaries_unique": {
+          "name": "idx_strava_year_summaries_unique",
           "columns": [
-            "name",
-            "artist_id"
+            "user_id",
+            "year"
           ],
           "isUnique": true
         },
-        "idx_lastfm_tracks_artist_id": {
-          "name": "idx_lastfm_tracks_artist_id",
-          "columns": [
-            "artist_id"
-          ],
-          "isUnique": false
-        },
-        "idx_lastfm_tracks_album_id": {
-          "name": "idx_lastfm_tracks_album_id",
-          "columns": [
-            "album_id"
-          ],
-          "isUnique": false
-        },
-        "idx_lastfm_tracks_user_id": {
-          "name": "idx_lastfm_tracks_user_id",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
-        },
-        "idx_lastfm_tracks_filtered": {
-          "name": "idx_lastfm_tracks_filtered",
-          "columns": [
-            "is_filtered"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "lastfm_tracks_artist_id_lastfm_artists_id_fk": {
-          "name": "lastfm_tracks_artist_id_lastfm_artists_id_fk",
-          "tableFrom": "lastfm_tracks",
-          "tableTo": "lastfm_artists",
-          "columnsFrom": [
-            "artist_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "lastfm_tracks_album_id_lastfm_albums_id_fk": {
-          "name": "lastfm_tracks_album_id_lastfm_albums_id_fk",
-          "tableFrom": "lastfm_tracks",
-          "tableTo": "lastfm_albums",
-          "columnsFrom": [
-            "album_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "lastfm_user_stats": {
-      "name": "lastfm_user_stats",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "total_scrobbles": {
-          "name": "total_scrobbles",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "unique_artists": {
-          "name": "unique_artists",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "unique_albums": {
-          "name": "unique_albums",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "unique_tracks": {
-          "name": "unique_tracks",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "registered_date": {
-          "name": "registered_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "idx_lastfm_user_stats_user_id": {
-          "name": "idx_lastfm_user_stats_user_id",
+        "idx_strava_year_summaries_user_id": {
+          "name": "idx_strava_year_summaries_user_id",
           "columns": [
             "user_id"
           ],

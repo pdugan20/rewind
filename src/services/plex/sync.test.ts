@@ -62,8 +62,7 @@ describe('Plex sync data flow', () => {
 
   it('sync run records error message on failure', () => {
     const error = new Error('Plex connection timeout');
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     expect(errorMessage).toBe('Plex connection timeout');
   });
 
@@ -111,7 +110,7 @@ describe('Plex sync data flow', () => {
   });
 
   it('episode sync skips entries without grandparentRatingKey', () => {
-    const episode = {
+    const episode: Record<string, unknown> = {
       ratingKey: '100',
       type: 'episode',
       title: 'Pilot',
@@ -128,7 +127,7 @@ describe('Plex sync data flow', () => {
       grandparentTitle: 'Breaking Bad',
       parentIndex: 1,
       index: 3,
-      title: 'And the Bag\'s in the River',
+      title: "And the Bag's in the River",
       lastViewedAt: 1709913600,
     };
 
@@ -137,7 +136,12 @@ describe('Plex sync data flow', () => {
   });
 
   it('episode insert defaults to 0 for missing parentIndex and index', () => {
-    const episode = {
+    const episode: {
+      grandparentRatingKey: string;
+      title: string;
+      parentIndex?: number;
+      index?: number;
+    } = {
       grandparentRatingKey: '50',
       title: 'Unknown Episode',
     };

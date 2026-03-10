@@ -12,8 +12,22 @@
     {
       "idx": 1,
       "version": "6",
+      "when": 1773184721179,
+      "tag": "0001_unknown_imperial_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773184730959,
+      "tag": "0002_little_nomad",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
       "when": 1773184752847,
-      "tag": "0001_ambitious_la_nuit",
+      "tag": "0003_ambitious_la_nuit",
       "breakpoints": true
     }
   ]

@@ -2,13 +2,47 @@ import { Hono } from 'hono';
 import type { Env } from '../types/env.js';
 import { createDb } from '../db/client.js';
 import {
+  validateSubscription,
+  processWebhookEvent,
+} from '../services/strava/webhook.js';
+import type { StravaWebhookEvent } from '../services/strava/webhook.js';
+import {
   parsePlexWebhook,
   verifyPlexWebhook,
   handlePlexWebhook,
 } from '../services/plex/webhook.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
+import { badRequest } from '../lib/errors.js';
 
 const webhooks = new Hono<{ Bindings: Env }>();
+
+// Strava webhook subscription validation (no auth required)
+webhooks.get('/webhooks/strava', (c) => {
+  const query = {
+    'hub.mode': c.req.query('hub.mode'),
+    'hub.challenge': c.req.query('hub.challenge'),
+    'hub.verify_token': c.req.query('hub.verify_token'),
+  };
+
+  const result = validateSubscription(query, c.env.STRAVA_WEBHOOK_VERIFY_TOKEN);
+
+  if (!result) {
+    return badRequest(c, 'Invalid subscription validation');
+  }
+
+  return c.json(result);
+});
+
+// Strava webhook event receiver (no auth required)
+webhooks.post('/webhooks/strava', async (c) => {
+  const event = await c.req.json<StravaWebhookEvent>();
+  const db = createDb(c.env.DB);
+
+  await processWebhookEvent(event, c.env, db, c.executionCtx);
+
+  // Must respond with 200 within 2 seconds
+  return c.json({ status: 'ok' });
+});
 
 /**
  * POST /v1/webhooks/plex
