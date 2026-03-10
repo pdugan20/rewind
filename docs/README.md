@@ -139,7 +139,7 @@ Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, and
 - [x] **0.7.1** Create .github/workflows/ci.yml (lint, format:check, type-check, test, claude-code-lint)
 - [x] **0.7.2** Create .github/workflows/deploy.yml (migrate + deploy on push to main)
 - [x] **0.7.3** Add Cloudflare API token to GitHub secrets
-- [ ] **0.7.4** Verify CI passes on first push
+- [x] **0.7.4** Verify CI passes on first push
 - [x] **0.7.5** Add CI badge to project README
 
 ### Phase 1: Listening (Last.fm)
