@@ -473,47 +473,47 @@
 
 **6.1 -- Activity Feed**
 
-- [ ] **6.1.1** Create src/routes/feed.ts
-- [ ] **6.1.2** Implement activity_feed population during each domain's sync
-- [ ] **6.1.3** GET /v1/feed (cross-domain activity feed, all domains)
-- [ ] **6.1.4** GET /v1/feed/domain/:domain (single-domain feed)
-- [ ] **6.1.5** Implement feed pagination with cursor-based approach
-- [ ] **6.1.6** Apply Cache-Control headers (5-minute cache)
-- [ ] **6.1.7** Write tests for feed endpoints
+- [x] **6.1.1** Create src/routes/feed.ts
+- [x] **6.1.2** Implement activity_feed population during each domain's sync
+- [x] **6.1.3** GET /v1/feed (cross-domain activity feed, all domains)
+- [x] **6.1.4** GET /v1/feed/domain/:domain (single-domain feed)
+- [x] **6.1.5** Implement feed pagination with cursor-based approach
+- [x] **6.1.6** Apply Cache-Control headers (5-minute cache)
+- [x] **6.1.7** Write tests for feed endpoints
 
 **6.2 -- Health Dashboard**
 
-- [ ] **6.2.1** Implement GET /v1/health/sync (last sync status per domain)
-- [ ] **6.2.2** Add sync duration tracking
-- [ ] **6.2.3** Add error rate tracking per domain
-- [ ] **6.2.4** Write tests for health endpoints
+- [x] **6.2.1** Implement GET /v1/health/sync (last sync status per domain)
+- [x] **6.2.2** Add sync duration tracking
+- [x] **6.2.3** Add error rate tracking per domain
+- [x] **6.2.4** Write tests for health endpoints
 
 **6.3 -- Hono RPC Export**
 
-- [ ] **6.3.1** Export AppType from src/index.ts
-- [ ] **6.3.2** Configure package.json exports for type inference
-- [ ] **6.3.3** Verify RPC types compile correctly with sample client
-- [ ] **6.3.4** Publish types as npm package or use direct git reference
+- [x] **6.3.1** Export AppType from src/index.ts
+- [x] **6.3.2** Configure package.json exports for type inference
+- [x] **6.3.3** Verify RPC types compile correctly with sample client
+- [x] **6.3.4** Publish types as npm package or use direct git reference
 
 **6.4 -- Global Search**
 
-- [ ] **6.4.1** Create FTS5 virtual tables for cross-domain search
-- [ ] **6.4.2** Implement search indexing during sync for each domain
-- [ ] **6.4.3** GET /v1/search (cross-domain full-text search)
-- [ ] **6.4.4** Write tests for search endpoint
+- [x] **6.4.1** Create FTS5 virtual tables for cross-domain search
+- [x] **6.4.2** Implement search indexing during sync for each domain
+- [x] **6.4.3** GET /v1/search (cross-domain full-text search)
+- [x] **6.4.4** Write tests for search endpoint
 
 **6.5 -- Data Export**
 
-- [ ] **6.5.1** GET /v1/export/:domain (full domain data as JSON, admin key required)
-- [ ] **6.5.2** Implement streaming JSON response for large datasets
-- [ ] **6.5.3** Write tests for export endpoint
+- [x] **6.5.1** GET /v1/export/:domain (full domain data as JSON, admin key required)
+- [x] **6.5.2** Implement streaming JSON response for large datasets
+- [x] **6.5.3** Write tests for export endpoint
 
 **6.6 -- API Key Management**
 
-- [ ] **6.6.1** POST /v1/admin/keys (create new API key)
-- [ ] **6.6.2** GET /v1/admin/keys (list all keys, prefix + hint only)
-- [ ] **6.6.3** DELETE /v1/admin/keys/:id (revoke a key)
-- [ ] **6.6.4** Write tests for key management endpoints
+- [x] **6.6.1** POST /v1/admin/keys (create new API key)
+- [x] **6.6.2** GET /v1/admin/keys (list all keys, prefix + hint only)
+- [x] **6.6.3** DELETE /v1/admin/keys/:id (revoke a key)
+- [x] **6.6.4** Write tests for key management endpoints
 
 ## Phase 7: Portfolio Integration
 
