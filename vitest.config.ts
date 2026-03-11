@@ -16,6 +16,7 @@ export default defineWorkersConfig(async () => {
 
   return {
     test: {
+      exclude: ['**/node_modules/**', '**/.claude/**'],
       poolOptions: {
         workers: {
           wrangler: { configPath: './wrangler.toml' },

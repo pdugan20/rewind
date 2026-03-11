@@ -9,11 +9,13 @@ import running from './routes/running.js';
 import watching from './routes/watching.js';
 import webhooks from './routes/webhooks.js';
 import imagesRoute from './routes/images.js';
+import collecting from './routes/collecting.js';
 import { LastfmClient } from './services/lastfm/client.js';
 import { syncListening } from './services/lastfm/sync.js';
 import { syncRunning } from './services/strava/sync.js';
 import { syncWatching } from './services/plex/sync.js';
 import { syncLetterboxd } from './services/letterboxd/sync.js';
+import { syncCollecting, isSunday } from './services/discogs/sync.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -55,7 +57,8 @@ const routes = app
   .route('/running', running)
   .route('/watching', watching)
   .route('/', webhooks)
-  .route('/', imagesRoute);
+  .route('/', imagesRoute)
+  .route('/', collecting);
 
 // Cron handler
 export default {
@@ -119,6 +122,14 @@ export default {
             );
           })
         );
+        // Discogs sync (Sundays only)
+        if (isSunday()) {
+          ctx.waitUntil(
+            syncCollecting(env).catch((err) =>
+              console.log(`[ERROR] Discogs cron sync failed: ${err}`)
+            )
+          );
+        }
         break;
       }
       case '0 */6 * * *':
