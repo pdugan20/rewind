@@ -91,62 +91,62 @@
 
 **1.1 -- Schema**
 
-- [ ] **1.1.1** Create src/db/schema/lastfm.ts (artists, albums, tracks, scrobbles, top\_\*, filters, user_stats)
-- [ ] **1.1.2** Generate migration for Last.fm tables
-- [ ] **1.1.3** Apply migration locally and verify schema
+- [x] **1.1.1** Create src/db/schema/lastfm.ts (artists, albums, tracks, scrobbles, top\_\*, filters, user_stats)
+- [x] **1.1.2** Generate migration for Last.fm tables
+- [x] **1.1.3** Apply migration locally and verify schema
 - [ ] **1.1.4** Apply migration to remote D1
 
 **1.2 -- Last.fm API Client**
 
-- [ ] **1.2.1** Create src/services/lastfm/client.ts (Last.fm API wrapper)
-- [ ] **1.2.2** Implement user.getRecentTracks fetcher with pagination
-- [ ] **1.2.3** Implement user.getTopArtists/Albums/Tracks fetchers
-- [ ] **1.2.4** Implement user.getInfo fetcher
-- [ ] **1.2.5** Add rate limit handling (5 req/sec)
-- [ ] **1.2.6** Write tests for API client
+- [x] **1.2.1** Create src/services/lastfm/client.ts (Last.fm API wrapper)
+- [x] **1.2.2** Implement user.getRecentTracks fetcher with pagination
+- [x] **1.2.3** Implement user.getTopArtists/Albums/Tracks fetchers
+- [x] **1.2.4** Implement user.getInfo fetcher
+- [x] **1.2.5** Add rate limit handling (5 req/sec)
+- [x] **1.2.6** Write tests for API client
 
 **1.3 -- Transforms and Filters**
 
-- [ ] **1.3.1** Create src/services/lastfm/transforms.ts (normalize artist/album/track data)
-- [ ] **1.3.2** Create src/services/lastfm/filters.ts (holiday music, audiobook detection)
+- [x] **1.3.1** Create src/services/lastfm/transforms.ts (normalize artist/album/track data)
+- [x] **1.3.2** Create src/services/lastfm/filters.ts (holiday music, audiobook detection)
 - [ ] **1.3.3** Seed lastfm_filters table with initial filter patterns
-- [ ] **1.3.4** Implement over-fetch + filter + re-rank strategy for top lists
-- [ ] **1.3.5** Write tests for transforms and filters
+- [x] **1.3.4** Implement over-fetch + filter + re-rank strategy for top lists
+- [x] **1.3.5** Write tests for transforms and filters
 
 **1.4 -- Sync**
 
-- [ ] **1.4.1** Create src/services/lastfm/sync.ts (sync orchestrator)
-- [ ] **1.4.2** Implement incremental scrobble sync (from last timestamp)
-- [ ] **1.4.3** Implement top lists sync (all 6 periods x 3 entity types)
-- [ ] **1.4.4** Implement user stats sync
-- [ ] **1.4.5** Implement full historical backfill (one-time, ~124K scrobbles)
-- [ ] **1.4.6** Add sync_runs recording (start, complete, item count, errors)
-- [ ] **1.4.7** Wire cron handler: 15-min scrobble sync, daily 3 AM top lists + stats
-- [ ] **1.4.8** Add POST /v1/admin/sync/listening endpoint
-- [ ] **1.4.9** Write tests for sync logic
-- [ ] **1.4.10** Implement revalidation hook callback after sync completes
+- [x] **1.4.1** Create src/services/lastfm/sync.ts (sync orchestrator)
+- [x] **1.4.2** Implement incremental scrobble sync (from last timestamp)
+- [x] **1.4.3** Implement top lists sync (all 6 periods x 3 entity types)
+- [x] **1.4.4** Implement user stats sync
+- [x] **1.4.5** Implement full historical backfill (one-time, ~124K scrobbles)
+- [x] **1.4.6** Add sync_runs recording (start, complete, item count, errors)
+- [x] **1.4.7** Wire cron handler: 15-min scrobble sync, daily 3 AM top lists + stats
+- [x] **1.4.8** Add POST /v1/admin/sync/listening endpoint
+- [x] **1.4.9** Write tests for sync logic
+- [x] **1.4.10** Implement revalidation hook callback after sync completes
 
 **1.5 -- Route Handlers**
 
-- [ ] **1.5.1** Create src/routes/listening.ts
-- [ ] **1.5.2** GET /v1/listening/now-playing
-- [ ] **1.5.3** GET /v1/listening/recent
-- [ ] **1.5.4** GET /v1/listening/top/artists
-- [ ] **1.5.5** GET /v1/listening/top/albums
-- [ ] **1.5.6** GET /v1/listening/top/tracks
-- [ ] **1.5.7** GET /v1/listening/stats
-- [ ] **1.5.8** GET /v1/listening/history
-- [ ] **1.5.9** GET /v1/listening/artists/:id
-- [ ] **1.5.10** GET /v1/listening/albums/:id
-- [ ] **1.5.11** GET /v1/listening/calendar
-- [ ] **1.5.12** GET /v1/listening/trends
-- [ ] **1.5.13** GET /v1/listening/streaks
-- [ ] **1.5.14** Apply Cache-Control headers per endpoint
-- [ ] **1.5.15** Write tests for route handlers
+- [x] **1.5.1** Create src/routes/listening.ts
+- [x] **1.5.2** GET /v1/listening/now-playing
+- [x] **1.5.3** GET /v1/listening/recent
+- [x] **1.5.4** GET /v1/listening/top/artists
+- [x] **1.5.5** GET /v1/listening/top/albums
+- [x] **1.5.6** GET /v1/listening/top/tracks
+- [x] **1.5.7** GET /v1/listening/stats
+- [x] **1.5.8** GET /v1/listening/history
+- [x] **1.5.9** GET /v1/listening/artists/:id
+- [x] **1.5.10** GET /v1/listening/albums/:id
+- [x] **1.5.11** GET /v1/listening/calendar
+- [x] **1.5.12** GET /v1/listening/trends
+- [x] **1.5.13** GET /v1/listening/streaks
+- [x] **1.5.14** Apply Cache-Control headers per endpoint
+- [x] **1.5.15** Write tests for route handlers
 
 **1.6 -- Integration Testing**
 
-- [ ] **1.6.1** End-to-end test: cron trigger syncs data, endpoints return correct responses
+- [x] **1.6.1** End-to-end test: cron trigger syncs data, endpoints return correct responses
 - [ ] **1.6.2** Deploy and verify in production
 - [ ] **1.6.3** Run initial historical backfill against production D1
 
@@ -210,53 +210,53 @@
 
 **3.1 -- Schema**
 
-- [ ] **3.1.1** Create src/db/schema/strava.ts (activities, gear, PRs, year_summaries, lifetime_stats, splits, tokens)
-- [ ] **3.1.2** Generate migration for Strava tables
-- [ ] **3.1.3** Apply migration locally and verify schema
+- [x] **3.1.1** Create src/db/schema/strava.ts (activities, gear, PRs, year_summaries, lifetime_stats, splits, tokens)
+- [x] **3.1.2** Generate migration for Strava tables
+- [x] **3.1.3** Apply migration locally and verify schema
 - [ ] **3.1.4** Apply migration to remote D1
 
 **3.2 -- OAuth**
 
-- [ ] **3.2.1** Create src/services/strava/auth.ts (token refresh with rotation persistence)
-- [ ] **3.2.2** Add strava_tokens table to schema for runtime token storage
-- [ ] **3.2.3** Implement getAccessToken with 5-minute expiry buffer
-- [ ] **3.2.4** Implement token refresh with new refresh_token persistence
-- [ ] **3.2.5** Write tests for OAuth flow
+- [x] **3.2.1** Create src/services/strava/auth.ts (token refresh with rotation persistence)
+- [x] **3.2.2** Add strava_tokens table to schema for runtime token storage
+- [x] **3.2.3** Implement getAccessToken with 5-minute expiry buffer
+- [x] **3.2.4** Implement token refresh with new refresh_token persistence
+- [x] **3.2.5** Write tests for OAuth flow
 
 **3.3 -- Strava API Client**
 
-- [ ] **3.3.1** Create src/services/strava/client.ts (Strava API wrapper)
-- [ ] **3.3.2** Implement /athlete/activities fetcher with pagination
-- [ ] **3.3.3** Implement /activities/{id} detail fetcher
-- [ ] **3.3.4** Implement /activities/{id}/laps fetcher
-- [ ] **3.3.5** Implement /athlete/stats fetcher
-- [ ] **3.3.6** Implement /gear/{id} fetcher
-- [ ] **3.3.7** Add rate limit handling (200/15min, 2000/day) with header parsing
-- [ ] **3.3.8** Write tests for API client
+- [x] **3.3.1** Create src/services/strava/client.ts (Strava API wrapper)
+- [x] **3.3.2** Implement /athlete/activities fetcher with pagination
+- [x] **3.3.3** Implement /activities/{id} detail fetcher
+- [x] **3.3.4** Implement /activities/{id}/laps fetcher
+- [x] **3.3.5** Implement /athlete/stats fetcher
+- [x] **3.3.6** Implement /gear/{id} fetcher
+- [x] **3.3.7** Add rate limit handling (200/15min, 2000/day) with header parsing
+- [x] **3.3.8** Write tests for API client
 
 **3.4 -- Transforms**
 
-- [ ] **3.4.1** Create src/services/strava/transforms.ts
-- [ ] **3.4.2** Implement unit conversions (meters to miles/feet, m/s to min/mile)
-- [ ] **3.4.3** Implement pace formatting (MM:SS/mi)
-- [ ] **3.4.4** Implement duration formatting
-- [ ] **3.4.5** Implement personal records extraction from best_efforts
-- [ ] **3.4.6** Implement year summary computation
-- [ ] **3.4.7** Implement lifetime stats computation
-- [ ] **3.4.8** Implement streak calculation (current + longest)
-- [ ] **3.4.9** Implement Eddington number calculation
-- [ ] **3.4.10** Write tests for all transforms
+- [x] **3.4.1** Create src/services/strava/transforms.ts
+- [x] **3.4.2** Implement unit conversions (meters to miles/feet, m/s to min/mile)
+- [x] **3.4.3** Implement pace formatting (MM:SS/mi)
+- [x] **3.4.4** Implement duration formatting
+- [x] **3.4.5** Implement personal records extraction from best_efforts
+- [x] **3.4.6** Implement year summary computation
+- [x] **3.4.7** Implement lifetime stats computation
+- [x] **3.4.8** Implement streak calculation (current + longest)
+- [x] **3.4.9** Implement Eddington number calculation
+- [x] **3.4.10** Write tests for all transforms
 
 **3.5 -- Sync**
 
-- [ ] **3.5.1** Create src/services/strava/sync.ts (sync orchestrator)
-- [ ] **3.5.2** Implement incremental activity sync (since last synced activity)
-- [ ] **3.5.3** Implement gear sync
-- [ ] **3.5.4** Implement stats recomputation after sync (PRs, years, lifetime, streaks)
-- [ ] **3.5.5** Add sync_runs recording
-- [ ] **3.5.6** Wire cron handler: daily 4 AM sync
-- [ ] **3.5.7** Add POST /v1/admin/sync/running endpoint
-- [ ] **3.5.8** Write tests for sync logic
+- [x] **3.5.1** Create src/services/strava/sync.ts (sync orchestrator)
+- [x] **3.5.2** Implement incremental activity sync (since last synced activity)
+- [x] **3.5.3** Implement gear sync
+- [x] **3.5.4** Implement stats recomputation after sync (PRs, years, lifetime, streaks)
+- [x] **3.5.5** Add sync_runs recording
+- [x] **3.5.6** Wire cron handler: daily 4 AM sync
+- [x] **3.5.7** Add POST /v1/admin/sync/running endpoint
+- [x] **3.5.8** Write tests for sync logic
 
 **3.6 -- Bulk Import**
 
@@ -270,44 +270,44 @@
 
 **3.7 -- Webhooks**
 
-- [ ] **3.7.1** Create src/services/strava/webhook.ts (webhook handler)
-- [ ] **3.7.2** Create src/routes/webhooks.ts
-- [ ] **3.7.3** Implement GET /v1/webhooks/strava (subscription validation)
-- [ ] **3.7.4** Implement POST /v1/webhooks/strava (event handler)
-- [ ] **3.7.5** Handle create event: fetch + insert activity
-- [ ] **3.7.6** Handle update event: re-fetch + update activity
-- [ ] **3.7.7** Handle delete event: soft delete activity
+- [x] **3.7.1** Create src/services/strava/webhook.ts (webhook handler)
+- [x] **3.7.2** Create src/routes/webhooks.ts
+- [x] **3.7.3** Implement GET /v1/webhooks/strava (subscription validation)
+- [x] **3.7.4** Implement POST /v1/webhooks/strava (event handler)
+- [x] **3.7.5** Handle create event: fetch + insert activity
+- [x] **3.7.6** Handle update event: re-fetch + update activity
+- [x] **3.7.7** Handle delete event: soft delete activity
 - [ ] **3.7.8** Register webhook subscription with Strava
-- [ ] **3.7.9** Write tests for webhook handler
-- [ ] **3.7.10** Implement webhook idempotency (check webhook_events before processing)
+- [x] **3.7.9** Write tests for webhook handler
+- [x] **3.7.10** Implement webhook idempotency (check webhook_events before processing)
 
 **3.8 -- Route Handlers**
 
-- [ ] **3.8.1** Create src/routes/running.ts
-- [ ] **3.8.2** GET /v1/running/stats
-- [ ] **3.8.3** GET /v1/running/stats/years
-- [ ] **3.8.4** GET /v1/running/stats/years/:year
-- [ ] **3.8.5** GET /v1/running/prs
-- [ ] **3.8.6** GET /v1/running/recent
-- [ ] **3.8.7** GET /v1/running/activities (paginated, filterable)
-- [ ] **3.8.8** GET /v1/running/activities/:id
-- [ ] **3.8.9** GET /v1/running/activities/:id/splits
-- [ ] **3.8.10** GET /v1/running/gear
-- [ ] **3.8.11** GET /v1/running/calendar
-- [ ] **3.8.12** GET /v1/running/charts/cumulative
-- [ ] **3.8.13** GET /v1/running/charts/pace-trend
-- [ ] **3.8.14** GET /v1/running/charts/time-of-day
-- [ ] **3.8.15** GET /v1/running/charts/elevation
-- [ ] **3.8.16** GET /v1/running/cities
-- [ ] **3.8.17** GET /v1/running/streaks
-- [ ] **3.8.18** GET /v1/running/races
-- [ ] **3.8.19** GET /v1/running/eddington
-- [ ] **3.8.20** Apply Cache-Control headers per endpoint
-- [ ] **3.8.21** Write tests for route handlers
+- [x] **3.8.1** Create src/routes/running.ts
+- [x] **3.8.2** GET /v1/running/stats
+- [x] **3.8.3** GET /v1/running/stats/years
+- [x] **3.8.4** GET /v1/running/stats/years/:year
+- [x] **3.8.5** GET /v1/running/prs
+- [x] **3.8.6** GET /v1/running/recent
+- [x] **3.8.7** GET /v1/running/activities (paginated, filterable)
+- [x] **3.8.8** GET /v1/running/activities/:id
+- [x] **3.8.9** GET /v1/running/activities/:id/splits
+- [x] **3.8.10** GET /v1/running/gear
+- [x] **3.8.11** GET /v1/running/calendar
+- [x] **3.8.12** GET /v1/running/charts/cumulative
+- [x] **3.8.13** GET /v1/running/charts/pace-trend
+- [x] **3.8.14** GET /v1/running/charts/time-of-day
+- [x] **3.8.15** GET /v1/running/charts/elevation
+- [x] **3.8.16** GET /v1/running/cities
+- [x] **3.8.17** GET /v1/running/streaks
+- [x] **3.8.18** GET /v1/running/races
+- [x] **3.8.19** GET /v1/running/eddington
+- [x] **3.8.20** Apply Cache-Control headers per endpoint
+- [x] **3.8.21** Write tests for route handlers
 
 **3.9 -- Integration Testing**
 
-- [ ] **3.9.1** End-to-end test: cron + webhook sync, endpoints return correct responses
+- [x] **3.9.1** End-to-end test: cron + webhook sync, endpoints return correct responses
 - [ ] **3.9.2** Deploy and verify in production
 - [ ] **3.9.3** Verify webhook receives events from Strava
 
@@ -315,95 +315,95 @@
 
 **4.1 -- Schema**
 
-- [ ] **4.1.1** Create src/db/schema/watching.ts (movies, genres, directors, join tables, watch_history, stats, shows, episodes)
-- [ ] **4.1.2** Generate migration for Plex tables
-- [ ] **4.1.3** Apply migration locally and verify schema
+- [x] **4.1.1** Create src/db/schema/watching.ts (movies, genres, directors, join tables, watch_history, stats, shows, episodes)
+- [x] **4.1.2** Generate migration for Plex tables
+- [x] **4.1.3** Apply migration locally and verify schema
 - [ ] **4.1.4** Apply migration to remote D1
 
 **4.2 -- Plex Webhook Handler**
 
-- [ ] **4.2.1** Create src/services/plex/webhook.ts (multipart parser, event handler)
-- [ ] **4.2.2** Implement multipart/form-data parsing (Workers-compatible)
-- [ ] **4.2.3** Implement webhook source verification (account ID or shared secret)
-- [ ] **4.2.4** Implement media.scrobble event handler (record watch event)
-- [ ] **4.2.5** Add POST /v1/webhooks/plex to webhooks route
-- [ ] **4.2.6** Write tests for webhook handler
-- [ ] **4.2.7** Implement webhook idempotency (check webhook_events before processing)
+- [x] **4.2.1** Create src/services/plex/webhook.ts (multipart parser, event handler)
+- [x] **4.2.2** Implement multipart/form-data parsing (Workers-compatible)
+- [x] **4.2.3** Implement webhook source verification (account ID or shared secret)
+- [x] **4.2.4** Implement media.scrobble event handler (record watch event)
+- [x] **4.2.5** Add POST /v1/webhooks/plex to webhooks route
+- [x] **4.2.6** Write tests for webhook handler
+- [x] **4.2.7** Implement webhook idempotency (check webhook_events before processing)
 
 **4.3 -- TMDB Client**
 
-- [ ] **4.3.1** Create src/services/watching/tmdb.ts (TMDB API wrapper, shared across all watching sources)
-- [ ] **4.3.2** Implement movie detail fetcher with credits
-- [ ] **4.3.3** Implement movie search by title + year
-- [ ] **4.3.4** Implement TMDB ID extraction from Plex Guid array
-- [ ] **4.3.5** Implement IMDB ID fallback lookup
-- [ ] **4.3.6** Write tests for TMDB client
+- [x] **4.3.1** Create src/services/watching/tmdb.ts (TMDB API wrapper, shared across all watching sources)
+- [x] **4.3.2** Implement movie detail fetcher with credits
+- [x] **4.3.3** Implement movie search by title + year
+- [x] **4.3.4** Implement TMDB ID extraction from Plex Guid array
+- [x] **4.3.5** Implement IMDB ID fallback lookup
+- [x] **4.3.6** Write tests for TMDB client
 
 **4.4 -- Sync**
 
-- [ ] **4.4.1** Create src/services/plex/sync.ts (sync orchestrator)
-- [ ] **4.4.2** Implement Plex library scan (all watched movies)
-- [ ] **4.4.3** Implement TMDB enrichment (genres, directors, ratings on first encounter)
-- [ ] **4.4.4** Implement genre and director upsert with join tables
-- [ ] **4.4.5** Implement watch stats computation
-- [ ] **4.4.6** Add sync_runs recording
-- [ ] **4.4.7** Wire cron handler: daily 5 AM library scan catch-up
-- [ ] **4.4.8** Add POST /v1/admin/sync/watching endpoint
-- [ ] **4.4.9** Write tests for sync logic
+- [x] **4.4.1** Create src/services/plex/sync.ts (sync orchestrator)
+- [x] **4.4.2** Implement Plex library scan (all watched movies)
+- [x] **4.4.3** Implement TMDB enrichment (genres, directors, ratings on first encounter)
+- [x] **4.4.4** Implement genre and director upsert with join tables
+- [x] **4.4.5** Implement watch stats computation
+- [x] **4.4.6** Add sync_runs recording
+- [x] **4.4.7** Wire cron handler: daily 5 AM library scan catch-up
+- [x] **4.4.8** Add POST /v1/admin/sync/watching endpoint
+- [x] **4.4.9** Write tests for sync logic
 - [ ] **4.4.10** Run initial library import against production
 
 **4.5 -- Route Handlers**
 
-- [ ] **4.5.1** Create src/routes/watching.ts
-- [ ] **4.5.2** GET /v1/watching/recent
-- [ ] **4.5.3** GET /v1/watching/movies (paginated, filterable)
-- [ ] **4.5.4** GET /v1/watching/movies/:id
-- [ ] **4.5.5** GET /v1/watching/stats
-- [ ] **4.5.6** GET /v1/watching/stats/genres
-- [ ] **4.5.7** GET /v1/watching/stats/decades
-- [ ] **4.5.8** GET /v1/watching/stats/directors
-- [ ] **4.5.9** GET /v1/watching/calendar
-- [ ] **4.5.10** GET /v1/watching/trends
-- [ ] **4.5.11** Apply Cache-Control headers per endpoint
-- [ ] **4.5.12** Write tests for route handlers
+- [x] **4.5.1** Create src/routes/watching.ts
+- [x] **4.5.2** GET /v1/watching/recent
+- [x] **4.5.3** GET /v1/watching/movies (paginated, filterable)
+- [x] **4.5.4** GET /v1/watching/movies/:id
+- [x] **4.5.5** GET /v1/watching/stats
+- [x] **4.5.6** GET /v1/watching/stats/genres
+- [x] **4.5.7** GET /v1/watching/stats/decades
+- [x] **4.5.8** GET /v1/watching/stats/directors
+- [x] **4.5.9** GET /v1/watching/calendar
+- [x] **4.5.10** GET /v1/watching/trends
+- [x] **4.5.11** Apply Cache-Control headers per endpoint
+- [x] **4.5.12** Write tests for route handlers
 
 **4.6 -- Integration Testing**
 
-- [ ] **4.6.1** End-to-end test: webhook + cron sync, endpoints return correct responses
+- [x] **4.6.1** End-to-end test: webhook + cron sync, endpoints return correct responses
 - [ ] **4.6.2** Deploy and verify in production
 - [ ] **4.6.3** Configure Plex webhook URL in Plex settings
 - [ ] **4.6.4** Verify webhook receives scrobble events from Plex
 
 **4.7 -- TV Shows**
 
-- [ ] **4.7.1** Implement TV show data extraction from Plex library scan
-- [ ] **4.7.2** Implement TMDB TV show enrichment
-- [ ] **4.7.3** GET /v1/watching/shows
-- [ ] **4.7.4** GET /v1/watching/shows/:id
-- [ ] **4.7.5** GET /v1/watching/shows/:id/seasons/:season
-- [ ] **4.7.6** Wire show webhook events (media.scrobble for episodes)
-- [ ] **4.7.7** Write tests for TV show endpoints
+- [x] **4.7.1** Implement TV show data extraction from Plex library scan
+- [x] **4.7.2** Implement TMDB TV show enrichment
+- [x] **4.7.3** GET /v1/watching/shows
+- [x] **4.7.4** GET /v1/watching/shows/:id
+- [x] **4.7.5** GET /v1/watching/shows/:id/seasons/:season
+- [x] **4.7.6** Wire show webhook events (media.scrobble for episodes)
+- [x] **4.7.7** Write tests for TV show endpoints
 
 **4.8 -- Letterboxd Sync**
 
-- [ ] **4.8.1** Create src/services/letterboxd/client.ts (RSS feed fetcher and parser)
-- [ ] **4.8.2** Parse Letterboxd RSS extensions (filmTitle, filmYear, watchedDate, memberRating, rewatch, tmdb:movieId)
-- [ ] **4.8.3** Create src/services/letterboxd/sync.ts (sync orchestrator)
-- [ ] **4.8.4** Implement dedup check (same movie_id + same calendar date skips insert)
-- [ ] **4.8.5** Implement TMDB enrichment for new movies from Letterboxd (reuse watching/tmdb.ts)
-- [ ] **4.8.6** Map Letterboxd rating (0.5-5.0) to user_rating field
-- [ ] **4.8.7** Wire cron handler: every 6 hours Letterboxd RSS sync
+- [x] **4.8.1** Create src/services/letterboxd/client.ts (RSS feed fetcher and parser)
+- [x] **4.8.2** Parse Letterboxd RSS extensions (filmTitle, filmYear, watchedDate, memberRating, rewatch, tmdb:movieId)
+- [x] **4.8.3** Create src/services/letterboxd/sync.ts (sync orchestrator)
+- [x] **4.8.4** Implement dedup check (same movie_id + same calendar date skips insert)
+- [x] **4.8.5** Implement TMDB enrichment for new movies from Letterboxd (reuse watching/tmdb.ts)
+- [x] **4.8.6** Map Letterboxd rating (0.5-5.0) to user_rating field
+- [x] **4.8.7** Wire cron handler: every 6 hours Letterboxd RSS sync
 - [ ] **4.8.8** Create scripts/import-letterboxd.ts (one-time CSV import for full diary history)
-- [ ] **4.8.9** Write tests for Letterboxd sync
+- [x] **4.8.9** Write tests for Letterboxd sync
 
 **4.9 -- Manual Movie Entry**
 
-- [ ] **4.9.1** POST /v1/admin/watching/movies (log watch event by tmdb_id or title+year)
-- [ ] **4.9.2** PUT /v1/admin/watching/movies/:id (edit watch event)
-- [ ] **4.9.3** DELETE /v1/admin/watching/movies/:id (remove watch event)
-- [ ] **4.9.4** Implement TMDB search fallback when title+year provided instead of tmdb_id
-- [ ] **4.9.5** Implement dedup check for manual entries
-- [ ] **4.9.6** Write tests for manual entry endpoints
+- [x] **4.9.1** POST /v1/admin/watching/movies (log watch event by tmdb_id or title+year)
+- [x] **4.9.2** PUT /v1/admin/watching/movies/:id (edit watch event)
+- [x] **4.9.3** DELETE /v1/admin/watching/movies/:id (remove watch event)
+- [x] **4.9.4** Implement TMDB search fallback when title+year provided instead of tmdb_id
+- [x] **4.9.5** Implement dedup check for manual entries
+- [x] **4.9.6** Write tests for manual entry endpoints
 
 ## Phase 5: Collecting (Discogs)
 
