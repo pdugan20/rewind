@@ -5,16 +5,20 @@
  * the remote D1 database. Handles rate limits, checkpoint/resume, and
  * fetches detail + splits for each activity.
  *
+ * Reads STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET from .dev.vars,
+ * fetches the refresh token from the strava_tokens table in remote D1,
+ * and handles token refresh automatically.
+ *
  * Prerequisites:
- *   1. Get a Strava access token (short-lived) by completing the OAuth flow
- *      or refreshing a token. Set it as STRAVA_ACCESS_TOKEN env var.
- *   2. Ensure wrangler is authenticated (`npx wrangler login`).
+ *   1. .dev.vars contains STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET
+ *   2. strava_tokens table has a row with a valid refresh_token
+ *   3. Ensure wrangler is authenticated (`npx wrangler login`).
  *
  * Usage:
- *   STRAVA_ACCESS_TOKEN=xxx npx tsx scripts/import-strava.ts
+ *   npx tsx scripts/import-strava.ts
  *
  * Resume from checkpoint:
- *   STRAVA_ACCESS_TOKEN=xxx npx tsx scripts/import-strava.ts --resume
+ *   npx tsx scripts/import-strava.ts --resume
  */
 
 import { execSync } from 'node:child_process';
@@ -129,13 +133,130 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${String(secs).padStart(2, '0')}`;
 }
 
-// --- Strava API ---
+// --- Credentials from .dev.vars ---
 
-const accessToken = process.env.STRAVA_ACCESS_TOKEN;
-if (!accessToken) {
-  console.error('[ERROR] STRAVA_ACCESS_TOKEN env var is required');
+function loadDevVars(): Record<string, string> {
+  const devVarsPath = resolve(import.meta.dirname ?? '.', '..', '.dev.vars');
+  if (!existsSync(devVarsPath)) {
+    console.error('[ERROR] .dev.vars file not found');
+    process.exit(1);
+  }
+  const content = readFileSync(devVarsPath, 'utf-8');
+  const vars: Record<string, string> = {};
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+    const key = trimmed.substring(0, eqIndex).trim();
+    let value = trimmed.substring(eqIndex + 1).trim();
+    // Strip surrounding quotes
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    vars[key] = value;
+  }
+  return vars;
+}
+
+const devVars = loadDevVars();
+const STRAVA_CLIENT_ID = devVars.STRAVA_CLIENT_ID;
+const STRAVA_CLIENT_SECRET = devVars.STRAVA_CLIENT_SECRET;
+
+if (!STRAVA_CLIENT_ID || !STRAVA_CLIENT_SECRET) {
+  console.error(
+    '[ERROR] STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET must be set in .dev.vars'
+  );
   process.exit(1);
 }
+
+// --- Token management ---
+
+let currentAccessToken: string | null = null;
+let tokenExpiresAt = 0;
+const TOKEN_EXPIRY_BUFFER = 300; // 5 minutes
+
+async function getAccessToken(): Promise<string> {
+  // Return cached token if still valid
+  if (
+    currentAccessToken &&
+    Date.now() / 1000 < tokenExpiresAt - TOKEN_EXPIRY_BUFFER
+  ) {
+    return currentAccessToken;
+  }
+
+  // Fetch refresh token from remote D1
+  console.log('[INFO] Refreshing Strava access token...');
+  const tokenResult = execSync(
+    `npx wrangler d1 execute ${DB_NAME} --remote --command="SELECT access_token, refresh_token, expires_at FROM strava_tokens WHERE user_id = 1 LIMIT 1;" --json`,
+    { stdio: 'pipe', timeout: 30_000 }
+  ).toString();
+
+  const parsed = JSON.parse(tokenResult) as Array<{
+    results: Array<{
+      access_token: string;
+      refresh_token: string;
+      expires_at: number;
+    }>;
+  }>;
+
+  const stored = parsed[0]?.results?.[0];
+  if (!stored) {
+    console.error(
+      '[ERROR] No token found in strava_tokens table. Seed it first.'
+    );
+    process.exit(1);
+  }
+
+  // Check if stored token is still valid
+  if (Date.now() / 1000 < stored.expires_at - TOKEN_EXPIRY_BUFFER) {
+    currentAccessToken = stored.access_token;
+    tokenExpiresAt = stored.expires_at;
+    console.log('[INFO] Using existing valid token');
+    return currentAccessToken;
+  }
+
+  // Refresh the token
+  const response = await fetch('https://www.strava.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: STRAVA_CLIENT_ID,
+      client_secret: STRAVA_CLIENT_SECRET,
+      grant_type: 'refresh_token',
+      refresh_token: stored.refresh_token,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(
+      `[ERROR] Token refresh failed (${response.status}): ${errorText}`
+    );
+    process.exit(1);
+  }
+
+  const data = (await response.json()) as {
+    access_token: string;
+    refresh_token: string;
+    expires_at: number;
+  };
+
+  // Persist new tokens back to D1
+  const now = new Date().toISOString();
+  const updateSQL = `UPDATE strava_tokens SET access_token = ${escapeSQL(data.access_token)}, refresh_token = ${escapeSQL(data.refresh_token)}, expires_at = ${data.expires_at}, updated_at = ${escapeSQL(now)} WHERE user_id = 1;`;
+  executeRemoteSQL(updateSQL);
+
+  currentAccessToken = data.access_token;
+  tokenExpiresAt = data.expires_at;
+  console.log('[INFO] Token refreshed successfully');
+  return currentAccessToken;
+}
+
+// --- Strava API ---
 
 const rateLimitState: RateLimitState = {
   fifteenMinUsage: 0,
@@ -170,13 +291,14 @@ async function stravaRequest<T>(
   path: string,
   params?: URLSearchParams
 ): Promise<T> {
+  const token = await getAccessToken();
   const url = new URL(`${STRAVA_BASE_URL}${path}`);
   if (params) {
     params.forEach((value, key) => url.searchParams.set(key, value));
   }
 
   const response = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   parseRateLimitHeaders(response.headers);
@@ -300,6 +422,7 @@ function buildActivityInsertSQL(activity: StravaActivity): string {
     'is_race',
     'is_deleted',
     'strava_url',
+    'created_at',
     'updated_at',
   ];
 
@@ -339,6 +462,7 @@ function buildActivityInsertSQL(activity: StravaActivity): string {
     activity.workout_type === 1 ? 1 : 0,
     0,
     escapeSQL(`https://www.strava.com/activities/${activity.id}`),
+    escapeSQL(now),
     escapeSQL(now),
   ];
 
