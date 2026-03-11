@@ -216,8 +216,8 @@
 
 **2.8 -- Integration (Collecting)**
 
-- [ ] **2.8.1** Update collecting routes to join against images table and return thumbhash, dominant_color, accent_color for releases
-- [ ] **2.8.2** Backfill images for existing Discogs releases
+- [x] **2.8.1** Update collecting routes to join against images table and return thumbhash, dominant_color, accent_color for releases
+- [ ] **2.8.2** Backfill images for existing Discogs releases -- endpoint built, blocked on Discogs import (6.5.3.5)
 - [ ] **2.8.3** Verify release images served correctly via cdn.rewind.rest
 
 ## Phase 3: Running (Strava)
@@ -536,7 +536,7 @@
 - [x] **6.5.1.2** Deploy worker to Cloudflare Workers
 - [x] **6.5.1.3** Configure R2 bucket custom domain (cdn.rewind.rest)
 - [x] **6.5.1.4** Verify /v1/health endpoint responds in production
-- [ ] **6.5.1.5** Wire up DB-driven filters: make sync read from lastfm_filters table instead of hardcoded values in filters.ts, then seed table with existing patterns
+- [x] **6.5.1.5** Wire up DB-driven filters: make sync read from lastfm_filters table instead of hardcoded values in filters.ts, then seed table with existing patterns
 
 **6.5.2 -- Import Scripts**
 
@@ -547,10 +547,11 @@
 **6.5.3 -- Initial Data Imports**
 
 - [x] **6.5.3.1** Run Last.fm historical backfill (~124K scrobbles) -- 123,793 imported
-- [ ] **6.5.3.2** Run Strava bulk import (~1347 activities) -- in progress, ~817/1347
+- [ ] **6.5.3.2** Run Strava bulk import (~1347 activities) -- in progress, 821/1347 (restarted after rate-limit stall)
 - [x] **6.5.3.3** Run Plex library import (368 movies, 1582 TV episodes) -- 400 movies, 98 shows, 1569 episodes imported. All images backfilled to R2.
 - [ ] **6.5.3.4** Run Letterboxd CSV import -- requires user's diary.csv export
-- [ ] **6.5.3.5** Run Discogs collection import (last -- cross-refs against Last.fm data)
+- [ ] **6.5.3.5a** Update Discogs collection (user task -- ensure collection is current before import)
+- [ ] **6.5.3.5b** Run Discogs collection import (last -- cross-refs against Last.fm data)
 
 **6.5.4 -- Webhooks**
 

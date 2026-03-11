@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, and, sql, desc, asc, like, or } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, like, or, inArray } from 'drizzle-orm';
 import type { Env } from '../types/env.js';
 import { createDb } from '../db/client.js';
 import {
@@ -11,10 +11,90 @@ import {
   discogsCollectionStats,
   collectionListeningXref,
 } from '../db/schema/discogs.js';
+import { images } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
 import { notFound, badRequest, serverError } from '../lib/errors.js';
 import { syncCollecting } from '../services/discogs/sync.js';
 import { requireAuth } from '../lib/auth.js';
+import { backfillImages } from '../services/images/backfill.js';
+import type { BackfillItem } from '../services/images/backfill.js';
+
+// ─── Image metadata helpers ──────────────────────────────────────────
+
+type Database = ReturnType<typeof createDb>;
+
+interface ImageMeta {
+  thumbhash: string | null;
+  dominant_color: string | null;
+  accent_color: string | null;
+}
+
+const EMPTY_IMAGE_META: ImageMeta = {
+  thumbhash: null,
+  dominant_color: null,
+  accent_color: null,
+};
+
+async function getImageMeta(
+  db: Database,
+  entityId: string
+): Promise<ImageMeta> {
+  const [row] = await db
+    .select({
+      thumbhash: images.thumbhash,
+      dominantColor: images.dominantColor,
+      accentColor: images.accentColor,
+    })
+    .from(images)
+    .where(
+      and(
+        eq(images.domain, 'collecting'),
+        eq(images.entityType, 'releases'),
+        eq(images.entityId, entityId)
+      )
+    )
+    .limit(1);
+
+  if (!row) return EMPTY_IMAGE_META;
+  return {
+    thumbhash: row.thumbhash,
+    dominant_color: row.dominantColor,
+    accent_color: row.accentColor,
+  };
+}
+
+async function getImageMetaBatch(
+  db: Database,
+  entityIds: string[]
+): Promise<Map<string, ImageMeta>> {
+  if (entityIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      entityId: images.entityId,
+      thumbhash: images.thumbhash,
+      dominantColor: images.dominantColor,
+      accentColor: images.accentColor,
+    })
+    .from(images)
+    .where(
+      and(
+        eq(images.domain, 'collecting'),
+        eq(images.entityType, 'releases'),
+        inArray(images.entityId, entityIds)
+      )
+    );
+
+  const map = new Map<string, ImageMeta>();
+  for (const row of rows) {
+    map.set(row.entityId, {
+      thumbhash: row.thumbhash,
+      dominant_color: row.dominantColor,
+      accent_color: row.accentColor,
+    });
+  }
+  return map;
+}
 
 const collecting = new Hono<{ Bindings: Env }>();
 
@@ -127,7 +207,10 @@ collecting.get('/collecting/collection', requireAuth('read'), async (c) => {
       .limit(limit)
       .offset(offset);
 
-    // Get artists for each release
+    // Get artists and image metadata for each release
+    const releaseIds = rows.map((r) => String(r.discogsId));
+    const imageMap = await getImageMetaBatch(db, releaseIds);
+
     const data = await Promise.all(
       rows.map(async (row) => {
         const artistRows = await db
@@ -144,6 +227,7 @@ collecting.get('/collecting/collection', requireAuth('read'), async (c) => {
           .where(eq(discogsReleases.discogsId, row.discogsId));
 
         const formats: string[] = row.format ? JSON.parse(row.format) : [];
+        const img = imageMap.get(String(row.discogsId)) || EMPTY_IMAGE_META;
         return {
           id: row.id,
           discogs_id: row.discogsId,
@@ -156,9 +240,9 @@ collecting.get('/collecting/collection', requireAuth('read'), async (c) => {
           genres: row.genres ? JSON.parse(row.genres) : [],
           styles: row.styles ? JSON.parse(row.styles) : [],
           cover_url: row.coverUrl,
-          thumbhash: null,
-          dominant_color: null,
-          accent_color: null,
+          thumbhash: img.thumbhash,
+          dominant_color: img.dominant_color,
+          accent_color: img.accent_color,
           date_added: row.dateAdded,
           rating: row.rating,
           discogs_url: row.discogsUrl,
@@ -265,6 +349,9 @@ collecting.get('/collecting/recent', requireAuth('read'), async (c) => {
       .orderBy(desc(discogsCollection.dateAdded))
       .limit(limit);
 
+    const releaseIds = rows.map((r) => String(r.discogsId));
+    const imageMap = await getImageMetaBatch(db, releaseIds);
+
     const data = await Promise.all(
       rows.map(async (row) => {
         const artistRows = await db
@@ -281,6 +368,7 @@ collecting.get('/collecting/recent', requireAuth('read'), async (c) => {
           .where(eq(discogsReleases.discogsId, row.discogsId));
 
         const formats: string[] = row.format ? JSON.parse(row.format) : [];
+        const img = imageMap.get(String(row.discogsId)) || EMPTY_IMAGE_META;
         return {
           id: row.id,
           discogs_id: row.discogsId,
@@ -293,9 +381,9 @@ collecting.get('/collecting/recent', requireAuth('read'), async (c) => {
           genres: row.genres ? JSON.parse(row.genres) : [],
           styles: row.styles ? JSON.parse(row.styles) : [],
           cover_url: row.coverUrl,
-          thumbhash: null,
-          dominant_color: null,
-          accent_color: null,
+          thumbhash: img.thumbhash,
+          dominant_color: img.dominant_color,
+          accent_color: img.accent_color,
           date_added: row.dateAdded,
           rating: row.rating,
           discogs_url: row.discogsUrl,
@@ -371,6 +459,7 @@ collecting.get('/collecting/collection/:id', requireAuth('read'), async (c) => {
       .where(eq(discogsReleases.discogsId, row.discogsId));
 
     const formats: string[] = row.format ? JSON.parse(row.format) : [];
+    const img = await getImageMeta(db, String(row.discogsId));
 
     setCache(c, 'long');
     return c.json({
@@ -385,9 +474,9 @@ collecting.get('/collecting/collection/:id', requireAuth('read'), async (c) => {
       genres: row.genres ? JSON.parse(row.genres) : [],
       styles: row.styles ? JSON.parse(row.styles) : [],
       cover_url: row.coverUrl,
-      thumbhash: null,
-      dominant_color: null,
-      accent_color: null,
+      thumbhash: img.thumbhash,
+      dominant_color: img.dominant_color,
+      accent_color: img.accent_color,
       date_added: row.dateAdded,
       rating: row.rating,
       discogs_url: row.discogsUrl,
@@ -672,6 +761,9 @@ collecting.get(
         .limit(limit)
         .offset(offset);
 
+      const releaseIds = rows.map((r) => String(r.discogsId));
+      const imageMap = await getImageMetaBatch(db, releaseIds);
+
       const data = await Promise.all(
         rows.map(async (row) => {
           const artistRows = await db
@@ -688,6 +780,8 @@ collecting.get(
             .where(eq(discogsReleases.discogsId, row.discogsId));
 
           const formats: string[] = row.formats ? JSON.parse(row.formats) : [];
+          const img =
+            imageMap.get(String(row.discogsId)) || EMPTY_IMAGE_META;
 
           return {
             collection: {
@@ -700,9 +794,9 @@ collecting.get(
               genres: row.genres ? JSON.parse(row.genres) : [],
               styles: row.styles ? JSON.parse(row.styles) : [],
               cover_url: row.coverUrl,
-              thumbhash: null,
-              dominant_color: null,
-              accent_color: null,
+              thumbhash: img.thumbhash,
+              dominant_color: img.dominant_color,
+              accent_color: img.accent_color,
               date_added: row.dateAdded,
               rating: row.rating,
               discogs_url: row.discogsUrl,
@@ -772,5 +866,77 @@ collecting.post('/admin/sync/collecting', requireAuth('admin'), async (c) => {
     return serverError(c, `Sync failed: ${errorMsg}`);
   }
 });
+
+// POST /admin/collecting/backfill-images
+collecting.post(
+  '/admin/collecting/backfill-images',
+  requireAuth('admin'),
+  async (c) => {
+    try {
+      const db = createDb(c.env.DB);
+      const body = await c.req
+        .json<{ limit?: number }>()
+        .catch(() => ({ limit: undefined }));
+      const maxItems = Math.min(body.limit || 50, 200);
+
+      // Get releases without images, joined with primary artist name
+      const rows = await db
+        .select({
+          discogsId: discogsReleases.discogsId,
+          title: discogsReleases.title,
+        })
+        .from(discogsReleases)
+        .where(
+          sql`${discogsReleases.discogsId} NOT IN (
+          SELECT ${images.entityId} FROM ${images}
+          WHERE ${images.domain} = 'collecting' AND ${images.entityType} = 'releases'
+        )`
+        )
+        .limit(maxItems);
+
+      // Get artist names for each release
+      const items: BackfillItem[] = await Promise.all(
+        rows.map(async (row) => {
+          const [artist] = await db
+            .select({ name: discogsArtists.name })
+            .from(discogsReleaseArtists)
+            .innerJoin(
+              discogsArtists,
+              eq(discogsReleaseArtists.artistId, discogsArtists.id)
+            )
+            .innerJoin(
+              discogsReleases,
+              eq(discogsReleaseArtists.releaseId, discogsReleases.id)
+            )
+            .where(eq(discogsReleases.discogsId, row.discogsId))
+            .limit(1);
+
+          return {
+            entityId: String(row.discogsId),
+            artistName: artist?.name,
+            albumName: row.title,
+          };
+        })
+      );
+
+      const result = await backfillImages(
+        db,
+        c.env,
+        'collecting',
+        'releases',
+        items,
+        { batchSize: 5, delayMs: 500 }
+      );
+
+      return c.json({ success: true, results: result });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.log(
+        `[ERROR] POST /admin/collecting/backfill-images: ${errorMsg}`
+      );
+      return serverError(c, `Backfill failed: ${errorMsg}`);
+    }
+  }
+);
 
 export default collecting;

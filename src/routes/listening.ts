@@ -11,9 +11,10 @@ import {
   lastfmTopAlbums,
   lastfmTopTracks,
   lastfmUserStats,
+  lastfmFilters,
 } from '../db/schema/lastfm.js';
 import { setCache } from '../lib/cache.js';
-import { notFound, badRequest } from '../lib/errors.js';
+import { notFound, badRequest, serverError } from '../lib/errors.js';
 import { LastfmClient } from '../services/lastfm/client.js';
 import { syncListening } from '../services/lastfm/sync.js';
 import type { LastfmPeriod } from '../services/lastfm/client.js';
@@ -867,6 +868,109 @@ listening.post('/admin/sync', async (c) => {
     const message = error instanceof Error ? error.message : String(error);
     return c.json({ error: message, status: 500 }, 500);
   }
+});
+
+// GET /v1/admin/listening/filters
+listening.get('/admin/filters', async (c) => {
+  const db = createDb(c.env.DB);
+
+  const rows = await db
+    .select()
+    .from(lastfmFilters)
+    .where(eq(lastfmFilters.userId, 1))
+    .orderBy(lastfmFilters.filterType, lastfmFilters.scope);
+
+  return c.json({
+    data: rows.map((r) => ({
+      id: r.id,
+      filter_type: r.filterType,
+      pattern: r.pattern,
+      scope: r.scope,
+      reason: r.reason,
+      created_at: r.createdAt,
+    })),
+  });
+});
+
+// POST /v1/admin/listening/filters
+listening.post('/admin/filters', async (c) => {
+  try {
+    const db = createDb(c.env.DB);
+    const body = await c.req.json<{
+      filter_type: string;
+      pattern: string;
+      scope: string;
+      reason?: string;
+    }>();
+
+    if (!body.filter_type || !body.pattern || !body.scope) {
+      return badRequest(c, 'filter_type, pattern, and scope are required');
+    }
+
+    const validTypes = ['holiday', 'audiobook', 'custom'];
+    if (!validTypes.includes(body.filter_type)) {
+      return badRequest(
+        c,
+        `Invalid filter_type. Valid: ${validTypes.join(', ')}`
+      );
+    }
+
+    const validScopes = ['album', 'track', 'artist', 'artist_track', 'track_regex'];
+    if (!validScopes.includes(body.scope)) {
+      return badRequest(
+        c,
+        `Invalid scope. Valid: ${validScopes.join(', ')}`
+      );
+    }
+
+    const [inserted] = await db
+      .insert(lastfmFilters)
+      .values({
+        userId: 1,
+        filterType: body.filter_type,
+        pattern: body.pattern,
+        scope: body.scope,
+        reason: body.reason || null,
+      })
+      .returning();
+
+    return c.json(
+      {
+        id: inserted.id,
+        filter_type: inserted.filterType,
+        pattern: inserted.pattern,
+        scope: inserted.scope,
+        reason: inserted.reason,
+        created_at: inserted.createdAt,
+      },
+      201
+    );
+  } catch (err) {
+    console.log(`[ERROR] POST /admin/listening/filters: ${err}`);
+    return serverError(c);
+  }
+});
+
+// DELETE /v1/admin/listening/filters/:id
+// eslint-disable-next-line drizzle/enforce-delete-with-where -- false positive: this is a Hono route, not a Drizzle query
+listening.delete('/admin/filters/:id', async (c) => {
+  const db = createDb(c.env.DB);
+  const id = parseInt(c.req.param('id'), 10);
+  if (isNaN(id)) return badRequest(c, 'Invalid filter ID');
+
+  const existing = await db
+    .select({ id: lastfmFilters.id })
+    .from(lastfmFilters)
+    .where(eq(lastfmFilters.id, id))
+    .limit(1);
+
+  if (existing.length === 0) {
+    return notFound(c, 'Filter not found');
+  }
+
+  await db.delete(lastfmFilters).where(eq(lastfmFilters.id, id));
+
+  return c.json({ success: true, deleted_id: id });
 });
 
 export default listening;

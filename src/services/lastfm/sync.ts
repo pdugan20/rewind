@@ -14,7 +14,7 @@ import { syncRuns, revalidationHooks } from '../../db/schema/system.js';
 import { LastfmClient, LASTFM_PERIODS } from './client.js';
 import type { LastfmPeriod } from './client.js';
 import { normalizeScrobble } from './transforms.js';
-import { isFiltered } from './filters.js';
+import { isFiltered, loadFilters } from './filters.js';
 
 async function upsertArtist(
   db: Database,
@@ -692,6 +692,9 @@ export async function syncListening(
   client: LastfmClient,
   options: { type: 'scrobbles' | 'top_lists' | 'stats' | 'full' | 'backfill' }
 ): Promise<{ itemsSynced: number }> {
+  // Load filter rules from DB into memory for this sync run
+  await loadFilters(db);
+
   let totalSynced = 0;
 
   switch (options.type) {

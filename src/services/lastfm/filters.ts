@@ -1,62 +1,6 @@
-// Holiday music album patterns (substring match, case-insensitive)
-const HOLIDAY_ALBUM_PATTERNS = [
-  'charlie brown christmas',
-  'merry christmas',
-  'white christmas',
-  'christmas album',
-  'holiday',
-  'christmas songs',
-];
-
-// Holiday music track patterns (substring match, case-insensitive)
-const HOLIDAY_TRACK_PATTERNS = [
-  'jingle bell',
-  'silent night',
-  'santa claus',
-  'deck the hall',
-  'rudolph',
-  'frosty the snowman',
-  'winter wonderland',
-  'o holy night',
-  'little drummer boy',
-  'away in a manger',
-  'hark the herald',
-  'o come all ye faithful',
-  'we wish you a merry',
-  'sleigh ride',
-  'silver bells',
-  'blue christmas',
-  'last christmas',
-  'christmas time',
-  'holly jolly',
-  'joy to the world',
-];
-
-// Artist-scoped exact track matches (case-insensitive)
-const HOLIDAY_ARTIST_TRACKS: { artist: string; track: string }[] = [
-  { artist: 'vince guaraldi', track: 'skating' },
-  { artist: 'vince guaraldi', track: 'greensleeves' },
-  { artist: 'vince guaraldi', track: 'linus and lucy' },
-];
-
-// Audiobook artist names (case-insensitive exact match)
-const AUDIOBOOK_ARTISTS = [
-  'stephen king',
-  'thomas pynchon',
-  'hunter s. thompson',
-  'andy weir',
-];
-
-// Audiobook track patterns
-const AUDIOBOOK_TRACK_PATTERNS = ['libby--open-'];
-
-// Audiobook regex patterns
-const AUDIOBOOK_TRACK_REGEXES = [
-  /- Part \d+/i,
-  /- Track \d+/i,
-  /- \d{2,3}$/,
-  / \(\d+\)$/,
-];
+import { eq } from 'drizzle-orm';
+import type { Database } from '../../db/client.js';
+import { lastfmFilters } from '../../db/schema/lastfm.js';
 
 export interface FilterableItem {
   artistName: string;
@@ -64,25 +8,70 @@ export interface FilterableItem {
   trackName?: string;
 }
 
+interface FilterRule {
+  filterType: string;
+  pattern: string;
+  scope: string | null;
+}
+
+/**
+ * In-memory filter cache loaded from DB at sync start.
+ * Avoids per-item DB queries during bulk operations.
+ */
+let cachedFilters: FilterRule[] | null = null;
+
+/**
+ * Load filter rules from DB into memory.
+ * Call once at the start of a sync run.
+ */
+export async function loadFilters(db: Database): Promise<void> {
+  const rows = await db
+    .select({
+      filterType: lastfmFilters.filterType,
+      pattern: lastfmFilters.pattern,
+      scope: lastfmFilters.scope,
+    })
+    .from(lastfmFilters)
+    .where(eq(lastfmFilters.userId, 1));
+
+  cachedFilters = rows;
+}
+
+/**
+ * Clear the in-memory filter cache.
+ */
+export function clearFilterCache(): void {
+  cachedFilters = null;
+}
+
+function getFilters(): FilterRule[] {
+  if (!cachedFilters) {
+    throw new Error(
+      'Filters not loaded. Call loadFilters(db) before using isFiltered().'
+    );
+  }
+  return cachedFilters;
+}
+
 export function isHolidayMusic(item: FilterableItem): boolean {
   const albumLower = (item.albumName ?? '').toLowerCase();
   const trackLower = (item.trackName ?? '').toLowerCase();
   const artistLower = item.artistName.toLowerCase();
 
-  // Check album patterns
-  for (const pattern of HOLIDAY_ALBUM_PATTERNS) {
-    if (albumLower.includes(pattern)) return true;
-  }
+  for (const rule of getFilters()) {
+    if (rule.filterType !== 'holiday') continue;
 
-  // Check track patterns
-  for (const pattern of HOLIDAY_TRACK_PATTERNS) {
-    if (trackLower.includes(pattern)) return true;
-  }
-
-  // Check artist-scoped exact track matches
-  for (const entry of HOLIDAY_ARTIST_TRACKS) {
-    if (artistLower.includes(entry.artist) && trackLower === entry.track) {
+    if (rule.scope === 'album' && albumLower.includes(rule.pattern)) {
       return true;
+    }
+    if (rule.scope === 'track' && trackLower.includes(rule.pattern)) {
+      return true;
+    }
+    if (rule.scope === 'artist_track') {
+      const [artist, track] = rule.pattern.split('||');
+      if (artistLower.includes(artist) && trackLower === track) {
+        return true;
+      }
     }
   }
 
@@ -92,21 +81,25 @@ export function isHolidayMusic(item: FilterableItem): boolean {
 export function isAudiobook(item: FilterableItem): boolean {
   const artistLower = item.artistName.toLowerCase();
   const trackLower = (item.trackName ?? '').toLowerCase();
-
-  // Check audiobook artists
-  for (const artist of AUDIOBOOK_ARTISTS) {
-    if (artistLower === artist) return true;
-  }
-
-  // Check audiobook track patterns
-  for (const pattern of AUDIOBOOK_TRACK_PATTERNS) {
-    if (trackLower.includes(pattern)) return true;
-  }
-
-  // Check audiobook regex patterns
   const trackName = item.trackName ?? '';
-  for (const regex of AUDIOBOOK_TRACK_REGEXES) {
-    if (regex.test(trackName)) return true;
+
+  for (const rule of getFilters()) {
+    if (rule.filterType !== 'audiobook') continue;
+
+    if (rule.scope === 'artist' && artistLower === rule.pattern) {
+      return true;
+    }
+    if (rule.scope === 'track' && trackLower.includes(rule.pattern)) {
+      return true;
+    }
+    if (rule.scope === 'track_regex') {
+      try {
+        const regex = new RegExp(rule.pattern, 'i');
+        if (regex.test(trackName)) return true;
+      } catch {
+        // Invalid regex pattern, skip
+      }
+    }
   }
 
   return false;
