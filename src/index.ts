@@ -3,6 +3,10 @@ import type { Env } from './types/env.js';
 import { cors } from './lib/cors.js';
 import { requireAuth } from './lib/auth.js';
 import system from './routes/system.js';
+import feed from './routes/feed.js';
+import search from './routes/search.js';
+import exportRoute from './routes/export.js';
+import keys from './routes/keys.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -17,7 +21,13 @@ app.use('/v1/admin/*', requireAuth('admin'));
 
 // Route registration
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used for AppType export
-const routes = app.basePath('/v1').route('/', system);
+const routes = app
+  .basePath('/v1')
+  .route('/', system)
+  .route('/feed', feed)
+  .route('/search', search)
+  .route('/admin/export', exportRoute)
+  .route('/admin/keys', keys);
 
 // Cron handler
 export default {
