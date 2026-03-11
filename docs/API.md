@@ -1420,6 +1420,276 @@ Cache: max-age=86400
 
 Cache: max-age=86400
 
+## Physical Media (Trakt)
+
+### GET /v1/collecting/media
+
+Paginated list of physical media items from Trakt collection.
+
+| Parameter | Type   | Default | Description                          |
+| --------- | ------ | ------- | ------------------------------------ |
+| page      | number | 1       | Page number                          |
+| limit     | number | 20      | Items per page                       |
+| format    | string | -       | Filter: bluray, 4k_uhd, hddvd       |
+| genre     | string | -       | Filter by genre                      |
+| q         | string | -       | Search title                         |
+| sort      | string | added   | added, title, year                   |
+| order     | string | desc    | asc, desc                            |
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/collecting/media?format=4k_uhd&limit=10"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "trakt_id": 12345,
+      "tmdb_id": 27205,
+      "imdb_id": "tt1375666",
+      "title": "Inception",
+      "year": 2010,
+      "media_type": "movie",
+      "format": "4k_uhd",
+      "resolution": "uhd_4k",
+      "hdr": "dolby_vision",
+      "audio": "dolby_atmos",
+      "audio_channels": "7.1",
+      "collected_at": "2025-12-25T10:00:00Z",
+      "poster_url": "...",
+      "thumbhash": "...",
+      "dominant_color": "#1a2b3c",
+      "accent_color": "#4d5e6f"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 10, "total": 85, "total_pages": 9 }
+}
+```
+
+Cache: max-age=86400
+
+### GET /v1/collecting/media/:id
+
+Full detail for a single physical media item, including watch history cross-reference.
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/collecting/media/1
+```
+
+```json
+{
+  "id": 1,
+  "trakt_id": 12345,
+  "tmdb_id": 27205,
+  "imdb_id": "tt1375666",
+  "title": "Inception",
+  "year": 2010,
+  "media_type": "movie",
+  "format": "4k_uhd",
+  "resolution": "uhd_4k",
+  "hdr": "dolby_vision",
+  "audio": "dolby_atmos",
+  "audio_channels": "7.1",
+  "collected_at": "2025-12-25T10:00:00Z",
+  "poster_url": "...",
+  "thumbhash": "...",
+  "dominant_color": "#1a2b3c",
+  "accent_color": "#4d5e6f",
+  "watch_history": [
+    {
+      "watched_at": "2026-01-15T21:00:00Z",
+      "source": "plex"
+    }
+  ]
+}
+```
+
+Cache: max-age=86400
+
+### GET /v1/collecting/media/stats
+
+Breakdown statistics for the physical media collection.
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/collecting/media/stats
+```
+
+```json
+{
+  "total_items": 85,
+  "by_format": { "bluray": 50, "4k_uhd": 30, "hddvd": 5 },
+  "by_resolution": { "hd_1080p": 50, "uhd_4k": 30, "hd_720p": 5 },
+  "by_hdr": { "dolby_vision": 20, "hdr10": 8, "none": 57 },
+  "by_genre": { "Action": 25, "Drama": 20, "Sci-Fi": 15 },
+  "by_decade": { "2020": 15, "2010": 35, "2000": 20, "1990": 15 }
+}
+```
+
+Cache: max-age=86400
+
+### GET /v1/collecting/media/recent
+
+Latest additions to the physical media collection.
+
+| Parameter | Type   | Default |
+| --------- | ------ | ------- |
+| limit     | number | 5       |
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/collecting/media/recent?limit=3"
+```
+
+Cache: max-age=3600
+
+### GET /v1/collecting/media/formats
+
+Format counts for the physical media collection.
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/collecting/media/formats
+```
+
+```json
+{
+  "data": [
+    { "format": "bluray", "count": 50, "percentage": 58.8 },
+    { "format": "4k_uhd", "count": 30, "percentage": 35.3 },
+    { "format": "hddvd", "count": 5, "percentage": 5.9 }
+  ]
+}
+```
+
+Cache: max-age=86400
+
+### GET /v1/collecting/media/cross-reference
+
+Cross-reference owned physical media with watching domain watch history.
+
+| Parameter | Type   | Default | Description                   |
+| --------- | ------ | ------- | ----------------------------- |
+| filter    | string | all     | all, watched, unwatched       |
+| page      | number | 1       | Page number                   |
+| limit     | number | 20      | Items per page                |
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/collecting/media/cross-reference?filter=unwatched"
+```
+
+```json
+{
+  "data": [
+    {
+      "media": {
+        "id": 1,
+        "title": "Inception",
+        "format": "4k_uhd",
+        "poster_url": "..."
+      },
+      "watching": {
+        "movie_id": 12,
+        "watch_count": 2,
+        "last_watched": "2026-01-15T21:00:00Z"
+      }
+    }
+  ],
+  "summary": {
+    "total": 85,
+    "watched": 60,
+    "unwatched": 25,
+    "watch_rate": 0.71
+  },
+  "pagination": { "page": 1, "limit": 20, "total": 85, "total_pages": 5 }
+}
+```
+
+Cache: max-age=86400
+
+### POST /v1/admin/collecting/media
+
+Add an item to the physical media collection. Admin key required. Write-through to Trakt.
+
+```bash
+curl -X POST -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"tmdb_id": 27205, "media_type": "movie", "resolution": "uhd_4k", "hdr": "dolby_vision", "audio": "dolby_atmos", "audio_channels": "7.1"}' \
+  https://api.rewind.rest/v1/admin/collecting/media
+```
+
+```json
+{
+  "id": 86,
+  "trakt_id": 12345,
+  "tmdb_id": 27205,
+  "title": "Inception",
+  "media_type": "movie",
+  "format": "4k_uhd",
+  "resolution": "uhd_4k",
+  "collected_at": "2026-03-11T12:00:00Z"
+}
+```
+
+Cache: no-store
+
+### POST /v1/admin/collecting/media/:id/remove
+
+Remove an item from the physical media collection. Admin key required. Write-through to Trakt.
+
+```bash
+curl -X POST -H "Authorization: Bearer rw_admin_..." \
+  https://api.rewind.rest/v1/admin/collecting/media/86/remove
+```
+
+```json
+{
+  "removed": true,
+  "id": 86,
+  "title": "Inception"
+}
+```
+
+Cache: no-store
+
+### POST /v1/admin/sync/trakt
+
+Trigger a manual Trakt collection sync. Admin key required.
+
+```bash
+curl -X POST -H "Authorization: Bearer rw_admin_..." \
+  https://api.rewind.rest/v1/admin/sync/trakt
+```
+
+```json
+{
+  "sync_id": 1236,
+  "domain": "collecting",
+  "source": "trakt",
+  "sync_type": "full",
+  "status": "started"
+}
+```
+
+Cache: no-store
+
+### POST /v1/admin/collecting/media/backfill-images
+
+Backfill poster images for physical media items missing artwork. Admin key required.
+
+```bash
+curl -X POST -H "Authorization: Bearer rw_admin_..." \
+  https://api.rewind.rest/v1/admin/collecting/media/backfill-images
+```
+
+```json
+{
+  "queued": 12,
+  "already_have_images": 73,
+  "total": 85
+}
+```
+
+Cache: no-store
+
 ## Images
 
 ### GET /v1/images/:domain/:entity_type/:entity_id/:size

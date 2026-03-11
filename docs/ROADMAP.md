@@ -550,7 +550,7 @@
 - [ ] **6.5.3.2** Run Strava bulk import (~1347 activities) -- in progress, 821/1347 (restarted after rate-limit stall)
 - [x] **6.5.3.3** Run Plex library import (368 movies, 1582 TV episodes) -- 400 movies, 98 shows, 1569 episodes imported. All images backfilled to R2.
 - [ ] **6.5.3.4** Run Letterboxd CSV import -- requires user's diary.csv export
-- [ ] **6.5.3.5a** Update Discogs collection (user task -- ensure collection is current before import)
+- [x] **6.5.3.5a** Update Discogs collection -- bulk added 139 items (33 CDs + 106 vinyl) via scripts/add-discogs-collection.ts, collection now ~284 items
 - [ ] **6.5.3.5b** Run Discogs collection import (last -- cross-refs against Last.fm data)
 
 **6.5.4 -- Webhooks**
@@ -600,3 +600,80 @@
 - [ ] **7.3.1** Remove all unused listening infrastructure from pat-portfolio
 - [ ] **7.3.2** Update pat-portfolio documentation
 - [ ] **7.3.3** Final production verification of all domains
+
+## Phase 8: Physical Media Collecting (Trakt)
+
+**8.1 -- Schema and Environment**
+
+- [x] **8.1.1** Create src/db/schema/trakt.ts (trakt_tokens, trakt_collection, trakt_collection_stats tables)
+- [x] **8.1.2** Add TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET to src/types/env.ts
+- [x] **8.1.3** Generate migration for Trakt tables (npm run db:generate)
+- [x] **8.1.4** Apply migration locally and verify schema (npm run db:migrate)
+
+**8.2 -- OAuth and Auth**
+
+- [x] **8.2.1** Create src/services/trakt/auth.ts (token management, mirroring Strava pattern)
+- [x] **8.2.2** Implement getAccessToken with expiry buffer and refresh
+- [x] **8.2.3** Implement refreshAccessToken with token persistence to trakt_tokens
+- [x] **8.2.4** Create scripts/setup-trakt.ts (device code OAuth flow for initial token seeding)
+- [x] **8.2.5** Run setup script to authenticate and seed trakt_tokens
+
+**8.3 -- Trakt API Client**
+
+- [x] **8.3.1** Create src/services/trakt/client.ts (Trakt API wrapper)
+- [x] **8.3.2** Implement getCollection (GET /sync/collection/movies?extended=metadata)
+- [x] **8.3.3** Implement addToCollection (POST /sync/collection)
+- [x] **8.3.4** Implement removeFromCollection (POST /sync/collection/remove)
+- [x] **8.3.5** Implement searchMovie (GET /search/movie)
+- [x] **8.3.6** Add rate limit handling and required Trakt headers (trakt-api-version, trakt-api-key)
+- [x] **8.3.7** Write tests for API client
+
+**8.4 -- Sync Service**
+
+- [x] **8.4.1** Create src/services/trakt/sync.ts (sync orchestrator)
+- [x] **8.4.2** Implement full collection sync (fetch from Trakt, look up/create movies via TMDb, upsert trakt_collection rows)
+- [x] **8.4.3** Implement deletion of local items removed from Trakt
+- [x] **8.4.4** Implement collection stats computation (by_format, by_resolution, by_hdr, by_genre, by_decade)
+- [x] **8.4.5** Add sync_runs recording (domain: 'collecting', syncType: 'trakt')
+- [x] **8.4.6** Write tests for sync logic
+
+**8.5 -- Route Handlers**
+
+- [x] **8.5.1** GET /v1/collecting/media (paginated, filterable by format/genre/search/sort)
+- [x] **8.5.2** GET /v1/collecting/media/:id (detail with media specs + watch history cross-ref)
+- [x] **8.5.3** GET /v1/collecting/media/stats (format/resolution/HDR/genre/decade breakdowns)
+- [x] **8.5.4** GET /v1/collecting/media/recent (latest additions)
+- [x] **8.5.5** GET /v1/collecting/media/formats (format counts)
+- [x] **8.5.6** GET /v1/collecting/media/cross-reference (owned vs watched cross-ref with watching domain)
+- [x] **8.5.7** POST /v1/admin/collecting/media (add item: resolve via TMDb, push to Trakt, store locally)
+- [x] **8.5.8** POST /v1/admin/collecting/media/:id/remove (remove from Trakt + local)
+- [x] **8.5.9** POST /v1/admin/sync/trakt (manual sync trigger)
+- [x] **8.5.10** POST /v1/admin/collecting/media/backfill-images (image pipeline for posters)
+- [x] **8.5.11** Apply Cache-Control headers per endpoint
+- [x] **8.5.12** Write tests for route handlers
+
+**8.6 -- Cron Integration**
+
+- [x] **8.6.1** Wire Trakt sync into 0 3 * * * cron handler (Sunday only, alongside Discogs)
+- [x] **8.6.2** Import syncTraktCollection in src/index.ts
+
+**8.7 -- Cataloging**
+
+- [x] **8.7.1** Set Trakt secrets via wrangler secret put (TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET)
+- [x] **8.7.2** Apply migration to remote D1 (npm run db:remote)
+- [x] **8.7.3** Deploy worker with Trakt integration
+- [x] **8.7.4** Add User-Agent header to Trakt client and auth to fix Cloudflare-to-Cloudflare WAF blocking
+- [x] **8.7.5** Wire image pipeline (runPipeline) into POST /admin/collecting/media so images process inline on add
+- [x] **8.7.6** Deploy and verify Trakt sync works from production Worker
+- [ ] **8.7.7** Catalog physical media collection via POST /v1/admin/collecting/media (Blu-ray, 4K UHD, HD-DVD)
+- [ ] **8.7.8** Verify collection syncs from Trakt and appears in GET /collecting/media
+- [ ] **8.7.9** Verify cross-reference with watching domain (owned vs watched)
+- [ ] **8.7.10** Verify poster images processed for collection items
+
+**8.8 -- Documentation**
+
+- [x] **8.8.1** Update CLAUDE.md with Trakt environment variables and service structure
+- [x] **8.8.2** Update docs/ARCHITECTURE.md with Trakt sync flow and schema
+- [x] **8.8.3** Update docs/API.md with new /collecting/media endpoints
+- [x] **8.8.4** Update docs/domains/collecting.md with physical media domain details
+- [ ] **8.8.5** Update docs/domains/images.md if image pipeline changes are needed

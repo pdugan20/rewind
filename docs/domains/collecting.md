@@ -160,6 +160,79 @@ interface CrossReferenceResponse {
 | DISCOGS_PERSONAL_TOKEN | Discogs personal access token |
 | DISCOGS_USERNAME       | Discogs username (patdugan)   |
 
+## Physical Media (Trakt)
+
+### Data Source
+
+Trakt API provides physical movie media collection tracking (Blu-ray, 4K UHD, HD-DVD). Trakt tracks what media a user owns with metadata about format, resolution, HDR type, and audio configuration.
+
+### Trakt API
+
+#### Base Configuration
+
+- Base URL: `https://api.trakt.tv`
+- Auth: OAuth2 with device code flow for initial setup, then access/refresh token pairs
+- Required headers: `Content-Type: application/json`, `trakt-api-version: 2`, `trakt-api-key: {TRAKT_CLIENT_ID}`
+- Rate limit: 1000 requests per 5-minute window
+- Pagination: `page` + `limit` headers on list endpoints
+
+#### Key Endpoints
+
+| Method | Endpoint                                   | Description                | Key Params    |
+| ------ | ------------------------------------------ | -------------------------- | ------------- |
+| GET    | /users/{username}/collection/movies        | All collected movies       | none          |
+| POST   | /sync/collection                           | Add items to collection    | movies array  |
+| POST   | /sync/collection/remove                    | Remove items from collection | movies array |
+| GET    | /users/{username}/watchlist                | Watchlist items            | none          |
+| POST   | /oauth/device/code                         | Start device code flow     | client_id     |
+| POST   | /oauth/device/token                        | Poll for device auth token | code, client_id, client_secret |
+
+### Sync Strategy
+
+- **Weekly full sync** (Sunday 3 AM UTC): fetch entire collection via `GET /users/{username}/collection/movies`. Compare with local `trakt_collection` table -- insert new, update changed, soft-delete removed items.
+- **Write-through**: items added or removed via admin endpoints (`POST /v1/admin/collecting/media`, `POST /v1/admin/collecting/media/:id/remove`) are pushed to Trakt in real-time via `POST /sync/collection` and `POST /sync/collection/remove`.
+- **Collection stats**: recompute after each sync (format, resolution, HDR, genre, decade breakdowns).
+- **Image backfill**: after sync, queue items missing poster images for processing through the image pipeline using `tmdb_id`.
+
+### Cross-Reference with Watching Domain
+
+Physical media items are cross-referenced with the watching domain using `tmdb_id` as the join key. This enables:
+
+- "Movies you own and have watched" -- physical media with matching watch history entries
+- "Movies you own but have not watched" -- physical media with no watch history
+- Watch rate: percentage of owned physical media that has been watched at least once
+
+### Supported Media Metadata
+
+| Field          | Values                                           | Description                        |
+| -------------- | ------------------------------------------------ | ---------------------------------- |
+| format         | bluray, 4k_uhd, hddvd                           | Physical disc format               |
+| resolution     | hd_720p, hd_1080p, uhd_4k                       | Video resolution                   |
+| hdr            | dolby_vision, hdr10, hdr10_plus, hlg, none       | HDR format                         |
+| audio          | dolby_atmos, dolby_digital, dts_x, dts_hd, lpcm | Audio codec                        |
+| audio_channels | 2.0, 5.1, 7.1                                   | Audio channel configuration        |
+| media_type     | movie                                            | Currently movies only              |
+
+### Environment Variables
+
+| Variable           | Description                            |
+| ------------------ | -------------------------------------- |
+| TRAKT_CLIENT_ID    | Trakt OAuth2 application client ID     |
+| TRAKT_CLIENT_SECRET | Trakt OAuth2 application client secret |
+
+### Setup
+
+Initial Trakt authentication uses the OAuth2 device code flow via `scripts/setup-trakt.ts`. The script:
+
+1. Requests a device code from `POST /oauth/device/code`
+2. Displays the user code and verification URL (`https://trakt.tv/activate`)
+3. Polls `POST /oauth/device/token` until the user authorizes the app
+4. Stores the access and refresh tokens in the `trakt_tokens` table
+
+Run: `npx tsx scripts/setup-trakt.ts`
+
+Tokens are automatically refreshed during sync when the access token expires.
+
 ## Known Issues
 
 - Discogs rate limit (60/min) means large collections take multiple minutes to sync

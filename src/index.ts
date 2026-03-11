@@ -20,6 +20,7 @@ import { syncRunning } from './services/strava/sync.js';
 import { syncWatching } from './services/plex/sync.js';
 import { syncLetterboxd } from './services/letterboxd/sync.js';
 import { syncCollecting, isSunday } from './services/discogs/sync.js';
+import { syncTraktCollection } from './services/trakt/sync.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -130,11 +131,16 @@ export default {
             );
           })
         );
-        // Discogs sync (Sundays only)
+        // Discogs + Trakt sync (Sundays only)
         if (isSunday()) {
           ctx.waitUntil(
             syncCollecting(env).catch((err) =>
               console.log(`[ERROR] Discogs cron sync failed: ${err}`)
+            )
+          );
+          ctx.waitUntil(
+            syncTraktCollection(env).catch((err) =>
+              console.log(`[ERROR] Trakt cron sync failed: ${err}`)
             )
           );
         }

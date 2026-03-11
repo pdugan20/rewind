@@ -783,6 +783,66 @@ CREATE INDEX idx_collection_listening_xref_lastfm_album_id ON collection_listeni
 CREATE INDEX idx_collection_listening_xref_user_id ON collection_listening_xref(user_id);
 ```
 
+### Trakt Tables
+
+```sql
+CREATE TABLE trakt_tokens (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE trakt_collection (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  trakt_id INTEGER NOT NULL,
+  tmdb_id INTEGER,
+  imdb_id TEXT,
+  title TEXT NOT NULL,
+  year INTEGER,
+  media_type TEXT NOT NULL DEFAULT 'movie',
+  format TEXT,
+  resolution TEXT,
+  hdr TEXT,
+  audio TEXT,
+  audio_channels TEXT,
+  collected_at TEXT NOT NULL,
+  image_key TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, trakt_id)
+);
+
+CREATE TABLE trakt_collection_stats (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  total_items INTEGER NOT NULL DEFAULT 0,
+  format_breakdown TEXT,
+  resolution_breakdown TEXT,
+  hdr_breakdown TEXT,
+  genre_breakdown TEXT,
+  decade_breakdown TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Trakt indexes:
+
+```sql
+CREATE INDEX idx_trakt_tokens_user_id ON trakt_tokens(user_id);
+CREATE INDEX idx_trakt_collection_user_id ON trakt_collection(user_id);
+CREATE INDEX idx_trakt_collection_trakt_id ON trakt_collection(trakt_id);
+CREATE INDEX idx_trakt_collection_tmdb_id ON trakt_collection(tmdb_id);
+CREATE INDEX idx_trakt_collection_media_type ON trakt_collection(media_type);
+CREATE INDEX idx_trakt_collection_format ON trakt_collection(format);
+CREATE INDEX idx_trakt_collection_collected_at ON trakt_collection(collected_at);
+CREATE INDEX idx_trakt_collection_stats_user_id ON trakt_collection_stats(user_id);
+```
+
 ## Drizzle Schema Pattern
 
 Each SQL table maps to a Drizzle `sqliteTable` definition in the corresponding schema file. Example mapping for `lastfm_artists`:
@@ -841,8 +901,13 @@ Schema changes are made in the Drizzle schema files, then `npm run db:generate` 
 | Running (Strava)     | Cron + Webhook | Daily 4 AM catch-up + real-time webhook on activity create/update | Incremental since last synced activity                             | 200 req/15min, 2000 req/day |
 | Watching (Plex)      | Webhook + Cron | Real-time scrobble webhook + daily 5 AM library scan              | Webhook-driven for watch events, cron catch-up for library changes | ~50 req/sec (TMDB)          |
 | Collecting (Discogs) | Cron           | Weekly, Sunday 6 AM                                               | Full collection sync (replace all)                                 | 60 req/min                  |
+| Collecting (Trakt)   | Cron           | Weekly, Sunday 3 AM                                               | Full collection sync with write-through                            | 1000 req/5min               |
 
 Each sync run is recorded in the `sync_runs` table with status (`running`, `completed`, `failed`), item count, duration, and any error message. The `/v1/health/sync` endpoint exposes the most recent sync run per domain for monitoring.
+
+### Trakt Sync Flow
+
+Trakt syncs the physical media collection (Blu-ray, 4K UHD, HD-DVD) weekly on Sunday at 3 AM UTC. The sync fetches the full collection via `GET /users/{username}/collection/movies`, compares with local data, and inserts or updates items. Items removed from Trakt are soft-deleted locally. Write-through mode means items added or removed via admin endpoints are also pushed back to Trakt in real-time. Cross-references with the watching domain use `tmdb_id` to link owned media with watch history.
 
 ## Image Pipeline
 
@@ -917,6 +982,8 @@ During automatic sync/pipeline runs, images with `is_override = 1` are skipped. 
 | `LETTERBOXD_USERNAME`         | Watching   | Letterboxd username for RSS feed sync                                                               |
 | `DISCOGS_PERSONAL_TOKEN`      | Collecting | Discogs personal access token for collection and wantlist access                                    |
 | `DISCOGS_USERNAME`            | Collecting | Discogs account username (`patdugan`) to query collection for                                       |
+| `TRAKT_CLIENT_ID`             | Collecting | Trakt OAuth2 application client ID for device code and token exchange                               |
+| `TRAKT_CLIENT_SECRET`         | Collecting | Trakt OAuth2 application client secret for token exchange                                           |
 | `APPLE_MUSIC_DEVELOPER_TOKEN` | Images     | Apple Music API JWT for artist and album artwork lookups                                            |
 | `FANART_TV_API_KEY`           | Images     | Fanart.tv project API key for high-quality artist images                                            |
 

@@ -30,6 +30,10 @@ export interface Env {
   DISCOGS_PERSONAL_TOKEN: string;
   DISCOGS_USERNAME: string;
 
+  // Trakt
+  TRAKT_CLIENT_ID: string;
+  TRAKT_CLIENT_SECRET: string;
+
   // Images
   APPLE_MUSIC_DEVELOPER_TOKEN: string;
   FANART_TV_API_KEY: string;

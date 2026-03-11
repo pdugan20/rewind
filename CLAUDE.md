@@ -21,7 +21,7 @@ npm test             # Vitest
 
 Hono on Cloudflare Workers with D1 (SQLite) for structured data, R2 for image storage, and Cloudflare Images for on-the-fly transforms. Drizzle ORM for type-safe database access. Hono RPC for end-to-end type inference with consuming clients. All routes prefixed with `/v1/`. API key authentication on all endpoints (Bearer token). Multi-user ready (`user_id` on all tables).
 
-Four data domains: listening (Last.fm), running (Strava), watching (Plex + Letterboxd + manual), collecting (Discogs). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
+Four data domains: listening (Last.fm), running (Strava), watching (Plex + Letterboxd + manual), collecting (Discogs + Trakt). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
 
 ## Project Structure
 
@@ -53,6 +53,7 @@ src/
     letterboxd/            -- Letterboxd RSS feed parser, sync
     watching/              -- Shared TMDB client for all watching sources
     discogs/               -- Discogs API client, transforms, cross-ref, sync
+    trakt/                 -- Trakt OAuth, API client, sync
     images/                -- Image pipeline (sources, storage, thumbhash, color extraction)
   lib/
     auth.ts                -- API key authentication middleware (Bearer token)
@@ -94,6 +95,8 @@ docs/                      -- Project documentation
 | `LETTERBOXD_USERNAME`         | Watching   | Letterboxd username for RSS feed sync                                       |
 | `DISCOGS_PERSONAL_TOKEN`      | Collecting | Discogs personal access token                                               |
 | `DISCOGS_USERNAME`            | Collecting | Discogs username (patdugan)                                                 |
+| `TRAKT_CLIENT_ID`             | Collecting | Trakt OAuth app client ID                                                   |
+| `TRAKT_CLIENT_SECRET`         | Collecting | Trakt OAuth app client secret                                               |
 | `APPLE_MUSIC_DEVELOPER_TOKEN` | Images     | Apple Music JWT                                                             |
 | `FANART_TV_API_KEY`           | Images     | Fanart.tv project API key                                                   |
 
