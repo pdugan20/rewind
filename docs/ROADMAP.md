@@ -665,10 +665,10 @@
 - [x] **8.7.4** Add User-Agent header to Trakt client and auth to fix Cloudflare-to-Cloudflare WAF blocking
 - [x] **8.7.5** Wire image pipeline (runPipeline) into POST /admin/collecting/media so images process inline on add
 - [x] **8.7.6** Deploy and verify Trakt sync works from production Worker
-- [ ] **8.7.7** Catalog physical media collection via POST /v1/admin/collecting/media (Blu-ray, 4K UHD, HD-DVD)
-- [ ] **8.7.8** Verify collection syncs from Trakt and appears in GET /collecting/media
-- [ ] **8.7.9** Verify cross-reference with watching domain (owned vs watched)
-- [ ] **8.7.10** Verify poster images processed for collection items
+- [x] **8.7.7** Catalog physical media collection via POST /v1/admin/collecting/media -- 88 items (49 Blu-ray, 28 UHD, 11 HD-DVD)
+- [x] **8.7.8** Verify collection syncs from Trakt and appears in GET /collecting/media -- sync round-trips correctly, UHD detection via resolution=uhd_4k
+- [x] **8.7.9** Verify cross-reference with watching domain (owned vs watched) -- join works, shows watch_count and last_watched
+- [x] **8.7.10** Verify poster images processed for collection items -- thumbhash, dominant_color, accent_color all populated inline on add
 
 **8.8 -- Documentation**
 
@@ -676,4 +676,4 @@
 - [x] **8.8.2** Update docs/ARCHITECTURE.md with Trakt sync flow and schema
 - [x] **8.8.3** Update docs/API.md with new /collecting/media endpoints
 - [x] **8.8.4** Update docs/domains/collecting.md with physical media domain details
-- [ ] **8.8.5** Update docs/domains/images.md if image pipeline changes are needed
+- ~~**8.8.5** Update docs/domains/images.md if image pipeline changes are needed~~ (no changes needed -- existing pipeline handles collecting/media via TMDb poster source)
