@@ -37,7 +37,7 @@ async function dbRun(sql: string, ...params: unknown[]) {
 
 describe('collecting routes', () => {
   beforeAll(async () => {
-    const migrations = (env as Record<string, unknown>).TEST_MIGRATIONS;
+    const migrations = testEnv.TEST_MIGRATIONS;
     if (Array.isArray(migrations)) {
       await applyD1Migrations(testEnv.DB, migrations);
     }
