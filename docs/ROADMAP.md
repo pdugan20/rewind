@@ -199,12 +199,26 @@
 - [x] **2.5.6** Implement image_version increment and CDN cache busting
 - [x] **2.5.7** Write tests for override endpoints
 
-**2.6 -- Integration**
+**2.6 -- Integration (Listening)**
 
 - [x] **2.6.1** Backfill images for existing Last.fm albums (from Phase 1)
 - [x] **2.6.2** Backfill images for existing Last.fm artists
 - ~~**2.6.3** Verify CDN delivery and transforms in production~~ (moved to Phase 6.5)
 - [x] **2.6.4** Create default placeholder image in R2
+
+**2.7 -- Integration (Watching)**
+
+- [x] **2.7.1** Update watching routes to join against images table and return thumbhash, dominant_color, accent_color for movies
+- [x] **2.7.2** Update watching routes to join against images table and return thumbhash, dominant_color, accent_color for TV shows
+- [x] **2.7.3** Backfill images for existing movies (run pipeline for all movies with poster_path)
+- [x] **2.7.4** Backfill images for existing TV shows (run pipeline for all shows with poster_path)
+- [x] **2.7.5** Verify movie and show images served correctly via cdn.rewind.rest
+
+**2.8 -- Integration (Collecting)**
+
+- [ ] **2.8.1** Update collecting routes to join against images table and return thumbhash, dominant_color, accent_color for releases
+- [ ] **2.8.2** Backfill images for existing Discogs releases
+- [ ] **2.8.3** Verify release images served correctly via cdn.rewind.rest
 
 ## Phase 3: Running (Strava)
 
@@ -375,6 +389,13 @@
 - [x] **4.7.5** GET /v1/watching/shows/:id/seasons/:season
 - [x] **4.7.6** Wire show webhook events (media.scrobble for episodes)
 - [x] **4.7.7** Write tests for TV show endpoints
+- [x] **4.7.8** Add poster_path, backdrop_path, content_rating, tmdb_rating columns to plex_shows schema
+- [x] **4.7.9** Generate and apply migration for new plex_shows columns
+- [x] **4.7.10** Store poster_path, year, backdrop_path, content_rating, tmdb_rating from TMDB during library sync (plex/sync.ts)
+- [x] **4.7.11** Store same fields during webhook upsert (plex/webhook.ts upsertShowFromPlex)
+- [x] **4.7.12** Update watching routes to return actual poster_url from stored poster_path instead of null
+- [x] **4.7.13** Add TV episode counts and watch time to computeWatchStats
+- [x] **4.7.14** Update tests for TV show schema and sync changes
 
 **4.8 -- Letterboxd Sync**
 
@@ -521,18 +542,19 @@
 
 - [x] **6.5.2.1** Create scripts/import-strava.ts (paginated fetch, detail + laps per activity, rate limit monitoring, checkpoint/resume, D1 batch insert)
 - [x] **6.5.2.2** Create scripts/import-letterboxd.ts (one-time CSV import for full diary history)
+- [x] **6.5.2.3** Create scripts/import-lastfm.ts (batched SQL, checkpoint/resume, filter application)
 
 **6.5.3 -- Initial Data Imports**
 
-- [ ] **6.5.3.1** Run Last.fm historical backfill (~124K scrobbles)
-- [ ] **6.5.3.2** Run Strava bulk import (~1800 activities)
-- [ ] **6.5.3.3** Run Plex library import
-- [ ] **6.5.3.4** Run Letterboxd CSV import
+- [x] **6.5.3.1** Run Last.fm historical backfill (~124K scrobbles) -- 123,793 imported
+- [ ] **6.5.3.2** Run Strava bulk import (~1347 activities) -- in progress, ~817/1347
+- [x] **6.5.3.3** Run Plex library import (368 movies, 1582 TV episodes) -- 400 movies, 98 shows, 1569 episodes imported. All images backfilled to R2.
+- [ ] **6.5.3.4** Run Letterboxd CSV import -- requires user's diary.csv export
 - [ ] **6.5.3.5** Run Discogs collection import (last -- cross-refs against Last.fm data)
 
 **6.5.4 -- Webhooks**
 
-- [ ] **6.5.4.1** Register Strava webhook subscription
+- [x] **6.5.4.1** Register Strava webhook subscription (ID: 334423)
 - [ ] **6.5.4.2** Configure Plex webhook URL in Plex settings
 
 **6.5.5 -- Production Verification**

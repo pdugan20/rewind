@@ -22,7 +22,7 @@ binding = "IMAGES"
 bucket_name = "rewind-images"
 
 # Cron Triggers
-# Cron Triggers (free plan limit: 5)
+# Cron Triggers
 [triggers]
 crons = [
   "*/15 * * * *",   # Every 15 min: Last.fm scrobble sync

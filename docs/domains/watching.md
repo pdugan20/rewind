@@ -256,6 +256,7 @@ All endpoints require `Authorization: Bearer rw_...` header.
 | POST   | /v1/admin/watching/movies              | Log a movie watch event (admin)   | --     | tmdb_id or title+year, watched_at, rating               |
 | PUT    | /v1/admin/watching/movies/:id          | Edit a watch event (admin)        | --     | watched_at, rating                                      |
 | DELETE | /v1/admin/watching/movies/:id          | Remove a watch event (admin)      | --     | none                                                    |
+| POST   | /v1/admin/watching/backfill-images     | Backfill R2 images for entities   | --     | type (movies/shows/all), limit                          |
 
 All tables include `user_id` for multi-user support (default 1).
 
@@ -267,15 +268,20 @@ interface Movie {
   title: string;
   year: number;
   director: string;
+  directors: string[];
   genres: string[];
   duration_min: number;
   rating: string;
   poster_url: string | null;
+  backdrop_url: string | null;
   thumbhash: string | null;
   dominant_color: string | null;
   accent_color: string | null;
   imdb_id: string | null;
   tmdb_id: number | null;
+  tmdb_rating: number | null;
+  tagline: string | null;
+  summary: string | null;
 }
 
 interface WatchEvent {
@@ -295,6 +301,9 @@ interface WatchingStats {
   top_genre: string;
   top_decade: number;
   top_director: string;
+  total_shows: number;
+  total_episodes_watched: number;
+  episodes_this_year: number;
 }
 
 interface GenreBreakdown {
@@ -308,7 +317,11 @@ interface Show {
   title: string;
   year: number;
   tmdb_id: number | null;
+  tmdb_rating: number | null;
+  content_rating: string | null;
+  summary: string | null;
   poster_url: string | null;
+  backdrop_url: string | null;
   thumbhash: string | null;
   dominant_color: string | null;
   accent_color: string | null;
@@ -343,16 +356,27 @@ Required attribution for any project using the TMDB API:
 | TMDB_API_KEY        | TMDB v4 read access token                        |
 | LETTERBOXD_USERNAME | Letterboxd username for RSS feed URL             |
 
+## Image Pipeline Integration
+
+Movie and TV show posters are served via the R2 image pipeline at `cdn.rewind.rest`. The pipeline is lazy -- images are fetched and processed on first request to `/v1/images/watching/movies/:id/:size` or `/v1/images/watching/shows/:id/:size`.
+
+Source priority for movies: TMDB -> FanartTV -> Plex.
+Source priority for shows: TMDB -> FanartTV -> Plex.
+
+Image overrides are supported via admin endpoints for manually selecting alternative artwork.
+
+All watching routes return `thumbhash`, `dominant_color`, and `accent_color` from the images table (joined via domain + entity_type + entity_id).
+
 ## Known Issues
 
 - Plex webhooks require Plex Pass (paid)
 - Plex webhook payloads are multipart/form-data, not JSON -- needs special parsing
 - Duration in Plex is milliseconds, in TMDB is minutes
 - TMDB search may return wrong movie for ambiguous titles
-- Plex server must be accessible from cloud for initial library scan (or use local sync script)
-- TV show tracking is included in Phase 4 for the watching domain
+- Plex server must be accessible from cloud for library scan -- use plex.direct HTTPS URL with public IP (e.g., `https://1-2-3-4.{cert_hash}.plex.direct:port`)
 - Plex webhook URL must be publicly accessible (Plex cloud relay sends the webhook)
 - Letterboxd RSS feed only returns last 50 entries -- use CSV import for full history
 - Letterboxd official API is invite-only and does not approve personal projects
 - Letterboxd ratings are 0.5-5.0 scale (half stars) vs TMDB 0-10 scale
 - Dedup relies on TMDB ID matching -- movies without TMDB IDs may create duplicates
+- Worker subrequest limit (1000 on paid plan) requires batching during Plex library sync -- capped at 150 new items per domain per run

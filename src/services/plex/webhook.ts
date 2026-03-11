@@ -429,6 +429,11 @@ async function upsertShowFromPlex(
   let tmdbId: number | null = null;
   let showTitle = metadata.grandparentTitle || metadata.title;
   let summary: string | null = null;
+  let posterPath: string | null = null;
+  let backdropPath: string | null = null;
+  let contentRating: string | null = metadata.contentRating || null;
+  let tmdbRating: number | null = null;
+  let year: number | null = null;
   let totalSeasons: number | null = null;
   let totalEpisodes: number | null = null;
 
@@ -441,6 +446,11 @@ async function upsertShowFromPlex(
       const tvDetail = await tmdbClient.getTvShowDetail(tmdbId);
       showTitle = tvDetail.title;
       summary = tvDetail.summary;
+      posterPath = tvDetail.posterPath;
+      backdropPath = tvDetail.backdropPath;
+      contentRating = tvDetail.contentRating || contentRating;
+      tmdbRating = tvDetail.tmdbRating;
+      year = tvDetail.year;
       totalSeasons = tvDetail.totalSeasons;
       totalEpisodes = tvDetail.totalEpisodes;
     } catch (error) {
@@ -455,8 +465,13 @@ async function upsertShowFromPlex(
     .values({
       plexRatingKey: showRatingKey,
       title: showTitle,
+      year,
       tmdbId,
       summary,
+      posterPath,
+      backdropPath,
+      contentRating,
+      tmdbRating,
       totalSeasons,
       totalEpisodes,
     })

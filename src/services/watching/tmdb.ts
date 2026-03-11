@@ -71,6 +71,11 @@ interface TmdbTvDetail {
   first_air_date?: string;
   overview?: string;
   poster_path?: string | null;
+  backdrop_path?: string | null;
+  vote_average?: number;
+  content_ratings?: {
+    results?: { iso_3166_1: string; rating: string }[];
+  };
   number_of_seasons?: number;
   number_of_episodes?: number;
 }
@@ -81,6 +86,9 @@ export interface TmdbShowDetail {
   year: number | null;
   summary: string | null;
   posterPath: string | null;
+  backdropPath: string | null;
+  contentRating: string | null;
+  tmdbRating: number | null;
   totalSeasons: number;
   totalEpisodes: number;
 }
@@ -157,7 +165,15 @@ export class TmdbClient {
   }
 
   async getTvShowDetail(tmdbId: number): Promise<TmdbShowDetail> {
-    const raw = await this.request<TmdbTvDetail>(`/tv/${tmdbId}`);
+    const params = new URLSearchParams({
+      append_to_response: 'content_ratings',
+    });
+    const raw = await this.request<TmdbTvDetail>(`/tv/${tmdbId}`, params);
+
+    const usRating = (raw.content_ratings?.results || []).find(
+      (r) => r.iso_3166_1 === 'US'
+    );
+
     return {
       id: raw.id,
       title: raw.name,
@@ -166,6 +182,9 @@ export class TmdbClient {
         : null,
       summary: raw.overview || null,
       posterPath: raw.poster_path || null,
+      backdropPath: raw.backdrop_path || null,
+      contentRating: usRating?.rating || null,
+      tmdbRating: raw.vote_average || null,
       totalSeasons: raw.number_of_seasons || 0,
       totalEpisodes: raw.number_of_episodes || 0,
     };

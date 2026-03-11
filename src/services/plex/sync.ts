@@ -134,12 +134,22 @@ async function syncMovies(
   db: Database,
   plexClient: PlexApiClient,
   tmdbClient: TmdbClient,
-  sectionKey: string
+  sectionKey: string,
+  maxNewItems: number = 0
 ): Promise<number> {
   const watchedItems = await plexClient.getWatchedItems(sectionKey, 'movie');
   let synced = 0;
+  let newItemsProcessed = 0;
 
   for (const item of watchedItems) {
+    // Respect batch limit to stay within subrequest limits
+    if (maxNewItems > 0 && newItemsProcessed >= maxNewItems) {
+      console.log(
+        `[SYNC] Movie batch limit reached (${maxNewItems}), stopping. ${synced} synced this run.`
+      );
+      break;
+    }
+
     // Check if already tracked by plex_rating_key
     const existing = await db
       .select({ id: movies.id })
@@ -159,6 +169,8 @@ async function syncMovies(
         continue; // Already have this watch recorded
       }
     }
+
+    newItemsProcessed++;
 
     // Get detailed metadata with Guids
     const detail = await plexClient.getItemDetail(item.ratingKey);
@@ -221,68 +233,120 @@ async function syncShows(
   db: Database,
   plexClient: PlexApiClient,
   tmdbClient: TmdbClient,
-  sectionKey: string
+  sectionKey: string,
+  maxNewItems: number = 0
 ): Promise<number> {
   const sections = await plexClient.getWatchedItems(sectionKey, 'show');
   let synced = 0;
+  let newItemsProcessed = 0;
+  let episodesProcessed = 0;
+
+  // Cap total episode iterations to avoid exhausting D1 query budget.
+  // Paid plan allows many more queries per request.
+  const maxEpisodes = 1600;
+
+  // Cache show lookups to reduce DB queries
+  const showCache = new Map<string, number>();
 
   // For TV shows, we need to get the show-level items and then episodes
   // The watched items endpoint with type=4 returns episodes directly
   for (const episode of sections) {
     if (!episode.grandparentRatingKey) continue;
 
-    // Upsert show
-    let showId: number;
-    const existingShow = await db
-      .select({ id: plexShows.id })
-      .from(plexShows)
-      .where(eq(plexShows.plexRatingKey, episode.grandparentRatingKey))
-      .limit(1);
-
-    if (existingShow.length > 0) {
-      showId = existingShow[0].id;
-    } else {
-      // Get show details
-      const showDetail = await plexClient.getItemDetail(
-        episode.grandparentRatingKey
+    // Respect episode processing limit for D1 query budget
+    if (episodesProcessed >= maxEpisodes) {
+      console.log(
+        `[SYNC] Episode processing limit reached (${maxEpisodes}), stopping. ${synced} synced this run.`
       );
+      break;
+    }
 
-      let tmdbId: number | null = null;
-      let summary: string | null = null;
-      let totalSeasons: number | null = null;
-      let totalEpisodes: number | null = null;
+    // Respect batch limit to stay within subrequest limits
+    if (maxNewItems > 0 && newItemsProcessed >= maxNewItems) {
+      console.log(
+        `[SYNC] Show batch limit reached (${maxNewItems}), stopping. ${synced} synced this run.`
+      );
+      break;
+    }
 
-      if (showDetail?.Guid) {
-        const rawTmdbId = resolveTmdbId(showDetail.Guid, tmdbClient);
-        tmdbId = await rawTmdbId;
-      }
+    episodesProcessed++;
 
-      if (tmdbId) {
-        try {
-          const tvDetail = await tmdbClient.getTvShowDetail(tmdbId);
-          summary = tvDetail.summary;
-          totalSeasons = tvDetail.totalSeasons;
-          totalEpisodes = tvDetail.totalEpisodes;
-        } catch (error) {
-          console.log(
-            `[ERROR] TMDB TV enrichment failed: ${error instanceof Error ? error.message : String(error)}`
-          );
+    // Upsert show (with in-memory cache to avoid repeated DB lookups)
+    let showId: number;
+    const cachedShowId = showCache.get(episode.grandparentRatingKey);
+
+    if (cachedShowId !== undefined) {
+      showId = cachedShowId;
+    } else {
+      const existingShow = await db
+        .select({ id: plexShows.id })
+        .from(plexShows)
+        .where(eq(plexShows.plexRatingKey, episode.grandparentRatingKey))
+        .limit(1);
+
+      if (existingShow.length > 0) {
+        showId = existingShow[0].id;
+        showCache.set(episode.grandparentRatingKey, showId);
+      } else {
+        newItemsProcessed++;
+        // Get show details
+        const showDetail = await plexClient.getItemDetail(
+          episode.grandparentRatingKey
+        );
+
+        let tmdbId: number | null = null;
+        let summary: string | null = null;
+        let posterPath: string | null = null;
+        let backdropPath: string | null = null;
+        let contentRating: string | null = showDetail?.contentRating || null;
+        let tmdbRating: number | null = null;
+        let year: number | null = showDetail?.year || null;
+        let totalSeasons: number | null = null;
+        let totalEpisodes: number | null = null;
+
+        if (showDetail?.Guid) {
+          const rawTmdbId = resolveTmdbId(showDetail.Guid, tmdbClient);
+          tmdbId = await rawTmdbId;
         }
+
+        if (tmdbId) {
+          try {
+            const tvDetail = await tmdbClient.getTvShowDetail(tmdbId);
+            summary = tvDetail.summary;
+            posterPath = tvDetail.posterPath;
+            backdropPath = tvDetail.backdropPath;
+            contentRating = tvDetail.contentRating || contentRating;
+            tmdbRating = tvDetail.tmdbRating;
+            year = tvDetail.year || year;
+            totalSeasons = tvDetail.totalSeasons;
+            totalEpisodes = tvDetail.totalEpisodes;
+          } catch (error) {
+            console.log(
+              `[ERROR] TMDB TV enrichment failed: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        }
+
+        const [inserted] = await db
+          .insert(plexShows)
+          .values({
+            plexRatingKey: episode.grandparentRatingKey,
+            title: episode.grandparentTitle || episode.title,
+            year,
+            tmdbId,
+            summary,
+            posterPath,
+            backdropPath,
+            contentRating,
+            tmdbRating,
+            totalSeasons,
+            totalEpisodes,
+          })
+          .returning({ id: plexShows.id });
+
+        showId = inserted.id;
+        showCache.set(episode.grandparentRatingKey, showId);
       }
-
-      const [inserted] = await db
-        .insert(plexShows)
-        .values({
-          plexRatingKey: episode.grandparentRatingKey,
-          title: episode.grandparentTitle || episode.title,
-          tmdbId,
-          summary,
-          totalSeasons,
-          totalEpisodes,
-        })
-        .returning({ id: plexShows.id });
-
-      showId = inserted.id;
     }
 
     // Insert episode watch
@@ -332,6 +396,22 @@ export async function computeWatchStats(db: Database): Promise<void> {
       sql`substr(${watchHistory.watchedAt}, 1, 4) = ${String(currentYear)}`
     );
 
+  // TV stats
+  const [totalShowsResult] = await db
+    .select({ total: count() })
+    .from(plexShows);
+
+  const [totalEpisodesResult] = await db
+    .select({ total: count() })
+    .from(plexEpisodesWatched);
+
+  const [episodesThisYearResult] = await db
+    .select({ total: count() })
+    .from(plexEpisodesWatched)
+    .where(
+      sql`substr(${plexEpisodesWatched.watchedAt}, 1, 4) = ${String(currentYear)}`
+    );
+
   // Upsert stats
   const existing = await db
     .select({ id: watchStats.id })
@@ -343,6 +423,9 @@ export async function computeWatchStats(db: Database): Promise<void> {
     totalMovies: totalResult?.total || 0,
     totalWatchTimeS: watchTimeResult?.totalTime || 0,
     moviesThisYear: thisYearResult?.total || 0,
+    totalShows: totalShowsResult?.total || 0,
+    totalEpisodesWatched: totalEpisodesResult?.total || 0,
+    episodesThisYear: episodesThisYearResult?.total || 0,
     updatedAt: new Date().toISOString(),
   };
 
@@ -365,7 +448,8 @@ export async function syncWatching(
     PLEX_URL: string;
     PLEX_TOKEN: string;
     TMDB_API_KEY: string;
-  }
+  },
+  options: { maxNewItems?: number } = {}
 ): Promise<{ moviesSynced: number; showsSynced: number }> {
   const startedAt = new Date().toISOString();
 
@@ -389,12 +473,30 @@ export async function syncWatching(
     let moviesSynced = 0;
     let showsSynced = 0;
 
+    // Batch limit per domain to stay within Workers subrequest limits.
+    // Paid plan: 1000 subrequests total. ~3 used for section/list calls.
+    // Each new item needs ~3 subrequests (Plex detail + TMDB resolve + TMDB detail).
+    // Default 150 per domain = ~900 subrequests + ~3 base, safely under 1000.
+    const maxNew = options.maxNewItems ?? 150;
+
     for (const section of sections) {
       if (section.type === 'movie') {
-        const count = await syncMovies(db, plexClient, tmdbClient, section.key);
+        const count = await syncMovies(
+          db,
+          plexClient,
+          tmdbClient,
+          section.key,
+          maxNew
+        );
         moviesSynced += count;
       } else if (section.type === 'show') {
-        const count = await syncShows(db, plexClient, tmdbClient, section.key);
+        const count = await syncShows(
+          db,
+          plexClient,
+          tmdbClient,
+          section.key,
+          maxNew
+        );
         showsSynced += count;
       }
     }

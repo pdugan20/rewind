@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "3cfacbf2-9860-4bcb-b8b2-5eaaa7669cf8",
-  "prevId": "2e9d65a0-2855-4556-8c45-cba8524f1cb7",
+  "prevId": "a0225b4a-36b9-40bf-b916-f09ecd89347d",
   "tables": {
     "collection_listening_xref": {
       "name": "collection_listening_xref",

@@ -114,6 +114,11 @@ export const watchStats = sqliteTable(
     totalMovies: integer('total_movies').notNull().default(0),
     totalWatchTimeS: integer('total_watch_time_s').notNull().default(0),
     moviesThisYear: integer('movies_this_year').notNull().default(0),
+    totalShows: integer('total_shows').notNull().default(0),
+    totalEpisodesWatched: integer('total_episodes_watched')
+      .notNull()
+      .default(0),
+    episodesThisYear: integer('episodes_this_year').notNull().default(0),
     updatedAt: text('updated_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -131,6 +136,10 @@ export const plexShows = sqliteTable(
     year: integer('year'),
     tmdbId: integer('tmdb_id'),
     summary: text('summary'),
+    posterPath: text('poster_path'),
+    backdropPath: text('backdrop_path'),
+    contentRating: text('content_rating'),
+    tmdbRating: real('tmdb_rating'),
     imageKey: text('image_key'),
     totalSeasons: integer('total_seasons'),
     totalEpisodes: integer('total_episodes'),

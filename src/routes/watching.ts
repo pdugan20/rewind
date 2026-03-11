@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, sql, desc, asc, and, count } from 'drizzle-orm';
+import { eq, sql, desc, asc, and, count, inArray } from 'drizzle-orm';
 import type { Env } from '../types/env.js';
 import { createDb } from '../db/client.js';
 import { setCache } from '../lib/cache.js';
@@ -15,14 +15,94 @@ import {
   plexShows,
   plexEpisodesWatched,
 } from '../db/schema/watching.js';
+import { images } from '../db/schema/system.js';
 import { syncWatching, computeWatchStats } from '../services/plex/sync.js';
 import { syncLetterboxd } from '../services/letterboxd/sync.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
 import { upsertGenres, upsertDirectors } from '../services/plex/webhook.js';
+import { backfillImages } from '../services/images/backfill.js';
+import type { BackfillItem } from '../services/images/backfill.js';
 
 const watching = new Hono<{ Bindings: Env }>();
 
 // ─── Helper functions ────────────────────────────────────────────────
+
+type Database = ReturnType<typeof createDb>;
+
+interface ImageMeta {
+  thumbhash: string | null;
+  dominant_color: string | null;
+  accent_color: string | null;
+}
+
+const EMPTY_IMAGE_META: ImageMeta = {
+  thumbhash: null,
+  dominant_color: null,
+  accent_color: null,
+};
+
+async function getImageMeta(
+  db: Database,
+  entityType: string,
+  entityId: string
+): Promise<ImageMeta> {
+  const [row] = await db
+    .select({
+      thumbhash: images.thumbhash,
+      dominantColor: images.dominantColor,
+      accentColor: images.accentColor,
+    })
+    .from(images)
+    .where(
+      and(
+        eq(images.domain, 'watching'),
+        eq(images.entityType, entityType),
+        eq(images.entityId, entityId)
+      )
+    )
+    .limit(1);
+
+  if (!row) return EMPTY_IMAGE_META;
+  return {
+    thumbhash: row.thumbhash,
+    dominant_color: row.dominantColor,
+    accent_color: row.accentColor,
+  };
+}
+
+async function getImageMetaBatch(
+  db: Database,
+  entityType: string,
+  entityIds: string[]
+): Promise<Map<string, ImageMeta>> {
+  if (entityIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      entityId: images.entityId,
+      thumbhash: images.thumbhash,
+      dominantColor: images.dominantColor,
+      accentColor: images.accentColor,
+    })
+    .from(images)
+    .where(
+      and(
+        eq(images.domain, 'watching'),
+        eq(images.entityType, entityType),
+        inArray(images.entityId, entityIds)
+      )
+    );
+
+  const map = new Map<string, ImageMeta>();
+  for (const row of rows) {
+    map.set(row.entityId, {
+      thumbhash: row.thumbhash,
+      dominant_color: row.dominantColor,
+      accent_color: row.accentColor,
+    });
+  }
+  return map;
+}
 
 function paginate(page: number, limit: number, total: number) {
   return {
@@ -33,7 +113,7 @@ function paginate(page: number, limit: number, total: number) {
   };
 }
 
-function getMovieDirectors(db: ReturnType<typeof createDb>, movieId: number) {
+function getMovieDirectors(db: Database, movieId: number) {
   return db
     .select({ name: directors.name })
     .from(movieDirectors)
@@ -41,7 +121,7 @@ function getMovieDirectors(db: ReturnType<typeof createDb>, movieId: number) {
     .where(eq(movieDirectors.movieId, movieId));
 }
 
-function getMovieGenres(db: ReturnType<typeof createDb>, movieId: number) {
+function getMovieGenres(db: Database, movieId: number) {
   return db
     .select({ name: genres.name })
     .from(movieGenres)
@@ -67,7 +147,8 @@ interface MovieRow {
 function formatMovie(
   movie: MovieRow,
   genreNames: string[],
-  directorNames: string[]
+  directorNames: string[],
+  imageMeta: ImageMeta = EMPTY_IMAGE_META
 ) {
   return {
     id: movie.id,
@@ -81,9 +162,9 @@ function formatMovie(
     poster_url: movie.posterPath
       ? `https://image.tmdb.org/t/p/w500${movie.posterPath}`
       : null,
-    thumbhash: null,
-    dominant_color: null,
-    accent_color: null,
+    thumbhash: imageMeta.thumbhash,
+    dominant_color: imageMeta.dominant_color,
+    accent_color: imageMeta.accent_color,
     imdb_id: movie.imdbId,
     tmdb_id: movie.tmdbId,
     tmdb_rating: movie.tmdbRating,
@@ -128,6 +209,9 @@ watching.get('/recent', async (c) => {
     .orderBy(desc(watchHistory.watchedAt))
     .limit(limit);
 
+  const movieIds = recentWatches.map((w) => String(w.movieId));
+  const imageMap = await getImageMetaBatch(db, 'movies', movieIds);
+
   const data = await Promise.all(
     recentWatches.map(async (w) => {
       const genreRows = await getMovieGenres(db, w.movieId);
@@ -149,7 +233,8 @@ watching.get('/recent', async (c) => {
             backdropPath: w.backdropPath,
           },
           genreRows.map((g) => g.name),
-          directorRows.map((d) => d.name)
+          directorRows.map((d) => d.name),
+          imageMap.get(String(w.movieId)) || EMPTY_IMAGE_META
         ),
         watched_at: w.watchedAt,
         source: w.source,
@@ -243,6 +328,9 @@ watching.get('/movies', async (c) => {
     .limit(limit)
     .offset(offset);
 
+  const movieIds = movieRows.map((m) => String(m.id));
+  const imageMap = await getImageMetaBatch(db, 'movies', movieIds);
+
   const data = await Promise.all(
     movieRows.map(async (m) => {
       const genreRows = await getMovieGenres(db, m.id);
@@ -250,7 +338,8 @@ watching.get('/movies', async (c) => {
       return formatMovie(
         m,
         genreRows.map((g) => g.name),
-        directorRows.map((d) => d.name)
+        directorRows.map((d) => d.name),
+        imageMap.get(String(m.id)) || EMPTY_IMAGE_META
       );
     })
   );
@@ -282,8 +371,11 @@ watching.get('/movies/:id', async (c) => {
     return notFound(c, 'Movie not found');
   }
 
-  const genreRows = await getMovieGenres(db, id);
-  const directorRows = await getMovieDirectors(db, id);
+  const [genreRows, directorRows, imageMeta] = await Promise.all([
+    getMovieGenres(db, id),
+    getMovieDirectors(db, id),
+    getImageMeta(db, 'movies', String(id)),
+  ]);
 
   // Get watch history for this movie
   const history = await db
@@ -296,7 +388,8 @@ watching.get('/movies/:id', async (c) => {
     ...formatMovie(
       movie,
       genreRows.map((g) => g.name),
-      directorRows.map((d) => d.name)
+      directorRows.map((d) => d.name),
+      imageMeta
     ),
     watch_history: history.map((h) => ({
       id: h.id,
@@ -330,6 +423,9 @@ watching.get('/stats', async (c) => {
       top_genre: null,
       top_decade: null,
       top_director: null,
+      total_shows: 0,
+      total_episodes_watched: 0,
+      episodes_this_year: 0,
     });
   }
 
@@ -396,6 +492,9 @@ watching.get('/stats', async (c) => {
     top_genre: topGenre?.name || null,
     top_decade: topDecade?.decade || null,
     top_director: topDirector?.name || null,
+    total_shows: stats.totalShows,
+    total_episodes_watched: stats.totalEpisodesWatched,
+    episodes_this_year: stats.episodesThisYear,
   });
 });
 
@@ -570,6 +669,9 @@ watching.get('/shows', async (c) => {
     .limit(limit)
     .offset(offset);
 
+  const showIds = showRows.map((s) => String(s.id));
+  const imageMap = await getImageMetaBatch(db, 'shows', showIds);
+
   const data = await Promise.all(
     showRows.map(async (show) => {
       const [epCount] = await db
@@ -577,15 +679,24 @@ watching.get('/shows', async (c) => {
         .from(plexEpisodesWatched)
         .where(eq(plexEpisodesWatched.showId, show.id));
 
+      const img = imageMap.get(String(show.id)) || EMPTY_IMAGE_META;
       return {
         id: show.id,
         title: show.title,
         year: show.year,
         tmdb_id: show.tmdbId,
-        poster_url: null,
-        thumbhash: null,
-        dominant_color: null,
-        accent_color: null,
+        tmdb_rating: show.tmdbRating,
+        content_rating: show.contentRating,
+        summary: show.summary,
+        poster_url: show.posterPath
+          ? `https://image.tmdb.org/t/p/w500${show.posterPath}`
+          : null,
+        backdrop_url: show.backdropPath
+          ? `https://image.tmdb.org/t/p/w780${show.backdropPath}`
+          : null,
+        thumbhash: img.thumbhash,
+        dominant_color: img.dominant_color,
+        accent_color: img.accent_color,
         total_seasons: show.totalSeasons,
         total_episodes: show.totalEpisodes,
         episodes_watched: epCount?.total || 0,
@@ -620,15 +731,18 @@ watching.get('/shows/:id', async (c) => {
     return notFound(c, 'Show not found');
   }
 
-  // Get episodes grouped by season
-  const episodesWatched = await db
-    .select()
-    .from(plexEpisodesWatched)
-    .where(eq(plexEpisodesWatched.showId, id))
-    .orderBy(
-      asc(plexEpisodesWatched.seasonNumber),
-      asc(plexEpisodesWatched.episodeNumber)
-    );
+  // Get episodes and image metadata in parallel
+  const [episodesWatched, imageMeta] = await Promise.all([
+    db
+      .select()
+      .from(plexEpisodesWatched)
+      .where(eq(plexEpisodesWatched.showId, id))
+      .orderBy(
+        asc(plexEpisodesWatched.seasonNumber),
+        asc(plexEpisodesWatched.episodeNumber)
+      ),
+    getImageMeta(db, 'shows', String(id)),
+  ]);
 
   // Group by season
   const seasons: Record<
@@ -658,11 +772,18 @@ watching.get('/shows/:id', async (c) => {
     title: show.title,
     year: show.year,
     tmdb_id: show.tmdbId,
+    tmdb_rating: show.tmdbRating,
+    content_rating: show.contentRating,
     summary: show.summary,
-    poster_url: null,
-    thumbhash: null,
-    dominant_color: null,
-    accent_color: null,
+    poster_url: show.posterPath
+      ? `https://image.tmdb.org/t/p/w500${show.posterPath}`
+      : null,
+    backdrop_url: show.backdropPath
+      ? `https://image.tmdb.org/t/p/w780${show.backdropPath}`
+      : null,
+    thumbhash: imageMeta.thumbhash,
+    dominant_color: imageMeta.dominant_color,
+    accent_color: imageMeta.accent_color,
     total_seasons: show.totalSeasons,
     total_episodes: show.totalEpisodes,
     episodes_watched: episodesWatched.length,
@@ -988,6 +1109,89 @@ watching.delete('/admin/watching/movies/:id', async (c) => {
   await computeWatchStats(db);
 
   return c.json({ success: true, deleted_id: id });
+});
+
+// ─── Admin: Backfill images ─────────────────────────────────────────
+
+watching.post('/admin/watching/backfill-images', async (c) => {
+  const db = createDb(c.env.DB);
+  const body = await c.req
+    .json<{ type?: string; limit?: number }>()
+    .catch(() => ({ type: undefined, limit: undefined }));
+
+  const entityType = body.type || 'movies';
+  if (!['movies', 'shows', 'all'].includes(entityType)) {
+    return badRequest(c, 'Invalid type. Valid: movies, shows, all');
+  }
+  const maxItems = Math.min(body.limit || 50, 200);
+
+  const results: Record<string, unknown> = {};
+
+  if (entityType === 'movies' || entityType === 'all') {
+    // Get movies with tmdb_id that don't have images yet
+    const movieRows = await db
+      .select({
+        id: movies.id,
+        tmdbId: movies.tmdbId,
+      })
+      .from(movies)
+      .where(
+        sql`${movies.tmdbId} IS NOT NULL AND ${movies.id} NOT IN (
+        SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+        WHERE ${images.domain} = 'watching' AND ${images.entityType} = 'movies'
+      )`
+      )
+      .limit(maxItems);
+
+    const movieItems: BackfillItem[] = movieRows.map((m) => ({
+      entityId: String(m.id),
+      tmdbId: String(m.tmdbId),
+    }));
+
+    const movieResult = await backfillImages(
+      db,
+      c.env,
+      'watching',
+      'movies',
+      movieItems,
+      { batchSize: 5, delayMs: 500 }
+    );
+    results.movies = movieResult;
+  }
+
+  if (entityType === 'shows' || entityType === 'all') {
+    // Get shows with tmdb_id that don't have images yet
+    const showRows = await db
+      .select({
+        id: plexShows.id,
+        tmdbId: plexShows.tmdbId,
+      })
+      .from(plexShows)
+      .where(
+        sql`${plexShows.tmdbId} IS NOT NULL AND ${plexShows.id} NOT IN (
+        SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+        WHERE ${images.domain} = 'watching' AND ${images.entityType} = 'shows'
+      )`
+      )
+      .limit(maxItems);
+
+    const showItems: BackfillItem[] = showRows.map((s) => ({
+      entityId: String(s.id),
+      tmdbId: String(s.tmdbId),
+    }));
+
+    const showResult = await backfillImages(
+      db,
+      c.env,
+      'watching',
+      'shows',
+      showItems,
+      { batchSize: 5, delayMs: 500 }
+    );
+    results.shows = showResult;
+  }
+
+  return c.json({ success: true, results });
 });
 
 export default watching;

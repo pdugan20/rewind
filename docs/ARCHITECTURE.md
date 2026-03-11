@@ -1038,8 +1038,8 @@ Preview environments use a separate D1 preview database. Pull request deployment
 - **D1 is SQLite**: No PostGIS for geospatial queries (polylines are stored as encoded strings, decoded client-side). No `generate_series` -- calendar/streak queries require workarounds with recursive CTEs or application-level iteration.
 - **D1 limits**: 500 MB per database on the free tier, maximum 10 databases per account. Schema must stay efficient to fit all four domains in a single database.
 - **R2 free tier**: 10 GB storage, 10 million Class B requests/month, 1 million Class A requests/month. Sufficient for a personal project with cached images.
-- **Workers free tier**: 100,000 requests/day, 10 ms CPU time per invocation. Paid plan removes these limits.
-- **Cron triggers**: Maximum 3 cron triggers per Worker on the free plan, minimum 1-minute interval. Multiple sync schedules must be multiplexed through a single cron handler that dispatches based on the current time.
+- **Workers subrequest limit**: 1000 subrequests per invocation on the paid plan. Plex sync batches new items (150 per domain) to stay within this limit.
+- **Cron triggers**: Minimum 1-minute interval. Multiple sync schedules are multiplexed through a single cron handler that dispatches based on the current time.
 - **Strava refresh token rotation**: Strava OAuth2 rotates the refresh token on every access token exchange. The new refresh token must be persisted in the `strava_tokens` table to avoid invalidating the auth flow.
 - **Plex webhooks require Plex Pass**: Only Plex Pass subscribers receive webhook events. Without it, the watching domain falls back to cron-only polling of the Plex API.
 - **TMDB attribution requirement**: TMDB requires visible attribution ("This product uses the TMDB API but is not endorsed or certified by TMDB") on any application using their data or images.
