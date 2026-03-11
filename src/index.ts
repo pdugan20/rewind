@@ -8,6 +8,7 @@ import listening from './routes/listening.js';
 import running from './routes/running.js';
 import watching from './routes/watching.js';
 import webhooks from './routes/webhooks.js';
+import imagesRoute from './routes/images.js';
 import { LastfmClient } from './services/lastfm/client.js';
 import { syncListening } from './services/lastfm/sync.js';
 import { syncRunning } from './services/strava/sync.js';
@@ -53,7 +54,8 @@ const routes = app
   .route('/listening', listening)
   .route('/running', running)
   .route('/watching', watching)
-  .route('/', webhooks);
+  .route('/', webhooks)
+  .route('/', imagesRoute);
 
 // Cron handler
 export default {
