@@ -155,56 +155,56 @@
 **2.1 -- R2 and CDN Setup**
 
 - [ ] **2.1.1** Configure R2 bucket custom domain (cdn.rewind.rest)
-- [ ] **2.1.2** Set up CORS headers for cdn.rewind.rest
-- [ ] **2.1.3** Configure Cloudflare Images transforms
-- [ ] **2.1.4** Create size presets (thumbnail, small, medium, large, poster, backdrop)
+- [x] **2.1.2** Set up CORS headers for cdn.rewind.rest
+- [x] **2.1.3** Configure Cloudflare Images transforms
+- [x] **2.1.4** Create size presets (thumbnail, small, medium, large, poster, backdrop)
 
 **2.2 -- Source Clients**
 
-- [ ] **2.2.1** Create src/services/images/sources/cover-art-archive.ts
-- [ ] **2.2.2** Create src/services/images/sources/itunes.ts
-- [ ] **2.2.3** Create src/services/images/sources/apple-music.ts
-- [ ] **2.2.4** Create src/services/images/sources/fanart-tv.ts
-- [ ] **2.2.5** Create src/services/images/sources/tmdb.ts
-- [ ] **2.2.6** Create src/services/images/sources/plex.ts
-- [ ] **2.2.7** Write tests for each source client
+- [x] **2.2.1** Create src/services/images/sources/cover-art-archive.ts
+- [x] **2.2.2** Create src/services/images/sources/itunes.ts
+- [x] **2.2.3** Create src/services/images/sources/apple-music.ts
+- [x] **2.2.4** Create src/services/images/sources/fanart-tv.ts
+- [x] **2.2.5** Create src/services/images/sources/tmdb.ts
+- [x] **2.2.6** Create src/services/images/sources/plex.ts
+- [x] **2.2.7** Write tests for each source client
 
 **2.3 -- Pipeline**
 
-- [ ] **2.3.1** Create src/services/images/pipeline.ts (waterfall resolver)
-- [ ] **2.3.2** Implement domain-specific source priority waterfalls
-- [ ] **2.3.3** Implement R2 upload with metadata
-- [ ] **2.3.4** Implement ThumbHash generation (WASM-based image decoder)
-- [ ] **2.3.5** Implement dominant and accent color extraction (k-means clustering on pixel data)
-- [ ] **2.3.6** Implement images table metadata storage
-- [ ] **2.3.7** Write tests for pipeline
+- [x] **2.3.1** Create src/services/images/pipeline.ts (waterfall resolver)
+- [x] **2.3.2** Implement domain-specific source priority waterfalls
+- [x] **2.3.3** Implement R2 upload with metadata
+- [x] **2.3.4** Implement ThumbHash generation (WASM-based image decoder)
+- [x] **2.3.5** Implement dominant and accent color extraction (k-means clustering on pixel data)
+- [x] **2.3.6** Implement images table metadata storage
+- [x] **2.3.7** Write tests for pipeline
 
 **2.4 -- Route Handler**
 
-- [ ] **2.4.1** Create src/routes/images.ts
-- [ ] **2.4.2** GET /v1/images/:domain/:entity_type/:entity_id/:size
-- [ ] **2.4.3** Implement cache-hit redirect to CDN
-- [ ] **2.4.4** Implement cache-miss pipeline trigger with CDN redirect
-- [ ] **2.4.5** Add X-ThumbHash, X-Dominant-Color, X-Accent-Color response headers
-- [ ] **2.4.6** Append `?v={image_version}` to all CDN redirect URLs for cache busting
-- [ ] **2.4.7** Write tests for image route handler
+- [x] **2.4.1** Create src/routes/images.ts
+- [x] **2.4.2** GET /v1/images/:domain/:entity_type/:entity_id/:size
+- [x] **2.4.3** Implement cache-hit redirect to CDN
+- [x] **2.4.4** Implement cache-miss pipeline trigger with CDN redirect
+- [x] **2.4.5** Add X-ThumbHash, X-Dominant-Color, X-Accent-Color response headers
+- [x] **2.4.6** Append `?v={image_version}` to all CDN redirect URLs for cache busting
+- [x] **2.4.7** Write tests for image route handler
 
 **2.5 -- Image Overrides**
 
-- [ ] **2.5.1** Implement is_override sync protection (skip overridden images in pipeline)
-- [ ] **2.5.2** GET /v1/admin/images/:domain/:entity_type/:entity_id/alternatives (browse sources)
-- [ ] **2.5.3** PUT /v1/admin/images/:domain/:entity_type/:entity_id (set override via URL or upload)
-- [ ] **2.5.4** DELETE /v1/admin/images/:domain/:entity_type/:entity_id/override (revert to automatic)
-- [ ] **2.5.5** Implement ThumbHash + color regeneration on override
-- [ ] **2.5.6** Implement image_version increment and CDN cache busting
-- [ ] **2.5.7** Write tests for override endpoints
+- [x] **2.5.1** Implement is_override sync protection (skip overridden images in pipeline)
+- [x] **2.5.2** GET /v1/admin/images/:domain/:entity_type/:entity_id/alternatives (browse sources)
+- [x] **2.5.3** PUT /v1/admin/images/:domain/:entity_type/:entity_id (set override via URL or upload)
+- [x] **2.5.4** DELETE /v1/admin/images/:domain/:entity_type/:entity_id/override (revert to automatic)
+- [x] **2.5.5** Implement ThumbHash + color regeneration on override
+- [x] **2.5.6** Implement image_version increment and CDN cache busting
+- [x] **2.5.7** Write tests for override endpoints
 
 **2.6 -- Integration**
 
-- [ ] **2.6.1** Backfill images for existing Last.fm albums (from Phase 1)
-- [ ] **2.6.2** Backfill images for existing Last.fm artists
+- [x] **2.6.1** Backfill images for existing Last.fm albums (from Phase 1)
+- [x] **2.6.2** Backfill images for existing Last.fm artists
 - [ ] **2.6.3** Verify CDN delivery and transforms in production
-- [ ] **2.6.4** Create default placeholder image in R2
+- [x] **2.6.4** Create default placeholder image in R2
 
 ## Phase 3: Running (Strava)
 

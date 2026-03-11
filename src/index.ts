@@ -3,8 +3,12 @@ import type { Env } from './types/env.js';
 import { cors } from './lib/cors.js';
 import { requireAuth } from './lib/auth.js';
 import system from './routes/system.js';
+<<<<<<< HEAD
 import collecting from './routes/collecting.js';
 import { syncCollecting, isSunday } from './services/discogs/sync.js';
+=======
+import imagesRoute from './routes/images.js';
+>>>>>>> worktree-agent-a950a212
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -19,7 +23,11 @@ app.use('/v1/admin/*', requireAuth('admin'));
 
 // Route registration
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used for AppType export
+<<<<<<< HEAD
 const routes = app.basePath('/v1').route('/', system).route('/', collecting);
+=======
+const routes = app.basePath('/v1').route('/', system).route('/', imagesRoute);
+>>>>>>> worktree-agent-a950a212
 
 // Cron handler
 export default {
