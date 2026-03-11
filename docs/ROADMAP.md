@@ -490,7 +490,7 @@
 
 **6.3 -- Hono RPC Export**
 
-- [ ] **6.3.1** Export AppType from src/index.ts
+- [x] **6.3.1** Export AppType from src/index.ts
 - [ ] **6.3.2** Configure package.json exports for type inference
 - [ ] **6.3.3** Verify RPC types compile correctly with sample client
 - [ ] **6.3.4** Publish types as npm package or use direct git reference
