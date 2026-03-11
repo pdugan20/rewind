@@ -3,6 +3,8 @@ import type { Env } from './types/env.js';
 import { cors } from './lib/cors.js';
 import { requireAuth } from './lib/auth.js';
 import system from './routes/system.js';
+import collecting from './routes/collecting.js';
+import { syncCollecting, isSunday } from './services/discogs/sync.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -17,14 +19,14 @@ app.use('/v1/admin/*', requireAuth('admin'));
 
 // Route registration
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used for AppType export
-const routes = app.basePath('/v1').route('/', system);
+const routes = app.basePath('/v1').route('/', system).route('/', collecting);
 
 // Cron handler
 export default {
   fetch: app.fetch,
   async scheduled(
     event: ScheduledEvent,
-    _env: Env,
+    env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
     console.log(`[SYNC] Cron triggered: ${event.cron}`);
@@ -37,6 +39,14 @@ export default {
         console.log(
           '[SYNC] Daily sync: Last.fm top lists, Strava, Plex, Discogs (Sunday)'
         );
+        // Discogs sync runs only on Sundays
+        if (isSunday()) {
+          try {
+            await syncCollecting(env);
+          } catch (err) {
+            console.log(`[ERROR] Discogs cron sync failed: ${err}`);
+          }
+        }
         break;
       case '0 */6 * * *':
         console.log('[SYNC] Letterboxd RSS sync');

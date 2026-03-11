@@ -409,63 +409,63 @@
 
 **5.1 -- Schema**
 
-- [ ] **5.1.1** Create src/db/schema/discogs.ts (releases, artists, collection, wantlist, stats, xref)
-- [ ] **5.1.2** Generate migration for Discogs tables
-- [ ] **5.1.3** Apply migration locally and verify schema
+- [x] **5.1.1** Create src/db/schema/discogs.ts (releases, artists, collection, wantlist, stats, xref)
+- [x] **5.1.2** Generate migration for Discogs tables
+- [x] **5.1.3** Apply migration locally and verify schema
 - [ ] **5.1.4** Apply migration to remote D1
 
 **5.2 -- Discogs API Client**
 
-- [ ] **5.2.1** Create src/services/discogs/client.ts (Discogs API wrapper)
-- [ ] **5.2.2** Implement collection fetcher with pagination
-- [ ] **5.2.3** Implement wantlist fetcher with pagination
-- [ ] **5.2.4** Implement release detail fetcher
-- [ ] **5.2.5** Add rate limit handling (60 req/min)
-- [ ] **5.2.6** Add User-Agent header (RewindAPI/1.0)
-- [ ] **5.2.7** Write tests for API client
+- [x] **5.2.1** Create src/services/discogs/client.ts (Discogs API wrapper)
+- [x] **5.2.2** Implement collection fetcher with pagination
+- [x] **5.2.3** Implement wantlist fetcher with pagination
+- [x] **5.2.4** Implement release detail fetcher
+- [x] **5.2.5** Add rate limit handling (60 req/min)
+- [x] **5.2.6** Add User-Agent header (RewindAPI/1.0)
+- [x] **5.2.7** Write tests for API client
 
 **5.3 -- Cross-Reference**
 
-- [ ] **5.3.1** Create src/services/discogs/cross-reference.ts
-- [ ] **5.3.2** Implement name normalization (lowercase, trim, remove "The ", remove parenthetical suffixes)
-- [ ] **5.3.3** Implement exact match search against lastfm_albums
-- [ ] **5.3.4** Implement fuzzy match with Levenshtein distance
-- [ ] **5.3.5** Implement artist-only fallback match
-- [ ] **5.3.6** Populate collection_listening_xref with play counts
-- [ ] **5.3.7** Write tests for cross-reference matching
+- [x] **5.3.1** Create src/services/discogs/cross-reference.ts
+- [x] **5.3.2** Implement name normalization (lowercase, trim, remove "The ", remove parenthetical suffixes)
+- [x] **5.3.3** Implement exact match search against lastfm_albums
+- [x] **5.3.4** Implement fuzzy match with Levenshtein distance
+- [x] **5.3.5** Implement artist-only fallback match
+- [x] **5.3.6** Populate collection_listening_xref with play counts
+- [x] **5.3.7** Write tests for cross-reference matching
 
 **5.4 -- Sync**
 
-- [ ] **5.4.1** Create src/services/discogs/sync.ts (sync orchestrator)
-- [ ] **5.4.2** Implement full collection sync (compare + insert/update/delete)
-- [ ] **5.4.3** Implement wantlist sync
-- [ ] **5.4.4** Implement release detail fetch for new releases
-- [ ] **5.4.5** Implement collection stats computation (format/genre/decade breakdowns)
-- [ ] **5.4.6** Trigger cross-reference after collection sync
-- [ ] **5.4.7** Add sync_runs recording
-- [ ] **5.4.8** Wire cron handler: weekly Sunday 6 AM
-- [ ] **5.4.9** Add POST /v1/admin/sync/collecting endpoint
-- [ ] **5.4.10** Write tests for sync logic
+- [x] **5.4.1** Create src/services/discogs/sync.ts (sync orchestrator)
+- [x] **5.4.2** Implement full collection sync (compare + insert/update/delete)
+- [x] **5.4.3** Implement wantlist sync
+- [x] **5.4.4** Implement release detail fetch for new releases
+- [x] **5.4.5** Implement collection stats computation (format/genre/decade breakdowns)
+- [x] **5.4.6** Trigger cross-reference after collection sync
+- [x] **5.4.7** Add sync_runs recording
+- [x] **5.4.8** Wire cron handler: weekly Sunday 6 AM
+- [x] **5.4.9** Add POST /v1/admin/sync/collecting endpoint
+- [x] **5.4.10** Write tests for sync logic
 - [ ] **5.4.11** Run initial collection import against production
 
 **5.5 -- Route Handlers**
 
-- [ ] **5.5.1** Create src/routes/collecting.ts
-- [ ] **5.5.2** GET /v1/collecting/collection (paginated, filterable, searchable)
-- [ ] **5.5.3** GET /v1/collecting/stats
-- [ ] **5.5.4** GET /v1/collecting/recent
-- [ ] **5.5.5** GET /v1/collecting/collection/:id
-- [ ] **5.5.6** GET /v1/collecting/wantlist
-- [ ] **5.5.7** GET /v1/collecting/formats
-- [ ] **5.5.8** GET /v1/collecting/genres
-- [ ] **5.5.9** GET /v1/collecting/artists
-- [ ] **5.5.10** GET /v1/collecting/cross-reference
-- [ ] **5.5.11** Apply Cache-Control headers per endpoint
-- [ ] **5.5.12** Write tests for route handlers
+- [x] **5.5.1** Create src/routes/collecting.ts
+- [x] **5.5.2** GET /v1/collecting/collection (paginated, filterable, searchable)
+- [x] **5.5.3** GET /v1/collecting/stats
+- [x] **5.5.4** GET /v1/collecting/recent
+- [x] **5.5.5** GET /v1/collecting/collection/:id
+- [x] **5.5.6** GET /v1/collecting/wantlist
+- [x] **5.5.7** GET /v1/collecting/formats
+- [x] **5.5.8** GET /v1/collecting/genres
+- [x] **5.5.9** GET /v1/collecting/artists
+- [x] **5.5.10** GET /v1/collecting/cross-reference
+- [x] **5.5.11** Apply Cache-Control headers per endpoint
+- [x] **5.5.12** Write tests for route handlers
 
 **5.6 -- Integration Testing**
 
-- [ ] **5.6.1** End-to-end test: cron sync populates data, endpoints return correct responses
+- [x] **5.6.1** End-to-end test: cron sync populates data, endpoints return correct responses
 - [ ] **5.6.2** Deploy and verify in production
 - [ ] **5.6.3** Verify cross-reference matches against live data
 
