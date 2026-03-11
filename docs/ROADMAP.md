@@ -94,7 +94,7 @@
 - [x] **1.1.1** Create src/db/schema/lastfm.ts (artists, albums, tracks, scrobbles, top\_\*, filters, user_stats)
 - [x] **1.1.2** Generate migration for Last.fm tables
 - [x] **1.1.3** Apply migration locally and verify schema
-- [ ] **1.1.4** Apply migration to remote D1
+- ~~**1.1.4** Apply migration to remote D1~~ (moved to Phase 6.5)
 
 **1.2 -- Last.fm API Client**
 
@@ -109,7 +109,7 @@
 
 - [x] **1.3.1** Create src/services/lastfm/transforms.ts (normalize artist/album/track data)
 - [x] **1.3.2** Create src/services/lastfm/filters.ts (holiday music, audiobook detection)
-- [ ] **1.3.3** Seed lastfm_filters table with initial filter patterns
+- ~~**1.3.3** Seed lastfm_filters table with initial filter patterns~~ (moved to Phase 6.5)
 - [x] **1.3.4** Implement over-fetch + filter + re-rank strategy for top lists
 - [x] **1.3.5** Write tests for transforms and filters
 
@@ -147,14 +147,14 @@
 **1.6 -- Integration Testing**
 
 - [x] **1.6.1** End-to-end test: cron trigger syncs data, endpoints return correct responses
-- [ ] **1.6.2** Deploy and verify in production
-- [ ] **1.6.3** Run initial historical backfill against production D1
+- ~~**1.6.2** Deploy and verify in production~~ (moved to Phase 6.5)
+- ~~**1.6.3** Run initial historical backfill against production D1~~ (moved to Phase 6.5)
 
 ## Phase 2: Image Pipeline
 
 **2.1 -- R2 and CDN Setup**
 
-- [ ] **2.1.1** Configure R2 bucket custom domain (cdn.rewind.rest)
+- ~~**2.1.1** Configure R2 bucket custom domain (cdn.rewind.rest)~~ (moved to Phase 6.5)
 - [x] **2.1.2** Set up CORS headers for cdn.rewind.rest
 - [x] **2.1.3** Configure Cloudflare Images transforms
 - [x] **2.1.4** Create size presets (thumbnail, small, medium, large, poster, backdrop)
@@ -203,7 +203,7 @@
 
 - [x] **2.6.1** Backfill images for existing Last.fm albums (from Phase 1)
 - [x] **2.6.2** Backfill images for existing Last.fm artists
-- [ ] **2.6.3** Verify CDN delivery and transforms in production
+- ~~**2.6.3** Verify CDN delivery and transforms in production~~ (moved to Phase 6.5)
 - [x] **2.6.4** Create default placeholder image in R2
 
 ## Phase 3: Running (Strava)
@@ -213,7 +213,7 @@
 - [x] **3.1.1** Create src/db/schema/strava.ts (activities, gear, PRs, year_summaries, lifetime_stats, splits, tokens)
 - [x] **3.1.2** Generate migration for Strava tables
 - [x] **3.1.3** Apply migration locally and verify schema
-- [ ] **3.1.4** Apply migration to remote D1
+- ~~**3.1.4** Apply migration to remote D1~~ (moved to Phase 6.5)
 
 **3.2 -- OAuth**
 
@@ -258,15 +258,7 @@
 - [x] **3.5.7** Add POST /v1/admin/sync/running endpoint
 - [x] **3.5.8** Write tests for sync logic
 
-**3.6 -- Bulk Import**
-
-- [ ] **3.6.1** Create scripts/import-strava.ts (local Node.js script)
-- [ ] **3.6.2** Implement paginated activity list fetch
-- [ ] **3.6.3** Implement per-activity detail + laps fetch
-- [ ] **3.6.4** Implement rate limit monitoring with header parsing
-- [ ] **3.6.5** Implement checkpoint/resume (save last processed activity ID)
-- [ ] **3.6.6** Implement D1 batch insert (via Wrangler HTTP API or Drizzle HTTP driver)
-- [ ] **3.6.7** Test with small batch, then run full import (~1800 activities)
+~~**3.6 -- Bulk Import**~~ (moved to Phase 6.5)
 
 **3.7 -- Webhooks**
 
@@ -277,7 +269,7 @@
 - [x] **3.7.5** Handle create event: fetch + insert activity
 - [x] **3.7.6** Handle update event: re-fetch + update activity
 - [x] **3.7.7** Handle delete event: soft delete activity
-- [ ] **3.7.8** Register webhook subscription with Strava
+- ~~**3.7.8** Register webhook subscription with Strava~~ (moved to Phase 6.5)
 - [x] **3.7.9** Write tests for webhook handler
 - [x] **3.7.10** Implement webhook idempotency (check webhook_events before processing)
 
@@ -308,8 +300,8 @@
 **3.9 -- Integration Testing**
 
 - [x] **3.9.1** End-to-end test: cron + webhook sync, endpoints return correct responses
-- [ ] **3.9.2** Deploy and verify in production
-- [ ] **3.9.3** Verify webhook receives events from Strava
+- ~~**3.9.2** Deploy and verify in production~~ (moved to Phase 6.5)
+- ~~**3.9.3** Verify webhook receives events from Strava~~ (moved to Phase 6.5)
 
 ## Phase 4: Watching (Plex)
 
@@ -318,7 +310,7 @@
 - [x] **4.1.1** Create src/db/schema/watching.ts (movies, genres, directors, join tables, watch_history, stats, shows, episodes)
 - [x] **4.1.2** Generate migration for Plex tables
 - [x] **4.1.3** Apply migration locally and verify schema
-- [ ] **4.1.4** Apply migration to remote D1
+- ~~**4.1.4** Apply migration to remote D1~~ (moved to Phase 6.5)
 
 **4.2 -- Plex Webhook Handler**
 
@@ -350,7 +342,7 @@
 - [x] **4.4.7** Wire cron handler: daily 5 AM library scan catch-up
 - [x] **4.4.8** Add POST /v1/admin/sync/watching endpoint
 - [x] **4.4.9** Write tests for sync logic
-- [ ] **4.4.10** Run initial library import against production
+- ~~**4.4.10** Run initial library import against production~~ (moved to Phase 6.5)
 
 **4.5 -- Route Handlers**
 
@@ -370,9 +362,9 @@
 **4.6 -- Integration Testing**
 
 - [x] **4.6.1** End-to-end test: webhook + cron sync, endpoints return correct responses
-- [ ] **4.6.2** Deploy and verify in production
-- [ ] **4.6.3** Configure Plex webhook URL in Plex settings
-- [ ] **4.6.4** Verify webhook receives scrobble events from Plex
+- ~~**4.6.2** Deploy and verify in production~~ (moved to Phase 6.5)
+- ~~**4.6.3** Configure Plex webhook URL in Plex settings~~ (moved to Phase 6.5)
+- ~~**4.6.4** Verify webhook receives scrobble events from Plex~~ (moved to Phase 6.5)
 
 **4.7 -- TV Shows**
 
@@ -393,7 +385,7 @@
 - [x] **4.8.5** Implement TMDB enrichment for new movies from Letterboxd (reuse watching/tmdb.ts)
 - [x] **4.8.6** Map Letterboxd rating (0.5-5.0) to user_rating field
 - [x] **4.8.7** Wire cron handler: every 6 hours Letterboxd RSS sync
-- [ ] **4.8.8** Create scripts/import-letterboxd.ts (one-time CSV import for full diary history)
+- ~~**4.8.8** Create scripts/import-letterboxd.ts~~ (moved to Phase 6.5)
 - [x] **4.8.9** Write tests for Letterboxd sync
 
 **4.9 -- Manual Movie Entry**
@@ -412,7 +404,7 @@
 - [x] **5.1.1** Create src/db/schema/discogs.ts (releases, artists, collection, wantlist, stats, xref)
 - [x] **5.1.2** Generate migration for Discogs tables
 - [x] **5.1.3** Apply migration locally and verify schema
-- [ ] **5.1.4** Apply migration to remote D1
+- ~~**5.1.4** Apply migration to remote D1~~ (moved to Phase 6.5)
 
 **5.2 -- Discogs API Client**
 
@@ -446,7 +438,7 @@
 - [x] **5.4.8** Wire cron handler: weekly Sunday 6 AM
 - [x] **5.4.9** Add POST /v1/admin/sync/collecting endpoint
 - [x] **5.4.10** Write tests for sync logic
-- [ ] **5.4.11** Run initial collection import against production
+- ~~**5.4.11** Run initial collection import against production~~ (moved to Phase 6.5)
 
 **5.5 -- Route Handlers**
 
@@ -466,8 +458,8 @@
 **5.6 -- Integration Testing**
 
 - [x] **5.6.1** End-to-end test: cron sync populates data, endpoints return correct responses
-- [ ] **5.6.2** Deploy and verify in production
-- [ ] **5.6.3** Verify cross-reference matches against live data
+- ~~**5.6.2** Deploy and verify in production~~ (moved to Phase 6.5)
+- ~~**5.6.3** Verify cross-reference matches against live data~~ (moved to Phase 6.5)
 
 ## Phase 6: Cross-Domain Features
 
@@ -514,6 +506,47 @@
 - [x] **6.6.2** GET /v1/admin/keys (list all keys, prefix + hint only)
 - [x] **6.6.3** DELETE /v1/admin/keys/:id (revoke a key)
 - [x] **6.6.4** Write tests for key management endpoints
+
+## Phase 6.5: Production Deployment
+
+**6.5.1 -- Deploy**
+
+- [x] **6.5.1.1** Apply all domain migrations to remote D1 (listening, running, watching, collecting)
+- [x] **6.5.1.2** Deploy worker to Cloudflare Workers
+- [x] **6.5.1.3** Configure R2 bucket custom domain (cdn.rewind.rest)
+- [x] **6.5.1.4** Verify /v1/health endpoint responds in production
+- [ ] **6.5.1.5** Wire up DB-driven filters: make sync read from lastfm_filters table instead of hardcoded values in filters.ts, then seed table with existing patterns
+
+**6.5.2 -- Import Scripts**
+
+- [x] **6.5.2.1** Create scripts/import-strava.ts (paginated fetch, detail + laps per activity, rate limit monitoring, checkpoint/resume, D1 batch insert)
+- [x] **6.5.2.2** Create scripts/import-letterboxd.ts (one-time CSV import for full diary history)
+
+**6.5.3 -- Initial Data Imports**
+
+- [ ] **6.5.3.1** Run Last.fm historical backfill (~124K scrobbles)
+- [ ] **6.5.3.2** Run Strava bulk import (~1800 activities)
+- [ ] **6.5.3.3** Run Plex library import
+- [ ] **6.5.3.4** Run Letterboxd CSV import
+- [ ] **6.5.3.5** Run Discogs collection import (last -- cross-refs against Last.fm data)
+
+**6.5.4 -- Webhooks**
+
+- [ ] **6.5.4.1** Register Strava webhook subscription
+- [ ] **6.5.4.2** Configure Plex webhook URL in Plex settings
+
+**6.5.5 -- Production Verification**
+
+- [ ] **6.5.5.1** Verify all listening endpoints return correct data
+- [ ] **6.5.5.2** Verify all running endpoints return correct data
+- [ ] **6.5.5.3** Verify all watching endpoints return correct data
+- [ ] **6.5.5.4** Verify all collecting endpoints return correct data
+- [ ] **6.5.5.5** Verify cross-domain feed and search endpoints
+- [ ] **6.5.5.6** Verify CDN delivery and image transforms
+- [ ] **6.5.5.7** Verify Strava webhook receives events
+- [ ] **6.5.5.8** Verify Plex webhook receives scrobble events
+- [ ] **6.5.5.9** Verify cron syncs are running on schedule
+- [ ] **6.5.5.10** Verify Discogs cross-reference matches against live data
 
 ## Phase 7: Portfolio Integration
 
