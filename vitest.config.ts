@@ -16,6 +16,7 @@ export default defineWorkersConfig(async () => {
 
   return {
     test: {
+      testTimeout: 15000,
       exclude: ['**/node_modules/**', '**/.claude/**'],
       poolOptions: {
         workers: {

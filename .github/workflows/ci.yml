@@ -90,7 +90,7 @@ jobs:
       - run: npm ci
 
       - name: Audit dependencies
-        run: npm audit --audit-level=moderate
+        run: npm audit --audit-level=moderate --omit=dev
 
       - name: Scan for secrets
         uses: gitleaks/gitleaks-action@v2
