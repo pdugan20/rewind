@@ -806,3 +806,13 @@ Activity feed, search index, and revalidation hooks have full infrastructure (sc
 - [x] **8.8.3** Update docs/API.md with new /collecting/media endpoints
 - [x] **8.8.4** Update docs/domains/collecting.md with physical media domain details
 - ~~**8.8.5** Update docs/domains/images.md if image pipeline changes are needed~~ (no changes needed -- existing pipeline handles collecting/media via TMDb poster source)
+
+## Phase 10: Public API Documentation
+
+Public-facing API docs at `docs.rewind.rest` powered by Scalar, with OpenAPI 3.1 spec generated from `@hono/zod-openapi` route definitions. See [docs/projects/public-api-docs/](docs/projects/public-api-docs/) for full project documentation and task tracker.
+
+- [x] **10.1** OpenAPI foundation: zod-openapi integration, shared schemas, spec endpoint
+- [x] **10.2** Route migration: all 11 route files (100 endpoints) converted to zod-openapi
+- [x] **10.3** Scalar docs site: static HTML page, Cloudflare Pages deployment
+- [x] **10.4** CI enforcement: Spectral linting, spec snapshot tests, contract tests, type-level enforcement
+- [x] **10.5** Spec quality: descriptions, tag organization, auth docs, error catalog, quick start

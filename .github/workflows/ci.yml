@@ -31,5 +31,8 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Lint OpenAPI spec
+        run: npm run lint:api
+
       - name: Validate Claude Code files
         run: npx claude-code-lint@latest

@@ -47,8 +47,10 @@ npm run db:remote    # Apply migrations to remote D1
 
 ## Documentation
 
-See the [docs/](docs/) directory for detailed documentation:
+**[API Reference](https://docs.rewind.rest)** -- interactive OpenAPI docs powered by Scalar
+
+See the [docs/](docs/) directory for additional documentation:
 
 - [Architecture](docs/ARCHITECTURE.md) -- system overview, database schema, caching, sync
-- [API Reference](docs/API.md) -- complete endpoint reference with examples
+- [API Reference](docs/API.md) -- endpoint reference (canonical docs at [docs.rewind.rest](https://docs.rewind.rest))
 - [Roadmap](docs/ROADMAP.md) -- task tracker with all phases and progress

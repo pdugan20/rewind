@@ -37,4 +37,4 @@ crons = [
 binding = "IMAGE_TRANSFORMS"
 
 [vars]
-ALLOWED_ORIGINS = "patdugan.me,localhost:3000"
+ALLOWED_ORIGINS = "patdugan.me,docs.rewind.rest,localhost:3000"

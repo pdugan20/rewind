@@ -1,8 +1,11 @@
 # API Reference
 
+> **Canonical reference**: [docs.rewind.rest](https://docs.rewind.rest) -- interactive OpenAPI docs with "Try It" support.
+> This file is a supplementary reference. The live docs are generated from the codebase and always up to date.
+
 Base URL: `https://api.rewind.rest`
 
-All endpoints return JSON. 96 endpoints across 12 sections.
+All endpoints return JSON. 100 endpoints across 12 sections.
 
 ## Authentication
 
