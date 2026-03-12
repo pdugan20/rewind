@@ -4,6 +4,9 @@
  * that have no image available from any source.
  */
 
+import type { Database } from '../../db/client.js';
+import { images } from '../../db/schema/system.js';
+
 const PLACEHOLDER_R2_KEY = 'system/placeholder/original.png';
 
 /**
@@ -116,3 +119,27 @@ export async function ensurePlaceholder(bucket: R2Bucket): Promise<string> {
 }
 
 export { PLACEHOLDER_R2_KEY };
+
+/**
+ * Insert a "no source" placeholder row into the images table.
+ * Prevents entities from being retried when no image source can find art.
+ * These rows have r2_key='' and source='none', filtered out by getImageAttachment.
+ */
+export async function insertNoSourcePlaceholder(
+  db: Database,
+  domain: string,
+  entityType: string,
+  entityId: string
+): Promise<void> {
+  await db
+    .insert(images)
+    .values({
+      domain,
+      entityType,
+      entityId,
+      r2Key: '',
+      source: 'none',
+      imageVersion: 0,
+    })
+    .onConflictDoNothing();
+}

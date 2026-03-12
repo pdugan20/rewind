@@ -22,6 +22,7 @@ import {
   runOverridePipeline,
   revertOverride,
   resolveAlternatives,
+  deserializeSearchHints,
 } from '../services/images/pipeline.js';
 import type { SourceSearchParams } from '../services/images/sources/types.js';
 
@@ -60,12 +61,23 @@ imagesRoute.get('/images/:domain/:entity_type/:entity_id/:size', async (c) => {
   let record = await getImageRecord(db, domain, entity_type, entity_id);
 
   if (!record) {
-    // Cache miss: trigger pipeline
+    // Cache miss: build search params from query hints
     const searchParams: SourceSearchParams = {
       domain,
       entityType: entity_type,
       entityId: entity_id,
     };
+
+    // Accept search hints as query params for on-demand resolution
+    const artistName = c.req.query('artist_name');
+    const albumName = c.req.query('album_name');
+    const mbid = c.req.query('mbid');
+    const tmdbId = c.req.query('tmdb_id');
+
+    if (artistName) searchParams.artistName = artistName;
+    if (albumName) searchParams.albumName = albumName;
+    if (mbid) searchParams.mbid = mbid;
+    if (tmdbId) searchParams.tmdbId = tmdbId;
 
     const result = await runPipeline(db, c.env, searchParams);
     if (!result) {
@@ -76,6 +88,22 @@ imagesRoute.get('/images/:domain/:entity_type/:entity_id/:size', async (c) => {
     record = await getImageRecord(db, domain, entity_type, entity_id);
     if (!record) {
       return serverError(c, 'Failed to create image record');
+    }
+  } else if (!record.r2Key && record.searchHints) {
+    // Record exists but needs reprocessing -- use stored search hints
+    const searchParams = deserializeSearchHints(
+      record.searchHints,
+      domain,
+      entity_type,
+      entity_id
+    );
+
+    const result = await runPipeline(db, c.env, searchParams);
+    if (result) {
+      record = await getImageRecord(db, domain, entity_type, entity_id);
+      if (!record) {
+        return serverError(c, 'Failed to refresh image record');
+      }
     }
   }
 

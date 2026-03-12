@@ -30,83 +30,10 @@ import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { runPipeline } from '../services/images/pipeline.js';
 import type { SourceSearchParams } from '../services/images/sources/types.js';
-
-// ─── Image metadata helpers ──────────────────────────────────────────
-
-type Database = ReturnType<typeof createDb>;
-
-interface ImageMeta {
-  thumbhash: string | null;
-  dominant_color: string | null;
-  accent_color: string | null;
-}
-
-const EMPTY_IMAGE_META: ImageMeta = {
-  thumbhash: null,
-  dominant_color: null,
-  accent_color: null,
-};
-
-async function getImageMeta(
-  db: Database,
-  entityId: string
-): Promise<ImageMeta> {
-  const [row] = await db
-    .select({
-      thumbhash: images.thumbhash,
-      dominantColor: images.dominantColor,
-      accentColor: images.accentColor,
-    })
-    .from(images)
-    .where(
-      and(
-        eq(images.domain, 'collecting'),
-        eq(images.entityType, 'releases'),
-        eq(images.entityId, entityId)
-      )
-    )
-    .limit(1);
-
-  if (!row) return EMPTY_IMAGE_META;
-  return {
-    thumbhash: row.thumbhash,
-    dominant_color: row.dominantColor,
-    accent_color: row.accentColor,
-  };
-}
-
-async function getImageMetaBatch(
-  db: Database,
-  entityIds: string[]
-): Promise<Map<string, ImageMeta>> {
-  if (entityIds.length === 0) return new Map();
-
-  const rows = await db
-    .select({
-      entityId: images.entityId,
-      thumbhash: images.thumbhash,
-      dominantColor: images.dominantColor,
-      accentColor: images.accentColor,
-    })
-    .from(images)
-    .where(
-      and(
-        eq(images.domain, 'collecting'),
-        eq(images.entityType, 'releases'),
-        inArray(images.entityId, entityIds)
-      )
-    );
-
-  const map = new Map<string, ImageMeta>();
-  for (const row of rows) {
-    map.set(row.entityId, {
-      thumbhash: row.thumbhash,
-      dominant_color: row.dominantColor,
-      accent_color: row.accentColor,
-    });
-  }
-  return map;
-}
+import {
+  getImageAttachment,
+  getImageAttachmentBatch,
+} from '../lib/images.js';
 
 const collecting = new Hono<{ Bindings: Env }>();
 
@@ -221,7 +148,12 @@ collecting.get('/collecting/collection', requireAuth('read'), async (c) => {
 
     // Get artists and image metadata for each release
     const releaseIds = rows.map((r) => String(r.discogsId));
-    const imageMap = await getImageMetaBatch(db, releaseIds);
+    const imageMap = await getImageAttachmentBatch(
+      db,
+      'collecting',
+      'releases',
+      releaseIds
+    );
 
     const data = await Promise.all(
       rows.map(async (row) => {
@@ -239,7 +171,6 @@ collecting.get('/collecting/collection', requireAuth('read'), async (c) => {
           .where(eq(discogsReleases.discogsId, row.discogsId));
 
         const formats: string[] = row.format ? JSON.parse(row.format) : [];
-        const img = imageMap.get(String(row.discogsId)) || EMPTY_IMAGE_META;
         return {
           id: row.id,
           discogs_id: row.discogsId,
@@ -251,10 +182,7 @@ collecting.get('/collecting/collection', requireAuth('read'), async (c) => {
           label: row.label || '[]',
           genres: row.genres ? JSON.parse(row.genres) : [],
           styles: row.styles ? JSON.parse(row.styles) : [],
-          cover_url: row.coverUrl,
-          thumbhash: img.thumbhash,
-          dominant_color: img.dominant_color,
-          accent_color: img.accent_color,
+          image: imageMap.get(String(row.discogsId)) ?? null,
           date_added: row.dateAdded,
           rating: row.rating,
           discogs_url: row.discogsUrl,
@@ -362,7 +290,12 @@ collecting.get('/collecting/recent', requireAuth('read'), async (c) => {
       .limit(limit);
 
     const releaseIds = rows.map((r) => String(r.discogsId));
-    const imageMap = await getImageMetaBatch(db, releaseIds);
+    const imageMap = await getImageAttachmentBatch(
+      db,
+      'collecting',
+      'releases',
+      releaseIds
+    );
 
     const data = await Promise.all(
       rows.map(async (row) => {
@@ -380,7 +313,6 @@ collecting.get('/collecting/recent', requireAuth('read'), async (c) => {
           .where(eq(discogsReleases.discogsId, row.discogsId));
 
         const formats: string[] = row.format ? JSON.parse(row.format) : [];
-        const img = imageMap.get(String(row.discogsId)) || EMPTY_IMAGE_META;
         return {
           id: row.id,
           discogs_id: row.discogsId,
@@ -392,10 +324,7 @@ collecting.get('/collecting/recent', requireAuth('read'), async (c) => {
           label: row.label || '[]',
           genres: row.genres ? JSON.parse(row.genres) : [],
           styles: row.styles ? JSON.parse(row.styles) : [],
-          cover_url: row.coverUrl,
-          thumbhash: img.thumbhash,
-          dominant_color: img.dominant_color,
-          accent_color: img.accent_color,
+          image: imageMap.get(String(row.discogsId)) ?? null,
           date_added: row.dateAdded,
           rating: row.rating,
           discogs_url: row.discogsUrl,
@@ -471,7 +400,12 @@ collecting.get('/collecting/collection/:id', requireAuth('read'), async (c) => {
       .where(eq(discogsReleases.discogsId, row.discogsId));
 
     const formats: string[] = row.format ? JSON.parse(row.format) : [];
-    const img = await getImageMeta(db, String(row.discogsId));
+    const image = await getImageAttachment(
+      db,
+      'collecting',
+      'releases',
+      String(row.discogsId)
+    );
 
     setCache(c, 'long');
     return c.json({
@@ -485,10 +419,7 @@ collecting.get('/collecting/collection/:id', requireAuth('read'), async (c) => {
       label: row.label || '[]',
       genres: row.genres ? JSON.parse(row.genres) : [],
       styles: row.styles ? JSON.parse(row.styles) : [],
-      cover_url: row.coverUrl,
-      thumbhash: img.thumbhash,
-      dominant_color: img.dominant_color,
-      accent_color: img.accent_color,
+      image,
       date_added: row.dateAdded,
       rating: row.rating,
       discogs_url: row.discogsUrl,
@@ -556,7 +487,7 @@ collecting.get('/collecting/wantlist', requireAuth('read'), async (c) => {
       year: row.year,
       formats: row.formats ? JSON.parse(row.formats) : [],
       genres: row.genres ? JSON.parse(row.genres) : [],
-      cover_url: row.coverUrl,
+      image: null as null,
       discogs_url: row.discogsUrl,
       notes: row.notes,
       rating: row.rating,
@@ -774,7 +705,12 @@ collecting.get(
         .offset(offset);
 
       const releaseIds = rows.map((r) => String(r.discogsId));
-      const imageMap = await getImageMetaBatch(db, releaseIds);
+      const imageMap = await getImageAttachmentBatch(
+        db,
+        'collecting',
+        'releases',
+        releaseIds
+      );
 
       const data = await Promise.all(
         rows.map(async (row) => {
@@ -792,8 +728,6 @@ collecting.get(
             .where(eq(discogsReleases.discogsId, row.discogsId));
 
           const formats: string[] = row.formats ? JSON.parse(row.formats) : [];
-          const img =
-            imageMap.get(String(row.discogsId)) || EMPTY_IMAGE_META;
 
           return {
             collection: {
@@ -805,10 +739,7 @@ collecting.get(
               format: formats[0] || 'Unknown',
               genres: row.genres ? JSON.parse(row.genres) : [],
               styles: row.styles ? JSON.parse(row.styles) : [],
-              cover_url: row.coverUrl,
-              thumbhash: img.thumbhash,
-              dominant_color: img.dominant_color,
-              accent_color: img.accent_color,
+              image: imageMap.get(String(row.discogsId)) ?? null,
               date_added: row.dateAdded,
               rating: row.rating,
               discogs_url: row.discogsUrl,
@@ -953,69 +884,6 @@ collecting.post(
 
 // ─── Physical Media (Trakt) Routes ───────────────────────────────────
 
-// Image metadata helper for movies (reuses watching domain images)
-async function getMovieImageMeta(
-  db: Database,
-  movieId: number
-): Promise<ImageMeta> {
-  const [row] = await db
-    .select({
-      thumbhash: images.thumbhash,
-      dominantColor: images.dominantColor,
-      accentColor: images.accentColor,
-    })
-    .from(images)
-    .where(
-      and(
-        eq(images.domain, 'watching'),
-        eq(images.entityType, 'movies'),
-        eq(images.entityId, String(movieId))
-      )
-    )
-    .limit(1);
-
-  if (!row) return EMPTY_IMAGE_META;
-  return {
-    thumbhash: row.thumbhash,
-    dominant_color: row.dominantColor,
-    accent_color: row.accentColor,
-  };
-}
-
-async function getMovieImageMetaBatch(
-  db: Database,
-  movieIds: number[]
-): Promise<Map<number, ImageMeta>> {
-  if (movieIds.length === 0) return new Map();
-
-  const stringIds = movieIds.map(String);
-  const rows = await db
-    .select({
-      entityId: images.entityId,
-      thumbhash: images.thumbhash,
-      dominantColor: images.dominantColor,
-      accentColor: images.accentColor,
-    })
-    .from(images)
-    .where(
-      and(
-        eq(images.domain, 'watching'),
-        eq(images.entityType, 'movies'),
-        inArray(images.entityId, stringIds)
-      )
-    );
-
-  const map = new Map<number, ImageMeta>();
-  for (const row of rows) {
-    map.set(parseInt(row.entityId, 10), {
-      thumbhash: row.thumbhash,
-      dominant_color: row.dominantColor,
-      accent_color: row.accentColor,
-    });
-  }
-  return map;
-}
-
 // GET /collecting/media - paginated physical media collection
 collecting.get('/collecting/media', requireAuth('read'), async (c) => {
   try {
@@ -1103,33 +971,30 @@ collecting.get('/collecting/media', requireAuth('read'), async (c) => {
       .limit(limit)
       .offset(offset);
 
-    const movieIds = rows.map((r) => r.movieId);
-    const imageMap = await getMovieImageMetaBatch(db, movieIds);
+    const movieIds = rows.map((r) => String(r.movieId));
+    const imageMap = await getImageAttachmentBatch(
+      db,
+      'watching',
+      'movies',
+      movieIds
+    );
 
-    const data = rows.map((row) => {
-      const img = imageMap.get(row.movieId) || EMPTY_IMAGE_META;
-      return {
-        id: row.id,
-        title: row.title,
-        year: row.year,
-        tmdb_id: row.tmdbId,
-        imdb_id: row.imdbId,
-        poster_url: row.posterPath
-          ? `https://image.tmdb.org/t/p/w500${row.posterPath}`
-          : null,
-        thumbhash: img.thumbhash,
-        dominant_color: img.dominant_color,
-        accent_color: img.accent_color,
-        runtime: row.runtime,
-        tmdb_rating: row.tmdbRating,
-        media_type: row.mediaType,
-        resolution: row.resolution,
-        hdr: row.hdr,
-        audio: row.audio,
-        audio_channels: row.audioChannels,
-        collected_at: row.collectedAt,
-      };
-    });
+    const data = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      year: row.year,
+      tmdb_id: row.tmdbId,
+      imdb_id: row.imdbId,
+      image: imageMap.get(String(row.movieId)) ?? null,
+      runtime: row.runtime,
+      tmdb_rating: row.tmdbRating,
+      media_type: row.mediaType,
+      resolution: row.resolution,
+      hdr: row.hdr,
+      audio: row.audio,
+      audio_channels: row.audioChannels,
+      collected_at: row.collectedAt,
+    }));
 
     setCache(c, 'long');
     return c.json({
@@ -1216,31 +1081,28 @@ collecting.get('/collecting/media/recent', requireAuth('read'), async (c) => {
       .orderBy(desc(traktCollection.collectedAt))
       .limit(limit);
 
-    const movieIds = rows.map((r) => r.movieId);
-    const imageMap = await getMovieImageMetaBatch(db, movieIds);
+    const movieIds = rows.map((r) => String(r.movieId));
+    const imageMap = await getImageAttachmentBatch(
+      db,
+      'watching',
+      'movies',
+      movieIds
+    );
 
-    const data = rows.map((row) => {
-      const img = imageMap.get(row.movieId) || EMPTY_IMAGE_META;
-      return {
-        id: row.id,
-        title: row.title,
-        year: row.year,
-        tmdb_id: row.tmdbId,
-        poster_url: row.posterPath
-          ? `https://image.tmdb.org/t/p/w500${row.posterPath}`
-          : null,
-        thumbhash: img.thumbhash,
-        dominant_color: img.dominant_color,
-        accent_color: img.accent_color,
-        tmdb_rating: row.tmdbRating,
-        media_type: row.mediaType,
-        resolution: row.resolution,
-        hdr: row.hdr,
-        audio: row.audio,
-        audio_channels: row.audioChannels,
-        collected_at: row.collectedAt,
-      };
-    });
+    const data = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      year: row.year,
+      tmdb_id: row.tmdbId,
+      image: imageMap.get(String(row.movieId)) ?? null,
+      tmdb_rating: row.tmdbRating,
+      media_type: row.mediaType,
+      resolution: row.resolution,
+      hdr: row.hdr,
+      audio: row.audio,
+      audio_channels: row.audioChannels,
+      collected_at: row.collectedAt,
+    }));
 
     setCache(c, 'medium');
     return c.json({ data });
@@ -1371,9 +1233,7 @@ collecting.get(
             title: row.title,
             year: row.year,
             tmdb_id: row.tmdbId,
-            poster_url: row.posterPath
-              ? `https://image.tmdb.org/t/p/w500${row.posterPath}`
-              : null,
+            image: null as null,
             media_type: row.mediaType,
             resolution: row.resolution,
             collected_at: row.collectedAt,
@@ -1480,9 +1340,9 @@ collecting.get('/collecting/media/:id', requireAuth('read'), async (c) => {
       .where(eq(watchHistory.movieId, row.movieId))
       .orderBy(desc(watchHistory.watchedAt));
 
-    const img = row.movieId
-      ? await getMovieImageMeta(db, row.movieId)
-      : EMPTY_IMAGE_META;
+    const image = row.movieId
+      ? await getImageAttachment(db, 'watching', 'movies', String(row.movieId))
+      : null;
 
     setCache(c, 'long');
     return c.json({
@@ -1493,15 +1353,7 @@ collecting.get('/collecting/media/:id', requireAuth('read'), async (c) => {
       imdb_id: row.imdbId,
       tagline: row.tagline,
       summary: row.summary,
-      poster_url: row.posterPath
-        ? `https://image.tmdb.org/t/p/w500${row.posterPath}`
-        : null,
-      backdrop_url: row.backdropPath
-        ? `https://image.tmdb.org/t/p/w1280${row.backdropPath}`
-        : null,
-      thumbhash: img.thumbhash,
-      dominant_color: img.dominant_color,
-      accent_color: img.accent_color,
+      image,
       runtime: row.runtime,
       tmdb_rating: row.tmdbRating,
       content_rating: row.contentRating,

@@ -1,0 +1,1 @@
+ALTER TABLE `images` ADD `search_hints` text;

@@ -65,6 +65,36 @@ Listening endpoints accept a `period` parameter:
 | 429    | Rate limited                           |
 | 500    | Internal server error                  |
 
+### Image Fields
+
+All entities with images return a standardized `image` field:
+
+```json
+{
+  "image": {
+    "cdn_url": "https://cdn.rewind.rest/listening/albums/123/original.jpg?width=300&height=300&v=2",
+    "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+    "dominant_color": "#1a1a2e",
+    "accent_color": "#e94560"
+  }
+}
+```
+
+When no image exists, the field is `null`:
+
+```json
+{
+  "image": null
+}
+```
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| cdn_url | string | Cloudflare Images transform URL with size preset |
+| thumbhash | string or null | Base64 ThumbHash for blur placeholder |
+| dominant_color | string or null | Hex color for background placeholder |
+| accent_color | string or null | Hex color for UI accents |
+
 ## System
 
 ### GET /v1/health
@@ -239,10 +269,12 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/feed?lim
       "occurred_at": "2026-03-09T14:32:00Z",
       "title": "Listened to Paranoid Android",
       "subtitle": "Radiohead -- OK Computer",
-      "image_url": "https://cdn.rewind.rest/listening/albums/abc123/original.jpg",
-      "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
-      "dominant_color": "#1a2b3c",
-      "accent_color": "#4d5e6f"
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/listening/albums/abc123/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      }
     },
     {
       "id": 5000,
@@ -251,10 +283,7 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/feed?lim
       "occurred_at": "2026-03-09T07:15:00Z",
       "title": "Morning Run",
       "subtitle": "5.2 mi in 42:30 (8:10/mi)",
-      "image_url": null,
-      "thumbhash": null,
-      "dominant_color": null,
-      "accent_color": null
+      "image": null
     }
   ],
   "pagination": { "page": 1, "limit": 5, "total": 150234, "total_pages": 30047 }
@@ -353,10 +382,12 @@ curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/listening
     "album": {
       "id": 88,
       "name": "Kid A",
-      "image_url": "https://cdn.rewind.rest/listening/albums/kid-a-mbid/original.jpg",
-      "thumbhash": "abc123==",
-      "dominant_color": "#1a2b3c",
-      "accent_color": "#4d5e6f"
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/listening/albums/kid-a-mbid/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "abc123==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      }
     },
     "url": "https://www.last.fm/music/Radiohead/_/Everything+In+Its+Right+Place"
   },
@@ -385,10 +416,12 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/listenin
       "album": {
         "id": 88,
         "name": "Kid A",
-        "image_url": "...",
-        "thumbhash": "...",
-        "dominant_color": "#1a2b3c",
-        "accent_color": "#4d5e6f"
+        "image": {
+          "cdn_url": "https://cdn.rewind.rest/listening/albums/88/original.jpg?width=300&height=300&v=1",
+          "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+          "dominant_color": "#1a2b3c",
+          "accent_color": "#4d5e6f"
+        }
       },
       "scrobbled_at": "2026-03-09T14:28:00Z"
     }
@@ -419,10 +452,12 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/listenin
       "id": 42,
       "name": "Radiohead",
       "playcount": 312,
-      "image_url": "...",
-      "thumbhash": "...",
-      "dominant_color": "#1a2b3c",
-      "accent_color": "#4d5e6f",
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/listening/artists/42/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      },
       "url": "https://www.last.fm/music/Radiohead"
     }
   ],
@@ -450,11 +485,13 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/listenin
       "name": "OK Computer",
       "detail": "Radiohead",
       "playcount": 78,
-      "image_url": "...",
-      "thumbhash": "...",
-      "dominant_color": "#1a2b3c",
-      "accent_color": "#4d5e6f",
-      "url": "..."
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/listening/albums/88/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      },
+      "url": "https://www.last.fm/music/Radiohead/OK+Computer"
     }
   ],
   "pagination": { "page": 1, "limit": 10, "total": 800, "total_pages": 80 }
@@ -544,10 +581,12 @@ curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/listening
   "name": "Radiohead",
   "mbid": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
   "playcount": 5432,
-  "image_url": "...",
-  "thumbhash": "...",
-  "dominant_color": "#1a2b3c",
-  "accent_color": "#4d5e6f",
+  "image": {
+    "cdn_url": "https://cdn.rewind.rest/listening/artists/42/original.jpg?width=300&height=300&v=1",
+    "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+    "dominant_color": "#1a2b3c",
+    "accent_color": "#4d5e6f"
+  },
   "url": "https://www.last.fm/music/Radiohead",
   "top_albums": [{ "id": 88, "name": "OK Computer", "playcount": 312 }],
   "top_tracks": [{ "id": 201, "name": "Paranoid Android", "playcount": 78 }]
@@ -569,11 +608,13 @@ curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/listening
   "artist": { "id": 42, "name": "Radiohead" },
   "mbid": "album-mbid",
   "playcount": 312,
-  "image_url": "...",
-  "thumbhash": "...",
-  "dominant_color": "#1a2b3c",
-  "accent_color": "#4d5e6f",
-  "url": "..."
+  "image": {
+    "cdn_url": "https://cdn.rewind.rest/listening/albums/88/original.jpg?width=300&height=300&v=1",
+    "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+    "dominant_color": "#1a2b3c",
+    "accent_color": "#4d5e6f"
+  },
+  "url": "https://www.last.fm/music/Radiohead/OK+Computer"
 }
 ```
 
@@ -1052,10 +1093,12 @@ Cache: max-age=86400
       "genres": ["Comedy", "Drama"],
       "duration_min": 99,
       "rating": "R",
-      "poster_url": "...",
-      "thumbhash": "...",
-      "dominant_color": "#1a2b3c",
-      "accent_color": "#4d5e6f",
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/watching/movies/1/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      },
       "watched_at": "2026-03-08T21:00:00Z",
       "imdb_id": "tt2278388"
     }
@@ -1276,10 +1319,12 @@ Cache: max-age=86400
       "label": "XL Recordings",
       "genres": ["Electronic", "Rock"],
       "styles": ["Alternative Rock"],
-      "cover_url": "...",
-      "thumbhash": "...",
-      "dominant_color": "#1a2b3c",
-      "accent_color": "#4d5e6f",
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/collecting/releases/1/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      },
       "date_added": "2024-05-10T14:00:00Z",
       "rating": 5,
       "discogs_url": "https://www.discogs.com/release/12345678"
@@ -1395,10 +1440,12 @@ Cache: max-age=86400
         "title": "OK Computer",
         "artists": ["Radiohead"],
         "format": "Vinyl",
-        "cover_url": "...",
-        "thumbhash": "...",
-        "dominant_color": "#1a2b3c",
-        "accent_color": "#4d5e6f"
+        "image": {
+          "cdn_url": "https://cdn.rewind.rest/collecting/releases/1/original.jpg?width=300&height=300&v=1",
+          "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+          "dominant_color": "#1a2b3c",
+          "accent_color": "#4d5e6f"
+        }
       },
       "listening": {
         "album_id": 88,
@@ -1457,10 +1504,12 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/collecti
       "audio": "dolby_atmos",
       "audio_channels": "7.1",
       "collected_at": "2025-12-25T10:00:00Z",
-      "poster_url": "...",
-      "thumbhash": "...",
-      "dominant_color": "#1a2b3c",
-      "accent_color": "#4d5e6f"
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/collecting/media/1/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      }
     }
   ],
   "pagination": { "page": 1, "limit": 10, "total": 85, "total_pages": 9 }
@@ -1492,10 +1541,12 @@ curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/collectin
   "audio": "dolby_atmos",
   "audio_channels": "7.1",
   "collected_at": "2025-12-25T10:00:00Z",
-  "poster_url": "...",
-  "thumbhash": "...",
-  "dominant_color": "#1a2b3c",
-  "accent_color": "#4d5e6f",
+  "image": {
+    "cdn_url": "https://cdn.rewind.rest/collecting/media/1/original.jpg?width=300&height=300&v=1",
+    "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+    "dominant_color": "#1a2b3c",
+    "accent_color": "#4d5e6f"
+  },
   "watch_history": [
     {
       "watched_at": "2026-01-15T21:00:00Z",
@@ -1584,7 +1635,7 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/collecti
         "id": 1,
         "title": "Inception",
         "format": "4k_uhd",
-        "poster_url": "..."
+        "image": null
       },
       "watching": {
         "movie_id": 12,

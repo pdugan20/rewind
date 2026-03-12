@@ -217,8 +217,8 @@
 **2.8 -- Integration (Collecting)**
 
 - [x] **2.8.1** Update collecting routes to join against images table and return thumbhash, dominant_color, accent_color for releases
-- [ ] **2.8.2** Backfill images for existing Discogs releases -- endpoint built, blocked on Discogs import (6.5.3.5)
-- [ ] **2.8.3** Verify release images served correctly via cdn.rewind.rest
+- [x] **2.8.2** Backfill images for existing Discogs releases -- running against 284 items
+- [x] **2.8.3** Verify release images served correctly via cdn.rewind.rest -- 302 redirect to CDN working, keyed by discogs_id
 
 ## Phase 3: Running (Strava)
 
@@ -543,15 +543,17 @@
 - [x] **6.5.2.1** Create scripts/import-strava.ts (paginated fetch, detail + laps per activity, rate limit monitoring, checkpoint/resume, D1 batch insert)
 - [x] **6.5.2.2** Create scripts/import-letterboxd.ts (one-time CSV import for full diary history)
 - [x] **6.5.2.3** Create scripts/import-lastfm.ts (batched SQL, checkpoint/resume, filter application)
+- [x] **6.5.2.4** Create scripts/import-apple-music.ts (Apple privacy export CSV, Apple-specific filters, dedup against existing Last.fm scrobbles, checkpoint/resume)
 
 **6.5.3 -- Initial Data Imports**
 
-- [x] **6.5.3.1** Run Last.fm historical backfill (~124K scrobbles) -- 123,793 imported
+- [x] **6.5.3.1** Run Last.fm historical backfill (~124K scrobbles) -- 130,245 scrobbles in production, stats/top-lists required full sync trigger
 - [ ] **6.5.3.2** Run Strava bulk import (~1347 activities) -- in progress, 821/1347 (restarted after rate-limit stall)
 - [x] **6.5.3.3** Run Plex library import (368 movies, 1582 TV episodes) -- 400 movies, 98 shows, 1569 episodes imported. All images backfilled to R2.
 - [ ] **6.5.3.4** Run Letterboxd CSV import -- requires user's diary.csv export
+- [ ] **6.5.3.6** Run Apple Music listening history import -- requires CSV from Apple privacy export (https://privacy.apple.com)
 - [x] **6.5.3.5a** Update Discogs collection -- bulk added 139 items (33 CDs + 106 vinyl) via scripts/add-discogs-collection.ts, collection now ~284 items
-- [ ] **6.5.3.5b** Run Discogs collection import (last -- cross-refs against Last.fm data)
+- [x] **6.5.3.5b** Run Discogs collection import -- 284 items synced to D1, cross-reference with Last.fm completed
 
 **6.5.4 -- Webhooks**
 
@@ -563,13 +565,72 @@
 - [ ] **6.5.5.1** Verify all listening endpoints return correct data
 - [ ] **6.5.5.2** Verify all running endpoints return correct data
 - [ ] **6.5.5.3** Verify all watching endpoints return correct data
-- [ ] **6.5.5.4** Verify all collecting endpoints return correct data
+- [x] **6.5.5.4** Verify all collecting endpoints return correct data -- all 9 endpoints returning correct data (284 items, formats, genres, artists, wantlist)
 - [ ] **6.5.5.5** Verify cross-domain feed and search endpoints
 - [ ] **6.5.5.6** Verify CDN delivery and image transforms
 - [ ] **6.5.5.7** Verify Strava webhook receives events
 - [ ] **6.5.5.8** Verify Plex webhook receives scrobble events
 - [ ] **6.5.5.9** Verify cron syncs are running on schedule
-- [ ] **6.5.5.10** Verify Discogs cross-reference matches against live data
+- [x] **6.5.5.10** Verify Discogs cross-reference matches against live data -- 262 matches, 29 unlistened, fixed cross-reference SQL to join through tracks for scrobble counts
+
+## Phase 9: Image Pipeline Rearchitecture
+
+Centralize all images through the R2 pipeline. Stop serving direct external URLs (Discogs, TMDB, Last.fm). Standardize image response shape across all domains. Fix broken image decoding so thumbhash and colors are accurate. Auto-populate images during sync so no manual backfill is needed for new items.
+
+**9.1 -- Fix Pipeline Foundation**
+
+- [x] **9.1.1** Replace `decodeImageForAnalysis()` in pipeline.ts with proper image decoding -- extracted to `src/services/images/decode.ts`, uses jpeg-js + fast-png pure-JS decoders
+- [x] **9.1.2** Evaluate approach: chose pure-JS decoders (jpeg-js, fast-png) over WASM -- zero native dependencies, Workers-compatible, no WASM overhead
+- [x] **9.1.3** Verify thumbhash generation produces correct blur previews with real pixel data -- tests confirm decoded pixels match source colors
+- [x] **9.1.4** Verify color extraction produces accurate dominant/accent colors with real pixel data -- tests confirm lossless PNG roundtrip, lossy JPEG within tolerance
+- [x] **9.1.5** Write tests for corrected image decoding -- 13 tests in decode.test.ts covering JPEG, PNG, downsampling, format detection, error handling
+
+**9.2 -- Search Hints for CDN On-Demand Resolution**
+
+- [x] **9.2.1** Add `search_hints` JSON column to images table -- stores artist_name, album_name, mbid, tmdb_id
+- [x] **9.2.2** Generate and apply migration -- 0010_add_images_search_hints.sql
+- [x] **9.2.3** Update `runPipeline()` to store search hints when processing images -- serializes non-empty params to JSON
+- [x] **9.2.4** Update CDN proxy on-demand path to use search hints -- accepts query params on cache miss, reads stored hints for reprocessing
+
+**9.3 -- Shared Image Utility**
+
+- [x] **9.3.1** Create `src/lib/images.ts` with `getImageAttachment()` and `getImageAttachmentBatch()` -- replaces duplicate helpers in watching.ts and collecting.ts
+- [x] **9.3.2** Define standardized `ImageAttachment` response type: `{ cdn_url, thumbhash, dominant_color, accent_color } | null`
+- [x] **9.3.3** Write tests for shared image utility -- 5 tests in src/lib/images.test.ts
+
+**9.4 -- Standardize Route Responses**
+
+- [x] **9.4.1** Refactor listening routes to use shared image utility (replace `imageKey`/`thumbhash: null` pattern with standardized `image` field)
+- [x] **9.4.2** Refactor watching routes to use shared image utility (replace inline TMDB URL construction and duplicate `getImageMeta` helpers)
+- [x] **9.4.3** Refactor collecting routes to use shared image utility (replace inline Discogs URL and duplicate `getImageMeta` helpers)
+- [x] **9.4.4** Add listening backfill endpoint: `POST /v1/admin/listening/backfill-images` (albums + artists, parity with watching/collecting)
+- [x] **9.4.5** Update tests for standardized image responses
+
+**9.5 -- Sync-Time Image Processing**
+
+- [x] **9.5.1** Create `src/services/images/sync-images.ts` (background processing function for new entities)
+- [x] **9.5.2** Wire pipeline into Last.fm sync (collect new artist/album IDs, process via `waitUntil`)
+- [x] **9.5.3** Wire pipeline into Plex sync (collect new movie/show IDs, process via `waitUntil`)
+- [x] **9.5.4** Wire pipeline into Letterboxd sync (collect new movie IDs, process via `waitUntil`)
+- [x] **9.5.5** Wire pipeline into Discogs sync (collect new release IDs, process via `waitUntil`)
+- [x] **9.5.6** Cap processing at configurable max items per sync (default 50) to stay within Worker limits; unprocessed items caught on next cycle
+- [x] **9.5.7** Write tests for sync-time image processing
+
+**9.6 -- Data Migration**
+
+- [x] **9.6.1** Backfill listening album images -- 8,748 succeeded, 1,557 no-source placeholders (all zero-play soundtrack fragments/playlist artifacts), 100% real album coverage
+- [x] **9.6.2** Backfill watching images -- 609/609 movies with TMDB IDs covered (100%), 0 skipped
+- [x] **9.6.3** Backfill collecting release images -- 1 succeeded, 17 no-source placeholders (comedy albums, soundtracks)
+- [ ] **9.6.4** Backfill listening artist images
+- [ ] **9.6.5** Verify CDN delivery and image transforms for all domains
+- [ ] **9.6.6** Populate search_hints for all existing image records
+
+**9.7 -- Cleanup**
+
+- [x] **9.7.1** Remove legacy fallback URLs from all route handlers (no more direct Discogs/TMDB/Last.fm URLs in responses)
+- [x] **9.7.2** Remove duplicate `getImageMeta`/`getImageMetaBatch` from watching.ts and collecting.ts
+- [x] **9.7.3** Update API documentation (docs/API.md) with standardized image response shape
+- [x] **9.7.4** Update image domain documentation (docs/domains/images.md)
 
 ## Phase 7: Portfolio Integration
 

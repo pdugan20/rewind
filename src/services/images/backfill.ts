@@ -7,6 +7,7 @@
 import type { Database } from '../../db/client.js';
 import type { PipelineEnv } from './pipeline.js';
 import { runPipeline } from './pipeline.js';
+import { insertNoSourcePlaceholder } from './placeholder.js';
 import type { SourceSearchParams } from './sources/types.js';
 
 export interface BackfillItem {
@@ -74,6 +75,8 @@ export async function backfillImages(
           result.succeeded++;
         } else {
           result.skipped++;
+          // Insert a placeholder so this entity isn't retried
+          await insertNoSourcePlaceholder(db, domain, entityType, item.entityId);
         }
       } catch (error) {
         result.failed++;

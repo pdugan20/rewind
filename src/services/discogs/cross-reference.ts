@@ -185,20 +185,34 @@ export async function runCrossReference(
   d1: D1Database,
   userId: number = 1
 ): Promise<{ matched: number; unmatched: number }> {
-  // Try to get Last.fm album data from raw SQL (schema may not exist)
+  // Get Last.fm album data by joining albums with artists and computing
+  // play counts from scrobbles (album.playcount is only set for top-list albums)
   let lastfmAlbums: LastfmAlbumRow[];
   try {
     const result = await d1
       .prepare(
-        `SELECT name, artist_name as artistName, playcount, last_played as lastPlayed
-       FROM lastfm_albums WHERE user_id = ?`
+        `SELECT
+          a.name AS name,
+          ar.name AS artistName,
+          COALESCE(sc.cnt, 0) AS playcount,
+          sc.last_played AS lastPlayed
+        FROM lastfm_albums a
+        JOIN lastfm_artists ar ON a.artist_id = ar.id
+        LEFT JOIN (
+          SELECT t.album_id, COUNT(*) AS cnt, MAX(s.scrobbled_at) AS last_played
+          FROM lastfm_scrobbles s
+          JOIN lastfm_tracks t ON s.track_id = t.id
+          WHERE s.user_id = ?1
+          GROUP BY t.album_id
+        ) sc ON sc.album_id = a.id
+        WHERE a.user_id = ?1 AND a.is_filtered = 0`
       )
       .bind(userId)
       .all();
     lastfmAlbums = (result.results as unknown as LastfmAlbumRow[]) || [];
-  } catch {
+  } catch (err) {
     console.log(
-      '[INFO] Last.fm albums table not found, skipping cross-reference'
+      `[INFO] Last.fm albums query failed, skipping cross-reference: ${err instanceof Error ? err.message : String(err)}`
     );
     return { matched: 0, unmatched: 0 };
   }

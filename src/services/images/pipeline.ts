@@ -9,6 +9,7 @@ import { images } from '../../db/schema/system.js';
 import { buildR2Key } from './presets.js';
 import { extractColors } from './colors.js';
 import { generateThumbHash } from './thumbhash.js';
+import { decodeImageForAnalysis } from './decode.js';
 import type {
   SourceClient,
   SourceSearchParams,
@@ -60,6 +61,43 @@ export interface ImageRecord {
   isOverride: number;
   overrideAt: string | null;
   imageVersion: number;
+  searchHints: string | null;
+}
+
+/**
+ * Serialize search hints from pipeline params for storage.
+ * Enables CDN on-demand resolution without needing to look up domain tables.
+ */
+function serializeSearchHints(params: SourceSearchParams): string | null {
+  const hints: Record<string, string> = {};
+  if (params.artistName) hints.artistName = params.artistName;
+  if (params.albumName) hints.albumName = params.albumName;
+  if (params.mbid) hints.mbid = params.mbid;
+  if (params.tmdbId) hints.tmdbId = params.tmdbId;
+  return Object.keys(hints).length > 0 ? JSON.stringify(hints) : null;
+}
+
+/**
+ * Deserialize stored search hints back into pipeline params.
+ */
+export function deserializeSearchHints(
+  hintsJson: string | null,
+  domain: string,
+  entityType: string,
+  entityId: string
+): SourceSearchParams {
+  const params: SourceSearchParams = { domain, entityType, entityId };
+  if (!hintsJson) return params;
+  try {
+    const hints = JSON.parse(hintsJson);
+    if (hints.artistName) params.artistName = hints.artistName;
+    if (hints.albumName) params.albumName = hints.albumName;
+    if (hints.mbid) params.mbid = hints.mbid;
+    if (hints.tmdbId) params.tmdbId = hints.tmdbId;
+  } catch {
+    // Ignore malformed hints
+  }
+  return params;
 }
 
 /**
@@ -189,89 +227,6 @@ async function fetchImageBytes(
     );
     return null;
   }
-}
-
-/**
- * Decode image bytes to raw RGBA pixel data.
- * Uses a simplified approach: parse JPEG/PNG headers for dimensions
- * and extract pixel data for color analysis and ThumbHash.
- *
- * In a Workers environment without sharp/canvas, we use a basic
- * approach that samples the raw bytes for color analysis.
- */
-function decodeImageForAnalysis(bytes: ArrayBuffer): {
-  pixels: Uint8Array;
-  width: number;
-  height: number;
-} | null {
-  const data = new Uint8Array(bytes);
-
-  // Try to determine dimensions from headers
-  let width = 0;
-  let height = 0;
-
-  // JPEG: look for SOF0 or SOF2 marker
-  if (data[0] === 0xff && data[1] === 0xd8) {
-    for (let i = 2; i < data.length - 8; i++) {
-      if (data[i] === 0xff && (data[i + 1] === 0xc0 || data[i + 1] === 0xc2)) {
-        height = (data[i + 5] << 8) | data[i + 6];
-        width = (data[i + 7] << 8) | data[i + 8];
-        break;
-      }
-    }
-  }
-
-  // PNG: dimensions at bytes 16-23
-  if (
-    data[0] === 0x89 &&
-    data[1] === 0x50 &&
-    data[2] === 0x4e &&
-    data[3] === 0x47
-  ) {
-    width = (data[16] << 24) | (data[17] << 16) | (data[18] << 8) | data[19];
-    height = (data[20] << 24) | (data[21] << 16) | (data[22] << 8) | data[23];
-  }
-
-  if (width === 0 || height === 0) {
-    // Fallback: assume a small image for analysis
-    width = 32;
-    height = 32;
-  }
-
-  // For color extraction, create a pseudo-pixel array by sampling the image bytes.
-  // This is an approximation since we can't fully decode JPEG/PNG in Workers
-  // without a WASM decoder. We sample the raw bytes as RGB triplets,
-  // skipping headers, which gives a rough color distribution.
-  const sampleWidth = Math.min(width, 32);
-  const sampleHeight = Math.min(height, 32);
-  const pixelCount = sampleWidth * sampleHeight;
-  const pixels = new Uint8Array(pixelCount * 4);
-
-  // Skip the first portion (headers) and sample from the data portion
-  const headerSkip = Math.min(Math.floor(data.length * 0.1), 1024);
-  const dataRegion = data.slice(headerSkip);
-
-  if (dataRegion.length < pixelCount * 3) {
-    // Not enough data to sample, create from available bytes
-    for (let i = 0; i < pixelCount; i++) {
-      const srcIdx = (i * 3) % dataRegion.length;
-      pixels[i * 4] = dataRegion[srcIdx] ?? 128;
-      pixels[i * 4 + 1] = dataRegion[(srcIdx + 1) % dataRegion.length] ?? 128;
-      pixels[i * 4 + 2] = dataRegion[(srcIdx + 2) % dataRegion.length] ?? 128;
-      pixels[i * 4 + 3] = 255;
-    }
-  } else {
-    const step = Math.max(1, Math.floor(dataRegion.length / (pixelCount * 3)));
-    for (let i = 0; i < pixelCount; i++) {
-      const srcIdx = i * step * 3;
-      pixels[i * 4] = dataRegion[srcIdx % dataRegion.length];
-      pixels[i * 4 + 1] = dataRegion[(srcIdx + 1) % dataRegion.length];
-      pixels[i * 4 + 2] = dataRegion[(srcIdx + 2) % dataRegion.length];
-      pixels[i * 4 + 3] = 255;
-    }
-  }
-
-  return { pixels, width: sampleWidth, height: sampleHeight };
 }
 
 /**
@@ -414,6 +369,9 @@ export async function runPipeline(
     }
   }
 
+  // Serialize search hints for future on-demand CDN resolution
+  const searchHints = serializeSearchHints(params);
+
   // Upsert image record in DB
   const existing = await db
     .select()
@@ -442,6 +400,7 @@ export async function runPipeline(
         thumbhash,
         dominantColor,
         accentColor,
+        searchHints,
       })
       .where(eq(images.id, existing[0].id));
   } else {
@@ -457,6 +416,7 @@ export async function runPipeline(
       thumbhash,
       dominantColor,
       accentColor,
+      searchHints,
       imageVersion,
     });
   }

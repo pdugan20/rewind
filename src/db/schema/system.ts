@@ -100,6 +100,7 @@ export const images = sqliteTable(
     isOverride: integer('is_override').notNull().default(0),
     overrideAt: text('override_at'),
     imageVersion: integer('image_version').notNull().default(1),
+    searchHints: text('search_hints'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),

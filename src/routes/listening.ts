@@ -15,9 +15,16 @@ import {
 } from '../db/schema/lastfm.js';
 import { setCache } from '../lib/cache.js';
 import { notFound, badRequest, serverError } from '../lib/errors.js';
+import {
+  getImageAttachment,
+  getImageAttachmentBatch,
+} from '../lib/images.js';
+import { images } from '../db/schema/system.js';
 import { LastfmClient } from '../services/lastfm/client.js';
 import { syncListening } from '../services/lastfm/sync.js';
 import type { LastfmPeriod } from '../services/lastfm/client.js';
+import { backfillImages } from '../services/images/backfill.js';
+import type { BackfillItem } from '../services/images/backfill.js';
 
 const listening = new Hono<{ Bindings: Env }>();
 
@@ -66,14 +73,12 @@ listening.get('/now-playing', async (c) => {
     let albumData: {
       id: number;
       name: string;
-      imageKey: string | null;
     } | null = null;
     if (latestTrack.album['#text'] && artist) {
       const [album] = await db
         .select({
           id: lastfmAlbums.id,
           name: lastfmAlbums.name,
-          imageKey: lastfmAlbums.imageKey,
         })
         .from(lastfmAlbums)
         .where(
@@ -85,6 +90,15 @@ listening.get('/now-playing', async (c) => {
         .limit(1);
       albumData = album ?? null;
     }
+
+    const albumImage = albumData
+      ? await getImageAttachment(
+          db,
+          'listening',
+          'albums',
+          String(albumData.id)
+        )
+      : null;
 
     const scrobbledAt = latestTrack.date
       ? new Date(parseInt(latestTrack.date.uts) * 1000).toISOString()
@@ -101,8 +115,7 @@ listening.get('/now-playing', async (c) => {
         album: {
           id: albumData?.id ?? null,
           name: latestTrack.album['#text'],
-          image_url: albumData?.imageKey ?? null,
-          thumbhash: null,
+          image: albumImage,
         },
         url: latestTrack.url,
       },
@@ -133,7 +146,6 @@ listening.get('/recent', async (c) => {
       artistId: lastfmArtists.id,
       albumName: lastfmAlbums.name,
       albumId: lastfmAlbums.id,
-      albumImageKey: lastfmAlbums.imageKey,
     })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
@@ -141,6 +153,18 @@ listening.get('/recent', async (c) => {
     .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
     .orderBy(desc(lastfmScrobbles.scrobbledAt))
     .limit(limit);
+
+  const albumIds = [
+    ...new Set(
+      scrobbles.map((s) => s.albumId).filter((id): id is number => id !== null)
+    ),
+  ].map(String);
+  const imageMap = await getImageAttachmentBatch(
+    db,
+    'listening',
+    'albums',
+    albumIds
+  );
 
   return c.json({
     data: scrobbles.map((s) => ({
@@ -156,8 +180,7 @@ listening.get('/recent', async (c) => {
       album: {
         id: s.albumId,
         name: s.albumName,
-        image_url: s.albumImageKey ?? null,
-        thumbhash: null,
+        image: s.albumId ? imageMap.get(String(s.albumId)) ?? null : null,
       },
       scrobbled_at: s.scrobbledAt,
     })),
@@ -193,7 +216,6 @@ listening.get('/top/artists', async (c) => {
       artistId: lastfmArtists.id,
       artistName: lastfmArtists.name,
       artistUrl: lastfmArtists.url,
-      artistImageKey: lastfmArtists.imageKey,
     })
     .from(lastfmTopArtists)
     .innerJoin(lastfmArtists, eq(lastfmTopArtists.artistId, lastfmArtists.id))
@@ -201,6 +223,14 @@ listening.get('/top/artists', async (c) => {
     .orderBy(asc(lastfmTopArtists.rank))
     .limit(limit)
     .offset(offset);
+
+  const artistIds = items.map((i) => String(i.artistId));
+  const imageMap = await getImageAttachmentBatch(
+    db,
+    'listening',
+    'artists',
+    artistIds
+  );
 
   return c.json({
     period,
@@ -210,8 +240,7 @@ listening.get('/top/artists', async (c) => {
       name: item.artistName,
       detail: '',
       playcount: item.playcount,
-      image_url: item.artistImageKey ?? null,
-      thumbhash: null,
+      image: imageMap.get(String(item.artistId)) ?? null,
       url: item.artistUrl ?? '',
     })),
     pagination: paginate(page, limit, total),
@@ -247,7 +276,6 @@ listening.get('/top/albums', async (c) => {
       albumId: lastfmAlbums.id,
       albumName: lastfmAlbums.name,
       albumUrl: lastfmAlbums.url,
-      albumImageKey: lastfmAlbums.imageKey,
       artistName: lastfmArtists.name,
     })
     .from(lastfmTopAlbums)
@@ -258,6 +286,14 @@ listening.get('/top/albums', async (c) => {
     .limit(limit)
     .offset(offset);
 
+  const albumIds = items.map((i) => String(i.albumId));
+  const imageMap = await getImageAttachmentBatch(
+    db,
+    'listening',
+    'albums',
+    albumIds
+  );
+
   return c.json({
     period,
     data: items.map((item) => ({
@@ -266,8 +302,7 @@ listening.get('/top/albums', async (c) => {
       name: item.albumName,
       detail: item.artistName,
       playcount: item.playcount,
-      image_url: item.albumImageKey ?? null,
-      thumbhash: null,
+      image: imageMap.get(String(item.albumId)) ?? null,
       url: item.albumUrl ?? '',
     })),
     pagination: paginate(page, limit, total),
@@ -321,8 +356,7 @@ listening.get('/top/tracks', async (c) => {
       name: item.trackName,
       detail: item.artistName,
       playcount: item.playcount,
-      image_url: null,
-      thumbhash: null,
+      image: null,
       url: item.trackUrl ?? '',
     })),
     pagination: paginate(page, limit, total),
@@ -430,7 +464,6 @@ listening.get('/history', async (c) => {
       artistId: lastfmArtists.id,
       albumName: lastfmAlbums.name,
       albumId: lastfmAlbums.id,
-      albumImageKey: lastfmAlbums.imageKey,
     })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
@@ -444,6 +477,20 @@ listening.get('/history', async (c) => {
     ? await dataQuery.where(whereClause)
     : await dataQuery;
 
+  const albumIds = [
+    ...new Set(
+      scrobbles
+        .map((s) => s.albumId)
+        .filter((id): id is number => id !== null)
+    ),
+  ].map(String);
+  const imageMap = await getImageAttachmentBatch(
+    db,
+    'listening',
+    'albums',
+    albumIds
+  );
+
   return c.json({
     data: scrobbles.map((s) => ({
       track: { id: s.trackId, name: s.trackName, url: s.trackUrl },
@@ -451,8 +498,7 @@ listening.get('/history', async (c) => {
       album: {
         id: s.albumId,
         name: s.albumName,
-        image_url: s.albumImageKey ?? null,
-        thumbhash: null,
+        image: s.albumId ? imageMap.get(String(s.albumId)) ?? null : null,
       },
       scrobbled_at: s.scrobbledAt,
     })),
@@ -489,7 +535,6 @@ listening.get('/artists/:id', async (c) => {
       id: lastfmAlbums.id,
       name: lastfmAlbums.name,
       playcount: lastfmAlbums.playcount,
-      imageKey: lastfmAlbums.imageKey,
     })
     .from(lastfmAlbums)
     .where(eq(lastfmAlbums.artistId, id))
@@ -510,6 +555,20 @@ listening.get('/artists/:id', async (c) => {
     .orderBy(desc(sql`count(${lastfmScrobbles.id})`))
     .limit(10);
 
+  const artistImage = await getImageAttachment(
+    db,
+    'listening',
+    'artists',
+    String(id)
+  );
+  const albumIds = topAlbums.map((a) => String(a.id));
+  const albumImageMap = await getImageAttachmentBatch(
+    db,
+    'listening',
+    'albums',
+    albumIds
+  );
+
   return c.json({
     id: artist.id,
     name: artist.name,
@@ -517,14 +576,12 @@ listening.get('/artists/:id', async (c) => {
     url: artist.url,
     playcount: artist.playcount,
     scrobble_count: scrobbleCount.count,
-    image_url: artist.imageKey ?? null,
-    thumbhash: null,
+    image: artistImage,
     top_albums: topAlbums.map((a) => ({
       id: a.id,
       name: a.name,
       playcount: a.playcount,
-      image_url: a.imageKey ?? null,
-      thumbhash: null,
+      image: albumImageMap.get(String(a.id)) ?? null,
     })),
     top_tracks: topTracks.map((t) => ({
       id: t.id,
@@ -549,7 +606,6 @@ listening.get('/albums/:id', async (c) => {
       mbid: lastfmAlbums.mbid,
       url: lastfmAlbums.url,
       playcount: lastfmAlbums.playcount,
-      imageKey: lastfmAlbums.imageKey,
       artistId: lastfmArtists.id,
       artistName: lastfmArtists.name,
     })
@@ -573,14 +629,20 @@ listening.get('/albums/:id', async (c) => {
     .groupBy(lastfmTracks.id)
     .orderBy(desc(sql`count(${lastfmScrobbles.id})`));
 
+  const albumImage = await getImageAttachment(
+    db,
+    'listening',
+    'albums',
+    String(id)
+  );
+
   return c.json({
     id: album.id,
     name: album.name,
     mbid: album.mbid,
     url: album.url,
     playcount: album.playcount,
-    image_url: album.imageKey ?? null,
-    thumbhash: null,
+    image: albumImage,
     artist: {
       id: album.artistId,
       name: album.artistName,
@@ -971,6 +1033,100 @@ listening.delete('/admin/filters/:id', async (c) => {
   await db.delete(lastfmFilters).where(eq(lastfmFilters.id, id));
 
   return c.json({ success: true, deleted_id: id });
+});
+
+// ─── Admin: Backfill images ─────────────────────────────────────────
+
+listening.post('/admin/listening/backfill-images', async (c) => {
+  const db = createDb(c.env.DB);
+  const body = await c.req
+    .json<{ type?: string; limit?: number }>()
+    .catch(() => ({ type: undefined, limit: undefined }));
+
+  const entityType = body.type || 'albums';
+  if (!['albums', 'artists', 'all'].includes(entityType)) {
+    return badRequest(c, 'Invalid type. Valid: albums, artists, all');
+  }
+  const maxItems = Math.min(body.limit || 50, 200);
+
+  const results: Record<string, unknown> = {};
+
+  if (entityType === 'albums' || entityType === 'all') {
+    const albumRows = await db
+      .select({
+        id: lastfmAlbums.id,
+        name: lastfmAlbums.name,
+        mbid: lastfmAlbums.mbid,
+        artistName: lastfmArtists.name,
+      })
+      .from(lastfmAlbums)
+      .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
+      .where(
+        and(
+          eq(lastfmAlbums.isFiltered, 0),
+          sql`${lastfmAlbums.id} NOT IN (
+            SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+            WHERE ${images.domain} = 'listening' AND ${images.entityType} = 'albums'
+          )`
+        )
+      )
+      .limit(maxItems);
+
+    const albumItems: BackfillItem[] = albumRows.map((a) => ({
+      entityId: String(a.id),
+      albumName: a.name,
+      artistName: a.artistName,
+      mbid: a.mbid ?? undefined,
+    }));
+
+    const albumResult = await backfillImages(
+      db,
+      c.env,
+      'listening',
+      'albums',
+      albumItems,
+      { batchSize: 5, delayMs: 500 }
+    );
+    results.albums = albumResult;
+  }
+
+  if (entityType === 'artists' || entityType === 'all') {
+    const artistRows = await db
+      .select({
+        id: lastfmArtists.id,
+        name: lastfmArtists.name,
+        mbid: lastfmArtists.mbid,
+      })
+      .from(lastfmArtists)
+      .where(
+        and(
+          eq(lastfmArtists.isFiltered, 0),
+          sql`${lastfmArtists.id} NOT IN (
+            SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+            WHERE ${images.domain} = 'listening' AND ${images.entityType} = 'artists'
+          )`
+        )
+      )
+      .limit(maxItems);
+
+    const artistItems: BackfillItem[] = artistRows.map((a) => ({
+      entityId: String(a.id),
+      artistName: a.name,
+      mbid: a.mbid ?? undefined,
+    }));
+
+    const artistResult = await backfillImages(
+      db,
+      c.env,
+      'listening',
+      'artists',
+      artistItems,
+      { batchSize: 5, delayMs: 500 }
+    );
+    results.artists = artistResult;
+  }
+
+  return c.json({ success: true, results });
 });
 
 export default listening;

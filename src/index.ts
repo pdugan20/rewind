@@ -21,6 +21,11 @@ import { syncWatching } from './services/plex/sync.js';
 import { syncLetterboxd } from './services/letterboxd/sync.js';
 import { syncCollecting, isSunday } from './services/discogs/sync.js';
 import { syncTraktCollection } from './services/trakt/sync.js';
+import {
+  processListeningImages,
+  processWatchingImages,
+  processCollectingImages,
+} from './services/images/sync-images.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -88,11 +93,13 @@ export default {
           env.LASTFM_USERNAME
         );
         ctx.waitUntil(
-          syncListening(db, client, { type: 'scrobbles' }).catch((err) =>
-            console.log(
-              `[ERROR] Scrobble sync cron failed: ${err instanceof Error ? err.message : String(err)}`
+          syncListening(db, client, { type: 'scrobbles' })
+            .then(() => processListeningImages(db, env))
+            .catch((err) =>
+              console.log(
+                `[ERROR] Scrobble sync cron failed: ${err instanceof Error ? err.message : String(err)}`
+              )
             )
-          )
         );
         break;
       }
@@ -104,12 +111,13 @@ export default {
           env.LASTFM_API_KEY,
           env.LASTFM_USERNAME
         );
-        // Last.fm top lists + stats
+        // Last.fm top lists + stats, then image processing
         ctx.waitUntil(
           (async () => {
             try {
               await syncListening(db, lastfmClient, { type: 'top_lists' });
               await syncListening(db, lastfmClient, { type: 'stats' });
+              await processListeningImages(db, env);
             } catch (err) {
               console.log(
                 `[ERROR] Last.fm daily sync failed: ${err instanceof Error ? err.message : String(err)}`
@@ -123,20 +131,30 @@ export default {
             console.log(`[ERROR] Strava cron sync failed: ${e}`)
           )
         );
-        // Plex library sync
+        // Plex library sync, then image processing
         ctx.waitUntil(
-          syncWatching(db, env).catch((error) => {
-            console.log(
-              `[ERROR] Plex sync failed: ${error instanceof Error ? error.message : String(error)}`
-            );
-          })
+          (async () => {
+            try {
+              await syncWatching(db, env);
+              await processWatchingImages(db, env);
+            } catch (error) {
+              console.log(
+                `[ERROR] Plex sync failed: ${error instanceof Error ? error.message : String(error)}`
+              );
+            }
+          })()
         );
-        // Discogs + Trakt sync (Sundays only)
+        // Discogs + Trakt sync (Sundays only), then image processing
         if (isSunday()) {
           ctx.waitUntil(
-            syncCollecting(env).catch((err) =>
-              console.log(`[ERROR] Discogs cron sync failed: ${err}`)
-            )
+            (async () => {
+              try {
+                await syncCollecting(env);
+                await processCollectingImages(db, env);
+              } catch (err) {
+                console.log(`[ERROR] Discogs cron sync failed: ${err}`);
+              }
+            })()
           );
           ctx.waitUntil(
             syncTraktCollection(env).catch((err) =>
@@ -149,11 +167,16 @@ export default {
       case '0 */6 * * *':
         console.log('[SYNC] Letterboxd RSS sync');
         ctx.waitUntil(
-          syncLetterboxd(db, env).catch((error) => {
-            console.log(
-              `[ERROR] Letterboxd sync failed: ${error instanceof Error ? error.message : String(error)}`
-            );
-          })
+          (async () => {
+            try {
+              await syncLetterboxd(db, env);
+              await processWatchingImages(db, env);
+            } catch (error) {
+              console.log(
+                `[ERROR] Letterboxd sync failed: ${error instanceof Error ? error.message : String(error)}`
+              );
+            }
+          })()
         );
         break;
       default:

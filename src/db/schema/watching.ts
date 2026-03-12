@@ -94,6 +94,7 @@ export const watchHistory = sqliteTable(
     userRating: real('user_rating'),
     percentComplete: real('percent_complete'),
     rewatch: integer('rewatch').notNull().default(0),
+    review: text('review'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),

@@ -247,10 +247,7 @@ The images table includes `user_id` for multi-user support (default 1).
 
 - Cannot use sharp (requires native bindings, no Workers support)
 - Cannot use canvas (no DOM in Workers)
-- Options:
-  - Use @cf/image/resize binding to resize, then decode pixels
-  - Use a WASM-based image decoder (e.g., photon-rs, image-rs compiled to WASM)
-  - Generate ThumbHash and extract colors during the image pipeline fetch step before R2 upload
+- Solution: Pure-JS decoders (`jpeg-js` for JPEG, `fast-png` for PNG) decode to raw RGBA pixel data, then custom downsampling reduces to 100x100 max for ThumbHash generation and k-means color extraction
 
 ### Client Usage
 
@@ -266,18 +263,22 @@ function BlurPlaceholder({ thumbhash }: { thumbhash: string }) {
 
 ### API Response Pattern
 
-Every API response that includes images returns the CDN URL, the ThumbHash, and the dominant/accent colors:
+All entity endpoints return a standardized `image` field (or `null` when no image exists):
 
 ```json
 {
-  "image_url": "https://cdn.rewind.rest/listening/albums/abc123/original.jpg",
-  "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
-  "dominant_color": "#1a2b3c",
-  "accent_color": "#4d5e6f"
+  "image": {
+    "cdn_url": "https://cdn.rewind.rest/listening/albums/123/original.jpg?width=300&height=300&v=1",
+    "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+    "dominant_color": "#1a2b3c",
+    "accent_color": "#4d5e6f"
+  }
 }
 ```
 
-The client shows the ThumbHash blur while fetching image_url, and uses dominant_color/accent_color for UI theming.
+The shared `ImageAttachment` type is defined in `src/lib/images.ts` and used by all route handlers via `getImageAttachment()` and `getImageAttachmentBatch()`. No domain-specific image helpers or inline external URLs exist in route handlers.
+
+The client shows the ThumbHash blur while fetching cdn_url, and uses dominant_color/accent_color for UI theming.
 
 ## CDN Setup
 
@@ -473,13 +474,54 @@ Pipeline runs for entity X:
 
 CDN URLs include `?v={image_version}`. Cloudflare treats different query params as different cache keys, so incrementing the version on override or revert causes the new image to be fetched fresh. Old cached versions expire naturally.
 
+## Sync-Time Image Processing
+
+After each domain sync (cron or manual), the system automatically queries for entities without images and processes them in the background via `waitUntil()`.
+
+- `processListeningImages()` -- albums + artists missing images
+- `processWatchingImages()` -- movies + shows missing images
+- `processCollectingImages()` -- releases missing images
+
+Processing is capped at 50 items per sync run (configurable via `maxItems`) to stay within Worker CPU limits. Unprocessed entities are picked up on the next sync cycle.
+
+Implementation: `src/services/images/sync-images.ts`, wired into cron handler in `src/index.ts`.
+
+## Search Hints
+
+The `images` table includes a `search_hints` column (JSON text) that stores the search parameters used to find an image (e.g., `artistName`, `albumName`, `mbid`, `tmdbId`). This enables:
+
+- Re-processing images on cache miss without requiring the caller to pass search params
+- The CDN proxy endpoint to re-run the pipeline for records that have hints but no R2 key
+
+## Image Decoding
+
+ThumbHash and color extraction require decoding images to raw RGBA pixels. In the Workers environment (no sharp/canvas), the pipeline uses:
+
+- `jpeg-js` for JPEG decoding
+- `fast-png` for PNG decoding (handles 1/2/3/4 channel images)
+- Custom `downsample()` to resize to max 100x100 for ThumbHash spec compliance
+
+Implementation: `src/services/images/decode.ts`
+
+## No-Source Placeholders
+
+When the pipeline cannot find an image from any source, a placeholder row is inserted into the `images` table with `r2_key = ''`, `source = 'none'`, and `image_version = 0`. This prevents the same entity from being retried on every sync cycle or backfill run.
+
+The `getImageAttachment()` and `getImageAttachmentBatch()` utilities in `src/lib/images.ts` filter out placeholder rows (checking `!row.r2Key`), returning `null` so the API returns `"image": null` for these entities.
+
+To query placeholder counts:
+
+```sql
+SELECT COUNT(*) FROM images WHERE source = 'none' AND domain = 'listening';
+```
+
 ## Known Issues
 
-- ThumbHash generation in Workers requires WASM-based image decoder (no sharp/canvas)
 - Cover Art Archive requires MBID -- not all Last.fm tracks have MBIDs
 - iTunes Search API rate limit (~20/min) can bottleneck bulk image fetching during initial import
 - Discogs image TOS restricts caching > 6 hours -- use CCA/iTunes for album art, Discogs for metadata only
 - Apple Music developer token expires every 6 months -- must regenerate
 - Fanart.tv has 7-day delay for new images on free project keys
 - TMDB requires attribution when using their images
-- Some album art may not exist in any source -- need a default/fallback placeholder image in R2
+- Last.fm soundtrack albums are split by per-track artist, creating many album entries that will never match image sources
+- Backfill batches of 100+ can hit Worker CPU limits (error 1102) -- use 50-item batches with delays
