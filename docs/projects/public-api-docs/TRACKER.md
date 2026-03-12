@@ -108,17 +108,17 @@ Set up the documentation site on Cloudflare Pages with Scalar.
 
 **3.1 -- Scalar Configuration**
 
-- [ ] **3.1.1** Create `docs-site/` directory at project root with a static Scalar HTML page that loads from `/v1/openapi.json`
-- [ ] **3.1.2** Configure Scalar theme, colors, and branding to match Rewind aesthetic
-- [ ] **3.1.3** Configure Scalar authentication section (show Bearer token pattern, explain read vs admin keys)
-- [ ] **3.1.4** Add a custom introduction/overview section via Scalar's description markdown
+- [x] **3.1.1** Create `docs-site/` directory at project root with a static Scalar HTML page that loads from `/v1/openapi.json`
+- [x] **3.1.2** Configure Scalar theme, colors, and branding to match Rewind aesthetic
+- [x] **3.1.3** Configure Scalar authentication section (show Bearer token pattern, explain read vs admin keys)
+- [x] **3.1.4** Add a custom introduction/overview section via Scalar's description markdown
 
 **3.2 -- Cloudflare Pages Deployment**
 
-- [ ] **3.2.1** Create Cloudflare Pages project linked to the repo (build output: `docs-site/`)
-- [ ] **3.2.2** Configure custom domain `docs.rewind.rest` with CNAME
-- [ ] **3.2.3** Verify the docs site loads and renders the spec correctly
-- [ ] **3.2.4** Add deploy script to `package.json` (e.g., `npm run docs:deploy`)
+- [ ] **3.2.1** Create Cloudflare Pages project linked to the repo (build output: `docs-site/`) _(requires Cloudflare dashboard or CLI with account access)_
+- [ ] **3.2.2** Configure custom domain `docs.rewind.rest` with CNAME _(requires Cloudflare dashboard)_
+- [ ] **3.2.3** Verify the docs site loads and renders the spec correctly _(after deploy)_
+- [x] **3.2.4** Add deploy script to `package.json` (e.g., `npm run docs:deploy`)
 
 ## Phase 4: CI Enforcement
 
