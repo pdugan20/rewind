@@ -1,9 +1,10 @@
-import { Hono } from 'hono';
+import { createRoute, z } from '@hono/zod-openapi';
 import { eq, desc, asc, and, sql, gte, lte } from 'drizzle-orm';
-import type { Env } from '../types/env.js';
 import { createDb } from '../db/client.js';
 import { setCache } from '../lib/cache.js';
 import { notFound, badRequest } from '../lib/errors.js';
+import { createOpenAPIApp } from '../lib/openapi.js';
+import { errorResponses } from '../lib/schemas/common.js';
 import {
   stravaActivities,
   stravaSplits,
@@ -20,10 +21,203 @@ import {
   calculateEddington,
 } from '../services/strava/transforms.js';
 
-const running = new Hono<{ Bindings: Env }>();
+const running = createOpenAPIApp();
 
-// GET /v1/running/stats - Lifetime running statistics
-running.get('/stats', async (c) => {
+// --- Schemas ---
+
+const LifetimeStatsSchema = z.object({
+  total_runs: z.number(),
+  total_distance_mi: z.number(),
+  total_elevation_ft: z.number(),
+  total_duration: z.string(),
+  avg_pace: z.string(),
+  years_active: z.number(),
+  first_run: z.string().nullable(),
+  eddington_number: z.number(),
+});
+
+const YearSummarySchema = z.object({
+  year: z.number(),
+  total_runs: z.number(),
+  total_distance_mi: z.number(),
+  total_elevation_ft: z.number(),
+  total_duration_s: z.number(),
+  avg_pace: z.string(),
+  longest_run_mi: z.number(),
+  race_count: z.number(),
+});
+
+const PersonalRecordSchema = z.object({
+  distance: z.string(),
+  distance_label: z.string(),
+  time: z.string(),
+  time_s: z.number(),
+  pace: z.string(),
+  date: z.string(),
+  activity_id: z.number(),
+  activity_name: z.string(),
+});
+
+const ActivitySchema = z.object({
+  id: z.number(),
+  strava_id: z.number(),
+  name: z.string(),
+  date: z.string(),
+  distance_mi: z.number(),
+  duration: z.string(),
+  duration_s: z.number(),
+  pace: z.string(),
+  elevation_ft: z.number(),
+  heartrate_avg: z.number().nullable(),
+  heartrate_max: z.number().nullable(),
+  cadence: z.number().nullable(),
+  calories: z.number().nullable(),
+  suffer_score: z.number().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  polyline: z.string().nullable(),
+  is_race: z.boolean(),
+  workout_type: z.string(),
+  strava_url: z.string().nullable(),
+});
+
+const SplitSchema = z.object({
+  split: z.number(),
+  distance_mi: z.number(),
+  moving_time_s: z.number(),
+  elapsed_time_s: z.number(),
+  elevation_ft: z.number(),
+  pace: z.string(),
+  heartrate: z.number().nullable(),
+});
+
+const GearSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  brand: z.string().nullable(),
+  model: z.string().nullable(),
+  distance_mi: z.number(),
+  is_retired: z.boolean(),
+  activity_count: z.number(),
+});
+
+const CalendarDaySchema = z.object({
+  date: z.string(),
+  count: z.number(),
+  total_distance_mi: z.number(),
+});
+
+const CumulativePointSchema = z.object({
+  day: z.number(),
+  cumulative_mi: z.number(),
+});
+
+const PaceTrendPointSchema = z.object({
+  date: z.string(),
+  pace: z.string(),
+  pace_min_per_mile: z.number(),
+  rolling_avg: z.string(),
+  rolling_avg_min_per_mile: z.number(),
+});
+
+const TimeOfDaySchema = z.object({
+  hour: z.number(),
+  count: z.number(),
+});
+
+const ElevationPointSchema = z.object({
+  date: z.string(),
+  elevation_ft: z.number(),
+  distance_mi: z.number(),
+  cumulative_elevation_ft: z.number(),
+});
+
+const CitySchema = z.object({
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  country: z.string().nullable(),
+  run_count: z.number(),
+  total_distance_mi: z.number(),
+});
+
+const StreaksSchema = z.object({
+  current: z.object({
+    days: z.number(),
+    start: z.string().nullable(),
+    end: z.string().nullable(),
+  }),
+  longest: z.object({
+    days: z.number(),
+    start: z.string().nullable(),
+    end: z.string().nullable(),
+  }),
+});
+
+const EddingtonSchema = z.object({
+  number: z.number(),
+  explanation: z.string(),
+  progress: z.object({
+    target: z.number(),
+    days_completed: z.number(),
+    runs_needed: z.number(),
+  }),
+});
+
+const MonthlyBreakdownSchema = z.object({
+  month: z.string(),
+  runs: z.number(),
+  distance_mi: z.number(),
+  duration_s: z.number(),
+  elevation_ft: z.number(),
+});
+
+const YearInReviewSchema = z.object({
+  year: z.number(),
+  total_runs: z.number(),
+  total_distance_mi: z.number(),
+  total_elevation_ft: z.number(),
+  total_duration_s: z.number(),
+  avg_pace: z.string(),
+  longest_run_mi: z.number(),
+  race_count: z.number(),
+  monthly: z.array(MonthlyBreakdownSchema),
+  top_runs: z.array(ActivitySchema),
+});
+
+const PaginationMeta = z.object({
+  page: z.number(),
+  limit: z.number(),
+  total: z.number(),
+  total_pages: z.number(),
+});
+
+const YearParamSchema = z.object({
+  year: z.string(),
+});
+
+const IdParamSchema = z.object({
+  id: z.string(),
+});
+
+// --- Routes ---
+
+// GET /v1/running/stats
+const statsRoute = createRoute({
+  method: 'get',
+  path: '/stats',
+  tags: ['Running'],
+  summary: 'Lifetime running statistics',
+  description: 'Returns aggregate lifetime running statistics.',
+  responses: {
+    200: {
+      description: 'Lifetime stats',
+      content: { 'application/json': { schema: z.object({ data: LifetimeStatsSchema }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(statsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -58,8 +252,23 @@ running.get('/stats', async (c) => {
   } });
 });
 
-// GET /v1/running/stats/years - All year summaries
-running.get('/stats/years', async (c) => {
+// GET /v1/running/stats/years
+const statsYearsRoute = createRoute({
+  method: 'get',
+  path: '/stats/years',
+  tags: ['Running'],
+  summary: 'All year summaries',
+  description: 'Returns running summaries for all years.',
+  responses: {
+    200: {
+      description: 'Year summaries',
+      content: { 'application/json': { schema: z.object({ data: z.array(YearSummarySchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(statsYearsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -83,14 +292,32 @@ running.get('/stats/years', async (c) => {
   });
 });
 
-// GET /v1/running/stats/years/:year - Single year detail
-running.get('/stats/years/:year', async (c) => {
+// GET /v1/running/stats/years/:year
+const statsYearRoute = createRoute({
+  method: 'get',
+  path: '/stats/years/{year}',
+  tags: ['Running'],
+  summary: 'Single year summary',
+  description: 'Returns running summary for a specific year.',
+  request: {
+    params: YearParamSchema,
+  },
+  responses: {
+    200: {
+      description: 'Year summary',
+      content: { 'application/json': { schema: z.object({ data: YearSummarySchema }) } },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+running.openapi(statsYearRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
   const year = parseInt(c.req.param('year'), 10);
 
   if (isNaN(year)) {
-    return badRequest(c, 'Invalid year');
+    return badRequest(c, 'Invalid year') as any;
   }
 
   const [summary] = await db
@@ -102,7 +329,7 @@ running.get('/stats/years/:year', async (c) => {
     .limit(1);
 
   if (!summary) {
-    return notFound(c, `No data for year ${year}`);
+    return notFound(c, `No data for year ${year}`) as any;
   }
 
   return c.json({ data: {
@@ -117,8 +344,23 @@ running.get('/stats/years/:year', async (c) => {
   } });
 });
 
-// GET /v1/running/prs - Personal records
-running.get('/prs', async (c) => {
+// GET /v1/running/prs
+const prsRoute = createRoute({
+  method: 'get',
+  path: '/prs',
+  tags: ['Running'],
+  summary: 'Personal records',
+  description: 'Returns personal records for standard race distances.',
+  responses: {
+    200: {
+      description: 'Personal records',
+      content: { 'application/json': { schema: z.object({ data: z.array(PersonalRecordSchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(prsRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
 
@@ -141,8 +383,28 @@ running.get('/prs', async (c) => {
   });
 });
 
-// GET /v1/running/recent - Last N activities
-running.get('/recent', async (c) => {
+// GET /v1/running/recent
+const recentRoute = createRoute({
+  method: 'get',
+  path: '/recent',
+  tags: ['Running'],
+  summary: 'Recent activities',
+  description: 'Returns the last N activities (default 5, max 20).',
+  request: {
+    query: z.object({
+      limit: z.coerce.number().int().min(1).max(20).optional().default(5),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Recent activities',
+      content: { 'application/json': { schema: z.object({ data: z.array(ActivitySchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(recentRoute, async (c) => {
   setCache(c, 'realtime');
   const db = createDb(c.env.DB);
   const limit = Math.min(parseInt(c.req.query('limit') ?? '5', 10), 20);
@@ -159,8 +421,43 @@ running.get('/recent', async (c) => {
   });
 });
 
-// GET /v1/running/activities - Paginated activity list
-running.get('/activities', async (c) => {
+// GET /v1/running/activities
+const activitiesRoute = createRoute({
+  method: 'get',
+  path: '/activities',
+  tags: ['Running'],
+  summary: 'List activities',
+  description: 'Returns a paginated, filterable list of running activities.',
+  request: {
+    query: z.object({
+      page: z.coerce.number().int().min(1).optional().default(1),
+      limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+      year: z.string().optional(),
+      type: z.string().optional(),
+      city: z.string().optional(),
+      min_distance: z.string().optional(),
+      max_distance: z.string().optional(),
+      sort: z.string().optional().default('date'),
+      order: z.string().optional().default('desc'),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Paginated activity list',
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.array(ActivitySchema),
+            pagination: PaginationMeta,
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(activitiesRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -262,14 +559,32 @@ running.get('/activities', async (c) => {
   });
 });
 
-// GET /v1/running/activities/:id - Single activity detail
-running.get('/activities/:id', async (c) => {
+// GET /v1/running/activities/:id
+const activityDetailRoute = createRoute({
+  method: 'get',
+  path: '/activities/{id}',
+  tags: ['Running'],
+  summary: 'Activity detail',
+  description: 'Returns a single activity by Strava ID.',
+  request: {
+    params: IdParamSchema,
+  },
+  responses: {
+    200: {
+      description: 'Activity detail',
+      content: { 'application/json': { schema: ActivitySchema } },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+running.openapi(activityDetailRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
   const id = parseInt(c.req.param('id'), 10);
 
   if (isNaN(id)) {
-    return badRequest(c, 'Invalid activity ID');
+    return badRequest(c, 'Invalid activity ID') as any;
   }
 
   const [activity] = await db
@@ -281,20 +596,38 @@ running.get('/activities/:id', async (c) => {
     .limit(1);
 
   if (!activity) {
-    return notFound(c, 'Activity not found');
+    return notFound(c, 'Activity not found') as any;
   }
 
   return c.json(formatActivityResponse(activity));
 });
 
-// GET /v1/running/activities/:id/splits - Per-mile splits
-running.get('/activities/:id/splits', async (c) => {
+// GET /v1/running/activities/:id/splits
+const splitsRoute = createRoute({
+  method: 'get',
+  path: '/activities/{id}/splits',
+  tags: ['Running'],
+  summary: 'Activity splits',
+  description: 'Returns per-mile splits for a specific activity.',
+  request: {
+    params: IdParamSchema,
+  },
+  responses: {
+    200: {
+      description: 'Split list',
+      content: { 'application/json': { schema: z.object({ data: z.array(SplitSchema) }) } },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+running.openapi(splitsRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
   const id = parseInt(c.req.param('id'), 10);
 
   if (isNaN(id)) {
-    return badRequest(c, 'Invalid activity ID');
+    return badRequest(c, 'Invalid activity ID') as any;
   }
 
   const splits = await db
@@ -304,7 +637,7 @@ running.get('/activities/:id/splits', async (c) => {
     .orderBy(asc(stravaSplits.splitNumber));
 
   if (splits.length === 0) {
-    return notFound(c, 'No splits found for this activity');
+    return notFound(c, 'No splits found for this activity') as any;
   }
 
   return c.json({
@@ -320,8 +653,23 @@ running.get('/activities/:id/splits', async (c) => {
   });
 });
 
-// GET /v1/running/gear - Gear/shoe data
-running.get('/gear', async (c) => {
+// GET /v1/running/gear
+const gearRoute = createRoute({
+  method: 'get',
+  path: '/gear',
+  tags: ['Running'],
+  summary: 'Gear list',
+  description: 'Returns all gear/shoes with activity counts.',
+  responses: {
+    200: {
+      description: 'Gear list',
+      content: { 'application/json': { schema: z.object({ data: z.array(GearSchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(gearRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
 
@@ -359,8 +707,35 @@ running.get('/gear', async (c) => {
   return c.json({ data: gearWithCounts });
 });
 
-// GET /v1/running/calendar - Daily activity heatmap
-running.get('/calendar', async (c) => {
+// GET /v1/running/calendar
+const calendarRoute = createRoute({
+  method: 'get',
+  path: '/calendar',
+  tags: ['Running'],
+  summary: 'Activity calendar',
+  description: 'Returns daily activity heatmap data for a given year.',
+  request: {
+    query: z.object({
+      year: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Calendar data',
+      content: {
+        'application/json': {
+          schema: z.object({
+            year: z.number(),
+            data: z.array(CalendarDaySchema),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(calendarRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
   const year = c.req.query('year') ?? String(new Date().getFullYear());
@@ -406,8 +781,34 @@ running.get('/calendar', async (c) => {
   return c.json({ year: yearNum, data });
 });
 
-// GET /v1/running/charts/cumulative - Year-over-year cumulative distance
-running.get('/charts/cumulative', async (c) => {
+// GET /v1/running/charts/cumulative
+const cumulativeRoute = createRoute({
+  method: 'get',
+  path: '/charts/cumulative',
+  tags: ['Running'],
+  summary: 'Cumulative distance chart',
+  description: 'Returns year-over-year cumulative distance data for charting.',
+  request: {
+    query: z.object({
+      years: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Cumulative distance by year',
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.record(z.string(), z.array(CumulativePointSchema)),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(cumulativeRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -457,8 +858,37 @@ running.get('/charts/cumulative', async (c) => {
   return c.json({ data: result });
 });
 
-// GET /v1/running/charts/pace-trend - Pace over time (rolling average)
-running.get('/charts/pace-trend', async (c) => {
+// GET /v1/running/charts/pace-trend
+const paceTrendRoute = createRoute({
+  method: 'get',
+  path: '/charts/pace-trend',
+  tags: ['Running'],
+  summary: 'Pace trend chart',
+  description: 'Returns pace over time with a rolling weighted average.',
+  request: {
+    query: z.object({
+      window: z.coerce.number().int().optional().default(30),
+      from: z.string().optional(),
+      to: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Pace trend data',
+      content: {
+        'application/json': {
+          schema: z.object({
+            window: z.number(),
+            data: z.array(PaceTrendPointSchema),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(paceTrendRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -523,8 +953,28 @@ running.get('/charts/pace-trend', async (c) => {
   return c.json({ window, data: points });
 });
 
-// GET /v1/running/charts/time-of-day - Run frequency by hour
-running.get('/charts/time-of-day', async (c) => {
+// GET /v1/running/charts/time-of-day
+const timeOfDayRoute = createRoute({
+  method: 'get',
+  path: '/charts/time-of-day',
+  tags: ['Running'],
+  summary: 'Time of day chart',
+  description: 'Returns run frequency by hour of day.',
+  request: {
+    query: z.object({
+      year: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Time of day distribution',
+      content: { 'application/json': { schema: z.object({ data: z.array(TimeOfDaySchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(timeOfDayRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
   const year = c.req.query('year');
@@ -555,8 +1005,28 @@ running.get('/charts/time-of-day', async (c) => {
   });
 });
 
-// GET /v1/running/charts/elevation - Elevation data
-running.get('/charts/elevation', async (c) => {
+// GET /v1/running/charts/elevation
+const elevationRoute = createRoute({
+  method: 'get',
+  path: '/charts/elevation',
+  tags: ['Running'],
+  summary: 'Elevation chart',
+  description: 'Returns elevation data with cumulative totals.',
+  request: {
+    query: z.object({
+      year: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Elevation data',
+      content: { 'application/json': { schema: z.object({ data: z.array(ElevationPointSchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(elevationRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
   const year = c.req.query('year');
@@ -594,8 +1064,23 @@ running.get('/charts/elevation', async (c) => {
   return c.json({ data });
 });
 
-// GET /v1/running/cities - Cities where runs occurred
-running.get('/cities', async (c) => {
+// GET /v1/running/cities
+const citiesRoute = createRoute({
+  method: 'get',
+  path: '/cities',
+  tags: ['Running'],
+  summary: 'Cities',
+  description: 'Returns cities where runs occurred with counts and distances.',
+  responses: {
+    200: {
+      description: 'City list',
+      content: { 'application/json': { schema: z.object({ data: z.array(CitySchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(citiesRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
 
@@ -632,8 +1117,23 @@ running.get('/cities', async (c) => {
   });
 });
 
-// GET /v1/running/streaks - Current and longest streaks
-running.get('/streaks', async (c) => {
+// GET /v1/running/streaks
+const streaksRoute = createRoute({
+  method: 'get',
+  path: '/streaks',
+  tags: ['Running'],
+  summary: 'Running streaks',
+  description: 'Returns current and longest running streaks.',
+  responses: {
+    200: {
+      description: 'Streak data',
+      content: { 'application/json': { schema: z.object({ data: StreaksSchema }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(streaksRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -664,8 +1164,28 @@ running.get('/streaks', async (c) => {
   } });
 });
 
-// GET /v1/running/races - Race activities
-running.get('/races', async (c) => {
+// GET /v1/running/races
+const racesRoute = createRoute({
+  method: 'get',
+  path: '/races',
+  tags: ['Running'],
+  summary: 'Race activities',
+  description: 'Returns all race activities, optionally filtered by distance category.',
+  request: {
+    query: z.object({
+      distance: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Race list',
+      content: { 'application/json': { schema: z.object({ data: z.array(ActivitySchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(racesRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
   const distanceFilter = c.req.query('distance');
@@ -700,8 +1220,23 @@ running.get('/races', async (c) => {
   });
 });
 
-// GET /v1/running/eddington - Eddington number
-running.get('/eddington', async (c) => {
+// GET /v1/running/eddington
+const eddingtonRoute = createRoute({
+  method: 'get',
+  path: '/eddington',
+  tags: ['Running'],
+  summary: 'Eddington number',
+  description: 'Returns the Eddington number and progress toward the next target.',
+  responses: {
+    200: {
+      description: 'Eddington data',
+      content: { 'application/json': { schema: EddingtonSchema } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+running.openapi(eddingtonRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
 
@@ -732,14 +1267,32 @@ running.get('/eddington', async (c) => {
   });
 });
 
-// GET /v1/running/year/:year - Year-in-review for running
-running.get('/year/:year', async (c) => {
+// GET /v1/running/year/:year
+const yearInReviewRoute = createRoute({
+  method: 'get',
+  path: '/year/{year}',
+  tags: ['Running'],
+  summary: 'Year in review',
+  description: 'Returns a year-in-review summary with monthly breakdown and top runs.',
+  request: {
+    params: YearParamSchema,
+  },
+  responses: {
+    200: {
+      description: 'Year in review',
+      content: { 'application/json': { schema: YearInReviewSchema } },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+running.openapi(yearInReviewRoute, async (c) => {
   const db = createDb(c.env.DB);
   const currentYear = new Date().getFullYear();
   const year = parseInt(c.req.param('year'), 10);
 
   if (isNaN(year) || year < 2000 || year > currentYear + 1) {
-    return badRequest(c, 'Invalid year');
+    return badRequest(c, 'Invalid year') as any;
   }
 
   if (year < currentYear) {
@@ -758,7 +1311,7 @@ running.get('/year/:year', async (c) => {
     .limit(1);
 
   if (!summary) {
-    return notFound(c, `No data for year ${year}`);
+    return notFound(c, `No data for year ${year}`) as any;
   }
 
   // Monthly breakdown

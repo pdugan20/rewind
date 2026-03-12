@@ -1,6 +1,5 @@
-import { Hono } from 'hono';
+import { createRoute, z } from '@hono/zod-openapi';
 import { eq, and, desc, sql, gte, lte, like, asc } from 'drizzle-orm';
-import type { Env } from '../types/env.js';
 import { createDb } from '../db/client.js';
 import {
   lastfmArtists,
@@ -24,8 +23,10 @@ import { LastfmClient } from '../services/lastfm/client.js';
 import type { LastfmPeriod } from '../services/lastfm/client.js';
 import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
+import { createOpenAPIApp } from '../lib/openapi.js';
+import { errorResponses, PaginationMeta } from '../lib/schemas/common.js';
 
-const listening = new Hono<{ Bindings: Env }>();
+const listening = createOpenAPIApp();
 
 const VALID_PERIODS: LastfmPeriod[] = [
   '7day',
@@ -45,8 +46,556 @@ function paginate(page: number, limit: number, total: number) {
   };
 }
 
+// ─── Schemas ────────────────────────────────────────────────────────
+
+const PeriodQuery = z.object({
+  period: z.enum(['7day', '1month', '3month', '6month', '12month', 'overall']).optional().default('7day').openapi({ example: '7day' }),
+  page: z.coerce.number().int().min(1).optional().default(1).openapi({ example: 1 }),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(10).openapi({ example: 10 }),
+});
+
+const TopItemSchema = z.object({
+  rank: z.number(),
+  id: z.number(),
+  name: z.string(),
+  detail: z.string(),
+  playcount: z.number(),
+  image: z.any().nullable(),
+  url: z.string(),
+});
+
+const NowPlayingSchema = z.object({
+  is_playing: z.boolean(),
+  track: z.any().nullable(),
+  scrobbled_at: z.string().nullable(),
+});
+
+const ScrobbleSchema = z.object({
+  track: z.object({ id: z.number(), name: z.string(), url: z.string().nullable() }),
+  artist: z.object({ id: z.number(), name: z.string() }),
+  album: z.object({ id: z.number().nullable(), name: z.string().nullable(), image: z.any().nullable() }),
+  scrobbled_at: z.string(),
+});
+
+const StatsSchema = z.object({
+  total_scrobbles: z.number(),
+  unique_artists: z.number(),
+  unique_albums: z.number(),
+  unique_tracks: z.number(),
+  registered_date: z.string().nullable(),
+  years_tracking: z.number(),
+  scrobbles_per_day: z.number(),
+});
+
+const CalendarDaySchema = z.object({
+  date: z.string(),
+  count: z.number(),
+});
+
+const CalendarSchema = z.object({
+  year: z.number(),
+  days: z.array(CalendarDaySchema),
+  total: z.number(),
+  max_day: CalendarDaySchema,
+});
+
+const TrendPointSchema = z.object({
+  period: z.string(),
+  value: z.number(),
+});
+
+const TrendsSchema = z.object({
+  metric: z.string(),
+  data: z.array(TrendPointSchema),
+});
+
+const StreaksSchema = z.object({
+  current: z.object({
+    days: z.number(),
+    start_date: z.string().nullable(),
+    total_scrobbles: z.number(),
+  }),
+  longest: z.object({
+    days: z.number(),
+    start_date: z.string().nullable(),
+    end_date: z.string().nullable(),
+    total_scrobbles: z.number(),
+  }),
+});
+
+const ArtistBrowseSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  playcount: z.number().nullable(),
+  url: z.string(),
+  image: z.any().nullable(),
+});
+
+const AlbumBrowseSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  artist: z.object({ id: z.number(), name: z.string() }),
+  playcount: z.number().nullable(),
+  url: z.string(),
+  image: z.any().nullable(),
+});
+
+const ArtistDetailSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  mbid: z.string().nullable(),
+  url: z.string().nullable(),
+  playcount: z.number(),
+  scrobble_count: z.number(),
+  image: z.any().nullable(),
+  top_albums: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    playcount: z.number(),
+    image: z.any().nullable(),
+  })),
+  top_tracks: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    scrobble_count: z.number(),
+  })),
+});
+
+const AlbumDetailSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  mbid: z.string().nullable(),
+  url: z.string().nullable(),
+  playcount: z.number(),
+  image: z.any().nullable(),
+  artist: z.object({ id: z.number(), name: z.string() }),
+  tracks: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    scrobble_count: z.number(),
+  })),
+});
+
+const FilterSchema = z.object({
+  id: z.number(),
+  filter_type: z.string(),
+  pattern: z.string(),
+  scope: z.string().nullable(),
+  reason: z.string().nullable(),
+  created_at: z.string(),
+});
+
+const YearSchema = z.object({
+  year: z.number(),
+  total_scrobbles: z.number(),
+  unique_artists: z.number(),
+  unique_albums: z.number(),
+  unique_tracks: z.number(),
+  top_artists: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    scrobbles: z.number(),
+    image: z.any().nullable(),
+  })),
+  top_albums: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    artist: z.string(),
+    scrobbles: z.number(),
+    image: z.any().nullable(),
+  })),
+  top_tracks: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    artist: z.string(),
+    scrobbles: z.number(),
+  })),
+  monthly: z.array(z.object({
+    month: z.string(),
+    scrobbles: z.number(),
+    unique_artists: z.number(),
+    unique_albums: z.number(),
+  })),
+});
+
+const IdParamSchema = z.object({
+  id: z.string().openapi({ example: '42' }),
+});
+
+const YearParamSchema = z.object({
+  year: z.string().openapi({ example: '2024' }),
+});
+
+// ─── Routes ─────────────────────────────────────────────────────────
+
+const nowPlayingRoute = createRoute({
+  method: 'get',
+  path: '/now-playing',
+  tags: ['Listening'],
+  summary: 'Now playing',
+  description: 'Returns the currently playing or most recently scrobbled track from Last.fm.',
+  responses: {
+    200: {
+      description: 'Now playing info',
+      content: { 'application/json': { schema: NowPlayingSchema } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const recentRoute = createRoute({
+  method: 'get',
+  path: '/recent',
+  tags: ['Listening'],
+  summary: 'Recent scrobbles',
+  description: 'Returns the most recent scrobbles.',
+  request: {
+    query: z.object({
+      limit: z.coerce.number().int().min(1).max(50).optional().default(10).openapi({ example: 10 }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Recent scrobbles',
+      content: { 'application/json': { schema: z.object({ data: z.array(ScrobbleSchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const topArtistsRoute = createRoute({
+  method: 'get',
+  path: '/top/artists',
+  tags: ['Listening'],
+  summary: 'Top artists',
+  description: 'Returns top artists for a given time period.',
+  request: { query: PeriodQuery },
+  responses: {
+    200: {
+      description: 'Top artists list',
+      content: { 'application/json': { schema: z.object({ period: z.string(), data: z.array(TopItemSchema), pagination: PaginationMeta }) } },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+const topAlbumsRoute = createRoute({
+  method: 'get',
+  path: '/top/albums',
+  tags: ['Listening'],
+  summary: 'Top albums',
+  description: 'Returns top albums for a given time period.',
+  request: { query: PeriodQuery },
+  responses: {
+    200: {
+      description: 'Top albums list',
+      content: { 'application/json': { schema: z.object({ period: z.string(), data: z.array(TopItemSchema), pagination: PaginationMeta }) } },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+const topTracksRoute = createRoute({
+  method: 'get',
+  path: '/top/tracks',
+  tags: ['Listening'],
+  summary: 'Top tracks',
+  description: 'Returns top tracks for a given time period.',
+  request: { query: PeriodQuery },
+  responses: {
+    200: {
+      description: 'Top tracks list',
+      content: { 'application/json': { schema: z.object({ period: z.string(), data: z.array(TopItemSchema), pagination: PaginationMeta }) } },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+const statsRoute = createRoute({
+  method: 'get',
+  path: '/stats',
+  tags: ['Listening'],
+  summary: 'Listening stats',
+  description: 'Returns overall listening statistics.',
+  responses: {
+    200: {
+      description: 'Listening statistics',
+      content: { 'application/json': { schema: StatsSchema } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const historyRoute = createRoute({
+  method: 'get',
+  path: '/history',
+  tags: ['Listening'],
+  summary: 'Scrobble history',
+  description: 'Returns paginated scrobble history with optional filters.',
+  request: {
+    query: z.object({
+      page: z.coerce.number().int().min(1).optional().default(1).openapi({ example: 1 }),
+      limit: z.coerce.number().int().min(1).max(200).optional().default(50).openapi({ example: 50 }),
+      from: z.string().optional().openapi({ example: '2024-01-01T00:00:00.000Z' }),
+      to: z.string().optional().openapi({ example: '2024-12-31T23:59:59.999Z' }),
+      artist: z.string().optional().openapi({ example: 'Radiohead' }),
+      album: z.string().optional().openapi({ example: 'OK Computer' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Scrobble history',
+      content: { 'application/json': { schema: z.object({ data: z.array(ScrobbleSchema), pagination: PaginationMeta }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const browseArtistsRoute = createRoute({
+  method: 'get',
+  path: '/artists',
+  tags: ['Listening'],
+  summary: 'Browse artists',
+  description: 'Returns paginated list of all artists.',
+  request: {
+    query: z.object({
+      page: z.coerce.number().int().min(1).optional().default(1).openapi({ example: 1 }),
+      limit: z.coerce.number().int().min(1).max(100).optional().default(20).openapi({ example: 20 }),
+      sort: z.enum(['playcount', 'name']).optional().default('playcount').openapi({ example: 'playcount' }),
+      order: z.enum(['asc', 'desc']).optional().default('desc').openapi({ example: 'desc' }),
+      search: z.string().optional().openapi({ example: 'Radiohead' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Artist list',
+      content: { 'application/json': { schema: z.object({ data: z.array(ArtistBrowseSchema), pagination: PaginationMeta }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const browseAlbumsRoute = createRoute({
+  method: 'get',
+  path: '/albums',
+  tags: ['Listening'],
+  summary: 'Browse albums',
+  description: 'Returns paginated list of all albums.',
+  request: {
+    query: z.object({
+      page: z.coerce.number().int().min(1).optional().default(1).openapi({ example: 1 }),
+      limit: z.coerce.number().int().min(1).max(100).optional().default(20).openapi({ example: 20 }),
+      sort: z.enum(['playcount', 'name', 'recent']).optional().default('playcount').openapi({ example: 'playcount' }),
+      order: z.enum(['asc', 'desc']).optional().default('desc').openapi({ example: 'desc' }),
+      artist: z.string().optional().openapi({ example: 'Radiohead' }),
+      search: z.string().optional().openapi({ example: 'OK Computer' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Album list',
+      content: { 'application/json': { schema: z.object({ data: z.array(AlbumBrowseSchema), pagination: PaginationMeta }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const artistDetailRoute = createRoute({
+  method: 'get',
+  path: '/artists/{id}',
+  tags: ['Listening'],
+  summary: 'Artist detail',
+  description: 'Returns detailed information about an artist including top albums and tracks.',
+  request: { params: IdParamSchema },
+  responses: {
+    200: {
+      description: 'Artist detail',
+      content: { 'application/json': { schema: ArtistDetailSchema } },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+const albumDetailRoute = createRoute({
+  method: 'get',
+  path: '/albums/{id}',
+  tags: ['Listening'],
+  summary: 'Album detail',
+  description: 'Returns detailed information about an album including tracks.',
+  request: { params: IdParamSchema },
+  responses: {
+    200: {
+      description: 'Album detail',
+      content: { 'application/json': { schema: AlbumDetailSchema } },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+const calendarRoute = createRoute({
+  method: 'get',
+  path: '/calendar',
+  tags: ['Listening'],
+  summary: 'Scrobble calendar',
+  description: 'Returns daily scrobble counts for a given year.',
+  request: {
+    query: z.object({
+      year: z.coerce.number().int().optional().openapi({ example: 2024 }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Calendar data',
+      content: { 'application/json': { schema: CalendarSchema } },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+const trendsRoute = createRoute({
+  method: 'get',
+  path: '/trends',
+  tags: ['Listening'],
+  summary: 'Listening trends',
+  description: 'Returns monthly trend data for a given metric.',
+  request: {
+    query: z.object({
+      metric: z.enum(['scrobbles', 'artists', 'albums', 'tracks']).optional().default('scrobbles').openapi({ example: 'scrobbles' }),
+      from: z.string().optional().openapi({ example: '2024-01-01T00:00:00.000Z' }),
+      to: z.string().optional().openapi({ example: '2024-12-31T23:59:59.999Z' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Trend data',
+      content: { 'application/json': { schema: TrendsSchema } },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+const streaksRoute = createRoute({
+  method: 'get',
+  path: '/streaks',
+  tags: ['Listening'],
+  summary: 'Listening streaks',
+  description: 'Returns current and longest listening streaks.',
+  responses: {
+    200: {
+      description: 'Streak data',
+      content: { 'application/json': { schema: StreaksSchema } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const yearRoute = createRoute({
+  method: 'get',
+  path: '/year/{year}',
+  tags: ['Listening'],
+  summary: 'Year in review',
+  description: 'Returns year-in-review listening data.',
+  request: { params: YearParamSchema },
+  responses: {
+    200: {
+      description: 'Year in review data',
+      content: { 'application/json': { schema: YearSchema } },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+const listFiltersRoute = createRoute({
+  method: 'get',
+  path: '/admin/filters',
+  tags: ['Listening', 'Admin'],
+  summary: 'List listening filters',
+  description: 'Returns all listening filters.',
+  responses: {
+    200: {
+      description: 'Filter list',
+      content: { 'application/json': { schema: z.object({ data: z.array(FilterSchema) }) } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const createFilterRoute = createRoute({
+  method: 'post',
+  path: '/admin/filters',
+  tags: ['Listening', 'Admin'],
+  summary: 'Create listening filter',
+  description: 'Creates a new listening filter.',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            filter_type: z.string().openapi({ example: 'holiday' }),
+            pattern: z.string().openapi({ example: 'Christmas' }),
+            scope: z.string().openapi({ example: 'album' }),
+            reason: z.string().optional().openapi({ example: 'Seasonal music' }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Filter created',
+      content: { 'application/json': { schema: FilterSchema } },
+    },
+    ...errorResponses(400, 401, 500),
+  },
+});
+
+const deleteFilterRoute = createRoute({
+  method: 'delete',
+  path: '/admin/filters/{id}',
+  tags: ['Listening', 'Admin'],
+  summary: 'Delete listening filter',
+  description: 'Deletes a listening filter by ID.',
+  request: { params: IdParamSchema },
+  responses: {
+    200: {
+      description: 'Filter deleted',
+      content: { 'application/json': { schema: z.object({ success: z.boolean(), deleted_id: z.number() }) } },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+const backfillImagesRoute = createRoute({
+  method: 'post',
+  path: '/admin/listening/backfill-images',
+  tags: ['Listening', 'Admin'],
+  summary: 'Backfill listening images',
+  description: 'Backfills missing images for albums and/or artists.',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            type: z.enum(['albums', 'artists', 'all']).optional().default('albums').openapi({ example: 'albums' }),
+            limit: z.number().int().min(1).max(200).optional().default(50).openapi({ example: 50 }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Backfill results',
+      content: { 'application/json': { schema: z.object({ success: z.boolean(), results: z.record(z.string(), z.unknown()) }) } },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+// ─── Handlers ───────────────────────────────────────────────────────
+
 // GET /v1/listening/now-playing
-listening.get('/now-playing', async (c) => {
+listening.openapi(nowPlayingRoute, async (c) => {
   setCache(c, 'none');
   const client = new LastfmClient(c.env.LASTFM_API_KEY, c.env.LASTFM_USERNAME);
   const db = createDb(c.env.DB);
@@ -128,7 +677,7 @@ listening.get('/now-playing', async (c) => {
 });
 
 // GET /v1/listening/recent
-listening.get('/recent', async (c) => {
+listening.openapi(recentRoute, async (c) => {
   setCache(c, 'realtime');
   const db = createDb(c.env.DB);
 
@@ -187,13 +736,13 @@ listening.get('/recent', async (c) => {
 });
 
 // GET /v1/listening/top/artists
-listening.get('/top/artists', async (c) => {
+listening.openapi(topArtistsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
   const period = (c.req.query('period') ?? '7day') as LastfmPeriod;
   if (!VALID_PERIODS.includes(period)) {
-    return badRequest(c, `Invalid period. Valid: ${VALID_PERIODS.join(', ')}`);
+    return badRequest(c, `Invalid period. Valid: ${VALID_PERIODS.join(', ')}`) as any;
   }
 
   const page = Math.max(1, parseInt(c.req.query('page') ?? '1'));
@@ -247,13 +796,13 @@ listening.get('/top/artists', async (c) => {
 });
 
 // GET /v1/listening/top/albums
-listening.get('/top/albums', async (c) => {
+listening.openapi(topAlbumsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
   const period = (c.req.query('period') ?? '7day') as LastfmPeriod;
   if (!VALID_PERIODS.includes(period)) {
-    return badRequest(c, `Invalid period. Valid: ${VALID_PERIODS.join(', ')}`);
+    return badRequest(c, `Invalid period. Valid: ${VALID_PERIODS.join(', ')}`) as any;
   }
 
   const page = Math.max(1, parseInt(c.req.query('page') ?? '1'));
@@ -309,13 +858,13 @@ listening.get('/top/albums', async (c) => {
 });
 
 // GET /v1/listening/top/tracks
-listening.get('/top/tracks', async (c) => {
+listening.openapi(topTracksRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
   const period = (c.req.query('period') ?? '7day') as LastfmPeriod;
   if (!VALID_PERIODS.includes(period)) {
-    return badRequest(c, `Invalid period. Valid: ${VALID_PERIODS.join(', ')}`);
+    return badRequest(c, `Invalid period. Valid: ${VALID_PERIODS.join(', ')}`) as any;
   }
 
   const page = Math.max(1, parseInt(c.req.query('page') ?? '1'));
@@ -363,7 +912,7 @@ listening.get('/top/tracks', async (c) => {
 });
 
 // GET /v1/listening/stats
-listening.get('/stats', async (c) => {
+listening.openapi(statsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -414,7 +963,7 @@ listening.get('/stats', async (c) => {
 });
 
 // GET /v1/listening/history
-listening.get('/history', async (c) => {
+listening.openapi(historyRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -506,7 +1055,7 @@ listening.get('/history', async (c) => {
 });
 
 // GET /v1/listening/artists - Browse all artists
-listening.get('/artists', async (c) => {
+listening.openapi(browseArtistsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -563,7 +1112,7 @@ listening.get('/artists', async (c) => {
 });
 
 // GET /v1/listening/albums - Browse all albums
-listening.get('/albums', async (c) => {
+listening.openapi(browseAlbumsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -629,12 +1178,12 @@ listening.get('/albums', async (c) => {
 });
 
 // GET /v1/listening/artists/:id
-listening.get('/artists/:id', async (c) => {
+listening.openapi(artistDetailRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
   const id = parseInt(c.req.param('id'));
 
-  if (isNaN(id)) return badRequest(c, 'Invalid artist ID');
+  if (isNaN(id)) return badRequest(c, 'Invalid artist ID') as any;
 
   const [artist] = await db
     .select()
@@ -642,7 +1191,7 @@ listening.get('/artists/:id', async (c) => {
     .where(eq(lastfmArtists.id, id))
     .limit(1);
 
-  if (!artist) return notFound(c, 'Artist not found');
+  if (!artist) return notFound(c, 'Artist not found') as any;
 
   // Get scrobble count
   const [scrobbleCount] = await db
@@ -714,12 +1263,12 @@ listening.get('/artists/:id', async (c) => {
 });
 
 // GET /v1/listening/albums/:id
-listening.get('/albums/:id', async (c) => {
+listening.openapi(albumDetailRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
   const id = parseInt(c.req.param('id'));
 
-  if (isNaN(id)) return badRequest(c, 'Invalid album ID');
+  if (isNaN(id)) return badRequest(c, 'Invalid album ID') as any;
 
   const [album] = await db
     .select({
@@ -736,7 +1285,7 @@ listening.get('/albums/:id', async (c) => {
     .where(eq(lastfmAlbums.id, id))
     .limit(1);
 
-  if (!album) return notFound(c, 'Album not found');
+  if (!album) return notFound(c, 'Album not found') as any;
 
   // Get tracks on this album with scrobble counts
   const tracks = await db
@@ -778,13 +1327,13 @@ listening.get('/albums/:id', async (c) => {
 });
 
 // GET /v1/listening/calendar
-listening.get('/calendar', async (c) => {
+listening.openapi(calendarRoute, async (c) => {
   const db = createDb(c.env.DB);
   const currentYear = new Date().getFullYear();
   const yearParam = parseInt(c.req.query('year') ?? String(currentYear));
 
   if (isNaN(yearParam) || yearParam < 2000 || yearParam > currentYear + 1) {
-    return badRequest(c, 'Invalid year');
+    return badRequest(c, 'Invalid year') as any;
   }
 
   // Use longer cache for past years
@@ -827,7 +1376,7 @@ listening.get('/calendar', async (c) => {
 });
 
 // GET /v1/listening/trends
-listening.get('/trends', async (c) => {
+listening.openapi(trendsRoute, async (c) => {
   setCache(c, 'long');
   const db = createDb(c.env.DB);
 
@@ -839,7 +1388,7 @@ listening.get('/trends', async (c) => {
     return badRequest(
       c,
       'Invalid metric. Valid: scrobbles, artists, albums, tracks'
-    );
+    ) as any;
   }
 
   const conditions = [];
@@ -931,7 +1480,7 @@ listening.get('/trends', async (c) => {
 });
 
 // GET /v1/listening/streaks
-listening.get('/streaks', async (c) => {
+listening.openapi(streaksRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
@@ -1022,13 +1571,13 @@ listening.get('/streaks', async (c) => {
 });
 
 // GET /v1/listening/year/:year - Year-in-review for listening
-listening.get('/year/:year', async (c) => {
+listening.openapi(yearRoute, async (c) => {
   const db = createDb(c.env.DB);
   const currentYear = new Date().getFullYear();
   const year = parseInt(c.req.param('year'));
 
   if (isNaN(year) || year < 2000 || year > currentYear + 1) {
-    return badRequest(c, 'Invalid year');
+    return badRequest(c, 'Invalid year') as any;
   }
 
   if (year < currentYear) {
@@ -1169,7 +1718,7 @@ listening.get('/year/:year', async (c) => {
 // Old path /v1/listening/admin/sync redirects via admin-sync.ts
 
 // GET /v1/admin/listening/filters
-listening.get('/admin/filters', async (c) => {
+listening.openapi(listFiltersRoute, async (c) => {
   const db = createDb(c.env.DB);
 
   const rows = await db
@@ -1191,7 +1740,7 @@ listening.get('/admin/filters', async (c) => {
 });
 
 // POST /v1/admin/listening/filters
-listening.post('/admin/filters', async (c) => {
+listening.openapi(createFilterRoute, async (c) => {
   try {
     const db = createDb(c.env.DB);
     const body = await c.req.json<{
@@ -1202,7 +1751,7 @@ listening.post('/admin/filters', async (c) => {
     }>();
 
     if (!body.filter_type || !body.pattern || !body.scope) {
-      return badRequest(c, 'filter_type, pattern, and scope are required');
+      return badRequest(c, 'filter_type, pattern, and scope are required') as any;
     }
 
     const validTypes = ['holiday', 'audiobook', 'custom'];
@@ -1210,7 +1759,7 @@ listening.post('/admin/filters', async (c) => {
       return badRequest(
         c,
         `Invalid filter_type. Valid: ${validTypes.join(', ')}`
-      );
+      ) as any;
     }
 
     const validScopes = ['album', 'track', 'artist', 'artist_track', 'track_regex'];
@@ -1218,7 +1767,7 @@ listening.post('/admin/filters', async (c) => {
       return badRequest(
         c,
         `Invalid scope. Valid: ${validScopes.join(', ')}`
-      );
+      ) as any;
     }
 
     const [inserted] = await db
@@ -1245,16 +1794,15 @@ listening.post('/admin/filters', async (c) => {
     );
   } catch (err) {
     console.log(`[ERROR] POST /admin/listening/filters: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // DELETE /v1/admin/listening/filters/:id
-// eslint-disable-next-line drizzle/enforce-delete-with-where -- false positive: this is a Hono route, not a Drizzle query
-listening.delete('/admin/filters/:id', async (c) => {
+listening.openapi(deleteFilterRoute, async (c) => {
   const db = createDb(c.env.DB);
   const id = parseInt(c.req.param('id'), 10);
-  if (isNaN(id)) return badRequest(c, 'Invalid filter ID');
+  if (isNaN(id)) return badRequest(c, 'Invalid filter ID') as any;
 
   const existing = await db
     .select({ id: lastfmFilters.id })
@@ -1263,7 +1811,7 @@ listening.delete('/admin/filters/:id', async (c) => {
     .limit(1);
 
   if (existing.length === 0) {
-    return notFound(c, 'Filter not found');
+    return notFound(c, 'Filter not found') as any;
   }
 
   await db.delete(lastfmFilters).where(eq(lastfmFilters.id, id));
@@ -1273,7 +1821,7 @@ listening.delete('/admin/filters/:id', async (c) => {
 
 // ─── Admin: Backfill images ─────────────────────────────────────────
 
-listening.post('/admin/listening/backfill-images', async (c) => {
+listening.openapi(backfillImagesRoute, async (c) => {
   const db = createDb(c.env.DB);
   const body = await c.req
     .json<{ type?: string; limit?: number }>()
@@ -1281,7 +1829,7 @@ listening.post('/admin/listening/backfill-images', async (c) => {
 
   const entityType = body.type || 'albums';
   if (!['albums', 'artists', 'all'].includes(entityType)) {
-    return badRequest(c, 'Invalid type. Valid: albums, artists, all');
+    return badRequest(c, 'Invalid type. Valid: albums, artists, all') as any;
   }
   const maxItems = Math.min(body.limit || 50, 200);
 
