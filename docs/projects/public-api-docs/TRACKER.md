@@ -19,14 +19,14 @@ Set up `@hono/zod-openapi`, convert `system.ts` as a proof of concept, and expos
 - [x] **1.2.1** Convert `GET /v1/health` to zod-openapi route with request/response schemas
 - [x] **1.2.2** Convert `GET /v1/health/sync` to zod-openapi route with response schema
 - [x] **1.2.3** Verify existing tests still pass after conversion
-- [ ] **1.2.4** Verify the route still works identically via `npm run dev` + manual curl
+- [ ] **1.2.4** Verify the route still works identically via `npm run dev` + manual curl _(deferred to next dev session)_
 
 **1.3 -- Spec Endpoint**
 
 - [x] **1.3.1** Add `GET /v1/openapi.json` route that returns the generated spec
 - [x] **1.3.2** Set appropriate Cache-Control headers (short TTL, public)
-- [ ] **1.3.3** Add CORS header for `docs.rewind.rest` origin
-- [ ] **1.3.4** Write a test that fetches `/v1/openapi.json` and validates it's valid OpenAPI 3.1
+- [ ] **1.3.3** Add CORS header for `docs.rewind.rest` origin _(deferred to Phase 3 when docs site exists)_
+- [x] **1.3.4** Write a test that fetches `/v1/openapi.json` and validates it's valid OpenAPI 3.1
 
 ## Phase 2: Route Migration
 
