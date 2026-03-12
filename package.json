@@ -30,6 +30,8 @@
     "db:migrate": "wrangler d1 migrations apply rewind-db --local",
     "db:remote": "wrangler d1 migrations apply rewind-db --remote",
     "db:studio": "drizzle-kit studio",
+    "spec:update": "vitest run src/__tests__/openapi-snapshot.test.ts --update",
+    "lint:api": "spectral lint openapi.snapshot.json",
     "docs:dev": "npx serve docs-site",
     "docs:deploy": "npx wrangler pages deploy docs-site --project-name rewind-docs",
     "prepare": "husky"
@@ -65,6 +67,7 @@
     "@cloudflare/vitest-pool-workers": "^0.12.21",
     "@cloudflare/workers-types": "^4.20260310.1",
     "@eslint/js": "^10.0.1",
+    "@stoplight/spectral-cli": "^6.15.0",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "@typescript-eslint/parser": "^8.57.0",
     "claude-code-lint": "^0.2.3",

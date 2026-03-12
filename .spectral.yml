@@ -1,0 +1,26 @@
+extends:
+  - spectral:oas
+
+rules:
+  # Require descriptions on all operations
+  operation-description: error
+
+  # Require operation IDs
+  operation-operationId: warn
+
+  # Require tags on operations
+  operation-tags: error
+
+  # Require tag descriptions
+  openapi-tags: error
+
+  # No unused component schemas
+  oas3-unused-component: warn
+
+  # Descriptions should not be empty
+  no-empty-description:
+    description: Descriptions must not be empty strings.
+    given: "$..description"
+    severity: warn
+    then:
+      function: truthy
