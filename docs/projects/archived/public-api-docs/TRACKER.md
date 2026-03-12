@@ -186,8 +186,8 @@ Final steps to go live.
 - [x] **6.1.2** Verify Spectral lint passes with zero errors (99 warnings for missing operationId -- Phase 5 polish)
 - [x] **6.1.3** Verify all contract tests pass
 - [x] **6.1.4** Verify `docs.rewind.rest` loads correctly and all endpoints are documented
-- [ ] **6.1.5** Test the Scalar "Try It" feature with a read-only demo key
-- [ ] **6.1.6** Review the full rendered docs for accuracy, completeness, and clarity
+- [x] **6.1.5** Test the Scalar "Try It" feature with a read-only demo key
+- [x] **6.1.6** Review the full rendered docs for accuracy, completeness, and clarity
 
 **6.2 -- Go Live**
 
