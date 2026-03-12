@@ -116,8 +116,8 @@ Set up the documentation site on Cloudflare Pages with Scalar.
 **3.2 -- Cloudflare Pages Deployment**
 
 - [x] **3.2.1** Create Cloudflare Pages project linked to the repo (build output: `docs-site/`)
-- [ ] **3.2.2** Configure custom domain `docs.rewind.rest` with CNAME _(requires Cloudflare dashboard)_
-- [ ] **3.2.3** Verify the docs site loads and renders the spec correctly _(after custom domain is configured)_
+- [x] **3.2.2** Configure custom domain `docs.rewind.rest` with CNAME
+- [x] **3.2.3** Verify the docs site loads and renders the spec correctly
 - [x] **3.2.4** Add deploy script to `package.json` (e.g., `npm run docs:deploy`)
 
 ## Phase 4: CI Enforcement
@@ -185,9 +185,9 @@ Final steps to go live.
 - [x] **6.1.1** Verify all route files are migrated and spec is complete
 - [x] **6.1.2** Verify Spectral lint passes with zero errors (99 warnings for missing operationId -- Phase 5 polish)
 - [x] **6.1.3** Verify all contract tests pass
-- [ ] **6.1.4** Verify `docs.rewind.rest` loads correctly and all endpoints are documented _(after custom domain)_
-- [ ] **6.1.5** Test the Scalar "Try It" feature with a read-only demo key _(after custom domain + deploy)_
-- [ ] **6.1.6** Review the full rendered docs for accuracy, completeness, and clarity _(after custom domain)_
+- [x] **6.1.4** Verify `docs.rewind.rest` loads correctly and all endpoints are documented
+- [ ] **6.1.5** Test the Scalar "Try It" feature with a read-only demo key
+- [ ] **6.1.6** Review the full rendered docs for accuracy, completeness, and clarity
 
 **6.2 -- Go Live**
 
