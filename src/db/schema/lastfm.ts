@@ -12,7 +12,7 @@ export const lastfmArtists = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     userId: integer('user_id').notNull().default(1),
     mbid: text('mbid'),
-    name: text('name').notNull().unique(),
+    name: text('name').notNull(),
     url: text('url'),
     playcount: integer('playcount').default(0),
     isFiltered: integer('is_filtered').default(0),
@@ -25,6 +25,7 @@ export const lastfmArtists = sqliteTable(
       .$defaultFn(() => new Date().toISOString()),
   },
   (table) => [
+    uniqueIndex('idx_lastfm_artists_user_name').on(table.userId, table.name),
     index('idx_lastfm_artists_user_id').on(table.userId),
     index('idx_lastfm_artists_filtered').on(table.isFiltered),
   ]

@@ -104,6 +104,7 @@ export const watchHistory = sqliteTable(
     index('idx_watch_history_watched_at').on(table.watchedAt),
     index('idx_watch_history_user_id').on(table.userId),
     index('idx_watch_history_source').on(table.source),
+    index('idx_watch_history_movie_watched').on(table.movieId, table.watchedAt),
   ]
 );
 
@@ -174,6 +175,7 @@ export const plexEpisodesWatched = sqliteTable(
     index('idx_plex_episodes_watched_show_id').on(table.showId),
     index('idx_plex_episodes_watched_watched_at').on(table.watchedAt),
     index('idx_plex_episodes_watched_user_id').on(table.userId),
+    index('idx_plex_episodes_timeline').on(table.userId, table.watchedAt),
     uniqueIndex('idx_plex_episodes_unique').on(
       table.showId,
       table.seasonNumber,

@@ -7,8 +7,8 @@
 |    Last.fm API    |     |    Strava API     |     |    Plex Server    |     |   Discogs API    |
 +--------+----------+     +--------+----------+     +--------+----------+     +--------+----------+
          |                         |                         |                         |
-         | Cron 15m / 3 AM        | Cron 4 AM               | Webhook /               | Cron Sun 6 AM
-         |                        | + Webhook                | Cron 5 AM               |
+         | Cron 15m / 3 AM        | Cron 3:15 AM            | Webhook /               | Cron Sun 3:45 AM
+         |                        | + Webhook                | Cron 3:30 AM            |
          v                        v                          v                         v
 +--------+----------+     +--------+----------+     +--------+----------+     +--------+----------+
 | Listening Sync    |     | Running Sync      |     | Watching Sync     |     | Collecting Sync  |
@@ -60,6 +60,8 @@
 All GET endpoints are public and require no authentication. This is a personal data aggregation service -- all data is intended to be read publicly.
 
 Write endpoints (admin, sync, webhooks) require a Bearer token matching an active entry in the `api_keys` table. Tokens use the `rw_` prefix and are verified by SHA-256 hashing the provided key and looking up the hash in the database.
+
+Auth lookups are cached in-memory with a 60-second TTL per isolate to avoid repeated D1 reads on every request. Rate limiting is enforced per API key using a sliding window algorithm, defaulting to 60 requests per minute per key (configurable via the `rate_limit_rpm` field on the `api_keys` table).
 
 Middleware implementation:
 
@@ -166,7 +168,7 @@ All routes are prefixed with `/v1/`. This allows non-breaking evolution of the A
 
 ## Database Schema
 
-All tables use D1 (SQLite). Dates are stored as ISO 8601 text strings. Foreign keys are enforced. All user-specific tables include a `user_id` column (defaulting to `1`) to structurally prepare for multi-user support.
+All tables use D1 (SQLite). Dates are stored as ISO 8601 text strings. Foreign keys are enforced. All user-specific tables include a `user_id` column (defaulting to `1`) to structurally prepare for multi-user support. Foreign key constraints on watching tables (e.g., `watch_history`, `movie_genres`, `movie_directors`) and listening tables (e.g., `lastfm_scrobbles`, `lastfm_tracks`) use `ON DELETE CASCADE` to ensure referential integrity during bulk operations.
 
 ### System Tables
 
@@ -547,6 +549,7 @@ CREATE INDEX idx_strava_activities_user_id ON strava_activities(user_id);
 CREATE INDEX idx_strava_gear_user_id ON strava_gear(user_id);
 CREATE INDEX idx_strava_splits_activity_id ON strava_splits(activity_id);
 CREATE INDEX idx_strava_splits_user_id ON strava_splits(user_id);
+CREATE INDEX idx_strava_splits_user_activity ON strava_splits(user_id, activity_id);
 CREATE INDEX idx_strava_personal_records_activity_id ON strava_personal_records(activity_id);
 CREATE INDEX idx_strava_personal_records_is_current ON strava_personal_records(is_current);
 CREATE INDEX idx_strava_personal_records_achieved_at ON strava_personal_records(achieved_at);
@@ -667,6 +670,7 @@ CREATE INDEX idx_movie_genres_genre_id ON movie_genres(genre_id);
 CREATE INDEX idx_movie_directors_director_id ON movie_directors(director_id);
 CREATE INDEX idx_watch_history_movie_id ON watch_history(movie_id);
 CREATE INDEX idx_watch_history_watched_at ON watch_history(watched_at);
+CREATE INDEX idx_watch_history_movie_watched ON watch_history(movie_id, watched_at);
 CREATE INDEX idx_watch_history_user_id ON watch_history(user_id);
 CREATE INDEX idx_watch_history_source ON watch_history(source);
 CREATE INDEX idx_watch_stats_user_id ON watch_stats(user_id);
@@ -674,6 +678,7 @@ CREATE INDEX idx_plex_shows_user_id ON plex_shows(user_id);
 CREATE INDEX idx_plex_episodes_watched_show_id ON plex_episodes_watched(show_id);
 CREATE INDEX idx_plex_episodes_watched_watched_at ON plex_episodes_watched(watched_at);
 CREATE INDEX idx_plex_episodes_watched_user_id ON plex_episodes_watched(user_id);
+CREATE INDEX idx_plex_episodes_watched_user_watched ON plex_episodes_watched(user_id, watched_at);
 ```
 
 ### Discogs Tables
@@ -895,15 +900,18 @@ Schema changes are made in the Drizzle schema files, then `npm run db:generate` 
 
 ## Sync Strategy
 
-| Domain               | Trigger        | Schedule                                                          | Strategy                                                           | Rate Limit                  |
-| -------------------- | -------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------- |
-| Listening (Last.fm)  | Cron           | Every 15 min (scrobbles), daily 3 AM (top lists, stats)           | Incremental from last scrobble timestamp                           | 5 req/sec                   |
-| Running (Strava)     | Cron + Webhook | Daily 4 AM catch-up + real-time webhook on activity create/update | Incremental since last synced activity                             | 200 req/15min, 2000 req/day |
-| Watching (Plex)      | Webhook + Cron | Real-time scrobble webhook + daily 5 AM library scan              | Webhook-driven for watch events, cron catch-up for library changes | ~50 req/sec (TMDB)          |
-| Collecting (Discogs) | Cron           | Weekly, Sunday 6 AM                                               | Full collection sync (replace all)                                 | 60 req/min                  |
-| Collecting (Trakt)   | Cron           | Weekly, Sunday 3 AM                                               | Full collection sync with write-through                            | 1000 req/5min               |
+| Domain               | Trigger        | Schedule                                                             | Strategy                                                           | Rate Limit                  |
+| -------------------- | -------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------- |
+| Listening (Last.fm)  | Cron           | `*/15 * * * *` (scrobbles), `0 3 * * *` (top lists, stats)          | Incremental from last scrobble timestamp                           | 5 req/sec                   |
+| Running (Strava)     | Cron + Webhook | `15 3 * * *` catch-up + real-time webhook on activity create/update  | Incremental since last synced activity                             | 200 req/15min, 2000 req/day |
+| Watching (Plex)      | Webhook + Cron | Real-time scrobble webhook + `30 3 * * *` library scan              | Webhook-driven for watch events, cron catch-up for library changes | ~50 req/sec (TMDB)          |
+| Watching (Letterboxd)| Cron           | `0 */6 * * *` RSS feed sync                                        | RSS feed parse, deduplicate against existing watch history         | N/A (RSS)                   |
+| Collecting (Discogs) | Cron           | `45 3 * * SUN`                                                      | Full collection sync (replace all)                                 | 60 req/min                  |
+| Collecting (Trakt)   | Cron           | `45 3 * * SUN`                                                      | Full collection sync with write-through                            | 1000 req/5min               |
 
 Each sync run is recorded in the `sync_runs` table with status (`running`, `completed`, `failed`), item count, duration, and any error message. The `/v1/health/sync` endpoint exposes the most recent sync run per domain for monitoring.
+
+Sync retry logic tracks consecutive failures per domain. If a sync fails, it is retried on the next cron trigger up to a maximum of 2 consecutive retries before the domain is marked as degraded. A successful sync resets the failure counter.
 
 ### Trakt Sync Flow
 
@@ -954,6 +962,8 @@ CDN URL: `https://cdn.rewind.rest/{r2_key}`
 ThumbHash is a compact (28-byte) image placeholder encoding that allows the frontend to render a blurred preview before the full image loads. It is stored as a base64 string in the `images` table.
 
 The `dominant_color` and `accent_color` fields store hex color values (e.g., `#1a2b3c`) extracted from the image during pipeline processing. These can be used for UI theming, placeholder backgrounds, and color-coordinated layouts.
+
+Image processing runs in batches of 5 using `Promise.allSettled` for parallel network I/O, preventing any single source failure from blocking the rest of the batch. The Letterboxd cron skips watching-domain image processing if the Plex cron already ran it within the last 6 hours, avoiding redundant work.
 
 ### Image Overrides
 

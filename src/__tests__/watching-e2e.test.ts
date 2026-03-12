@@ -37,10 +37,7 @@ describe('watching endpoints (e2e shape)', () => {
       expect.stringContaining('/shows/:id/seasons/:season')
     );
 
-    // Admin endpoints
-    expect(paths).toContainEqual(
-      expect.stringContaining('/admin/sync/watching')
-    );
+    // Admin endpoints (sync moved to admin-sync.ts)
     expect(paths).toContainEqual(
       expect.stringContaining('/admin/watching/movies')
     );
@@ -67,9 +64,7 @@ describe('watching endpoints (e2e shape)', () => {
     const postRoutes = routes.filter((r) => r.method === 'POST');
     const postPaths = postRoutes.map((r) => r.path);
 
-    expect(postPaths).toContainEqual(
-      expect.stringContaining('/admin/sync/watching')
-    );
+    // Admin sync moved to admin-sync.ts
     expect(postPaths).toContainEqual(
       expect.stringContaining('/admin/watching/movies')
     );

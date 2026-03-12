@@ -632,6 +632,20 @@ Centralize all images through the R2 pipeline. Stop serving direct external URLs
 - [x] **9.7.3** Update API documentation (docs/API.md) with standardized image response shape
 - [x] **9.7.4** Update image domain documentation (docs/domains/images.md)
 
+## Reliability & Architecture Improvements
+
+Cross-cutting improvements to data integrity, performance, consistency, and API completeness. Full tracker: `docs/projects/reliability-improvements/TRACKER.md`.
+
+- [x] **Phase 1** Movie deduplication -- unified movie resolution via `resolve-movie.ts`
+- [x] **Phase 2** Cron staggering and sync retry logic (max 2 retries on consecutive failures)
+- [x] **Phase 3** Strava stats optimization -- incremental year summaries, lifetime stats from year_summaries table
+- [x] **Phase 4** Admin endpoint consistency -- standardized `/v1/admin/sync/:domain` paths, added delete activity + recompute endpoints
+- [x] **Phase 5** Auth caching (60s in-memory TTL) and sliding window rate limiting (per-key, 429 with Retry-After)
+- [x] **Phase 6** Missing API endpoints -- browse (artists, albums), ratings, reviews, year-in-review for all 3 domains (7 new endpoints, 53→60 total)
+- [x] **Phase 7** Database integrity -- composite indexes, FK cascades, multi-user unique constraints (3 migrations)
+- [x] **Phase 8** Image pipeline performance -- batched processing (5 concurrent), watching image dedup across crons
+- [x] **Phase 9** Cleanup and documentation -- consistent response envelopes on all stats endpoints, updated ARCHITECTURE.md, API.md, ROADMAP.md, CLAUDE.md
+
 ## Phase 7: Portfolio Integration
 
 **7.1 -- pat-portfolio Migration**

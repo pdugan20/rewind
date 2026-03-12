@@ -35,8 +35,12 @@ export function checkRateLimit(
 }
 
 /**
- * Set rate limit response headers.
+ * Clear all rate limit windows. Useful for testing.
  */
+export function resetRateLimitWindows(): void {
+  windows.clear();
+}
+
 export function setRateLimitHeaders(
   c: Context,
   limit: number,

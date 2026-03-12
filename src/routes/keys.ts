@@ -5,6 +5,7 @@ import type { Env } from '../types/env.js';
 import { apiKeys } from '../db/schema/system.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { setCache } from '../lib/cache.js';
+import { invalidateAuthCache } from '../lib/auth.js';
 
 const keys = new Hono<{ Bindings: Env }>();
 
@@ -137,7 +138,7 @@ keys.delete('/:id', async (c) => {
   const db = drizzle(c.env.DB);
 
   const [existing] = await db
-    .select({ id: apiKeys.id })
+    .select({ id: apiKeys.id, keyHash: apiKeys.keyHash })
     .from(apiKeys)
     .where(eq(apiKeys.id, id));
 
@@ -146,6 +147,9 @@ keys.delete('/:id', async (c) => {
   }
 
   await db.update(apiKeys).set({ isActive: 0 }).where(eq(apiKeys.id, id));
+
+  // Invalidate auth cache for this key
+  invalidateAuthCache(existing.keyHash);
 
   return c.json({ message: 'Key revoked', id });
 });

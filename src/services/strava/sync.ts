@@ -1,4 +1,4 @@
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { syncRuns } from '../../db/schema/system.js';
 import {
@@ -39,6 +39,7 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
     .returning();
 
   let itemsSynced = 0;
+  const changedYears = new Set<number>();
 
   try {
     const client = new StravaClient(env, db);
@@ -94,6 +95,11 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
 
         const transformed = transformActivity(detailedActivity);
 
+        // Track which years are affected
+        changedYears.add(
+          new Date(transformed.startDateLocal).getFullYear()
+        );
+
         // Upsert activity
         await db
           .insert(stravaActivities)
@@ -129,8 +135,11 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
     // Sync gear
     await syncGear(client, db);
 
-    // Recompute stats
-    await recomputeStats(db);
+    // Recompute stats incrementally for affected years (full if no new activities)
+    await recomputeStats(
+      db,
+      changedYears.size > 0 ? changedYears : undefined
+    );
 
     // Mark sync as completed
     await db
@@ -214,11 +223,198 @@ async function syncGear(client: StravaClient, db: Database): Promise<void> {
 }
 
 /**
- * Recompute all derived stats: PRs, year summaries, lifetime stats,
- * streaks, and Eddington number.
+ * Recompute derived stats. When changedYears is provided, only recomputes
+ * year summaries for those years and aggregates lifetime stats from the
+ * year summaries table (avoiding a full activity scan). When omitted,
+ * performs a full recomputation from all activities.
  */
-export async function recomputeStats(db: Database): Promise<void> {
-  // Fetch all non-deleted activities
+export async function recomputeStats(
+  db: Database,
+  changedYears?: Set<number>
+): Promise<void> {
+  if (changedYears && changedYears.size > 0) {
+    await recomputeIncremental(db, changedYears);
+  } else {
+    await recomputeFull(db);
+  }
+  console.log('[SYNC] Stats recomputation completed');
+}
+
+async function recomputeYearSummaries(
+  db: Database,
+  years: number[]
+): Promise<void> {
+  // Fetch activities only for the changed years
+  const activities = await db
+    .select()
+    .from(stravaActivities)
+    .where(
+      and(
+        eq(stravaActivities.isDeleted, 0),
+        inArray(
+          sql`cast(strftime('%Y', ${stravaActivities.startDateLocal}) as integer)`,
+          years
+        )
+      )
+    );
+
+  const yearInputs = activities.map((a) => ({
+    year: new Date(a.startDateLocal).getFullYear(),
+    distanceMiles: a.distanceMiles,
+    movingTimeSeconds: a.movingTimeSeconds,
+    elevationFeet: a.totalElevationGainFeet,
+    isRace: a.isRace === 1,
+    longestRunMiles: a.distanceMiles,
+  }));
+
+  const yearSummaries = computeYearSummaries(yearInputs);
+
+  // Upsert only the changed years
+  for (const [year, summary] of yearSummaries.entries()) {
+    await db
+      .insert(stravaYearSummaries)
+      .values({
+        year,
+        ...summary,
+        updatedAt: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: [stravaYearSummaries.userId, stravaYearSummaries.year],
+        set: {
+          ...summary,
+          updatedAt: new Date().toISOString(),
+        },
+      });
+  }
+
+  // Handle years that had activities removed (now zero activities)
+  for (const year of years) {
+    if (!yearSummaries.has(year)) {
+      await db
+        .delete(stravaYearSummaries)
+        .where(
+          and(
+            eq(stravaYearSummaries.userId, 1),
+            eq(stravaYearSummaries.year, year)
+          )
+        );
+    }
+  }
+}
+
+async function recomputeLifetimeFromSummaries(db: Database): Promise<void> {
+  // Aggregate from year summaries table instead of scanning all activities
+  const summaries = await db
+    .select()
+    .from(stravaYearSummaries)
+    .where(eq(stravaYearSummaries.userId, 1));
+
+  if (summaries.length === 0) return;
+
+  const totalRuns = summaries.reduce((sum, s) => sum + s.totalRuns, 0);
+  const totalDistanceMiles = summaries.reduce(
+    (sum, s) => sum + s.totalDistanceMiles,
+    0
+  );
+  const totalElevationFeet = summaries.reduce(
+    (sum, s) => sum + s.totalElevationFeet,
+    0
+  );
+  const totalDurationSeconds = summaries.reduce(
+    (sum, s) => sum + s.totalDurationSeconds,
+    0
+  );
+  const avgPaceMinPerMile =
+    totalDistanceMiles > 0 ? totalDurationSeconds / 60 / totalDistanceMiles : 0;
+  const yearsActive = summaries.length;
+
+  // First run and streaks still need activity data, but we can query efficiently
+  const [firstActivity] = await db
+    .select({ startDateLocal: stravaActivities.startDateLocal })
+    .from(stravaActivities)
+    .where(eq(stravaActivities.isDeleted, 0))
+    .orderBy(stravaActivities.startDate)
+    .limit(1);
+
+  const firstRun = firstActivity?.startDateLocal ?? null;
+
+  // Streaks: need all run dates (lightweight query, just one column)
+  const runDateRows = await db
+    .select({ startDateLocal: stravaActivities.startDateLocal })
+    .from(stravaActivities)
+    .where(eq(stravaActivities.isDeleted, 0))
+    .orderBy(stravaActivities.startDate);
+
+  const streaks = calculateStreaks(
+    runDateRows.map((r) => r.startDateLocal)
+  );
+
+  // Eddington: need daily distance totals
+  const dailyMilesMap = new Map<string, number>();
+  const distanceRows = await db
+    .select({
+      startDateLocal: stravaActivities.startDateLocal,
+      distanceMiles: stravaActivities.distanceMiles,
+    })
+    .from(stravaActivities)
+    .where(eq(stravaActivities.isDeleted, 0));
+
+  for (const r of distanceRows) {
+    const date = r.startDateLocal.substring(0, 10);
+    dailyMilesMap.set(date, (dailyMilesMap.get(date) ?? 0) + r.distanceMiles);
+  }
+  const eddington = calculateEddington([...dailyMilesMap.values()]);
+
+  await db
+    .insert(stravaLifetimeStats)
+    .values({
+      userId: 1,
+      totalRuns,
+      totalDistanceMiles: Math.round(totalDistanceMiles * 100) / 100,
+      totalElevationFeet: Math.round(totalElevationFeet * 100) / 100,
+      totalDurationSeconds,
+      avgPaceFormatted: formatPace(
+        avgPaceMinPerMile > 0 ? avgPaceMinPerMile : null
+      ),
+      yearsActive,
+      firstRun,
+      eddingtonNumber: eddington.number,
+      ...streaks,
+      updatedAt: new Date().toISOString(),
+    })
+    .onConflictDoUpdate({
+      target: stravaLifetimeStats.userId,
+      set: {
+        totalRuns,
+        totalDistanceMiles: Math.round(totalDistanceMiles * 100) / 100,
+        totalElevationFeet: Math.round(totalElevationFeet * 100) / 100,
+        totalDurationSeconds,
+        avgPaceFormatted: formatPace(
+          avgPaceMinPerMile > 0 ? avgPaceMinPerMile : null
+        ),
+        yearsActive,
+        firstRun,
+        eddingtonNumber: eddington.number,
+        ...streaks,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+}
+
+async function recomputeIncremental(
+  db: Database,
+  changedYears: Set<number>
+): Promise<void> {
+  const years = [...changedYears];
+  console.log(`[SYNC] Incremental stats recomputation for years: ${years.join(', ')}`);
+
+  await recomputeYearSummaries(db, years);
+  await recomputeLifetimeFromSummaries(db);
+}
+
+async function recomputeFull(db: Database): Promise<void> {
+  console.log('[SYNC] Full stats recomputation');
+
   const activities = await db
     .select()
     .from(stravaActivities)
@@ -227,28 +423,7 @@ export async function recomputeStats(db: Database): Promise<void> {
 
   if (activities.length === 0) return;
 
-  // --- Personal Records ---
-  // Fetch best efforts from activities that have them
-  const activitiesWithEfforts: Array<{
-    bestEfforts: Array<{
-      name: string;
-      distance: number;
-      elapsed_time: number;
-      moving_time: number;
-      start_date: string;
-      pr_rank: number | null;
-    }>;
-    activityId: number;
-    activityName: string;
-  }> = [];
-
-  // We need to query splits for best efforts - but in our schema they come from the API
-  // We'll recompute from the stored data using a simplified approach
-  // PRs are extracted during sync when we have best_efforts from the API detail fetch
-  // For recompute, we use existing PR data if available and skip re-extraction
-  // (The actual PR extraction happens during activity sync when we have API data)
-
-  // --- Year Summaries ---
+  // Year summaries from all activities
   const yearInputs = activities.map((a) => ({
     year: new Date(a.startDateLocal).getFullYear(),
     distanceMiles: a.distanceMiles,
@@ -277,7 +452,7 @@ export async function recomputeStats(db: Database): Promise<void> {
       });
   }
 
-  // --- Lifetime Stats ---
+  // Lifetime stats
   const totalRuns = activities.length;
   const totalDistanceMiles = activities.reduce(
     (sum, a) => sum + a.distanceMiles,
@@ -299,23 +474,15 @@ export async function recomputeStats(db: Database): Promise<void> {
   );
   const firstRun = activities[0]?.startDateLocal ?? null;
 
-  // Streaks
   const runDates = activities.map((a) => a.startDateLocal);
   const streaks = calculateStreaks(runDates);
 
-  // Eddington number
   const dailyMilesMap = new Map<string, number>();
   for (const a of activities) {
     const date = a.startDateLocal.substring(0, 10);
     dailyMilesMap.set(date, (dailyMilesMap.get(date) ?? 0) + a.distanceMiles);
   }
   const eddington = calculateEddington([...dailyMilesMap.values()]);
-
-  // Also handle PRs from best efforts if available
-  // Re-extract PRs from all activities that have best_efforts
-  // Since best_efforts come from the API, we store them via sync
-  // For recompute we use a different approach - compute from activity data
-  void activitiesWithEfforts; // PRs are managed during sync with API data
 
   await db
     .insert(stravaLifetimeStats)
@@ -351,8 +518,6 @@ export async function recomputeStats(db: Database): Promise<void> {
         updatedAt: new Date().toISOString(),
       },
     });
-
-  console.log('[SYNC] Stats recomputation completed');
 }
 
 /**
@@ -436,8 +601,9 @@ export async function syncSingleActivity(
     }
   }
 
-  // Recompute stats
-  await recomputeStats(db);
+  // Recompute stats incrementally for the affected year
+  const activityYear = new Date(transformed.startDateLocal).getFullYear();
+  await recomputeStats(db, new Set([activityYear]));
 
   console.log(`[SYNC] Single activity ${stravaId} synced`);
 }
@@ -449,13 +615,25 @@ export async function deleteActivity(
   db: Database,
   stravaId: number
 ): Promise<void> {
+  // Get the year before soft-deleting so we can do incremental recompute
+  const [activity] = await db
+    .select({ startDateLocal: stravaActivities.startDateLocal })
+    .from(stravaActivities)
+    .where(eq(stravaActivities.stravaId, stravaId))
+    .limit(1);
+
   await db
     .update(stravaActivities)
     .set({ isDeleted: 1, updatedAt: new Date().toISOString() })
     .where(eq(stravaActivities.stravaId, stravaId));
 
-  // Recompute stats after deletion
-  await recomputeStats(db);
+  // Recompute stats for the affected year
+  if (activity) {
+    const year = new Date(activity.startDateLocal).getFullYear();
+    await recomputeStats(db, new Set([year]));
+  } else {
+    await recomputeStats(db);
+  }
 
   console.log(`[SYNC] Activity ${stravaId} soft deleted`);
 }

@@ -5,10 +5,10 @@ import {
   traktCollection,
   traktCollectionStats,
 } from '../../db/schema/trakt.js';
-import { movies } from '../../db/schema/watching.js';
 import { TraktClient } from './client.js';
 import { getAccessToken } from './auth.js';
 import { TmdbClient } from '../watching/tmdb.js';
+import { resolveMovie } from '../watching/resolve-movie.js';
 import type { Env } from '../../types/env.js';
 
 /**
@@ -22,66 +22,20 @@ async function ensureMovie(
   fallbackTitle: string,
   fallbackYear: number | null
 ): Promise<number> {
-  // Check if movie already exists
-  const [existing] = await db
-    .select({ id: movies.id })
-    .from(movies)
-    .where(eq(movies.tmdbId, tmdbId))
-    .limit(1);
+  const result = await resolveMovie(db, tmdbClient, {
+    tmdbId,
+    title: fallbackTitle,
+    year: fallbackYear,
+  });
 
-  if (existing) {
-    return existing.id;
+  if (result) {
+    return result.id;
   }
 
-  // Fetch full details from TMDb
-  let title = fallbackTitle;
-  let year = fallbackYear;
-  let imdbId: string | null = null;
-  let tagline: string | null = null;
-  let summary: string | null = null;
-  let runtime: number | null = null;
-  let tmdbRating: number | null = null;
-  let posterPath: string | null = null;
-  let backdropPath: string | null = null;
-  let contentRating: string | null = null;
-
-  try {
-    const detail = await tmdbClient.getMovieDetail(tmdbId);
-    title = detail.title;
-    year = detail.year;
-    imdbId = detail.imdb_id;
-    tagline = detail.tagline;
-    summary = detail.overview;
-    runtime = detail.runtime;
-    tmdbRating = detail.vote_average;
-    posterPath = detail.poster_path;
-    backdropPath = detail.backdrop_path;
-    contentRating = detail.content_rating;
-  } catch (err) {
-    console.log(
-      `[ERROR] TMDb enrichment failed for ${tmdbId}: ${err instanceof Error ? err.message : String(err)}`
-    );
-  }
-
-  const [inserted] = await db
-    .insert(movies)
-    .values({
-      title,
-      year,
-      tmdbId,
-      imdbId,
-      tagline,
-      summary,
-      runtime,
-      tmdbRating,
-      posterPath,
-      backdropPath,
-      contentRating,
-    })
-    .returning({ id: movies.id });
-
-  console.log(`[INFO] Created movie: ${title} (${year}) [tmdb:${tmdbId}]`);
-  return inserted.id;
+  // This shouldn't happen since we already have a tmdbId, but handle gracefully
+  throw new Error(
+    `Failed to resolve movie: ${fallbackTitle} (${fallbackYear}) [tmdb:${tmdbId}]`
+  );
 }
 
 /**

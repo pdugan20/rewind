@@ -48,6 +48,7 @@ export const syncRuns = sqliteTable(
     itemsSynced: integer('items_synced').default(0),
     error: text('error'),
     metadata: text('metadata'),
+    retryCount: integer('retry_count').notNull().default(0),
   },
   (table) => [
     index('idx_sync_runs_domain').on(table.domain),

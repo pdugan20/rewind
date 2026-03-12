@@ -174,9 +174,9 @@ describe('collecting integration', () => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body = (await response.json()) as any;
-    expect(body.total_items).toBe(3);
-    expect(body.by_format.vinyl).toBe(2);
-    expect(body.unique_artists).toBe(3);
+    expect(body.data.total_items).toBe(3);
+    expect(body.data.by_format.vinyl).toBe(2);
+    expect(body.data.unique_artists).toBe(3);
   });
 
   it('should return recent items ordered by date_added desc', async () => {

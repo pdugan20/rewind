@@ -27,6 +27,7 @@ describe('listening endpoints (e2e shape)', () => {
     expect(paths).toContainEqual(expect.stringContaining('/calendar'));
     expect(paths).toContainEqual(expect.stringContaining('/trends'));
     expect(paths).toContainEqual(expect.stringContaining('/streaks'));
-    expect(paths).toContainEqual(expect.stringContaining('/admin/sync'));
+    // Admin sync moved to admin-sync.ts (POST /v1/admin/sync/listening)
+    expect(paths).toContainEqual(expect.stringContaining('/admin/filters'));
   });
 });

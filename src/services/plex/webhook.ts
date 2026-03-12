@@ -14,9 +14,9 @@ import { webhookEvents } from '../../db/schema/system.js';
 import {
   TmdbClient,
   extractTmdbIdFromGuids,
-  extractImdbIdFromGuids,
   resolveTmdbId,
 } from '../watching/tmdb.js';
+import { resolveMovie } from '../watching/resolve-movie.js';
 
 export interface PlexWebhookPayload {
   event: string;
@@ -135,120 +135,60 @@ async function recordWebhookEvent(
 
 /**
  * Upsert a movie with TMDB enrichment, returning the movie ID.
+ * Uses the unified resolveMovie function for consistent deduplication
+ * across all watching sources (Plex, Letterboxd, Trakt, manual).
  */
 export async function upsertMovieFromPlex(
   db: Database,
   metadata: PlexWebhookPayload['Metadata'],
   tmdbClient: TmdbClient
 ): Promise<number> {
-  // Check if movie already exists by plex_rating_key
-  const existing = await db
-    .select({ id: movies.id })
-    .from(movies)
-    .where(eq(movies.plexRatingKey, metadata.ratingKey))
-    .limit(1);
-
-  if (existing.length > 0) {
-    return existing[0].id;
-  }
-
-  // Try to resolve TMDB ID
-  let tmdbId: number | null = null;
+  // Resolve TMDB ID from Plex Guid array
+  let tmdbId: number | undefined;
   if (metadata.Guid) {
-    tmdbId = await resolveTmdbId(metadata.Guid, tmdbClient);
+    const resolved = await resolveTmdbId(metadata.Guid, tmdbClient);
+    if (resolved) tmdbId = resolved;
   }
 
-  // Check if movie exists by TMDB ID
-  if (tmdbId) {
-    const existingByTmdb = await db
-      .select({ id: movies.id })
-      .from(movies)
-      .where(eq(movies.tmdbId, tmdbId))
-      .limit(1);
+  const result = await resolveMovie(db, tmdbClient, {
+    tmdbId,
+    plexRatingKey: metadata.ratingKey,
+    title: metadata.title,
+    year: metadata.year,
+  });
 
-    if (existingByTmdb.length > 0) {
-      // Update plex_rating_key on existing movie
-      await db
-        .update(movies)
-        .set({ plexRatingKey: metadata.ratingKey })
-        .where(eq(movies.id, existingByTmdb[0].id));
-      return existingByTmdb[0].id;
-    }
+  if (result) {
+    return result.id;
   }
 
-  // Enrich from TMDB if we have an ID
-  let imdbId: string | null = null;
-  let tagline: string | null = null;
-  let summary: string | null = metadata.summary || null;
-  let runtime: number | null = metadata.duration
-    ? Math.round(metadata.duration / 60000)
-    : null;
-  let tmdbRating: number | null = null;
-  let posterPath: string | null = null;
-  let backdropPath: string | null = null;
-  let contentRating: string | null = metadata.contentRating || null;
-  let tmdbGenres: { id: number; name: string }[] = [];
-  let tmdbDirectors: string[] = [];
-
-  if (tmdbId) {
-    try {
-      const detail = await tmdbClient.getMovieDetail(tmdbId);
-      imdbId = detail.imdb_id;
-      tagline = detail.tagline;
-      summary = detail.overview || summary;
-      runtime = detail.runtime || runtime;
-      tmdbRating = detail.vote_average;
-      posterPath = detail.poster_path;
-      backdropPath = detail.backdrop_path;
-      contentRating = detail.content_rating || contentRating;
-      tmdbGenres = detail.genres;
-      tmdbDirectors = detail.directors;
-    } catch (error) {
-      console.log(
-        `[ERROR] TMDB enrichment failed for ${tmdbId}: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  } else {
-    // Extract IMDB ID from guids even without full TMDB enrichment
-    if (metadata.Guid) {
-      imdbId = extractImdbIdFromGuids(metadata.Guid);
-    }
-  }
-
-  // Use Plex genre/director data as fallback
-  if (tmdbGenres.length === 0 && metadata.Genre) {
-    tmdbGenres = metadata.Genre.map((g, i) => ({ id: -(i + 1), name: g.tag }));
-  }
-  if (tmdbDirectors.length === 0 && metadata.Director) {
-    tmdbDirectors = metadata.Director.map((d) => d.tag);
-  }
-
-  // Insert movie
+  // Fallback: insert with Plex metadata only (no TMDB match found).
+  // This handles rare cases like TV specials that TMDB doesn't recognize.
   const [inserted] = await db
     .insert(movies)
     .values({
       plexRatingKey: metadata.ratingKey,
       title: metadata.title,
       year: metadata.year || null,
-      tmdbId,
-      imdbId,
-      tagline,
-      summary,
-      contentRating,
-      runtime,
-      posterPath,
-      backdropPath,
-      tmdbRating,
     })
     .returning({ id: movies.id });
 
   const movieId = inserted.id;
 
-  // Upsert genres and join table
-  await upsertGenres(db, movieId, tmdbGenres);
-
-  // Upsert directors and join table
-  await upsertDirectors(db, movieId, tmdbDirectors);
+  // Use Plex genre/director data as fallback
+  if (metadata.Genre) {
+    const genreList = metadata.Genre.map((g, i) => ({
+      id: -(i + 1),
+      name: g.tag,
+    }));
+    await upsertGenres(db, movieId, genreList);
+  }
+  if (metadata.Director) {
+    await upsertDirectors(
+      db,
+      movieId,
+      metadata.Director.map((d) => d.tag)
+    );
+  }
 
   return movieId;
 }

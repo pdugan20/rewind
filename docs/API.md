@@ -2,7 +2,7 @@
 
 Base URL: `https://api.rewind.rest`
 
-All endpoints return JSON. 53 endpoints across 10 sections.
+All endpoints return JSON. 96 endpoints across 12 sections.
 
 ## Authentication
 
@@ -34,6 +34,13 @@ Paginated endpoints accept `page` and `limit` query parameters and return:
   }
 }
 ```
+
+### Response Envelopes
+
+- **Paginated endpoints** return `{ "data": [...], "pagination": {...} }`
+- **Single-object endpoints** (stats, streaks) return `{ "data": {...} }`
+- **Detail endpoints** (by ID) return the object directly
+- **Error responses** return `{ "error": "message", "status": 404 }`
 
 ### Time Periods
 
@@ -94,6 +101,19 @@ When no image exists, the field is `null`:
 | thumbhash | string or null | Base64 ThumbHash for blur placeholder |
 | dominant_color | string or null | Hex color for background placeholder |
 | accent_color | string or null | Hex color for UI accents |
+
+### Rate Limiting
+
+All endpoints return rate limiting headers:
+
+| Header                | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| X-RateLimit-Limit     | Requests allowed per minute                    |
+| X-RateLimit-Remaining | Requests remaining in current window           |
+| X-RateLimit-Reset     | Unix timestamp when the window resets          |
+| Retry-After           | Seconds to wait (included in 429 responses only) |
+
+When rate limited, the API returns a `429 Too Many Requests` response with the `Retry-After` header indicating how many seconds to wait before retrying.
 
 ## System
 
@@ -174,21 +194,55 @@ curl -X POST https://api.rewind.rest/v1/admin/sync/listening \
 }
 ```
 
-### POST /v1/admin/sync/:domain/full
+The listening sync accepts an optional JSON body to specify sync type:
 
-Triggers a full re-sync for a domain. Admin key required.
+| Body Field | Type   | Default    | Description                              |
+| ---------- | ------ | ---------- | ---------------------------------------- |
+| type       | string | scrobbles  | scrobbles, top_lists, stats, full, backfill |
 
 ```bash
-curl -X POST https://api.rewind.rest/v1/admin/sync/listening/full \
+curl -X POST https://api.rewind.rest/v1/admin/sync/listening \
+  -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"type": "full"}'
+```
+
+The watching sync accepts an optional `source` query parameter:
+
+```bash
+curl -X POST "https://api.rewind.rest/v1/admin/sync/watching?source=letterboxd" \
+  -H "Authorization: Bearer rw_admin_..."
+```
+
+### DELETE /v1/admin/running/activities/:id
+
+Soft-delete a running activity by Strava ID. Triggers incremental stats recomputation. Admin key required.
+
+```bash
+curl -X DELETE https://api.rewind.rest/v1/admin/running/activities/12345678 \
   -H "Authorization: Bearer rw_admin_..."
 ```
 
 ```json
 {
-  "sync_id": 1235,
-  "domain": "listening",
-  "sync_type": "full",
-  "status": "started"
+  "status": "deleted",
+  "strava_id": 12345678
+}
+```
+
+### POST /v1/admin/running/recompute
+
+Trigger a full stats recomputation (year summaries, lifetime stats, streaks, Eddington) without syncing from Strava. Admin key required.
+
+```bash
+curl -X POST https://api.rewind.rest/v1/admin/running/recompute \
+  -H "Authorization: Bearer rw_admin_..."
+```
+
+```json
+{
+  "status": "completed",
+  "timestamp": "2026-03-12T12:00:00Z"
 }
 ```
 
@@ -292,33 +346,24 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/feed?lim
 
 Cache: max-age=300
 
-### GET /v1/feed/stats
+### GET /v1/feed/domain/:domain
 
-Combined stats across all domains for a period.
+Single-domain activity feed. Same cursor-based pagination as /v1/feed.
 
-| Parameter | Type   | Default | Description |
-| --------- | ------ | ------- | ----------- |
-| period    | string | 7day    | Time period |
+Valid domains: listening, running, watching, collecting
+
+| Parameter | Type   | Default | Description          |
+| --------- | ------ | ------- | -------------------- |
+| cursor    | string | -       | Cursor for next page |
+| limit     | number | 50      | 1-100                |
 
 ```bash
-curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/feed/stats?period=7day"
+curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/feed/domain/listening?limit=10"
 ```
 
-```json
-{
-  "period": "7day",
-  "listening": {
-    "scrobbles": 287,
-    "unique_artists": 34,
-    "top_artist": "Radiohead"
-  },
-  "running": { "runs": 4, "total_distance_mi": 22.3, "avg_pace": "8:15/mi" },
-  "watching": { "movies_watched": 2, "total_watch_time_hours": 4.1 },
-  "collecting": { "items_added": 1, "total_collection": 145 }
-}
-```
+Same response shape as GET /v1/feed, filtered to a single domain.
 
-Cache: max-age=3600
+Cache: max-age=300
 
 ## Search
 
@@ -668,6 +713,147 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/listenin
 
 Cache: max-age=86400
 
+### GET /v1/listening/artists
+
+Browse all artists. Paginated with search and sort options.
+
+| Parameter | Type   | Default   | Description                |
+| --------- | ------ | --------- | -------------------------- |
+| page      | number | 1         | Page number                |
+| limit     | number | 20        | Items per page             |
+| sort      | string | playcount | playcount, name            |
+| order     | string | desc      | asc, desc                  |
+| search    | string | -         | Filter by artist name      |
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/listening/artists?sort=playcount&limit=10"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": 42,
+      "name": "Radiohead",
+      "playcount": 5432,
+      "url": "https://www.last.fm/music/Radiohead",
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/listening/artists/42/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      }
+    }
+  ],
+  "pagination": { "page": 1, "limit": 10, "total": 4521, "total_pages": 453 }
+}
+```
+
+Cache: max-age=3600
+
+### GET /v1/listening/albums
+
+Browse all albums. Paginated with artist filter, search, and sort options.
+
+| Parameter | Type   | Default   | Description                |
+| --------- | ------ | --------- | -------------------------- |
+| page      | number | 1         | Page number                |
+| limit     | number | 20        | Items per page             |
+| sort      | string | playcount | playcount, name, recent    |
+| order     | string | desc      | asc, desc                  |
+| artist    | string | -         | Filter by artist name      |
+| search    | string | -         | Filter by album name       |
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/listening/albums?artist=Radiohead&sort=playcount"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": 88,
+      "name": "OK Computer",
+      "artist": { "id": 42, "name": "Radiohead" },
+      "playcount": 312,
+      "url": "https://www.last.fm/music/Radiohead/OK+Computer",
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/listening/albums/88/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      }
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 8234, "total_pages": 412 }
+}
+```
+
+Cache: max-age=3600
+
+### GET /v1/listening/year/:year
+
+Year-in-review for listening. Returns aggregate stats, top artists/albums/tracks, and monthly breakdown for the given year.
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/listening/year/2025
+```
+
+```json
+{
+  "year": 2025,
+  "total_scrobbles": 8234,
+  "unique_artists": 412,
+  "unique_albums": 890,
+  "unique_tracks": 2345,
+  "top_artists": [
+    {
+      "id": 42,
+      "name": "Radiohead",
+      "scrobbles": 312,
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/listening/artists/42/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      }
+    }
+  ],
+  "top_albums": [
+    {
+      "id": 88,
+      "name": "OK Computer",
+      "artist": "Radiohead",
+      "scrobbles": 78,
+      "image": {
+        "cdn_url": "https://cdn.rewind.rest/listening/albums/88/original.jpg?width=300&height=300&v=1",
+        "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+        "dominant_color": "#1a2b3c",
+        "accent_color": "#4d5e6f"
+      }
+    }
+  ],
+  "top_tracks": [
+    {
+      "id": 201,
+      "name": "Paranoid Android",
+      "artist": "Radiohead",
+      "scrobbles": 45
+    }
+  ],
+  "monthly": [
+    {
+      "month": 1,
+      "scrobbles": 712,
+      "unique_artists": 89,
+      "unique_albums": 134
+    }
+  ]
+}
+```
+
+Cache: max-age=86400
+
 ## Running
 
 ### GET /v1/running/stats
@@ -678,14 +864,16 @@ curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/running/s
 
 ```json
 {
-  "total_runs": 1847,
-  "total_distance_mi": 8234.5,
-  "total_elevation_ft": 423567,
-  "total_duration": "1423:45:30",
-  "avg_pace": "8:22/mi",
-  "years_active": 14,
-  "first_run": "2011-06-15",
-  "eddington_number": 8
+  "data": {
+    "total_runs": 1847,
+    "total_distance_mi": 8234.5,
+    "total_elevation_ft": 423567,
+    "total_duration": "1423:45:30",
+    "avg_pace": "8:22/mi",
+    "years_active": 14,
+    "first_run": "2011-06-15",
+    "eddington_number": 8
+  }
 }
 ```
 
@@ -726,7 +914,7 @@ Cache: max-age=3600
 
 ### GET /v1/running/stats/years/:year
 
-Same shape as single item from /v1/running/stats/years.
+Same shape as single item from /v1/running/stats/years, wrapped in `{ "data": {...} }`.
 
 Cache: max-age=3600
 
@@ -1015,12 +1203,14 @@ Cache: max-age=86400
 
 ```json
 {
-  "current": { "days": 12, "start_date": "2026-02-26", "total_mi": 58.3 },
-  "longest": {
-    "days": 45,
-    "start_date": "2024-06-01",
-    "end_date": "2024-07-15",
-    "total_mi": 198.7
+  "data": {
+    "current": { "days": 12, "start_date": "2026-02-26", "total_mi": 58.3 },
+    "longest": {
+      "days": 45,
+      "start_date": "2024-06-01",
+      "end_date": "2024-07-15",
+      "total_mi": 198.7
+    }
   }
 }
 ```
@@ -1069,6 +1259,51 @@ Cache: max-age=86400
   "number": 8,
   "explanation": "You have run at least 8 miles on 8 different days",
   "progress": { "target": 9, "days_completed": 6, "runs_needed": 3 }
+}
+```
+
+Cache: max-age=86400
+
+### GET /v1/running/year/:year
+
+Year-in-review for running. Expands on `/v1/running/stats/years/:year` with monthly breakdown and top runs.
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/running/year/2025
+```
+
+```json
+{
+  "year": 2025,
+  "total_runs": 210,
+  "total_distance_mi": 1105.2,
+  "total_elevation_ft": 67800,
+  "total_duration_s": 594000,
+  "avg_pace": "8:18/mi",
+  "longest_run_mi": 26.2,
+  "race_count": 4,
+  "monthly": [
+    {
+      "month": 1,
+      "runs": 18,
+      "distance_mi": 89.4,
+      "duration_s": 48000,
+      "elevation_ft": 5600
+    }
+  ],
+  "top_runs": [
+    {
+      "id": 1001,
+      "strava_id": 12345678,
+      "name": "Philly Marathon",
+      "date": "2025-11-12T07:00:00-05:00",
+      "distance_mi": 26.2,
+      "duration": "3:52:10",
+      "pace": "8:52/mi",
+      "elevation_ft": 890,
+      "is_race": true
+    }
+  ]
 }
 ```
 
@@ -1213,13 +1448,15 @@ Cache: no-store
 
 ```json
 {
-  "total_movies": 342,
-  "total_watch_time_hours": 567,
-  "movies_this_year": 28,
-  "avg_per_month": 2.3,
-  "top_genre": "Drama",
-  "top_decade": 2010,
-  "top_director": "Wes Anderson"
+  "data": {
+    "total_movies": 342,
+    "total_watch_time_hours": 567,
+    "movies_this_year": 28,
+    "avg_per_month": 2.3,
+    "top_genre": "Drama",
+    "top_decade": 2010,
+    "top_director": "Wes Anderson"
+  }
 }
 ```
 
@@ -1290,9 +1527,140 @@ Cache: max-age=3600
 
 Cache: max-age=86400
 
+### GET /v1/watching/ratings
+
+Movies with user ratings. Paginated with sort options.
+
+| Parameter | Type   | Default | Description        |
+| --------- | ------ | ------- | ------------------ |
+| page      | number | 1       | Page number        |
+| limit     | number | 20      | Items per page     |
+| sort      | string | rating  | rating, date       |
+| order     | string | desc    | asc, desc          |
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/watching/ratings?sort=rating&order=desc"
+```
+
+```json
+{
+  "data": [
+    {
+      "movie": {
+        "id": 12,
+        "title": "Inception",
+        "year": 2010,
+        "tmdb_id": 27205,
+        "tmdb_rating": 8.4,
+        "image": {
+          "cdn_url": "https://cdn.rewind.rest/watching/movies/12/original.jpg?width=300&height=300&v=1",
+          "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+          "dominant_color": "#1a2b3c",
+          "accent_color": "#4d5e6f"
+        }
+      },
+      "user_rating": 5.0,
+      "watched_at": "2026-01-15T21:00:00Z",
+      "source": "letterboxd"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 180, "total_pages": 9 }
+}
+```
+
+Cache: max-age=3600
+
+### GET /v1/watching/reviews
+
+Movies with review text. Paginated.
+
+| Parameter | Type   | Default |
+| --------- | ------ | ------- |
+| page      | number | 1       |
+| limit     | number | 20      |
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/watching/reviews?limit=5"
+```
+
+```json
+{
+  "data": [
+    {
+      "movie": {
+        "id": 12,
+        "title": "Inception",
+        "year": 2010,
+        "tmdb_id": 27205,
+        "image": {
+          "cdn_url": "https://cdn.rewind.rest/watching/movies/12/original.jpg?width=300&height=300&v=1",
+          "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+          "dominant_color": "#1a2b3c",
+          "accent_color": "#4d5e6f"
+        }
+      },
+      "user_rating": 5.0,
+      "review": "A masterclass in layered storytelling. Nolan at his most ambitious.",
+      "watched_at": "2026-01-15T21:00:00Z",
+      "source": "letterboxd"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 5, "total": 42, "total_pages": 9 }
+}
+```
+
+Cache: max-age=3600
+
+### GET /v1/watching/year/:year
+
+Year-in-review for watching. Returns aggregate stats, genre/decade breakdowns, monthly counts, and top-rated movies for the given year.
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/watching/year/2025
+```
+
+```json
+{
+  "year": 2025,
+  "total_movies": 52,
+  "genres": [
+    { "name": "Drama", "count": 24 },
+    { "name": "Comedy", "count": 12 }
+  ],
+  "decades": [
+    { "decade": 2020, "count": 18 },
+    { "decade": 2010, "count": 15 }
+  ],
+  "monthly": [
+    { "month": 1, "count": 5 },
+    { "month": 2, "count": 3 }
+  ],
+  "top_rated": [
+    {
+      "movie": {
+        "id": 12,
+        "title": "Inception",
+        "year": 2010,
+        "tmdb_id": 27205,
+        "image": {
+          "cdn_url": "https://cdn.rewind.rest/watching/movies/12/original.jpg?width=300&height=300&v=1",
+          "thumbhash": "YJqGPQw7sFlslqhFafSE+Q6oJ1h2iA==",
+          "dominant_color": "#1a2b3c",
+          "accent_color": "#4d5e6f"
+        }
+      },
+      "user_rating": 5.0,
+      "watched_at": "2025-01-15T21:00:00Z"
+    }
+  ]
+}
+```
+
+Cache: max-age=86400
+
 ## Collection
 
-### GET /v1/collection
+### GET /v1/collecting/collection
 
 | Parameter | Type   | Default |
 | --------- | ------ | ------- | -------------------------- |
@@ -1336,26 +1704,28 @@ Cache: max-age=86400
 
 Cache: max-age=86400
 
-### GET /v1/collection/stats
+### GET /v1/collecting/stats
 
 ```json
 {
-  "total_items": 145,
-  "by_format": { "vinyl": 98, "cd": 42, "cassette": 5, "other": 0 },
-  "wantlist_count": 23,
-  "unique_artists": 87,
-  "estimated_value": 3450.0,
-  "top_genre": "Rock",
-  "oldest_release_year": 1967,
-  "newest_release_year": 2026,
-  "most_collected_artist": { "name": "Radiohead", "count": 8 },
-  "added_this_year": 12
+  "data": {
+    "total_items": 145,
+    "by_format": { "vinyl": 98, "cd": 42, "cassette": 5, "other": 0 },
+    "wantlist_count": 23,
+    "unique_artists": 87,
+    "estimated_value": 3450.0,
+    "top_genre": "Rock",
+    "oldest_release_year": 1967,
+    "newest_release_year": 2026,
+    "most_collected_artist": { "name": "Radiohead", "count": 8 },
+    "added_this_year": 12
+  }
 }
 ```
 
 Cache: max-age=86400
 
-### GET /v1/collection/recent
+### GET /v1/collecting/recent
 
 | Parameter | Type   | Default |
 | --------- | ------ | ------- |
@@ -1363,19 +1733,19 @@ Cache: max-age=86400
 
 Cache: max-age=3600
 
-### GET /v1/collection/:id
+### GET /v1/collecting/collection/:id
 
 Full release detail with tracklist, credits, and cross-reference data.
 
 Cache: max-age=86400
 
-### GET /v1/collection/wantlist
+### GET /v1/collecting/wantlist
 
-Same params and shape as /v1/collection.
+Same params and shape as /v1/collecting/collection.
 
 Cache: max-age=86400
 
-### GET /v1/collection/formats
+### GET /v1/collecting/formats
 
 ```json
 {
@@ -1389,7 +1759,7 @@ Cache: max-age=86400
 
 Cache: max-age=86400
 
-### GET /v1/collection/genres
+### GET /v1/collecting/genres
 
 ```json
 {
@@ -1402,7 +1772,7 @@ Cache: max-age=86400
 
 Cache: max-age=86400
 
-### GET /v1/collection/artists
+### GET /v1/collecting/artists
 
 | Parameter | Type   | Default |
 | --------- | ------ | ------- |
@@ -1422,7 +1792,7 @@ Cache: max-age=86400
 
 Cache: max-age=86400
 
-### GET /v1/collection/cross-reference
+### GET /v1/collecting/cross-reference
 
 | Parameter | Type   | Default |
 | --------- | ------ | ------- | ------------------------- |
@@ -1568,12 +1938,14 @@ curl -H "Authorization: Bearer rw_live_..." https://api.rewind.rest/v1/collectin
 
 ```json
 {
-  "total_items": 85,
-  "by_format": { "bluray": 50, "4k_uhd": 30, "hddvd": 5 },
-  "by_resolution": { "hd_1080p": 50, "uhd_4k": 30, "hd_720p": 5 },
-  "by_hdr": { "dolby_vision": 20, "hdr10": 8, "none": 57 },
-  "by_genre": { "Action": 25, "Drama": 20, "Sci-Fi": 15 },
-  "by_decade": { "2020": 15, "2010": 35, "2000": 20, "1990": 15 }
+  "data": {
+    "total_items": 85,
+    "by_format": { "bluray": 50, "4k_uhd": 30, "hddvd": 5 },
+    "by_resolution": { "hd_1080p": 50, "uhd_4k": 30, "hd_720p": 5 },
+    "by_hdr": { "dolby_vision": 20, "hdr10": 8, "none": 57 },
+    "by_genre": { "Action": 25, "Drama": 20, "Sci-Fi": 15 },
+    "by_decade": { "2020": 15, "2010": 35, "2000": 20, "1990": 15 }
+  }
 }
 ```
 
@@ -1853,6 +2225,120 @@ curl -X DELETE -H "Authorization: Bearer rw_admin_..." \
 
 Cache: no-store
 
+### GET /v1/listening/admin/filters
+
+List all Last.fm scrobble filters. Admin key required.
+
+```bash
+curl -H "Authorization: Bearer rw_admin_..." https://api.rewind.rest/v1/listening/admin/filters
+```
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "filter_type": "holiday",
+      "pattern": "Christmas",
+      "scope": "album",
+      "reason": "Holiday music filter",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+### POST /v1/listening/admin/filters
+
+Create a new scrobble filter. Admin key required.
+
+| Body Field  | Type   | Required | Description                                          |
+| ----------- | ------ | -------- | ---------------------------------------------------- |
+| filter_type | string | yes      | holiday, audiobook, custom                           |
+| pattern     | string | yes      | Text pattern to match                                |
+| scope       | string | yes      | album, track, artist, artist_track, track_regex      |
+| reason      | string | no       | Human-readable reason for the filter                 |
+
+```bash
+curl -X POST https://api.rewind.rest/v1/listening/admin/filters \
+  -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"filter_type": "holiday", "pattern": "Christmas Hits", "scope": "album", "reason": "Holiday compilation"}'
+```
+
+Returns 201 with the created filter object.
+
+### DELETE /v1/listening/admin/filters/:id
+
+Delete a scrobble filter. Admin key required.
+
+```bash
+curl -X DELETE https://api.rewind.rest/v1/listening/admin/filters/1 \
+  -H "Authorization: Bearer rw_admin_..."
+```
+
+```json
+{
+  "success": true,
+  "deleted_id": 1
+}
+```
+
+### POST /v1/listening/admin/listening/backfill-images
+
+Backfill images for listening entities missing them. Admin key required.
+
+| Body Field | Type   | Default | Description              |
+| ---------- | ------ | ------- | ------------------------ |
+| type       | string | albums  | albums, artists, all     |
+| limit      | number | 50      | Max items to process (max 200) |
+
+```bash
+curl -X POST https://api.rewind.rest/v1/listening/admin/listening/backfill-images \
+  -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"type": "all", "limit": 100}'
+```
+
+### POST /v1/watching/admin/watching/backfill-images
+
+Backfill images for watching entities missing them. Admin key required.
+
+| Body Field | Type   | Default | Description              |
+| ---------- | ------ | ------- | ------------------------ |
+| type       | string | movies  | movies, shows, all       |
+| limit      | number | 50      | Max items to process (max 200) |
+
+```bash
+curl -X POST https://api.rewind.rest/v1/watching/admin/watching/backfill-images \
+  -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"type": "all", "limit": 100}'
+```
+
+### POST /v1/admin/images/reprocess
+
+Re-generate thumbhash and colors for images that have R2 keys but missing metadata. Reads from R2, no external API calls needed. Admin key required.
+
+| Body Field | Type   | Default | Description              |
+| ---------- | ------ | ------- | ------------------------ |
+| limit      | number | 50      | Max items to process (max 100) |
+
+```bash
+curl -X POST https://api.rewind.rest/v1/admin/images/reprocess \
+  -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 50}'
+```
+
+```json
+{
+  "success": true,
+  "processed": 12,
+  "failed": 0
+}
+```
+
 ## Webhooks
 
 ### GET /v1/webhooks/strava
@@ -1894,7 +2380,7 @@ Returns: 200 OK
 
 ## Export
 
-### GET /v1/export/:domain
+### GET /v1/admin/export/:domain
 
 Full data export for a domain. Admin key required.
 

@@ -168,7 +168,7 @@ describe('collecting media routes', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
-      expect(body.total_items).toBe(0);
+      expect(body.data.total_items).toBe(0);
     });
 
     it('should return stats when populated', async () => {
@@ -183,9 +183,9 @@ describe('collecting media routes', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
-      expect(body.total_items).toBe(25);
-      expect(body.by_format.bluray).toBe(15);
-      expect(body.by_format.hddvd).toBe(2);
+      expect(body.data.total_items).toBe(25);
+      expect(body.data.by_format.bluray).toBe(15);
+      expect(body.data.by_format.hddvd).toBe(2);
     });
   });
 

@@ -30,9 +30,9 @@ src/
   index.ts                 -- Hono app entry, route registration, cron handler
   routes/
     system.ts              -- GET /v1/health, GET /v1/health/sync, POST /v1/admin/sync, key management
-    listening.ts           -- 12 listening endpoints (includes streaks)
-    running.ts             -- 18 running endpoints
-    watching.ts            -- 15 watching endpoints (movies + TV shows + manual entry)
+    listening.ts           -- 15 listening endpoints (includes streaks, browse, year-in-review)
+    running.ts             -- 19 running endpoints (includes year-in-review)
+    watching.ts            -- 18 watching endpoints (movies + TV shows + manual entry + ratings/reviews + year-in-review)
     collecting.ts          -- 9 collection endpoints
     feed.ts                -- 2 cross-domain feed endpoints
     images.ts              -- 4 image endpoints (proxy + admin overrides)
@@ -56,10 +56,12 @@ src/
     trakt/                 -- Trakt OAuth, API client, sync
     images/                -- Image pipeline (sources, storage, thumbhash, color extraction)
   lib/
-    auth.ts                -- API key authentication middleware (Bearer token)
+    auth.ts                -- API key authentication middleware (Bearer token, in-memory cache, rate limiting)
     cors.ts                -- CORS middleware (configurable origins)
     errors.ts              -- Error response helpers
     cache.ts               -- Cache-Control header helpers
+    rate-limit.ts          -- Sliding window rate limiter (per-key, 60s window)
+    sync-retry.ts          -- Sync retry logic (max 2 retries on consecutive failures)
   types/
     env.ts                 -- Cloudflare bindings (Env interface)
 migrations/                -- D1 SQL migration files

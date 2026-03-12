@@ -21,7 +21,6 @@ import {
 } from '../lib/images.js';
 import { images } from '../db/schema/system.js';
 import { LastfmClient } from '../services/lastfm/client.js';
-import { syncListening } from '../services/lastfm/sync.js';
 import type { LastfmPeriod } from '../services/lastfm/client.js';
 import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
@@ -506,6 +505,129 @@ listening.get('/history', async (c) => {
   });
 });
 
+// GET /v1/listening/artists - Browse all artists
+listening.get('/artists', async (c) => {
+  setCache(c, 'medium');
+  const db = createDb(c.env.DB);
+
+  const page = Math.max(1, parseInt(c.req.query('page') ?? '1'));
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') ?? '20')), 100);
+  const offset = (page - 1) * limit;
+  const sort = c.req.query('sort') ?? 'playcount';
+  const order = c.req.query('order') ?? 'desc';
+  const search = c.req.query('search');
+
+  const conditions = [eq(lastfmArtists.isFiltered, 0)];
+  if (search) conditions.push(like(lastfmArtists.name, `%${search}%`));
+
+  const whereClause = and(...conditions);
+
+  const [{ count: total }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(lastfmArtists)
+    .where(whereClause);
+
+  let orderByClause;
+  if (sort === 'name') {
+    orderByClause = order === 'asc' ? asc(lastfmArtists.name) : desc(lastfmArtists.name);
+  } else {
+    orderByClause = order === 'asc' ? asc(lastfmArtists.playcount) : desc(lastfmArtists.playcount);
+  }
+
+  const items = await db
+    .select({
+      id: lastfmArtists.id,
+      name: lastfmArtists.name,
+      url: lastfmArtists.url,
+      playcount: lastfmArtists.playcount,
+    })
+    .from(lastfmArtists)
+    .where(whereClause)
+    .orderBy(orderByClause)
+    .limit(limit)
+    .offset(offset);
+
+  const artistIds = items.map((i) => String(i.id));
+  const imageMap = await getImageAttachmentBatch(db, 'listening', 'artists', artistIds);
+
+  return c.json({
+    data: items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      playcount: item.playcount,
+      url: item.url ?? '',
+      image: imageMap.get(String(item.id)) ?? null,
+    })),
+    pagination: paginate(page, limit, total),
+  });
+});
+
+// GET /v1/listening/albums - Browse all albums
+listening.get('/albums', async (c) => {
+  setCache(c, 'medium');
+  const db = createDb(c.env.DB);
+
+  const page = Math.max(1, parseInt(c.req.query('page') ?? '1'));
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') ?? '20')), 100);
+  const offset = (page - 1) * limit;
+  const sort = c.req.query('sort') ?? 'playcount';
+  const order = c.req.query('order') ?? 'desc';
+  const artist = c.req.query('artist');
+  const search = c.req.query('search');
+
+  const conditions = [eq(lastfmAlbums.isFiltered, 0)];
+  if (artist) conditions.push(like(lastfmArtists.name, `%${artist}%`));
+  if (search) conditions.push(like(lastfmAlbums.name, `%${search}%`));
+
+  const whereClause = and(...conditions);
+
+  const [{ count: total }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(lastfmAlbums)
+    .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
+    .where(whereClause);
+
+  let orderByClause;
+  if (sort === 'name') {
+    orderByClause = order === 'asc' ? asc(lastfmAlbums.name) : desc(lastfmAlbums.name);
+  } else if (sort === 'recent') {
+    orderByClause = order === 'asc' ? asc(lastfmAlbums.createdAt) : desc(lastfmAlbums.createdAt);
+  } else {
+    orderByClause = order === 'asc' ? asc(lastfmAlbums.playcount) : desc(lastfmAlbums.playcount);
+  }
+
+  const items = await db
+    .select({
+      id: lastfmAlbums.id,
+      name: lastfmAlbums.name,
+      url: lastfmAlbums.url,
+      playcount: lastfmAlbums.playcount,
+      artistId: lastfmArtists.id,
+      artistName: lastfmArtists.name,
+    })
+    .from(lastfmAlbums)
+    .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
+    .where(whereClause)
+    .orderBy(orderByClause)
+    .limit(limit)
+    .offset(offset);
+
+  const albumIds = items.map((i) => String(i.id));
+  const imageMap = await getImageAttachmentBatch(db, 'listening', 'albums', albumIds);
+
+  return c.json({
+    data: items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      artist: { id: item.artistId, name: item.artistName },
+      playcount: item.playcount,
+      url: item.url ?? '',
+      image: imageMap.get(String(item.id)) ?? null,
+    })),
+    pagination: paginate(page, limit, total),
+  });
+});
+
 // GET /v1/listening/artists/:id
 listening.get('/artists/:id', async (c) => {
   setCache(c, 'medium');
@@ -899,38 +1021,152 @@ listening.get('/streaks', async (c) => {
   });
 });
 
-// POST /v1/admin/sync/listening
-listening.post('/admin/sync', async (c) => {
+// GET /v1/listening/year/:year - Year-in-review for listening
+listening.get('/year/:year', async (c) => {
   const db = createDb(c.env.DB);
-  const client = new LastfmClient(c.env.LASTFM_API_KEY, c.env.LASTFM_USERNAME);
+  const currentYear = new Date().getFullYear();
+  const year = parseInt(c.req.param('year'));
 
-  const body = await c.req
-    .json<{ type?: string }>()
-    .catch(() => ({ type: undefined }));
-  const syncType = (body.type ?? 'scrobbles') as
-    | 'scrobbles'
-    | 'top_lists'
-    | 'stats'
-    | 'full'
-    | 'backfill';
-
-  const validTypes = ['scrobbles', 'top_lists', 'stats', 'full', 'backfill'];
-  if (!validTypes.includes(syncType)) {
-    return badRequest(c, `Invalid sync type. Valid: ${validTypes.join(', ')}`);
+  if (isNaN(year) || year < 2000 || year > currentYear + 1) {
+    return badRequest(c, 'Invalid year');
   }
 
-  try {
-    const result = await syncListening(db, client, { type: syncType });
-    return c.json({
-      status: 'completed',
-      items_synced: result.itemsSynced,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return c.json({ error: message, status: 500 }, 500);
+  if (year < currentYear) {
+    setCache(c, 'long');
+  } else {
+    setCache(c, 'medium');
   }
+
+  const startDate = `${year}-01-01T00:00:00.000Z`;
+  const endDate = `${year + 1}-01-01T00:00:00.000Z`;
+  const dateRange = and(
+    gte(lastfmScrobbles.scrobbledAt, startDate),
+    lte(lastfmScrobbles.scrobbledAt, endDate)
+  );
+
+  // Total scrobbles
+  const [{ count: totalScrobbles }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(lastfmScrobbles)
+    .where(dateRange);
+
+  // Unique counts
+  const [uniqueCounts] = await db
+    .select({
+      artists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
+      albums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+      tracks: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .where(dateRange);
+
+  // Top artists
+  const topArtists = await db
+    .select({
+      id: lastfmArtists.id,
+      name: lastfmArtists.name,
+      scrobbles: sql<number>`count(*)`,
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .where(dateRange)
+    .groupBy(lastfmArtists.id)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  // Top albums
+  const topAlbums = await db
+    .select({
+      id: lastfmAlbums.id,
+      name: lastfmAlbums.name,
+      artistName: lastfmArtists.name,
+      scrobbles: sql<number>`count(*)`,
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .where(dateRange)
+    .groupBy(lastfmAlbums.id)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  // Top tracks
+  const topTracks = await db
+    .select({
+      id: lastfmTracks.id,
+      name: lastfmTracks.name,
+      artistName: lastfmArtists.name,
+      scrobbles: sql<number>`count(*)`,
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .where(dateRange)
+    .groupBy(lastfmTracks.id)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  // Monthly breakdown
+  const monthlyBreakdown = await db
+    .select({
+      month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
+      scrobbles: sql<number>`count(*)`,
+      artists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
+      albums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .where(dateRange)
+    .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
+    .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
+
+  // Batch fetch images
+  const artistIds = topArtists.map((a) => String(a.id));
+  const albumIds = topAlbums.map((a) => String(a.id));
+  const [artistImageMap, albumImageMap] = await Promise.all([
+    getImageAttachmentBatch(db, 'listening', 'artists', artistIds),
+    getImageAttachmentBatch(db, 'listening', 'albums', albumIds),
+  ]);
+
+  return c.json({
+    year,
+    total_scrobbles: totalScrobbles,
+    unique_artists: uniqueCounts.artists,
+    unique_albums: uniqueCounts.albums,
+    unique_tracks: uniqueCounts.tracks,
+    top_artists: topArtists.map((a) => ({
+      id: a.id,
+      name: a.name,
+      scrobbles: a.scrobbles,
+      image: artistImageMap.get(String(a.id)) ?? null,
+    })),
+    top_albums: topAlbums.map((a) => ({
+      id: a.id,
+      name: a.name,
+      artist: a.artistName,
+      scrobbles: a.scrobbles,
+      image: albumImageMap.get(String(a.id)) ?? null,
+    })),
+    top_tracks: topTracks.map((t) => ({
+      id: t.id,
+      name: t.name,
+      artist: t.artistName,
+      scrobbles: t.scrobbles,
+    })),
+    monthly: monthlyBreakdown.map((m) => ({
+      month: m.month,
+      scrobbles: m.scrobbles,
+      unique_artists: m.artists,
+      unique_albums: m.albums,
+    })),
+  });
 });
+
+// POST /v1/admin/sync/listening -- moved to admin-sync.ts
+// Old path /v1/listening/admin/sync redirects via admin-sync.ts
 
 // GET /v1/admin/listening/filters
 listening.get('/admin/filters', async (c) => {

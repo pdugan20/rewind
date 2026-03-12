@@ -12,7 +12,6 @@ import {
   stravaYearSummaries,
   stravaLifetimeStats,
 } from '../db/schema/strava.js';
-import { syncRunning } from '../services/strava/sync.js';
 import {
   formatTotalDuration,
   formatDuration,
@@ -35,7 +34,7 @@ running.get('/stats', async (c) => {
     .limit(1);
 
   if (!stats) {
-    return c.json({
+    return c.json({ data: {
       total_runs: 0,
       total_distance_mi: 0,
       total_elevation_ft: 0,
@@ -44,10 +43,10 @@ running.get('/stats', async (c) => {
       years_active: 0,
       first_run: null,
       eddington_number: 0,
-    });
+    } });
   }
 
-  return c.json({
+  return c.json({ data: {
     total_runs: stats.totalRuns,
     total_distance_mi: stats.totalDistanceMiles,
     total_elevation_ft: stats.totalElevationFeet,
@@ -56,7 +55,7 @@ running.get('/stats', async (c) => {
     years_active: stats.yearsActive,
     first_run: stats.firstRun,
     eddington_number: stats.eddingtonNumber,
-  });
+  } });
 });
 
 // GET /v1/running/stats/years - All year summaries
@@ -106,7 +105,7 @@ running.get('/stats/years/:year', async (c) => {
     return notFound(c, `No data for year ${year}`);
   }
 
-  return c.json({
+  return c.json({ data: {
     year: summary.year,
     total_runs: summary.totalRuns,
     total_distance_mi: summary.totalDistanceMiles,
@@ -115,7 +114,7 @@ running.get('/stats/years/:year', async (c) => {
     avg_pace: summary.avgPaceFormatted,
     longest_run_mi: summary.longestRunMiles,
     race_count: summary.raceCount,
-  });
+  } });
 });
 
 // GET /v1/running/prs - Personal records
@@ -645,13 +644,13 @@ running.get('/streaks', async (c) => {
     .limit(1);
 
   if (!stats) {
-    return c.json({
+    return c.json({ data: {
       current: { days: 0, start: null, end: null },
       longest: { days: 0, start: null, end: null },
-    });
+    } });
   }
 
-  return c.json({
+  return c.json({ data: {
     current: {
       days: stats.currentStreakDays,
       start: stats.currentStreakStart,
@@ -662,7 +661,7 @@ running.get('/streaks', async (c) => {
       start: stats.longestStreakStart,
       end: stats.longestStreakEnd,
     },
-  });
+  } });
 });
 
 // GET /v1/running/races - Race activities
@@ -733,21 +732,113 @@ running.get('/eddington', async (c) => {
   });
 });
 
-// POST /v1/admin/sync/running - Manual sync trigger
-running.post('/admin/sync', async (c) => {
+// GET /v1/running/year/:year - Year-in-review for running
+running.get('/year/:year', async (c) => {
   const db = createDb(c.env.DB);
+  const currentYear = new Date().getFullYear();
+  const year = parseInt(c.req.param('year'), 10);
 
-  try {
-    const itemsSynced = await syncRunning(c.env, db);
-    return c.json({
-      status: 'completed',
-      items_synced: itemsSynced,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return c.json({ error: message, status: 500 }, 500);
+  if (isNaN(year) || year < 2000 || year > currentYear + 1) {
+    return badRequest(c, 'Invalid year');
   }
+
+  if (year < currentYear) {
+    setCache(c, 'long');
+  } else {
+    setCache(c, 'medium');
+  }
+
+  // Get year summary
+  const [summary] = await db
+    .select()
+    .from(stravaYearSummaries)
+    .where(
+      and(eq(stravaYearSummaries.userId, 1), eq(stravaYearSummaries.year, year))
+    )
+    .limit(1);
+
+  if (!summary) {
+    return notFound(c, `No data for year ${year}`);
+  }
+
+  // Monthly breakdown
+  const activities = await db
+    .select({
+      date: stravaActivities.startDateLocal,
+      distance: stravaActivities.distanceMiles,
+      duration: stravaActivities.movingTimeSeconds,
+      elevation: stravaActivities.totalElevationGainFeet,
+      isRace: stravaActivities.isRace,
+    })
+    .from(stravaActivities)
+    .where(
+      and(
+        eq(stravaActivities.isDeleted, 0),
+        gte(stravaActivities.startDateLocal, `${year}-01-01T00:00:00`),
+        lte(stravaActivities.startDateLocal, `${year}-12-31T23:59:59`)
+      )
+    )
+    .orderBy(asc(stravaActivities.startDateLocal));
+
+  // Aggregate by month
+  const monthlyMap = new Map<
+    string,
+    { runs: number; distance: number; duration: number; elevation: number }
+  >();
+  for (const a of activities) {
+    const month = a.date.substring(0, 7);
+    const existing = monthlyMap.get(month) ?? {
+      runs: 0,
+      distance: 0,
+      duration: 0,
+      elevation: 0,
+    };
+    existing.runs++;
+    existing.distance = Math.round((existing.distance + a.distance) * 100) / 100;
+    existing.duration += a.duration;
+    existing.elevation =
+      Math.round((existing.elevation + a.elevation) * 100) / 100;
+    monthlyMap.set(month, existing);
+  }
+
+  const monthly = [...monthlyMap.entries()].map(([month, data]) => ({
+    month,
+    runs: data.runs,
+    distance_mi: data.distance,
+    duration_s: data.duration,
+    elevation_ft: data.elevation,
+  }));
+
+  // Top runs by distance
+  const topRuns = await db
+    .select()
+    .from(stravaActivities)
+    .where(
+      and(
+        eq(stravaActivities.isDeleted, 0),
+        gte(stravaActivities.startDateLocal, `${year}-01-01T00:00:00`),
+        lte(stravaActivities.startDateLocal, `${year}-12-31T23:59:59`)
+      )
+    )
+    .orderBy(desc(stravaActivities.distanceMiles))
+    .limit(5);
+
+  return c.json({
+    year: summary.year,
+    total_runs: summary.totalRuns,
+    total_distance_mi: summary.totalDistanceMiles,
+    total_elevation_ft: summary.totalElevationFeet,
+    total_duration_s: summary.totalDurationSeconds,
+    avg_pace: summary.avgPaceFormatted,
+    longest_run_mi: summary.longestRunMiles,
+    race_count: summary.raceCount,
+    monthly,
+    top_runs: topRuns.map(formatActivityResponse),
+  });
 });
+
+// POST /v1/admin/sync/running -- moved to admin-sync.ts
+// Old path /v1/running/admin/sync redirects via admin-sync.ts
 
 // --- Helper functions ---
 

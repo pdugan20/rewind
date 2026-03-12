@@ -4,18 +4,19 @@
  * Designed to run inside waitUntil() to stay within Worker execution limits.
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, desc, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { lastfmAlbums, lastfmArtists } from '../../db/schema/lastfm.js';
 import { movies, plexShows } from '../../db/schema/watching.js';
 import { discogsReleases, discogsArtists, discogsReleaseArtists } from '../../db/schema/discogs.js';
-import { images } from '../../db/schema/system.js';
+import { images, syncRuns } from '../../db/schema/system.js';
 import { insertNoSourcePlaceholder } from './placeholder.js';
 import type { PipelineEnv } from './pipeline.js';
 import { runPipeline } from './pipeline.js';
 import type { SourceSearchParams } from './sources/types.js';
 
 const DEFAULT_MAX_ITEMS = 50;
+const BATCH_SIZE = 5;
 
 export interface SyncImageResult {
   domain: string;
@@ -48,21 +49,45 @@ export async function processItems(
     `[SYNC] Processing images for ${items.length} new ${domain}/${entityType} entities`
   );
 
-  for (const params of items) {
-    try {
-      const pipelineResult = await runPipeline(db, env, params);
-      if (pipelineResult) {
-        result.succeeded++;
+  // Process in batches of BATCH_SIZE using Promise.allSettled for network-bound parallelism
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(items.length / BATCH_SIZE);
+    const batchStart = Date.now();
+
+    const settled = await Promise.allSettled(
+      batch.map(async (params) => {
+        const pipelineResult = await runPipeline(db, env, params);
+        return { params, pipelineResult };
+      })
+    );
+
+    for (const outcome of settled) {
+      if (outcome.status === 'fulfilled') {
+        if (outcome.value.pipelineResult) {
+          result.succeeded++;
+        } else {
+          result.skipped++;
+          await insertNoSourcePlaceholder(
+            db,
+            domain,
+            entityType,
+            outcome.value.params.entityId
+          );
+        }
       } else {
-        result.skipped++;
-        await insertNoSourcePlaceholder(db, domain, entityType, params.entityId);
+        result.failed++;
+        console.log(
+          `[ERROR] Image processing failed for ${domain}/${entityType}: ${outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason)}`
+        );
       }
-    } catch (error) {
-      result.failed++;
-      console.log(
-        `[ERROR] Image processing failed for ${domain}/${entityType}/${params.entityId}: ${error instanceof Error ? error.message : String(error)}`
-      );
     }
+
+    const batchMs = Date.now() - batchStart;
+    console.log(
+      `[SYNC] Batch ${batchNum}/${totalBatches} completed in ${batchMs}ms (${domain}/${entityType})`
+    );
   }
 
   console.log(
@@ -249,4 +274,31 @@ export async function processCollectingImages(
   }));
 
   return [await processItems(db, env, 'collecting', 'releases', releaseItems)];
+}
+
+const IMAGE_SYNC_DEDUP_HOURS = 6;
+
+/**
+ * Check if watching image processing was already run recently (within 6 hours)
+ * by the Plex daily cron. If so, the Letterboxd cron can skip it.
+ */
+export async function shouldSkipWatchingImages(db: Database): Promise<boolean> {
+  const cutoff = new Date(
+    Date.now() - IMAGE_SYNC_DEDUP_HOURS * 60 * 60 * 1000
+  ).toISOString();
+
+  const [recent] = await db
+    .select({ id: syncRuns.id })
+    .from(syncRuns)
+    .where(
+      and(
+        eq(syncRuns.domain, 'watching'),
+        eq(syncRuns.status, 'completed'),
+        sql`${syncRuns.completedAt} >= ${cutoff}`
+      )
+    )
+    .orderBy(desc(syncRuns.completedAt))
+    .limit(1);
+
+  return !!recent;
 }

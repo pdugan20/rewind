@@ -44,6 +44,13 @@ export function clearFilterCache(): void {
   cachedFilters = null;
 }
 
+/**
+ * Seed the in-memory filter cache directly (for testing).
+ */
+export function seedFilterCache(filters: FilterRule[]): void {
+  cachedFilters = filters;
+}
+
 function getFilters(): FilterRule[] {
   if (!cachedFilters) {
     throw new Error(

@@ -76,7 +76,7 @@ export const stravaActivities = sqliteTable(
       .$defaultFn(() => new Date().toISOString()),
   },
   (table) => [
-    uniqueIndex('idx_strava_activities_strava_id').on(table.stravaId),
+    uniqueIndex('idx_strava_activities_user_strava').on(table.userId, table.stravaId),
     index('idx_strava_activities_user_id').on(table.userId),
     index('idx_strava_activities_start_date').on(table.startDate),
     index('idx_strava_activities_city').on(table.city),
@@ -108,6 +108,7 @@ export const stravaSplits = sqliteTable(
   (table) => [
     index('idx_strava_splits_activity').on(table.activityStravaId),
     index('idx_strava_splits_user_id').on(table.userId),
+    index('idx_strava_splits_user_activity').on(table.userId, table.activityStravaId),
   ]
 );
 

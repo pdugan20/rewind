@@ -20,8 +20,6 @@ import { watchHistory } from '../db/schema/watching.js';
 import { images } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
 import { notFound, badRequest, serverError } from '../lib/errors.js';
-import { syncCollecting } from '../services/discogs/sync.js';
-import { syncTraktCollection } from '../services/trakt/sync.js';
 import { TraktClient } from '../services/trakt/client.js';
 import { getAccessToken } from '../services/trakt/auth.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
@@ -217,7 +215,7 @@ collecting.get('/collecting/stats', requireAuth('read'), async (c) => {
       .where(eq(discogsCollectionStats.userId, 1));
 
     if (!stats) {
-      return c.json({
+      return c.json({ data: {
         total_items: 0,
         by_format: { vinyl: 0, cd: 0, cassette: 0, other: 0 },
         wantlist_count: 0,
@@ -228,11 +226,11 @@ collecting.get('/collecting/stats', requireAuth('read'), async (c) => {
         newest_release_year: null,
         most_collected_artist: null,
         added_this_year: 0,
-      });
+      } });
     }
 
     setCache(c, 'long');
-    return c.json({
+    return c.json({ data: {
       total_items: stats.totalItems,
       by_format: stats.byFormat
         ? JSON.parse(stats.byFormat)
@@ -247,7 +245,7 @@ collecting.get('/collecting/stats', requireAuth('read'), async (c) => {
         ? JSON.parse(stats.mostCollectedArtist)
         : null,
       added_this_year: stats.addedThisYear,
-    });
+    } });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/stats: ${err}`);
     return serverError(c);
@@ -798,17 +796,8 @@ collecting.get(
   }
 );
 
-// POST /admin/sync/collecting
-collecting.post('/admin/sync/collecting', requireAuth('admin'), async (c) => {
-  try {
-    await syncCollecting(c.env);
-    return c.json({ status: 'ok', message: 'Collecting sync complete' });
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.log(`[ERROR] POST /admin/sync/collecting: ${errorMsg}`);
-    return serverError(c, `Sync failed: ${errorMsg}`);
-  }
-});
+// POST /admin/sync/collecting -- moved to admin-sync.ts
+// Legacy path redirects to /v1/admin/sync/collecting
 
 // POST /admin/collecting/backfill-images
 collecting.post(
@@ -1023,7 +1012,7 @@ collecting.get('/collecting/media/stats', requireAuth('read'), async (c) => {
       .where(eq(traktCollectionStats.userId, 1));
 
     if (!stats) {
-      return c.json({
+      return c.json({ data: {
         total_items: 0,
         by_format: {},
         by_resolution: {},
@@ -1031,11 +1020,11 @@ collecting.get('/collecting/media/stats', requireAuth('read'), async (c) => {
         by_genre: {},
         by_decade: {},
         added_this_year: 0,
-      });
+      } });
     }
 
     setCache(c, 'long');
-    return c.json({
+    return c.json({ data: {
       total_items: stats.totalItems,
       by_format: stats.byFormat ? JSON.parse(stats.byFormat) : {},
       by_resolution: stats.byResolution ? JSON.parse(stats.byResolution) : {},
@@ -1043,7 +1032,7 @@ collecting.get('/collecting/media/stats', requireAuth('read'), async (c) => {
       by_genre: stats.byGenre ? JSON.parse(stats.byGenre) : {},
       by_decade: stats.byDecade ? JSON.parse(stats.byDecade) : {},
       added_this_year: stats.addedThisYear,
-    });
+    } });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/media/stats: ${err}`);
     return serverError(c);
@@ -1616,17 +1605,8 @@ collecting.post(
   }
 );
 
-// POST /admin/sync/trakt - manual Trakt sync trigger
-collecting.post('/admin/sync/trakt', requireAuth('admin'), async (c) => {
-  try {
-    await syncTraktCollection(c.env);
-    return c.json({ status: 'ok', message: 'Trakt collection sync complete' });
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.log(`[ERROR] POST /admin/sync/trakt: ${errorMsg}`);
-    return serverError(c, `Trakt sync failed: ${errorMsg}`);
-  }
-});
+// POST /admin/sync/trakt -- moved to admin-sync.ts
+// Legacy path redirects to /v1/admin/sync/trakt
 
 // POST /admin/collecting/media/backfill-images - backfill poster images
 collecting.post(

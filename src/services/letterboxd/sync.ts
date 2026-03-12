@@ -1,124 +1,27 @@
 import { eq, and, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
-import { movies, watchHistory } from '../../db/schema/watching.js';
+import { watchHistory } from '../../db/schema/watching.js';
 import { syncRuns } from '../../db/schema/system.js';
 import { TmdbClient } from '../watching/tmdb.js';
-import { upsertGenres, upsertDirectors } from '../plex/webhook.js';
+import { resolveMovie } from '../watching/resolve-movie.js';
 import { computeWatchStats } from '../plex/sync.js';
 import { fetchLetterboxdFeed, type LetterboxdEntry } from './client.js';
 
 /**
- * Upsert a movie from Letterboxd entry, enriching from TMDB.
+ * Resolve a movie from a Letterboxd entry using the unified resolution function.
  */
-async function upsertMovieFromLetterboxd(
+async function resolveMovieFromLetterboxd(
   db: Database,
   entry: LetterboxdEntry,
   tmdbClient: TmdbClient
 ): Promise<number | null> {
-  // If we have a TMDB ID, check if movie already exists
-  if (entry.tmdbMovieId) {
-    const existing = await db
-      .select({ id: movies.id })
-      .from(movies)
-      .where(eq(movies.tmdbId, entry.tmdbMovieId))
-      .limit(1);
+  const result = await resolveMovie(db, tmdbClient, {
+    tmdbId: entry.tmdbMovieId ?? undefined,
+    title: entry.filmTitle,
+    year: entry.filmYear,
+  });
 
-    if (existing.length > 0) {
-      return existing[0].id;
-    }
-
-    // Enrich from TMDB
-    try {
-      const detail = await tmdbClient.getMovieDetail(entry.tmdbMovieId);
-
-      const [inserted] = await db
-        .insert(movies)
-        .values({
-          title: detail.title,
-          year: detail.year,
-          tmdbId: detail.id,
-          imdbId: detail.imdb_id,
-          tagline: detail.tagline,
-          summary: detail.overview,
-          contentRating: detail.content_rating,
-          runtime: detail.runtime,
-          posterPath: detail.poster_path,
-          backdropPath: detail.backdrop_path,
-          tmdbRating: detail.vote_average,
-        })
-        .returning({ id: movies.id });
-
-      const movieId = inserted.id;
-
-      // Upsert genres and directors
-      await upsertGenres(db, movieId, detail.genres);
-      await upsertDirectors(db, movieId, detail.directors);
-
-      return movieId;
-    } catch (error) {
-      console.log(
-        `[ERROR] TMDB enrichment failed for Letterboxd entry "${entry.filmTitle}": ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  // Fallback: search TMDB by title + year
-  try {
-    const results = await tmdbClient.searchMovie(
-      entry.filmTitle,
-      entry.filmYear || undefined
-    );
-
-    if (results.length > 0) {
-      const tmdbId = results[0].id;
-
-      // Check if movie already exists by TMDB ID
-      const existing = await db
-        .select({ id: movies.id })
-        .from(movies)
-        .where(eq(movies.tmdbId, tmdbId))
-        .limit(1);
-
-      if (existing.length > 0) {
-        return existing[0].id;
-      }
-
-      // Fetch full details
-      const detail = await tmdbClient.getMovieDetail(tmdbId);
-
-      const [inserted] = await db
-        .insert(movies)
-        .values({
-          title: detail.title,
-          year: detail.year,
-          tmdbId: detail.id,
-          imdbId: detail.imdb_id,
-          tagline: detail.tagline,
-          summary: detail.overview,
-          contentRating: detail.content_rating,
-          runtime: detail.runtime,
-          posterPath: detail.poster_path,
-          backdropPath: detail.backdrop_path,
-          tmdbRating: detail.vote_average,
-        })
-        .returning({ id: movies.id });
-
-      const movieId = inserted.id;
-      await upsertGenres(db, movieId, detail.genres);
-      await upsertDirectors(db, movieId, detail.directors);
-
-      return movieId;
-    }
-  } catch (error) {
-    console.log(
-      `[ERROR] TMDB search failed for "${entry.filmTitle}" (${entry.filmYear}): ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-
-  console.log(
-    `[INFO] Could not resolve movie for Letterboxd entry: "${entry.filmTitle}" (${entry.filmYear})`
-  );
-  return null;
+  return result?.id ?? null;
 }
 
 /**
@@ -175,7 +78,7 @@ export async function syncLetterboxd(
     let skipped = 0;
 
     for (const entry of entries) {
-      const movieId = await upsertMovieFromLetterboxd(db, entry, tmdbClient);
+      const movieId = await resolveMovieFromLetterboxd(db, entry, tmdbClient);
 
       if (!movieId) {
         skipped++;

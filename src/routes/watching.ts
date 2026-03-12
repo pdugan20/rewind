@@ -15,10 +15,9 @@ import {
   plexShows,
   plexEpisodesWatched,
 } from '../db/schema/watching.js';
-import { syncWatching, computeWatchStats } from '../services/plex/sync.js';
-import { syncLetterboxd } from '../services/letterboxd/sync.js';
+import { computeWatchStats } from '../services/plex/sync.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
-import { upsertGenres, upsertDirectors } from '../services/plex/webhook.js';
+import { resolveMovie } from '../services/watching/resolve-movie.js';
 import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import {
@@ -341,7 +340,7 @@ watching.get('/stats', async (c) => {
     .limit(1);
 
   if (!stats) {
-    return c.json({
+    return c.json({ data: {
       total_movies: 0,
       total_watch_time_hours: 0,
       movies_this_year: 0,
@@ -352,7 +351,7 @@ watching.get('/stats', async (c) => {
       total_shows: 0,
       total_episodes_watched: 0,
       episodes_this_year: 0,
-    });
+    } });
   }
 
   // Top genre
@@ -410,7 +409,7 @@ watching.get('/stats', async (c) => {
         : stats.totalMovies;
   }
 
-  return c.json({
+  return c.json({ data: {
     total_movies: stats.totalMovies,
     total_watch_time_hours: Math.round(stats.totalWatchTimeS / 3600),
     movies_this_year: stats.moviesThisYear,
@@ -421,7 +420,7 @@ watching.get('/stats', async (c) => {
     total_shows: stats.totalShows,
     total_episodes_watched: stats.totalEpisodesWatched,
     episodes_this_year: stats.episodesThisYear,
-  });
+  } });
 });
 
 // ─── Stats: Genres ───────────────────────────────────────────────────
@@ -755,35 +754,236 @@ watching.get('/shows/:id/seasons/:season', async (c) => {
   });
 });
 
-// ─── Admin: Sync ─────────────────────────────────────────────────────
+// ─── Ratings ────────────────────────────────────────────────────────
 
-watching.post('/admin/sync/watching', async (c) => {
+watching.get('/ratings', async (c) => {
+  setCache(c, 'medium');
   const db = createDb(c.env.DB);
-  const source = c.req.query('source') || 'plex';
+  const page = Math.max(parseInt(c.req.query('page') || '1'), 1);
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '20'), 1), 100);
+  const offset = (page - 1) * limit;
+  const sort = c.req.query('sort') || 'rating';
+  const order = c.req.query('order') || 'desc';
 
-  try {
-    if (source === 'letterboxd') {
-      const result = await syncLetterboxd(db, c.env);
-      return c.json({
-        success: true,
-        source: 'letterboxd',
-        synced: result.synced,
-        skipped: result.skipped,
-      });
-    } else {
-      const result = await syncWatching(db, c.env);
-      return c.json({
-        success: true,
-        source: 'plex',
-        movies_synced: result.moviesSynced,
-        shows_synced: result.showsSynced,
-      });
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return c.json({ error: message, status: 500 }, 500);
+  const whereClause = sql`${watchHistory.userRating} IS NOT NULL`;
+
+  const [totalResult] = await db
+    .select({ total: count() })
+    .from(watchHistory)
+    .where(whereClause);
+  const total = totalResult?.total || 0;
+
+  let orderByClause;
+  if (sort === 'date') {
+    orderByClause = order === 'asc' ? asc(watchHistory.watchedAt) : desc(watchHistory.watchedAt);
+  } else {
+    orderByClause = order === 'asc' ? asc(watchHistory.userRating) : desc(watchHistory.userRating);
   }
+
+  const rows = await db
+    .select({
+      watchId: watchHistory.id,
+      watchedAt: watchHistory.watchedAt,
+      userRating: watchHistory.userRating,
+      source: watchHistory.source,
+      movieId: movies.id,
+      title: movies.title,
+      year: movies.year,
+      tmdbId: movies.tmdbId,
+      tmdbRating: movies.tmdbRating,
+    })
+    .from(watchHistory)
+    .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+    .where(whereClause)
+    .orderBy(orderByClause)
+    .limit(limit)
+    .offset(offset);
+
+  const movieIds = rows.map((r) => String(r.movieId));
+  const imageMap = await getImageAttachmentBatch(db, 'watching', 'movies', movieIds);
+
+  return c.json({
+    data: rows.map((r) => ({
+      movie: {
+        id: r.movieId,
+        title: r.title,
+        year: r.year,
+        tmdb_id: r.tmdbId,
+        tmdb_rating: r.tmdbRating,
+        image: imageMap.get(String(r.movieId)) ?? null,
+      },
+      user_rating: r.userRating,
+      watched_at: r.watchedAt,
+      source: r.source,
+    })),
+    pagination: paginate(page, limit, total),
+  });
 });
+
+// ─── Reviews ────────────────────────────────────────────────────────
+
+watching.get('/reviews', async (c) => {
+  setCache(c, 'medium');
+  const db = createDb(c.env.DB);
+  const page = Math.max(parseInt(c.req.query('page') || '1'), 1);
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '20'), 1), 100);
+  const offset = (page - 1) * limit;
+
+  const whereClause = sql`${watchHistory.review} IS NOT NULL AND ${watchHistory.review} != ''`;
+
+  const [totalResult] = await db
+    .select({ total: count() })
+    .from(watchHistory)
+    .where(whereClause);
+  const total = totalResult?.total || 0;
+
+  const rows = await db
+    .select({
+      watchId: watchHistory.id,
+      watchedAt: watchHistory.watchedAt,
+      userRating: watchHistory.userRating,
+      review: watchHistory.review,
+      source: watchHistory.source,
+      movieId: movies.id,
+      title: movies.title,
+      year: movies.year,
+      tmdbId: movies.tmdbId,
+    })
+    .from(watchHistory)
+    .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+    .where(whereClause)
+    .orderBy(desc(watchHistory.watchedAt))
+    .limit(limit)
+    .offset(offset);
+
+  const movieIds = rows.map((r) => String(r.movieId));
+  const imageMap = await getImageAttachmentBatch(db, 'watching', 'movies', movieIds);
+
+  return c.json({
+    data: rows.map((r) => ({
+      movie: {
+        id: r.movieId,
+        title: r.title,
+        year: r.year,
+        tmdb_id: r.tmdbId,
+        image: imageMap.get(String(r.movieId)) ?? null,
+      },
+      user_rating: r.userRating,
+      review: r.review,
+      watched_at: r.watchedAt,
+      source: r.source,
+    })),
+    pagination: paginate(page, limit, total),
+  });
+});
+
+// ─── Year in Review ─────────────────────────────────────────────────
+
+watching.get('/year/:year', async (c) => {
+  const db = createDb(c.env.DB);
+  const currentYear = new Date().getFullYear();
+  const year = parseInt(c.req.param('year'));
+
+  if (isNaN(year) || year < 2000 || year > currentYear + 1) {
+    return badRequest(c, 'Invalid year');
+  }
+
+  if (year < currentYear) {
+    setCache(c, 'long');
+  } else {
+    setCache(c, 'medium');
+  }
+
+  const yearStr = String(year);
+
+  // Movies watched this year
+  const yearCondition = sql`substr(${watchHistory.watchedAt}, 1, 4) = ${yearStr}`;
+
+  const [{ total: totalMovies }] = await db
+    .select({ total: count() })
+    .from(watchHistory)
+    .where(yearCondition);
+
+  // Genre breakdown
+  const genreBreakdown = await db
+    .select({
+      name: genres.name,
+      total: count(),
+    })
+    .from(watchHistory)
+    .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+    .innerJoin(movieGenres, eq(movies.id, movieGenres.movieId))
+    .innerJoin(genres, eq(movieGenres.genreId, genres.id))
+    .where(yearCondition)
+    .groupBy(genres.name)
+    .orderBy(desc(count()))
+    .limit(10);
+
+  // Monthly counts
+  const monthlyCounts = await db
+    .select({
+      month: sql<string>`substr(${watchHistory.watchedAt}, 1, 7)`,
+      total: count(),
+    })
+    .from(watchHistory)
+    .where(yearCondition)
+    .groupBy(sql`substr(${watchHistory.watchedAt}, 1, 7)`)
+    .orderBy(asc(sql`substr(${watchHistory.watchedAt}, 1, 7)`));
+
+  // Top-rated movies this year
+  const topRated = await db
+    .select({
+      movieId: movies.id,
+      title: movies.title,
+      year: movies.year,
+      tmdbId: movies.tmdbId,
+      userRating: watchHistory.userRating,
+      watchedAt: watchHistory.watchedAt,
+    })
+    .from(watchHistory)
+    .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+    .where(and(yearCondition, sql`${watchHistory.userRating} IS NOT NULL`))
+    .orderBy(desc(watchHistory.userRating))
+    .limit(10);
+
+  // Decade breakdown
+  const decadeBreakdown = await db
+    .select({
+      decade: sql<number>`(${movies.year} / 10) * 10`,
+      total: count(),
+    })
+    .from(watchHistory)
+    .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+    .where(and(yearCondition, sql`${movies.year} IS NOT NULL`))
+    .groupBy(sql`(${movies.year} / 10) * 10`)
+    .orderBy(desc(count()));
+
+  const movieIds = topRated.map((r) => String(r.movieId));
+  const imageMap = await getImageAttachmentBatch(db, 'watching', 'movies', movieIds);
+
+  return c.json({
+    year,
+    total_movies: totalMovies,
+    genres: genreBreakdown.map((g) => ({ name: g.name, count: g.total })),
+    decades: decadeBreakdown.map((d) => ({ decade: d.decade, count: d.total })),
+    monthly: monthlyCounts.map((m) => ({ month: m.month, count: m.total })),
+    top_rated: topRated.map((r) => ({
+      movie: {
+        id: r.movieId,
+        title: r.title,
+        year: r.year,
+        tmdb_id: r.tmdbId,
+        image: imageMap.get(String(r.movieId)) ?? null,
+      },
+      user_rating: r.userRating,
+      watched_at: r.watchedAt,
+    })),
+  });
+});
+
+// ─── Admin: Sync ─────────────────────────────────────────────────────
+// POST /v1/admin/sync/watching -- moved to admin-sync.ts
+// Old path /v1/watching/admin/sync/watching redirects via admin-sync.ts
 
 // ─── Admin: Manual movie entry ───────────────────────────────────────
 
@@ -803,93 +1003,18 @@ watching.post('/admin/watching/movies', async (c) => {
   }
 
   const tmdbClient = new TmdbClient(c.env.TMDB_API_KEY);
-  let movieId: number;
 
-  if (body.tmdb_id) {
-    // Check if movie exists
-    const existing = await db
-      .select({ id: movies.id })
-      .from(movies)
-      .where(eq(movies.tmdbId, body.tmdb_id))
-      .limit(1);
+  const result = await resolveMovie(db, tmdbClient, {
+    tmdbId: body.tmdb_id,
+    title: body.title || '',
+    year: body.year,
+  });
 
-    if (existing.length > 0) {
-      movieId = existing[0].id;
-    } else {
-      // Enrich from TMDB
-      try {
-        const detail = await tmdbClient.getMovieDetail(body.tmdb_id);
-        const [inserted] = await db
-          .insert(movies)
-          .values({
-            title: detail.title,
-            year: detail.year,
-            tmdbId: detail.id,
-            imdbId: detail.imdb_id,
-            tagline: detail.tagline,
-            summary: detail.overview,
-            contentRating: detail.content_rating,
-            runtime: detail.runtime,
-            posterPath: detail.poster_path,
-            backdropPath: detail.backdrop_path,
-            tmdbRating: detail.vote_average,
-          })
-          .returning({ id: movies.id });
-
-        movieId = inserted.id;
-        await upsertGenres(db, movieId, detail.genres);
-        await upsertDirectors(db, movieId, detail.directors);
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        return c.json(
-          { error: `TMDB lookup failed: ${msg}`, status: 400 },
-          400
-        );
-      }
-    }
-  } else {
-    // Search TMDB by title + year
-    const results = await tmdbClient.searchMovie(body.title!, body.year);
-
-    if (results.length === 0) {
-      return notFound(c, 'No matching movie found on TMDB');
-    }
-
-    const bestMatch = results[0];
-
-    // Check if movie exists
-    const existing = await db
-      .select({ id: movies.id })
-      .from(movies)
-      .where(eq(movies.tmdbId, bestMatch.id))
-      .limit(1);
-
-    if (existing.length > 0) {
-      movieId = existing[0].id;
-    } else {
-      const detail = await tmdbClient.getMovieDetail(bestMatch.id);
-      const [inserted] = await db
-        .insert(movies)
-        .values({
-          title: detail.title,
-          year: detail.year,
-          tmdbId: detail.id,
-          imdbId: detail.imdb_id,
-          tagline: detail.tagline,
-          summary: detail.overview,
-          contentRating: detail.content_rating,
-          runtime: detail.runtime,
-          posterPath: detail.poster_path,
-          backdropPath: detail.backdrop_path,
-          tmdbRating: detail.vote_average,
-        })
-        .returning({ id: movies.id });
-
-      movieId = inserted.id;
-      await upsertGenres(db, movieId, detail.genres);
-      await upsertDirectors(db, movieId, detail.directors);
-    }
+  if (!result) {
+    return notFound(c, 'No matching movie found on TMDB');
   }
+
+  const movieId = result.id;
 
   const watchedAt = body.watched_at || new Date().toISOString();
 

@@ -1,10 +1,48 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import {
   isHolidayMusic,
   isAudiobook,
   isFiltered,
   filterAndRerank,
+  seedFilterCache,
 } from './filters.js';
+
+/**
+ * Seed the filter cache with the same rules that exist in production.
+ * This mirrors the lastfm_filters table so tests run without a DB.
+ */
+beforeAll(() => {
+  seedFilterCache([
+    // Holiday album patterns
+    { filterType: 'holiday', pattern: 'charlie brown christmas', scope: 'album' },
+    { filterType: 'holiday', pattern: 'merry christmas', scope: 'album' },
+    { filterType: 'holiday', pattern: 'white christmas', scope: 'album' },
+    { filterType: 'holiday', pattern: 'christmas album', scope: 'album' },
+    { filterType: 'holiday', pattern: 'holiday', scope: 'album' },
+    { filterType: 'holiday', pattern: 'christmas songs', scope: 'album' },
+    // Holiday track patterns
+    { filterType: 'holiday', pattern: 'jingle bell', scope: 'track' },
+    { filterType: 'holiday', pattern: 'silent night', scope: 'track' },
+    { filterType: 'holiday', pattern: 'last christmas', scope: 'track' },
+    { filterType: 'holiday', pattern: 'santa claus', scope: 'track' },
+    { filterType: 'holiday', pattern: 'sleigh ride', scope: 'track' },
+    // Holiday artist+track patterns
+    { filterType: 'holiday', pattern: 'vince guaraldi||skating', scope: 'artist_track' },
+    { filterType: 'holiday', pattern: 'vince guaraldi||greensleeves', scope: 'artist_track' },
+    { filterType: 'holiday', pattern: 'vince guaraldi||linus and lucy', scope: 'artist_track' },
+    // Audiobook artist patterns
+    { filterType: 'audiobook', pattern: 'stephen king', scope: 'artist' },
+    { filterType: 'audiobook', pattern: 'andy weir', scope: 'artist' },
+    { filterType: 'audiobook', pattern: 'thomas pynchon', scope: 'artist' },
+    // Audiobook track patterns
+    { filterType: 'audiobook', pattern: 'libby--open-', scope: 'track' },
+    // Audiobook regex patterns
+    { filterType: 'audiobook', pattern: '- Part \\d+', scope: 'track_regex' },
+    { filterType: 'audiobook', pattern: '- Track \\d+', scope: 'track_regex' },
+    { filterType: 'audiobook', pattern: '- \\d{2,3}$', scope: 'track_regex' },
+    { filterType: 'audiobook', pattern: ' \\(\\d+\\)$', scope: 'track_regex' },
+  ]);
+});
 
 describe('isHolidayMusic', () => {
   it('detects holiday album patterns', () => {
