@@ -435,8 +435,9 @@ export async function handlePlexWebhook(
     return { success: true, message: `Ignored event: ${payload.event}` };
   }
 
-  // Generate a unique event ID for idempotency
-  const eventId = `${payload.Metadata.ratingKey}-${Date.now()}`;
+  // Generate a deterministic event ID for idempotency (same media + same calendar date)
+  const eventDate = new Date().toISOString().substring(0, 10);
+  const eventId = `${payload.Metadata.ratingKey}-${eventDate}`;
 
   // Check idempotency
   const alreadyProcessed = await isEventProcessed(db, eventId);

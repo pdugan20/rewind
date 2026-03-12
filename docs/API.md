@@ -369,13 +369,14 @@ Cache: max-age=300
 
 ### GET /v1/search
 
-Cross-domain search using SQLite FTS5.
+Cross-domain full-text search using SQLite FTS5. Returns a flat list of results across all domains, each tagged with its domain and entity type.
 
-| Parameter | Type   | Default  |
-| --------- | ------ | -------- |
-| q         | string | required |
-| domain    | string | all      |
-| limit     | number | 20       |
+| Parameter | Type   | Default  | Description                                             |
+| --------- | ------ | -------- | ------------------------------------------------------- |
+| q         | string | required | Search query string (prefix matching supported)         |
+| domain    | string | all      | Filter to one domain: listening, running, watching, collecting |
+| page      | number | 1        | Page number                                             |
+| limit     | number | 20       | Results per page (1-100)                                |
 
 ```bash
 curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/search?q=radiohead"
@@ -383,30 +384,39 @@ curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/search?q
 
 ```json
 {
-  "query": "radiohead",
-  "results": {
-    "listening": {
-      "artists": [{ "id": 42, "name": "Radiohead", "playcount": 5432 }],
-      "albums": [
-        {
-          "id": 88,
-          "name": "OK Computer",
-          "artist": "Radiohead",
-          "playcount": 312
-        }
-      ]
+  "data": [
+    {
+      "domain": "listening",
+      "entity_type": "artist",
+      "entity_id": "636",
+      "title": "Radiohead",
+      "subtitle": null,
+      "image_key": null
     },
-    "collecting": {
-      "releases": [
-        { "id": 1, "title": "OK Computer", "format": "Vinyl", "year": 1997 }
-      ]
-    },
-    "running": { "activities": [] },
-    "watching": { "movies": [] }
-  },
-  "total": 5
+    {
+      "domain": "listening",
+      "entity_type": "album",
+      "entity_id": "535",
+      "title": "Kid A",
+      "subtitle": "Radiohead",
+      "image_key": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 12,
+    "total_pages": 1
+  }
 }
 ```
+
+Populated by `afterSync()` during each sync cycle. Entity types by domain:
+
+- **listening**: artist, album
+- **running**: activity
+- **watching**: movie, show
+- **collecting**: release
 
 Cache: max-age=300
 

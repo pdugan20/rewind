@@ -917,6 +917,36 @@ Sync retry logic tracks consecutive failures per domain. If a sync fails, it is 
 
 Trakt syncs the physical media collection (Blu-ray, 4K UHD, HD-DVD) weekly on Sunday at 3 AM UTC. The sync fetches the full collection via `GET /users/{username}/collection/movies`, compares with local data, and inserts or updates items. Items removed from Trakt are soft-deleted locally. Write-through mode means items added or removed via admin endpoints are also pushed back to Trakt in real-time. Cross-references with the watching domain use `tmdb_id` to link owned media with watch history.
 
+### Post-Sync Pipeline (afterSync)
+
+Every sync service and webhook handler calls the unified `afterSync()` function (`src/lib/after-sync.ts`) after processing new data. This drives three cross-cutting concerns:
+
+```text
+Sync completes (cron or webhook)
+       |
+       v
+  afterSync(db, { domain, feedItems?, searchItems? })
+       |
+       +-- 1. Activity Feed: insert events into `activity_feed` table
+       |       - Deduplicated by source_id + domain (ON CONFLICT DO NOTHING)
+       |       - Event types: new_artist, new_album, activity, movie_watched,
+       |         episode_watched, release_added
+       |       - Listening: only new artist/album discoveries (not every scrobble)
+       |
+       +-- 2. Search Index: upsert entities into FTS5 `search_index` virtual table
+       |       - Entity types: artist, album, activity, movie, show, release
+       |       - Enables cross-domain full-text search via GET /v1/search
+       |
+       +-- 3. Revalidation Hooks: fire POST requests to registered webhook URLs
+               - Filtered by domain (only hooks matching the synced domain fire)
+               - Carries X-Revalidation-Secret header for verification
+               - Used by consuming apps (e.g., pat-portfolio) for ISR cache busting
+```
+
+Each step is wrapped in a try/catch so a failure in one does not block the others. All steps are non-fatal — a search index failure won't prevent feed insertion or revalidation.
+
+**Multi-user note:** The `search_index` FTS5 virtual table does not include a `user_id` column. FTS5 virtual tables have limited column support, so multi-user filtering should be done at query time by joining the search results back to their source entity tables (which all have `user_id`). The `activity_feed` table already includes `user_id` and can be filtered directly.
+
 ## Image Pipeline
 
 The image pipeline resolves artwork for entities across all domains. The flow:
