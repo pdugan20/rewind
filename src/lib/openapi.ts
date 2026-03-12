@@ -75,8 +75,7 @@ All errors follow the same envelope:
 
 Common status codes: 400 (bad request), 401 (unauthorized), 404 (not found), 500 (server error).`,
     contact: {
-      name: 'Pat Dugan',
-      url: 'https://patdugan.me',
+      url: 'https://github.com/pdugan20/rewind',
     },
   },
   servers: [

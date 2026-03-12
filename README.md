@@ -4,75 +4,72 @@
 [![docs](https://img.shields.io/badge/docs-docs.rewind.rest-blue)](https://docs.rewind.rest)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
-[![Node.js >= 22](https://img.shields.io/badge/Node.js-%3E%3D22-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/ISC)
 
-Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, Letterboxd, and Trakt into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`.
+Rewind is a personal API that pulls together data from the services that track my life -- what I'm listening to, where I'm running, what I'm watching, and what I'm collecting -- into a single queryable backend.
 
-## Features
+## What it does
 
-- **72 endpoints** across 10 route groups with full OpenAPI 3.1 spec
-- **End-to-end type safety** via Hono RPC -- consuming apps get typed clients with zero codegen
-- **Image pipeline** with R2 storage, Cloudflare Images transforms, ThumbHash placeholders, and dominant color extraction
-- **Automated sync** via Cron Triggers -- scrobbles every 15 min, full syncs daily
-- **Cross-domain feed** combining listening, running, watching, and collecting activity
+Rewind syncs data from six services on a schedule, normalizes everything into a unified schema, and serves it through a REST API with 72 endpoints:
 
-## Tech Stack
+- **Listening** -- Last.fm scrobbles (123K+ plays), top artists/albums/tracks, listening streaks, and stats. Apple Music catalog data for metadata enrichment.
+- **Running** -- 14+ years of Strava activities with splits, personal records, gear tracking, and year-over-year summaries.
+- **Watching** -- Plex watch history, Letterboxd diary/ratings/reviews, and TMDB metadata. Covers both movies and TV shows.
+- **Collecting** -- Discogs vinyl/CD collection with cross-referenced MusicBrainz data. Trakt physical media catalog.
 
-| Layer             | Technology               | Purpose                                           |
-| ----------------- | ------------------------ | ------------------------------------------------- |
-| Runtime           | Cloudflare Workers       | V8 isolate serverless compute                     |
-| Framework         | Hono                     | Lightweight web framework with RPC type inference |
-| Database          | Cloudflare D1 (SQLite)   | Structured data storage                           |
-| ORM               | Drizzle ORM              | Type-safe database access, migration generation   |
-| Image Storage     | Cloudflare R2            | Zero-egress object storage                        |
-| Image Transforms  | Cloudflare Images        | On-the-fly resize, format conversion, blur        |
-| Blur Placeholders | ThumbHash                | Compact image placeholder encoding                |
-| Scheduling        | Cloudflare Cron Triggers | Periodic data sync                                |
-| Testing           | Vitest                   | Unit and integration tests with Workers pool      |
-| Linting           | ESLint + Prettier        | Code quality and formatting                       |
+A unified activity feed combines all domains into a single chronological stream.
 
-## Data Domains
+## How it works
 
-| Domain     | Source                 | Data                                      | Endpoints |
-| ---------- | ---------------------- | ----------------------------------------- | --------- |
-| Listening  | Last.fm, Apple Music   | 123K+ scrobbles, top lists, stats         | 12        |
-| Running    | Strava                 | 14+ years of activities, PRs, gear        | 18        |
-| Watching   | Plex, Letterboxd, TMDB | Movie and TV show watch history, metadata | 15        |
-| Collecting | Discogs, Trakt         | Vinyl/CD collection, wantlist             | 9         |
+```mermaid
+graph TD
+    subgraph Sources
+        LF[Last.fm]
+        ST[Strava]
+        PX[Plex]
+        LB[Letterboxd]
+        DC[Discogs]
+        TR[Trakt]
+    end
+
+    LF & ST & PX & LB & DC & TR -->|Cron Triggers| SW[Sync Workers]
+    SW --> D1[(D1 / SQLite)]
+    SW --> R2[(R2 Images)]
+    R2 -->|ThumbHash + color extraction| CDN[cdn.rewind.rest]
+    D1 --> API[Hono REST API]
+    API -->|72 endpoints| DOCS[docs.rewind.rest]
+    API -->|Hono RPC| SITE[Consuming Apps]
+```
+
+The image pipeline fetches artwork from Cover Art Archive, Apple Music, Fanart.tv, and TMDB, stores originals in R2, and serves resized variants through Cloudflare Images with pre-computed ThumbHash placeholders and dominant color extraction.
+
+## Live endpoints
+
+| Service   | URL                                                  |
+| --------- | ---------------------------------------------------- |
+| API       | [api.rewind.rest](https://api.rewind.rest/v1/health) |
+| API Docs  | [docs.rewind.rest](https://docs.rewind.rest)         |
+| Image CDN | [cdn.rewind.rest](https://cdn.rewind.rest)           |
+| Landing   | [rewind.rest](https://rewind.rest)                   |
+
+## Built with
+
+Hono on Cloudflare Workers. D1 (SQLite) for storage, R2 for images, Drizzle ORM for type-safe queries. End-to-end type inference via Hono RPC -- consuming apps get a fully typed client with zero codegen. Full OpenAPI 3.1 spec with interactive docs via Scalar.
 
 ## Development
 
 ```bash
 npm run dev          # Start local dev server
 npm run deploy       # Deploy to Cloudflare Workers
+npm test             # Vitest (445 tests)
+npm run type-check   # TypeScript strict mode
 npm run lint         # ESLint
-npm run format       # Prettier
-npm run type-check   # TypeScript
-npm test             # Vitest
 npm run db:generate  # Generate Drizzle migrations
 npm run db:migrate   # Apply migrations locally
-npm run db:remote    # Apply migrations to remote D1
-npm run lint:deps    # Check unused dependencies (knip)
 ```
-
-## Deployment
-
-| Service      | URL                | Platform           |
-| ------------ | ------------------ | ------------------ |
-| API          | `api.rewind.rest`  | Cloudflare Workers |
-| Image CDN    | `cdn.rewind.rest`  | Cloudflare R2      |
-| API Docs     | `docs.rewind.rest` | Cloudflare Pages   |
-| Landing Page | `rewind.rest`      | Cloudflare Pages   |
-
-CI runs lint, format, type check, tests, OpenAPI spec validation, and security scanning. Deploys trigger automatically on push to `main` after CI passes.
 
 ## Documentation
 
-**[API Reference](https://docs.rewind.rest)** -- interactive OpenAPI docs powered by Scalar
-
-See the [docs/](docs/) directory for additional documentation:
-
-- [Architecture](docs/ARCHITECTURE.md) -- system overview, database schema, caching, sync
-- [API Reference](docs/API.md) -- endpoint reference (canonical docs at [docs.rewind.rest](https://docs.rewind.rest))
-- [Roadmap](docs/ROADMAP.md) -- task tracker with all phases and progress
+- **[Interactive API docs](https://docs.rewind.rest)** -- OpenAPI spec rendered by Scalar
+- [Architecture](docs/ARCHITECTURE.md) -- system diagram, sync flow, caching, image pipeline
+- [API reference](docs/API.md) -- endpoint catalog
