@@ -30,6 +30,8 @@
     "db:migrate": "wrangler d1 migrations apply rewind-db --local",
     "db:remote": "wrangler d1 migrations apply rewind-db --remote",
     "db:studio": "drizzle-kit studio",
+    "docs:dev": "npx serve docs-site",
+    "docs:deploy": "npx wrangler pages deploy docs-site --project-name rewind-docs",
     "prepare": "husky"
   },
   "lint-staged": {
