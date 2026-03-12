@@ -4,13 +4,13 @@
 [![docs](https://img.shields.io/badge/docs-docs.rewind.rest-blue)](https://docs.rewind.rest)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/ISC)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
 
 Rewind is a personal API that pulls together data from the services that track my life -- what I'm listening to, where I'm running, what I'm watching, and what I'm collecting -- into a single queryable backend.
 
 ## What it does
 
-Rewind syncs data from six services on a schedule, normalizes everything into a unified schema, and serves it through a REST API with 72 endpoints:
+Rewind syncs data from six services on a schedule, normalizes everything into a unified schema, and serves it through a REST API:
 
 - **Listening** -- Last.fm scrobbles (123K+ plays), top artists/albums/tracks, listening streaks, and stats. Apple Music catalog data for metadata enrichment.
 - **Running** -- 14+ years of Strava activities with splits, personal records, gear tracking, and year-over-year summaries.
@@ -36,7 +36,7 @@ Hono on Cloudflare Workers. D1 (SQLite) for storage, R2 for images, Drizzle ORM 
 ```bash
 npm run dev          # Start local dev server
 npm run deploy       # Deploy to Cloudflare Workers
-npm test             # Vitest (445 tests)
+npm test             # Vitest
 npm run type-check   # TypeScript strict mode
 npm run lint         # ESLint
 npm run db:generate  # Generate Drizzle migrations

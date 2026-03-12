@@ -52,7 +52,7 @@
     "type": "git",
     "url": "git+https://github.com/pdugan20/rewind.git"
   },
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/pdugan20/rewind/issues"
   },
