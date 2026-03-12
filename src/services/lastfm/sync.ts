@@ -10,18 +10,20 @@ import {
   lastfmTopTracks,
   lastfmUserStats,
 } from '../../db/schema/lastfm.js';
-import { syncRuns, revalidationHooks } from '../../db/schema/system.js';
+import { syncRuns } from '../../db/schema/system.js';
 import { LastfmClient, LASTFM_PERIODS } from './client.js';
 import type { LastfmPeriod } from './client.js';
 import { normalizeScrobble } from './transforms.js';
 import { isFiltered, loadFilters } from './filters.js';
+import { afterSync } from '../../lib/after-sync.js';
+import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 
 async function upsertArtist(
   db: Database,
   name: string,
   mbid: string | null,
   url?: string
-): Promise<number> {
+): Promise<{ id: number; isNew: boolean }> {
   // Try to find existing artist
   const [existing] = await db
     .select({ id: lastfmArtists.id })
@@ -36,7 +38,7 @@ async function upsertArtist(
         .set({ mbid, updatedAt: new Date().toISOString() })
         .where(eq(lastfmArtists.id, existing.id));
     }
-    return existing.id;
+    return { id: existing.id, isNew: false };
   }
 
   const filtered = isFiltered({ artistName: name }) ? 1 : 0;
@@ -50,7 +52,7 @@ async function upsertArtist(
     })
     .returning({ id: lastfmArtists.id });
 
-  return result[0].id;
+  return { id: result[0].id, isNew: true };
 }
 
 async function upsertAlbum(
@@ -60,7 +62,7 @@ async function upsertAlbum(
   mbid: string | null,
   artistName: string,
   url?: string
-): Promise<number> {
+): Promise<{ id: number; isNew: boolean }> {
   const [existing] = await db
     .select({ id: lastfmAlbums.id })
     .from(lastfmAlbums)
@@ -76,7 +78,7 @@ async function upsertAlbum(
         .set({ mbid, updatedAt: new Date().toISOString() })
         .where(eq(lastfmAlbums.id, existing.id));
     }
-    return existing.id;
+    return { id: existing.id, isNew: false };
   }
 
   const filtered = isFiltered({ artistName, albumName: name }) ? 1 : 0;
@@ -91,7 +93,7 @@ async function upsertAlbum(
     })
     .returning({ id: lastfmAlbums.id });
 
-  return result[0].id;
+  return { id: result[0].id, isNew: true };
 }
 
 async function upsertTrack(
@@ -212,12 +214,20 @@ async function getLastScrobbleTimestamp(db: Database): Promise<number | null> {
 /**
  * Incremental scrobble sync: fetch new scrobbles since last sync.
  */
+interface ScrobbleSyncResult {
+  count: number;
+  newArtists: Map<string, string>;
+  newAlbums: Map<string, { id: string; albumName: string; artistName: string }>;
+}
+
 export async function syncRecentScrobbles(
   db: Database,
   client: LastfmClient
-): Promise<number> {
+): Promise<ScrobbleSyncResult> {
   const runId = await startSyncRun(db, 'scrobbles');
   let totalSynced = 0;
+  const newArtists = new Map<string, string>();
+  const newAlbums = new Map<string, { id: string; albumName: string; artistName: string }>();
 
   try {
     const lastTimestamp = await getLastScrobbleTimestamp(db);
@@ -246,16 +256,16 @@ export async function syncRecentScrobbles(
         // Skip now-playing tracks (no timestamp)
         if (track.isNowPlaying || !track.scrobbledAt) continue;
 
-        const artistId = await upsertArtist(
+        const artist = await upsertArtist(
           db,
           track.artistName,
           track.artistMbid
         );
-        const albumId = track.albumName
+        const album = track.albumName
           ? await upsertAlbum(
               db,
               track.albumName,
-              artistId,
+              artist.id,
               track.albumMbid,
               track.artistName
             )
@@ -263,13 +273,25 @@ export async function syncRecentScrobbles(
         const trackId = await upsertTrack(
           db,
           track.trackName,
-          artistId,
-          albumId,
+          artist.id,
+          album?.id ?? null,
           track.trackMbid,
           track.artistName,
           track.albumName,
           track.trackUrl
         );
+
+        // Track new artists and albums for feed/search
+        if (artist.isNew && !newArtists.has(track.artistName)) {
+          newArtists.set(track.artistName, String(artist.id));
+        }
+        if (album?.isNew && track.albumName && !newAlbums.has(`${track.artistName}:${track.albumName}`)) {
+          newAlbums.set(`${track.artistName}:${track.albumName}`, {
+            id: String(album.id),
+            albumName: track.albumName,
+            artistName: track.artistName,
+          });
+        }
 
         // Insert scrobble (skip if duplicate timestamp+track)
         const [existingScrobble] = await db
@@ -304,7 +326,7 @@ export async function syncRecentScrobbles(
     );
 
     console.log(`[SYNC] Synced ${totalSynced} new scrobbles`);
-    return totalSynced;
+    return { count: totalSynced, newArtists, newAlbums };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await failSyncRun(db, runId, message);
@@ -354,7 +376,7 @@ async function syncTopArtistsForPeriod(
 
   let rank = 0;
   for (const item of artists) {
-    const artistId = await upsertArtist(db, item.name, item.mbid || null);
+    const { id: artistId } = await upsertArtist(db, item.name, item.mbid || null);
 
     // Update playcount on artist
     await db
@@ -398,12 +420,12 @@ async function syncTopAlbumsForPeriod(
 
   let rank = 0;
   for (const item of albums) {
-    const artistId = await upsertArtist(
+    const { id: artistId } = await upsertArtist(
       db,
       item.artist.name,
       item.artist.mbid || null
     );
-    const albumId = await upsertAlbum(
+    const { id: albumId } = await upsertAlbum(
       db,
       item.name,
       artistId,
@@ -452,7 +474,7 @@ async function syncTopTracksForPeriod(
 
   let rank = 0;
   for (const item of tracks) {
-    const artistId = await upsertArtist(
+    const { id: artistId } = await upsertArtist(
       db,
       item.artist.name,
       item.artist.mbid || null
@@ -585,12 +607,12 @@ export async function backfillScrobbles(
         const track = normalizeScrobble(rawTrack);
         if (track.isNowPlaying || !track.scrobbledAt) continue;
 
-        const artistId = await upsertArtist(
+        const { id: artistId } = await upsertArtist(
           db,
           track.artistName,
           track.artistMbid
         );
-        const albumId = track.albumName
+        const album = track.albumName
           ? await upsertAlbum(
               db,
               track.albumName,
@@ -603,7 +625,7 @@ export async function backfillScrobbles(
           db,
           track.trackName,
           artistId,
-          albumId,
+          album?.id ?? null,
           track.trackMbid,
           track.artistName,
           track.albumName,
@@ -650,41 +672,6 @@ export async function backfillScrobbles(
 }
 
 /**
- * Fire revalidation hooks after sync completes.
- */
-export async function fireRevalidationHooks(db: Database): Promise<void> {
-  const hooks = await db
-    .select()
-    .from(revalidationHooks)
-    .where(
-      and(
-        eq(revalidationHooks.domain, 'listening'),
-        eq(revalidationHooks.isActive, 1)
-      )
-    );
-
-  for (const hook of hooks) {
-    try {
-      await fetch(hook.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Revalidation-Secret': hook.secret,
-        },
-        body: JSON.stringify({
-          domain: 'listening',
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      console.log(`[SYNC] Revalidation hook fired: ${hook.url}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.log(`[ERROR] Revalidation hook failed: ${hook.url} - ${message}`);
-    }
-  }
-}
-
-/**
  * Main sync orchestrator called by cron or admin endpoint.
  */
 export async function syncListening(
@@ -696,11 +683,16 @@ export async function syncListening(
   await loadFilters(db);
 
   let totalSynced = 0;
+  const feedItems: FeedItem[] = [];
+  const searchItems: SearchItem[] = [];
 
   switch (options.type) {
-    case 'scrobbles':
-      totalSynced = await syncRecentScrobbles(db, client);
+    case 'scrobbles': {
+      const result = await syncRecentScrobbles(db, client);
+      totalSynced = result.count;
+      collectListeningItems(result, feedItems, searchItems);
       break;
+    }
     case 'top_lists':
       totalSynced = await syncTopLists(db, client);
       break;
@@ -711,14 +703,59 @@ export async function syncListening(
     case 'backfill':
       totalSynced = await backfillScrobbles(db, client);
       break;
-    case 'full':
-      totalSynced += await syncRecentScrobbles(db, client);
+    case 'full': {
+      const scrobbleResult = await syncRecentScrobbles(db, client);
+      totalSynced += scrobbleResult.count;
+      collectListeningItems(scrobbleResult, feedItems, searchItems);
       totalSynced += await syncTopLists(db, client);
       await syncUserStats(db, client);
       totalSynced += 1;
       break;
+    }
   }
 
-  await fireRevalidationHooks(db);
+  await afterSync(db, { domain: 'listening', feedItems, searchItems });
   return { itemsSynced: totalSynced };
+}
+
+function collectListeningItems(
+  result: ScrobbleSyncResult,
+  feedItems: FeedItem[],
+  searchItems: SearchItem[]
+): void {
+  const now = new Date().toISOString();
+
+  for (const [artistName, artistId] of result.newArtists) {
+    feedItems.push({
+      domain: 'listening',
+      eventType: 'new_artist',
+      occurredAt: now,
+      title: `Discovered ${artistName}`,
+      sourceId: `artist:${artistId}`,
+    });
+    searchItems.push({
+      domain: 'listening',
+      entityType: 'artist',
+      entityId: artistId,
+      title: artistName,
+    });
+  }
+
+  for (const [, album] of result.newAlbums) {
+    feedItems.push({
+      domain: 'listening',
+      eventType: 'new_album',
+      occurredAt: now,
+      title: `New album: ${album.albumName}`,
+      subtitle: album.artistName,
+      sourceId: `album:${album.id}`,
+    });
+    searchItems.push({
+      domain: 'listening',
+      entityType: 'album',
+      entityId: album.id,
+      title: album.albumName,
+      subtitle: album.artistName,
+    });
+  }
 }

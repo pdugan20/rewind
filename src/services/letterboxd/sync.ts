@@ -6,6 +6,8 @@ import { TmdbClient } from '../watching/tmdb.js';
 import { resolveMovie } from '../watching/resolve-movie.js';
 import { computeWatchStats } from '../plex/sync.js';
 import { fetchLetterboxdFeed, type LetterboxdEntry } from './client.js';
+import { afterSync } from '../../lib/after-sync.js';
+import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 
 /**
  * Resolve a movie from a Letterboxd entry using the unified resolution function.
@@ -76,6 +78,7 @@ export async function syncLetterboxd(
 
     let synced = 0;
     let skipped = 0;
+    const newWatches: Array<{ movieId: number; title: string; year: number | null; watchedAt: string }> = [];
 
     for (const entry of entries) {
       const movieId = await resolveMovieFromLetterboxd(db, entry, tmdbClient);
@@ -102,10 +105,16 @@ export async function syncLetterboxd(
         movieId,
         watchedAt,
         source: 'letterboxd',
-        userRating: entry.memberRating,
+        userRating: entry.memberRating ?? undefined,
         rewatch: entry.rewatch ? 1 : 0,
       });
 
+      newWatches.push({
+        movieId,
+        title: entry.filmTitle,
+        year: entry.filmYear,
+        watchedAt,
+      });
       synced++;
     }
 
@@ -122,6 +131,23 @@ export async function syncLetterboxd(
         metadata: JSON.stringify({ synced, skipped }),
       })
       .where(eq(syncRuns.id, syncRun.id));
+
+    // Post-sync: feed, search, revalidation
+    const feedItems: FeedItem[] = newWatches.map((m) => ({
+      domain: 'watching',
+      eventType: 'movie_watched',
+      occurredAt: m.watchedAt,
+      title: `Watched ${m.title}${m.year ? ` (${m.year})` : ''}`,
+      sourceId: `letterboxd:movie:${m.movieId}:${m.watchedAt.substring(0, 10)}`,
+    }));
+    const searchItems: SearchItem[] = newWatches.map((m) => ({
+      domain: 'watching',
+      entityType: 'movie',
+      entityId: String(m.movieId),
+      title: m.title,
+      subtitle: m.year ? String(m.year) : undefined,
+    }));
+    await afterSync(db, { domain: 'watching', feedItems, searchItems });
 
     console.log(
       `[SYNC] Letterboxd sync complete: ${synced} synced, ${skipped} skipped`

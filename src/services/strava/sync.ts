@@ -11,6 +11,8 @@ import {
 } from '../../db/schema/strava.js';
 import type { Env } from '../../types/env.js';
 import { StravaClient } from './client.js';
+import { afterSync } from '../../lib/after-sync.js';
+import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import {
   transformActivity,
   transformSplits,
@@ -40,6 +42,7 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
 
   let itemsSynced = 0;
   const changedYears = new Set<number>();
+  const newActivities: Array<{ id: number; name: string; date: string; distanceMiles: number }> = [];
 
   try {
     const client = new StravaClient(env, db);
@@ -125,6 +128,12 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
           }
         }
 
+        newActivities.push({
+          id: transformed.stravaId,
+          name: transformed.name,
+          date: transformed.startDateLocal,
+          distanceMiles: transformed.distanceMiles,
+        });
         itemsSynced++;
       }
 
@@ -150,6 +159,24 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
         itemsSynced,
       })
       .where(eq(syncRuns.id, syncRun.id));
+
+    // Post-sync: feed, search, revalidation
+    const feedItems: FeedItem[] = newActivities.map((a) => ({
+      domain: 'running',
+      eventType: 'activity',
+      occurredAt: a.date,
+      title: a.name,
+      subtitle: `${a.distanceMiles.toFixed(1)} mi`,
+      sourceId: `strava:${a.id}`,
+    }));
+    const searchItems: SearchItem[] = newActivities.map((a) => ({
+      domain: 'running',
+      entityType: 'activity',
+      entityId: String(a.id),
+      title: a.name,
+      subtitle: `${a.distanceMiles.toFixed(1)} mi`,
+    }));
+    await afterSync(db, { domain: 'running', feedItems, searchItems });
 
     console.log(`[SYNC] Running sync completed: ${itemsSynced} activities`);
     return itemsSynced;
@@ -604,6 +631,26 @@ export async function syncSingleActivity(
   // Recompute stats incrementally for the affected year
   const activityYear = new Date(transformed.startDateLocal).getFullYear();
   await recomputeStats(db, new Set([activityYear]));
+
+  // Post-sync: feed, search, revalidation
+  await afterSync(db, {
+    domain: 'running',
+    feedItems: [{
+      domain: 'running',
+      eventType: 'activity',
+      occurredAt: transformed.startDateLocal,
+      title: transformed.name,
+      subtitle: `${transformed.distanceMiles.toFixed(1)} mi`,
+      sourceId: `strava:${stravaId}`,
+    }],
+    searchItems: [{
+      domain: 'running',
+      entityType: 'activity',
+      entityId: String(stravaId),
+      title: transformed.name,
+      subtitle: `${transformed.distanceMiles.toFixed(1)} mi`,
+    }],
+  });
 
   console.log(`[SYNC] Single activity ${stravaId} synced`);
 }

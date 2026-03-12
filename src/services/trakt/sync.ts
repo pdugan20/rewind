@@ -10,6 +10,7 @@ import { getAccessToken } from './auth.js';
 import { TmdbClient } from '../watching/tmdb.js';
 import { resolveMovie } from '../watching/resolve-movie.js';
 import type { Env } from '../../types/env.js';
+import { afterSync } from '../../lib/after-sync.js';
 
 /**
  * Look up a movie by TMDb ID, or create it with TMDb enrichment if new.
@@ -341,6 +342,9 @@ export async function syncTraktCollection(
         itemsSynced: itemCount,
       })
       .where(eq(syncRuns.id, run.id));
+
+    // Post-sync: revalidation hooks (feed/search handled by Discogs sync for collecting domain)
+    await afterSync(db, { domain: 'collecting' });
 
     console.log(`[SYNC] Trakt sync complete: ${itemCount} items`);
   } catch (err) {

@@ -645,6 +645,60 @@ Cross-cutting improvements to data integrity, performance, consistency, and API 
 - [x] **Phase 7** Database integrity -- composite indexes, FK cascades, multi-user unique constraints (3 migrations)
 - [x] **Phase 8** Image pipeline performance -- batched processing (5 concurrent), watching image dedup across crons
 - [x] **Phase 9** Cleanup and documentation -- consistent response envelopes on all stats endpoints, updated ARCHITECTURE.md, API.md, ROADMAP.md, CLAUDE.md
+- [ ] **Phase 10** Cross-cutting system wiring -- connect activity feed, search index, and revalidation hooks to all sync services
+
+### Phase 10: Cross-Cutting System Wiring
+
+Activity feed, search index, and revalidation hooks have full infrastructure (schemas, routes, helpers, tests) but are disconnected from sync services. No sync writes to activity_feed or search_index. Revalidation hooks only fire from Last.fm. Plex webhook doesn't recompute watch stats.
+
+**10.1 -- Post-Sync Hook Utility**
+
+- [ ] **10.1.1** Create `src/lib/after-sync.ts` with unified `afterSync()` function that calls feed insert, search index upsert, and revalidation hooks
+- [ ] **10.1.2** Define feed event types per domain (listening: new_artist/new_album, running: activity, watching: movie_watched/episode_watched, collecting: release_added/media_added)
+- [ ] **10.1.3** Define search index entity shapes per domain (listening: artists + albums, watching: movies + shows, collecting: releases, running: activities by name)
+- [ ] **10.1.4** Write tests for afterSync utility
+
+**10.2 -- Wire Into Sync Services**
+
+- [ ] **10.2.1** Wire afterSync into Last.fm sync (replace direct `fireRevalidationHooks()` call, add feed + search)
+- [ ] **10.2.2** Wire afterSync into Strava sync (feed + search + revalidation)
+- [ ] **10.2.3** Wire afterSync into Plex sync (feed + search + revalidation)
+- [ ] **10.2.4** Wire afterSync into Letterboxd sync (feed + search + revalidation)
+- [ ] **10.2.5** Wire afterSync into Discogs sync (feed + search + revalidation)
+- [ ] **10.2.6** Wire afterSync into Trakt sync (feed + search + revalidation)
+
+**10.3 -- Wire Into Webhooks**
+
+- [ ] **10.3.1** Wire afterSync into Strava webhook handler (feed + search + revalidation on activity create/update)
+- [ ] **10.3.2** Wire afterSync into Plex webhook handler (feed + search + revalidation on media.scrobble)
+- [ ] **10.3.3** Fix Plex webhook: add `computeWatchStats()` call after movie/episode insert (Strava webhook recomputes stats, Plex does not)
+
+**10.4 -- Backfill Existing Data**
+
+- [ ] **10.4.1** Write SQL to populate search_index from existing artists, albums, movies, shows, releases (~15K entities)
+- [ ] **10.4.2** Write SQL to populate activity_feed from existing scrobbles, activities, watch_history, collection items
+- [ ] **10.4.3** Run backfill against production D1
+- [ ] **10.4.4** Verify search returns results for known queries (e.g., "radiohead", "inception")
+- [ ] **10.4.5** Verify feed returns cross-domain timeline
+
+**10.5 -- Feed Design Decisions**
+
+- [ ] **10.5.1** Decide listening feed granularity: every scrobble (~24/day) vs. aggregated events (new artist discovered, new album) -- recommend new artist/album only to avoid noise
+- [ ] **10.5.2** Decide feed retention policy: keep all history vs. rolling window (e.g., 90 days) -- affects table size over time
+- [ ] **10.5.3** Implement chosen granularity and retention
+
+**10.6 -- Revalidation Hook Parity**
+
+- [ ] **10.6.1** Extend `fireRevalidationHooks()` to accept any domain (currently hardcoded to query listening hooks)
+- [ ] **10.6.2** Verify revalidation hooks fire for all 4 domains after sync
+- [ ] **10.6.3** Add revalidation hook firing to webhook handlers
+
+**10.7 -- Documentation and Verification**
+
+- [ ] **10.7.1** Update docs/API.md search endpoint documentation (response schema is outdated)
+- [ ] **10.7.2** Update docs/ARCHITECTURE.md with feed, search, and revalidation data flow
+- [ ] **10.7.3** Verify all systems populate correctly on next cron cycle
+- [ ] **10.7.4** Add search_index user_id consideration for multi-user (document decision: filter at query time vs. add column)
 
 ## Phase 7: Portfolio Integration
 

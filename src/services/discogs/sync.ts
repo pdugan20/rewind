@@ -13,6 +13,8 @@ import {
 import { DiscogsClient, type DiscogsCollectionItem } from './client.js';
 import { runCrossReference } from './cross-reference.js';
 import type { Env } from '../../types/env.js';
+import { afterSync } from '../../lib/after-sync.js';
+import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 
 /**
  * Upsert a release and its artists from a Discogs collection item.
@@ -176,11 +178,18 @@ async function upsertRelease(
 /**
  * Sync the full Discogs collection.
  */
+interface SyncedRelease {
+  releaseId: number;
+  title: string;
+  artistName: string;
+  dateAdded: string;
+}
+
 async function syncCollection(
   db: Database,
   client: DiscogsClient,
   userId: number
-): Promise<number> {
+): Promise<{ count: number; newReleases: SyncedRelease[] }> {
   console.log('[SYNC] Starting collection sync');
   const items = await client.getAllCollectionItems();
 
@@ -195,10 +204,21 @@ async function syncCollection(
   const existingReleaseIds = new Set(existingReleases.map((r) => r.discogsId));
 
   let synced = 0;
+  const newReleases: SyncedRelease[] = [];
 
   for (const item of items) {
     const isNew = !existingReleaseIds.has(item.basic_information.id);
     const releaseId = await upsertRelease(db, client, item, userId, isNew);
+
+    if (isNew) {
+      const artistName = item.basic_information.artists?.[0]?.name ?? 'Unknown';
+      newReleases.push({
+        releaseId,
+        title: item.basic_information.title,
+        artistName,
+        dateAdded: item.date_added,
+      });
+    }
 
     // Upsert collection item
     const notesStr = item.notes ? JSON.stringify(item.notes) : null;
@@ -246,7 +266,7 @@ async function syncCollection(
   }
 
   console.log(`[SYNC] Collection sync complete: ${synced} items`);
-  return synced;
+  return { count: synced, newReleases };
 }
 
 /**
@@ -586,7 +606,7 @@ export async function syncCollecting(
   const runId = await recordSyncRun(db, userId, 'full', 'running', startedAt);
 
   try {
-    const collectionCount = await syncCollection(db, client, userId);
+    const collectionResult = await syncCollection(db, client, userId);
     const wantlistCount = await syncWantlist(db, client, userId);
 
     await computeStats(db, userId);
@@ -596,11 +616,29 @@ export async function syncCollecting(
       db,
       runId,
       'completed',
-      collectionCount + wantlistCount
+      collectionResult.count + wantlistCount
     );
 
+    // Post-sync: feed, search, revalidation
+    const feedItems: FeedItem[] = collectionResult.newReleases.map((r) => ({
+      domain: 'collecting',
+      eventType: 'release_added',
+      occurredAt: r.dateAdded,
+      title: `Added ${r.title}`,
+      subtitle: r.artistName,
+      sourceId: `discogs:release:${r.releaseId}`,
+    }));
+    const searchItems: SearchItem[] = collectionResult.newReleases.map((r) => ({
+      domain: 'collecting',
+      entityType: 'release',
+      entityId: String(r.releaseId),
+      title: r.title,
+      subtitle: r.artistName,
+    }));
+    await afterSync(db, { domain: 'collecting', feedItems, searchItems });
+
     console.log(
-      `[SYNC] Collecting sync complete: ${collectionCount} collection, ${wantlistCount} wantlist`
+      `[SYNC] Collecting sync complete: ${collectionResult.count} collection, ${wantlistCount} wantlist`
     );
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);

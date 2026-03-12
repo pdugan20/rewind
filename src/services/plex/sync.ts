@@ -10,6 +10,8 @@ import {
 import { syncRuns } from '../../db/schema/system.js';
 import { TmdbClient, resolveTmdbId } from '../watching/tmdb.js';
 import { upsertMovieFromPlex } from './webhook.js';
+import { afterSync } from '../../lib/after-sync.js';
+import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 
 interface PlexLibrarySection {
   key: string;
@@ -130,16 +132,24 @@ class PlexApiClient {
 /**
  * Sync watched movies from Plex library.
  */
+interface SyncedMovie {
+  movieId: number;
+  title: string;
+  year: number | null;
+  watchedAt: string;
+}
+
 async function syncMovies(
   db: Database,
   plexClient: PlexApiClient,
   tmdbClient: TmdbClient,
   sectionKey: string,
   maxNewItems: number = 0
-): Promise<number> {
+): Promise<{ count: number; items: SyncedMovie[] }> {
   const watchedItems = await plexClient.getWatchedItems(sectionKey, 'movie');
   let synced = 0;
   let newItemsProcessed = 0;
+  const syncedItems: SyncedMovie[] = [];
 
   for (const item of watchedItems) {
     // Respect batch limit to stay within subrequest limits
@@ -219,11 +229,17 @@ async function syncMovies(
         source: 'plex',
         percentComplete: 100,
       });
+      syncedItems.push({
+        movieId,
+        title: detail.title,
+        year: detail.year ?? null,
+        watchedAt,
+      });
       synced++;
     }
   }
 
-  return synced;
+  return { count: synced, items: syncedItems };
 }
 
 /**
@@ -479,16 +495,19 @@ export async function syncWatching(
     // Default 150 per domain = ~900 subrequests + ~3 base, safely under 1000.
     const maxNew = options.maxNewItems ?? 150;
 
+    const newMovies: SyncedMovie[] = [];
+
     for (const section of sections) {
       if (section.type === 'movie') {
-        const count = await syncMovies(
+        const result = await syncMovies(
           db,
           plexClient,
           tmdbClient,
           section.key,
           maxNew
         );
-        moviesSynced += count;
+        moviesSynced += result.count;
+        newMovies.push(...result.items);
       } else if (section.type === 'show') {
         const count = await syncShows(
           db,
@@ -514,6 +533,23 @@ export async function syncWatching(
         metadata: JSON.stringify({ moviesSynced, showsSynced }),
       })
       .where(eq(syncRuns.id, syncRun.id));
+
+    // Post-sync: feed, search, revalidation
+    const feedItems: FeedItem[] = newMovies.map((m) => ({
+      domain: 'watching',
+      eventType: 'movie_watched',
+      occurredAt: m.watchedAt,
+      title: `Watched ${m.title}${m.year ? ` (${m.year})` : ''}`,
+      sourceId: `plex:movie:${m.movieId}:${m.watchedAt.substring(0, 10)}`,
+    }));
+    const searchItems: SearchItem[] = newMovies.map((m) => ({
+      domain: 'watching',
+      entityType: 'movie',
+      entityId: String(m.movieId),
+      title: m.title,
+      subtitle: m.year ? String(m.year) : undefined,
+    }));
+    await afterSync(db, { domain: 'watching', feedItems, searchItems });
 
     console.log(
       `[SYNC] Plex library sync complete: ${moviesSynced} movies, ${showsSynced} episodes synced`
