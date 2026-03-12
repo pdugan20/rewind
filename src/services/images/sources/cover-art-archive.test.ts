@@ -51,11 +51,11 @@ describe('CoverArtArchiveClient', () => {
       mbid: 'abc123',
     });
 
-    expect(results).toHaveLength(3);
+    expect(results).toHaveLength(2);
     expect(results[0].source).toBe('cover-art-archive');
-    expect(results[0].url).toContain('front.jpg');
-    expect(results[1].width).toBe(1200);
-    expect(results[2].width).toBe(500);
+    expect(results[0].url).toContain('front-1200.jpg');
+    expect(results[0].width).toBe(1200);
+    expect(results[1].width).toBe(500);
   });
 
   it('returns empty array on API error', async () => {

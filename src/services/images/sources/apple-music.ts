@@ -108,13 +108,13 @@ export class AppleMusicClient implements SourceClient {
       const artwork = album.attributes?.artwork;
       if (artwork?.url) {
         const imageUrl = artwork.url
-          .replace('{w}', '3000')
-          .replace('{h}', '3000');
+          .replace('{w}', '1200')
+          .replace('{h}', '1200');
         results.push({
           source: this.name,
           url: imageUrl,
-          width: 3000,
-          height: 3000,
+          width: 1200,
+          height: 1200,
         });
       }
     }

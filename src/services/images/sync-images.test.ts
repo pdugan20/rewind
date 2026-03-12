@@ -21,6 +21,7 @@ describe('processItems', () => {
   const mockDb = {} as never;
   const mockEnv: PipelineEnv = {
     IMAGES: {} as R2Bucket,
+    IMAGE_TRANSFORMS: {} as ImagesBinding,
   };
 
   beforeEach(() => {

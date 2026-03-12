@@ -9,7 +9,6 @@ import { images } from '../../db/schema/system.js';
 import { buildR2Key } from './presets.js';
 import { extractColors } from './colors.js';
 import { generateThumbHash } from './thumbhash.js';
-import { decodeImageForAnalysis } from './decode.js';
 import type {
   SourceClient,
   SourceSearchParams,
@@ -26,6 +25,7 @@ import {
 
 export interface PipelineEnv {
   IMAGES: R2Bucket;
+  IMAGE_TRANSFORMS: ImagesBinding;
   APPLE_MUSIC_DEVELOPER_TOKEN?: string;
   FANART_TV_API_KEY?: string;
   TMDB_API_KEY?: string;
@@ -150,18 +150,20 @@ function getSourceClients(
 
 /**
  * Run the waterfall resolver: try each source in priority order until one returns an image.
+ * Returns all candidates in priority order so the pipeline can skip oversized files.
  */
 export async function resolveImage(
   params: SourceSearchParams,
   env: PipelineEnv
-): Promise<ImageResult | null> {
+): Promise<ImageResult[]> {
   const clients = getSourceClients(params.domain, params.entityType, env);
+  const candidates: ImageResult[] = [];
 
   for (const client of clients) {
     try {
       const results = await client.search(params);
       if (results.length > 0) {
-        return results[0];
+        candidates.push(...results);
       }
     } catch (error) {
       console.log(
@@ -170,7 +172,7 @@ export async function resolveImage(
     }
   }
 
-  return null;
+  return candidates;
 }
 
 /**
@@ -224,6 +226,50 @@ async function fetchImageBytes(
   } catch (error) {
     console.log(
       `[ERROR] Image fetch failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return null;
+  }
+}
+
+/**
+ * Decode image to RGBA pixels via Cloudflare Images binding.
+ * Resizes to 100x100 for ThumbHash (spec limit) and color extraction.
+ * Offloads all decoding to Cloudflare's native image processor — no JS CPU cost.
+ */
+async function decodeViaBinding(
+  binding: ImagesBinding,
+  bytes: ArrayBuffer
+): Promise<{ pixels: Uint8Array; width: number; height: number } | null> {
+  const TARGET_SIZE = 100;
+
+  try {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(bytes));
+        controller.close();
+      },
+    });
+
+    const result = await binding
+      .input(stream)
+      .transform({ width: TARGET_SIZE, height: TARGET_SIZE, fit: 'cover' })
+      .output({ format: 'rgba' });
+
+    const rgbaBuffer = await result.response().arrayBuffer();
+    const pixels = new Uint8Array(rgbaBuffer);
+
+    // Infer dimensions from pixel count (width * height * 4 = total bytes)
+    const totalPixels = pixels.length / 4;
+    // Since we requested cover fit at 100x100, output is exactly 100x100
+    // unless the source is smaller
+    const side = Math.round(Math.sqrt(totalPixels));
+    const width = side;
+    const height = totalPixels / side;
+
+    return { pixels, width, height };
+  } catch (error) {
+    console.log(
+      `[ERROR] Images binding decode failed: ${error instanceof Error ? error.message : String(error)}`
     );
     return null;
   }
@@ -302,17 +348,31 @@ export async function runPipeline(
   }
 
   // Resolve image from sources
-  const imageResult = await resolveImage(params, env);
-  if (!imageResult) {
+  const candidates = await resolveImage(params, env);
+  if (candidates.length === 0) {
     console.log(
       `[INFO] No image found for ${domain}/${entityType}/${entityId}`
     );
     return null;
   }
 
-  // Fetch image bytes
-  const fetched = await fetchImageBytes(imageResult.url);
-  if (!fetched) {
+  // Fetch the first candidate that succeeds
+  let imageResult: ImageResult | null = null;
+  let fetched: { bytes: ArrayBuffer; contentType: string } | null = null;
+
+  for (const candidate of candidates) {
+    const result = await fetchImageBytes(candidate.url);
+    if (result) {
+      imageResult = candidate;
+      fetched = result;
+      break;
+    }
+  }
+
+  if (!imageResult || !fetched) {
+    console.log(
+      `[INFO] No fetchable image for ${domain}/${entityType}/${entityId}`
+    );
     return null;
   }
 
@@ -335,12 +395,12 @@ export async function runPipeline(
     dimensions
   );
 
-  // Generate ThumbHash and extract colors
+  // Generate ThumbHash and extract colors via Cloudflare Images binding
   let thumbhash: string | null = null;
   let dominantColor: string | null = null;
   let accentColor: string | null = null;
 
-  const decoded = decodeImageForAnalysis(fetched.bytes);
+  const decoded = await decodeViaBinding(env.IMAGE_TRANSFORMS, fetched.bytes);
   if (decoded) {
     try {
       const colors = extractColors(
@@ -471,7 +531,7 @@ export async function runOverridePipeline(
   let dominantColor: string | null = null;
   let accentColor: string | null = null;
 
-  const decoded = decodeImageForAnalysis(imageBytes);
+  const decoded = await decodeViaBinding(env.IMAGE_TRANSFORMS, imageBytes);
   if (decoded) {
     try {
       const colors = extractColors(

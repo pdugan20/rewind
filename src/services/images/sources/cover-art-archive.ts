@@ -30,15 +30,9 @@ export class CoverArtArchiveClient implements SourceClient {
 
       for (const image of data.images) {
         if (image.front) {
-          // Add the original resolution image
-          results.push({
-            source: this.name,
-            url: image.image,
-            width: null,
-            height: null,
-          });
-
-          // Add thumbnails if available
+          // Prefer pre-sized thumbnails over originals — our largest served
+          // preset is 780px, so 1200px is plenty with headroom. Originals
+          // can be 10+ MB and exceed Workers CPU limits during decode.
           if (image.thumbnails['1200']) {
             results.push({
               source: this.name,
@@ -54,6 +48,16 @@ export class CoverArtArchiveClient implements SourceClient {
               url: image.thumbnails['500'],
               width: 500,
               height: 500,
+            });
+          }
+
+          // Fall back to original only if no thumbnails available
+          if (!image.thumbnails['1200'] && !image.thumbnails['500']) {
+            results.push({
+              source: this.name,
+              url: image.image,
+              width: null,
+              height: null,
             });
           }
         }

@@ -25,6 +25,10 @@ import {
   deserializeSearchHints,
 } from '../services/images/pipeline.js';
 import type { SourceSearchParams } from '../services/images/sources/types.js';
+import { eq, sql } from 'drizzle-orm';
+import { images } from '../db/schema/system.js';
+import { extractColors } from '../services/images/colors.js';
+import { generateThumbHash } from '../services/images/thumbhash.js';
 
 const VALID_DOMAINS = ['listening', 'watching', 'collecting'];
 const VALID_ENTITY_TYPES = ['albums', 'artists', 'movies', 'shows', 'releases'];
@@ -350,5 +354,108 @@ imagesRoute.delete(
     });
   }
 );
+
+/**
+ * POST /v1/admin/images/reprocess
+ * Re-generate thumbhash and colors for images that have R2 keys but missing metadata.
+ * Reads from R2, no external API calls needed.
+ * Body: { limit?: number } (default 50, max 100)
+ */
+imagesRoute.post('/admin/images/reprocess', async (c) => {
+  const db = createDb(c.env.DB);
+  const body = await c.req
+    .json<{ limit?: number }>()
+    .catch(() => ({ limit: undefined }));
+  const limit = Math.min(body.limit || 50, 100);
+
+  const rows = await db
+    .select({
+      id: images.id,
+      r2Key: images.r2Key,
+      domain: images.domain,
+      entityType: images.entityType,
+      entityId: images.entityId,
+    })
+    .from(images)
+    .where(
+      sql`length(${images.r2Key}) > 0 AND ${images.thumbhash} IS NULL`
+    )
+    .limit(limit);
+
+  if (rows.length === 0) {
+    return c.json({ success: true, processed: 0, message: 'Nothing to reprocess' });
+  }
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const row of rows) {
+    try {
+      if (!row.r2Key) {
+        failed++;
+        continue;
+      }
+
+      const obj = await c.env.IMAGES.get(row.r2Key);
+      if (!obj) {
+        console.log(`[ERROR] R2 object not found: ${row.r2Key}`);
+        failed++;
+        continue;
+      }
+
+      const imageBytes = await obj.arrayBuffer();
+
+      // Use Cloudflare Images binding to decode and resize to 100x100 RGBA
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(imageBytes));
+          controller.close();
+        },
+      });
+      const result = await c.env.IMAGE_TRANSFORMS
+        .input(stream)
+        .transform({ width: 100, height: 100, fit: 'cover' })
+        .output({ format: 'rgba' });
+      const rgbaBuffer = await result.response().arrayBuffer();
+      const pixels = new Uint8Array(rgbaBuffer);
+      const totalPixels = pixels.length / 4;
+      const side = Math.round(Math.sqrt(totalPixels));
+      const decoded = { pixels, width: side, height: totalPixels / side };
+
+      let thumbhash: string | null = null;
+      let dominantColor: string | null = null;
+      let accentColor: string | null = null;
+
+      try {
+        const colors = extractColors(decoded.pixels, decoded.width, decoded.height);
+        dominantColor = colors.dominantColor;
+        accentColor = colors.accentColor;
+      } catch {
+        // non-fatal
+      }
+
+      try {
+        thumbhash = generateThumbHash(decoded.width, decoded.height, decoded.pixels);
+      } catch {
+        // non-fatal
+      }
+
+      await db
+        .update(images)
+        .set({ thumbhash, dominantColor, accentColor })
+        .where(eq(images.id, row.id));
+
+      succeeded++;
+    } catch (error) {
+      failed++;
+      console.log(
+        `[ERROR] Reprocess failed for ${row.r2Key}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  console.log(`[INFO] Reprocessed ${succeeded} images, ${failed} failed`);
+  return c.json({ success: true, processed: rows.length, succeeded, failed });
+});
 
 export default imagesRoute;

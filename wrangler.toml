@@ -22,13 +22,19 @@ binding = "IMAGES"
 bucket_name = "rewind-images"
 
 # Cron Triggers
-# Cron Triggers
 [triggers]
 crons = [
   "*/15 * * * *",   # Every 15 min: Last.fm scrobble sync
-  "0 3 * * *",      # Daily 3 AM: Last.fm top lists + stats + Strava + Plex + Discogs (Sunday)
+  "0 3 * * *",      # Daily 3:00 AM: Last.fm top lists + stats
+  "15 3 * * *",     # Daily 3:15 AM: Strava activities
+  "30 3 * * *",     # Daily 3:30 AM: Plex library scan
+  "45 3 * * SUN",   # Sunday 3:45 AM: Discogs + Trakt collections
   "0 */6 * * *",    # Every 6 hours: Letterboxd RSS sync
 ]
+
+# Cloudflare Images (for thumbhash/color extraction)
+[images]
+binding = "IMAGE_TRANSFORMS"
 
 [vars]
 ALLOWED_ORIGINS = "patdugan.me,localhost:3000"

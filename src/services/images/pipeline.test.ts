@@ -9,6 +9,7 @@ describe('pipeline', () => {
     vi.restoreAllMocks();
     env = {
       IMAGES: {} as R2Bucket,
+      IMAGE_TRANSFORMS: {} as ImagesBinding,
       APPLE_MUSIC_DEVELOPER_TOKEN: 'test-apple-token',
       FANART_TV_API_KEY: 'test-fanart-key',
       TMDB_API_KEY: 'test-tmdb-key',
@@ -47,8 +48,8 @@ describe('pipeline', () => {
         env
       );
 
-      expect(result).not.toBeNull();
-      expect(result!.source).toBe('cover-art-archive');
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].source).toBe('cover-art-archive');
     });
 
     it('falls through to next source when first fails', async () => {
@@ -86,11 +87,11 @@ describe('pipeline', () => {
         env
       );
 
-      expect(result).not.toBeNull();
-      expect(result!.source).toBe('itunes');
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].source).toBe('itunes');
     });
 
-    it('returns null when no sources match', async () => {
+    it('returns empty array when no sources match', async () => {
       vi.stubGlobal(
         'fetch',
         vi.fn().mockResolvedValue({ ok: false, status: 404 })
@@ -105,7 +106,7 @@ describe('pipeline', () => {
         env
       );
 
-      expect(result).toBeNull();
+      expect(result).toEqual([]);
     });
 
     it('uses TMDB for watching/movies domain', async () => {
@@ -132,8 +133,8 @@ describe('pipeline', () => {
         env
       );
 
-      expect(result).not.toBeNull();
-      expect(result!.source).toBe('tmdb');
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].source).toBe('tmdb');
     });
   });
 

@@ -63,7 +63,7 @@ export class TmdbClient implements SourceClient {
     for (const poster of (data.posters ?? []).slice(0, 3)) {
       results.push({
         source: this.name,
-        url: `${IMAGE_BASE_URL}/original${poster.file_path}`,
+        url: `${IMAGE_BASE_URL}/w780${poster.file_path}`,
         width: poster.width,
         height: poster.height,
       });
@@ -73,7 +73,7 @@ export class TmdbClient implements SourceClient {
     for (const backdrop of (data.backdrops ?? []).slice(0, 2)) {
       results.push({
         source: this.name,
-        url: `${IMAGE_BASE_URL}/original${backdrop.file_path}`,
+        url: `${IMAGE_BASE_URL}/w780${backdrop.file_path}`,
         width: backdrop.width,
         height: backdrop.height,
       });
@@ -100,7 +100,7 @@ export class TmdbClient implements SourceClient {
     if (data.poster_path) {
       results.push({
         source: this.name,
-        url: `${IMAGE_BASE_URL}/original${data.poster_path}`,
+        url: `${IMAGE_BASE_URL}/w780${data.poster_path}`,
         width: null,
         height: null,
       });
@@ -109,7 +109,7 @@ export class TmdbClient implements SourceClient {
     if (data.backdrop_path) {
       results.push({
         source: this.name,
-        url: `${IMAGE_BASE_URL}/original${data.backdrop_path}`,
+        url: `${IMAGE_BASE_URL}/w780${data.backdrop_path}`,
         width: null,
         height: null,
       });
@@ -136,7 +136,7 @@ export class TmdbClient implements SourceClient {
     for (const poster of (data.posters ?? []).slice(0, 3)) {
       results.push({
         source: this.name,
-        url: `${IMAGE_BASE_URL}/original${poster.file_path}`,
+        url: `${IMAGE_BASE_URL}/w780${poster.file_path}`,
         width: poster.width,
         height: poster.height,
       });

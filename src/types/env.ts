@@ -2,6 +2,7 @@ export interface Env {
   // Cloudflare bindings
   DB: D1Database;
   IMAGES: R2Bucket;
+  IMAGE_TRANSFORMS: ImagesBinding;
 
   // System
   ALLOWED_ORIGINS: string;

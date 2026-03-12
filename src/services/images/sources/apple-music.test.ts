@@ -100,7 +100,7 @@ describe('AppleMusicClient', () => {
     });
 
     expect(results).toHaveLength(1);
-    expect(results[0].url).toContain('3000x3000');
+    expect(results[0].url).toContain('1200x1200');
   });
 
   it('returns empty array for unsupported entity types', async () => {
