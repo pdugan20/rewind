@@ -1,6 +1,5 @@
-import { Hono } from 'hono';
+import { createRoute, z } from '@hono/zod-openapi';
 import { eq, and, sql, desc, asc, like, or, inArray } from 'drizzle-orm';
-import type { Env } from '../types/env.js';
 import { createDb } from '../db/client.js';
 import {
   discogsReleases,
@@ -20,10 +19,11 @@ import { watchHistory } from '../db/schema/watching.js';
 import { images } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
 import { notFound, badRequest, serverError } from '../lib/errors.js';
+import { syncCollecting } from '../services/discogs/sync.js';
+import { syncTraktCollection } from '../services/trakt/sync.js';
 import { TraktClient } from '../services/trakt/client.js';
 import { getAccessToken } from '../services/trakt/auth.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
-import { requireAuth } from '../lib/auth.js';
 import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { runPipeline } from '../services/images/pipeline.js';
@@ -32,11 +32,787 @@ import {
   getImageAttachment,
   getImageAttachmentBatch,
 } from '../lib/images.js';
+import { createOpenAPIApp } from '../lib/openapi.js';
+import {
+  errorResponses,
+  PaginationMeta,
+  ImageAttachment,
+} from '../lib/schemas/common.js';
 
-const collecting = new Hono<{ Bindings: Env }>();
+const collecting = createOpenAPIApp();
+
+// ─── Shared Schemas ─────────────────────────────────────────────────
+
+const CollectionItemSchema = z.object({
+  id: z.number(),
+  discogs_id: z.number(),
+  title: z.string(),
+  artists: z.array(z.string()),
+  year: z.number().nullable(),
+  format: z.string(),
+  format_detail: z.string(),
+  label: z.string(),
+  genres: z.array(z.string()),
+  styles: z.array(z.string()),
+  image: ImageAttachment,
+  date_added: z.string().nullable(),
+  rating: z.number().nullable(),
+  discogs_url: z.string().nullable(),
+});
+
+const CollectionDetailSchema = CollectionItemSchema.extend({
+  tracklist: z.array(z.any()),
+  country: z.string().nullable(),
+  community_have: z.number().nullable(),
+  community_want: z.number().nullable(),
+  lowest_price: z.number().nullable(),
+  num_for_sale: z.number().nullable(),
+  notes: z.any().nullable(),
+});
+
+const WantlistItemSchema = z.object({
+  id: z.number(),
+  discogs_id: z.number(),
+  title: z.string(),
+  artists: z.array(z.string()),
+  year: z.number().nullable(),
+  formats: z.array(z.string()),
+  genres: z.array(z.string()),
+  image: z.null(),
+  discogs_url: z.string().nullable(),
+  notes: z.string().nullable(),
+  rating: z.number().nullable(),
+  date_added: z.string().nullable(),
+});
+
+const NameCountSchema = z.object({
+  name: z.string(),
+  count: z.number(),
+});
+
+const ArtistItemSchema = z.object({
+  name: z.string(),
+  discogs_id: z.number(),
+  image_url: z.string().nullable(),
+  release_count: z.number(),
+});
+
+const CollectionStatsSchema = z.object({
+  total_items: z.number(),
+  by_format: z.any(),
+  wantlist_count: z.number().nullable(),
+  unique_artists: z.number().nullable(),
+  estimated_value: z.number().nullable(),
+  top_genre: z.string().nullable(),
+  oldest_release_year: z.number().nullable(),
+  newest_release_year: z.number().nullable(),
+  most_collected_artist: z.any().nullable(),
+  added_this_year: z.number().nullable(),
+});
+
+const CrossReferenceItemSchema = z.object({
+  collection: z.object({
+    id: z.number(),
+    discogs_id: z.number(),
+    title: z.string(),
+    artists: z.array(z.string()),
+    year: z.number().nullable(),
+    format: z.string(),
+    genres: z.array(z.string()),
+    styles: z.array(z.string()),
+    image: ImageAttachment,
+    date_added: z.string().nullable(),
+    rating: z.number().nullable(),
+    discogs_url: z.string().nullable(),
+  }),
+  listening: z.object({
+    album_name: z.string().nullable(),
+    artist_name: z.string().nullable(),
+    play_count: z.number().nullable(),
+    last_played: z.string().nullable(),
+    match_type: z.string().nullable(),
+    match_confidence: z.number().nullable(),
+  }),
+});
+
+const CrossReferenceSummarySchema = z.object({
+  total_matches: z.number(),
+  listen_rate: z.number(),
+  unlistened_count: z.number(),
+});
+
+// ─── Media (Trakt) Schemas ──────────────────────────────────────────
+
+const MediaItemSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  year: z.number().nullable(),
+  tmdb_id: z.number().nullable(),
+  imdb_id: z.string().nullable(),
+  image: ImageAttachment,
+  runtime: z.number().nullable(),
+  tmdb_rating: z.number().nullable(),
+  media_type: z.string(),
+  resolution: z.string().nullable(),
+  hdr: z.string().nullable(),
+  audio: z.string().nullable(),
+  audio_channels: z.string().nullable(),
+  collected_at: z.string().nullable(),
+});
+
+const MediaRecentItemSchema = MediaItemSchema.omit({ imdb_id: true, runtime: true });
+
+const MediaDetailSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  year: z.number().nullable(),
+  tmdb_id: z.number().nullable(),
+  imdb_id: z.string().nullable(),
+  tagline: z.string().nullable(),
+  summary: z.string().nullable(),
+  image: ImageAttachment,
+  runtime: z.number().nullable(),
+  tmdb_rating: z.number().nullable(),
+  content_rating: z.string().nullable(),
+  media_type: z.string(),
+  resolution: z.string().nullable(),
+  hdr: z.string().nullable(),
+  audio: z.string().nullable(),
+  audio_channels: z.string().nullable(),
+  collected_at: z.string().nullable(),
+  watch_history: z.array(
+    z.object({
+      watched_at: z.string().nullable(),
+      source: z.string().nullable(),
+      user_rating: z.number().nullable(),
+    })
+  ),
+});
+
+const MediaStatsSchema = z.object({
+  total_items: z.number(),
+  by_format: z.any(),
+  by_resolution: z.any(),
+  by_hdr: z.any(),
+  by_genre: z.any(),
+  by_decade: z.any(),
+  added_this_year: z.number().nullable(),
+});
+
+const MediaCrossRefItemSchema = z.object({
+  collection: z.object({
+    id: z.number(),
+    title: z.string(),
+    year: z.number().nullable(),
+    tmdb_id: z.number().nullable(),
+    image: z.null(),
+    media_type: z.string(),
+    resolution: z.string().nullable(),
+    collected_at: z.string().nullable(),
+  }),
+  watching: z.object({
+    watched: z.boolean(),
+    watch_count: z.number(),
+    last_watched: z.string().nullable(),
+  }),
+});
+
+const MediaCrossRefSummarySchema = z.object({
+  total_owned: z.number(),
+  total_watched: z.number(),
+  total_unwatched: z.number(),
+  watch_rate: z.number(),
+});
+
+const SyncResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+});
+
+const BackfillResponseSchema = z.object({
+  success: z.boolean(),
+  results: z.any(),
+});
+
+const AddMediaBodySchema = z.object({
+  tmdb_id: z.number().optional(),
+  imdb_id: z.string().optional(),
+  title: z.string().optional(),
+  year: z.number().optional(),
+  media_type: z.string(),
+  resolution: z.string().optional(),
+  hdr: z.string().optional(),
+  audio: z.string().optional(),
+  audio_channels: z.string().optional(),
+});
+
+const AddMediaResponseSchema = z.object({
+  status: z.string(),
+  movie: z.object({
+    title: z.string(),
+    year: z.number().nullable(),
+    tmdb_id: z.number(),
+  }),
+  media_type: z.string(),
+  trakt: z.object({
+    added: z.number(),
+    existing: z.number(),
+  }),
+  image_processed: z.boolean(),
+});
+
+const RemoveMediaResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+});
+
+const BackfillLimitBodySchema = z.object({
+  limit: z.number().optional(),
+});
+
+const IdParamSchema = z.object({
+  id: z.string(),
+});
+
+// Query schemas
+const CollectionQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  format: z.string().optional(),
+  genre: z.string().optional(),
+  artist: z.string().optional(),
+  sort: z.string().optional().default('date_added'),
+  order: z.string().optional().default('desc'),
+  q: z.string().optional(),
+});
+
+const WantlistQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  sort: z.string().optional().default('date_added'),
+  order: z.string().optional().default('desc'),
+});
+
+const LimitQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(20).optional().default(5),
+});
+
+const ArtistLimitQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+});
+
+const CrossRefQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  sort: z.string().optional().default('plays'),
+  filter: z.string().optional().default('all'),
+});
+
+const MediaQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  format: z.string().optional(),
+  genre: z.string().optional(),
+  sort: z.string().optional().default('collected_at'),
+  order: z.string().optional().default('desc'),
+  q: z.string().optional(),
+});
+
+const MediaCrossRefQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  filter: z.string().optional().default('all'),
+});
+
+// ─── Route Definitions ──────────────────────────────────────────────
+
+// GET /collecting/collection
+const collectionListRoute = createRoute({
+  method: 'get',
+  path: '/collecting/collection',
+  tags: ['Collecting'],
+  summary: 'List vinyl collection',
+  description:
+    'Paginated, filterable, searchable Discogs vinyl collection with artist and image data.',
+  request: {
+    query: CollectionQuerySchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.array(CollectionItemSchema),
+            pagination: PaginationMeta,
+          }),
+        },
+      },
+      description: 'Paginated collection items',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/stats
+const collectionStatsRoute = createRoute({
+  method: 'get',
+  path: '/collecting/stats',
+  tags: ['Collecting'],
+  summary: 'Collection statistics',
+  description:
+    'Aggregate statistics for the vinyl collection including format breakdown, top genre, and artist counts.',
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: CollectionStatsSchema },
+      },
+      description: 'Collection statistics',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/recent
+const collectionRecentRoute = createRoute({
+  method: 'get',
+  path: '/collecting/recent',
+  tags: ['Collecting'],
+  summary: 'Recent additions',
+  description: 'Most recently added items to the vinyl collection.',
+  request: {
+    query: LimitQuerySchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(CollectionItemSchema) }),
+        },
+      },
+      description: 'Recent collection items',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/collection/:id
+const collectionDetailRoute = createRoute({
+  method: 'get',
+  path: '/collecting/collection/{id}',
+  tags: ['Collecting'],
+  summary: 'Collection item detail',
+  description:
+    'Full detail for a single collection item including tracklist, country, and marketplace data.',
+  request: {
+    params: IdParamSchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: CollectionDetailSchema },
+      },
+      description: 'Collection item detail',
+    },
+    ...errorResponses(400, 401, 404, 500),
+  },
+});
+
+// GET /collecting/wantlist
+const wantlistRoute = createRoute({
+  method: 'get',
+  path: '/collecting/wantlist',
+  tags: ['Collecting'],
+  summary: 'Wantlist',
+  description: 'Paginated Discogs wantlist with sorting.',
+  request: {
+    query: WantlistQuerySchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.array(WantlistItemSchema),
+            pagination: PaginationMeta,
+          }),
+        },
+      },
+      description: 'Paginated wantlist items',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/formats
+const formatsRoute = createRoute({
+  method: 'get',
+  path: '/collecting/formats',
+  tags: ['Collecting'],
+  summary: 'Format breakdown',
+  description: 'Count of collection items grouped by primary format (Vinyl, CD, Cassette, etc).',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(NameCountSchema) }),
+        },
+      },
+      description: 'Format counts',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/genres
+const genresRoute = createRoute({
+  method: 'get',
+  path: '/collecting/genres',
+  tags: ['Collecting'],
+  summary: 'Genre breakdown',
+  description: 'Count of collection items grouped by genre.',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(NameCountSchema) }),
+        },
+      },
+      description: 'Genre counts',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/artists
+const artistsRoute = createRoute({
+  method: 'get',
+  path: '/collecting/artists',
+  tags: ['Collecting'],
+  summary: 'Top artists',
+  description: 'Artists ranked by number of releases in the collection.',
+  request: {
+    query: ArtistLimitQuerySchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(ArtistItemSchema) }),
+        },
+      },
+      description: 'Artist list with release counts',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/cross-reference
+const crossRefRoute = createRoute({
+  method: 'get',
+  path: '/collecting/cross-reference',
+  tags: ['Collecting'],
+  summary: 'Collection-listening cross-reference',
+  description:
+    'Cross-references vinyl collection with Last.fm listening data showing play counts and match confidence.',
+  request: {
+    query: CrossRefQuerySchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.array(CrossReferenceItemSchema),
+            summary: CrossReferenceSummarySchema,
+            pagination: PaginationMeta,
+          }),
+        },
+      },
+      description: 'Cross-reference data with summary stats',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// POST /admin/sync/collecting
+const syncCollectingRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/collecting',
+  tags: ['Collecting', 'Admin'],
+  summary: 'Sync Discogs collection',
+  description: 'Trigger a manual sync of the Discogs vinyl collection.',
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: SyncResponseSchema },
+      },
+      description: 'Sync completed',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// POST /admin/collecting/backfill-images
+const backfillImagesRoute = createRoute({
+  method: 'post',
+  path: '/admin/collecting/backfill-images',
+  tags: ['Collecting', 'Admin'],
+  summary: 'Backfill collection images',
+  description:
+    'Process images for Discogs releases that are missing image metadata.',
+  request: {
+    body: {
+      content: {
+        'application/json': { schema: BackfillLimitBodySchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: BackfillResponseSchema },
+      },
+      description: 'Backfill results',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/media
+const mediaListRoute = createRoute({
+  method: 'get',
+  path: '/collecting/media',
+  tags: ['Collecting'],
+  summary: 'List physical media collection',
+  description:
+    'Paginated, filterable Trakt physical media collection (Blu-ray, DVD, etc) with movie metadata.',
+  request: {
+    query: MediaQuerySchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.array(MediaItemSchema),
+            pagination: PaginationMeta,
+          }),
+        },
+      },
+      description: 'Paginated media items',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/media/stats
+const mediaStatsRoute = createRoute({
+  method: 'get',
+  path: '/collecting/media/stats',
+  tags: ['Collecting'],
+  summary: 'Physical media statistics',
+  description:
+    'Aggregate statistics for the physical media collection by format, resolution, HDR, genre, and decade.',
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: MediaStatsSchema },
+      },
+      description: 'Media collection statistics',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/media/recent
+const mediaRecentRoute = createRoute({
+  method: 'get',
+  path: '/collecting/media/recent',
+  tags: ['Collecting'],
+  summary: 'Recently added physical media',
+  description: 'Most recently added items to the physical media collection.',
+  request: {
+    query: LimitQuerySchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(MediaRecentItemSchema) }),
+        },
+      },
+      description: 'Recent media items',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/media/formats
+const mediaFormatsRoute = createRoute({
+  method: 'get',
+  path: '/collecting/media/formats',
+  tags: ['Collecting'],
+  summary: 'Media format breakdown',
+  description: 'Count of physical media items grouped by format type (bluray, dvd, etc).',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(NameCountSchema) }),
+        },
+      },
+      description: 'Format counts',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/media/cross-reference
+const mediaCrossRefRoute = createRoute({
+  method: 'get',
+  path: '/collecting/media/cross-reference',
+  tags: ['Collecting'],
+  summary: 'Owned vs watched cross-reference',
+  description:
+    'Cross-references physical media collection with watch history showing watched/unwatched status.',
+  request: {
+    query: MediaCrossRefQuerySchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.array(MediaCrossRefItemSchema),
+            summary: MediaCrossRefSummarySchema,
+            pagination: PaginationMeta,
+          }),
+        },
+      },
+      description: 'Cross-reference data with summary stats',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/media/:id
+const mediaDetailRoute = createRoute({
+  method: 'get',
+  path: '/collecting/media/{id}',
+  tags: ['Collecting'],
+  summary: 'Physical media item detail',
+  description:
+    'Full detail for a single physical media item including movie metadata and watch history.',
+  request: {
+    params: IdParamSchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: MediaDetailSchema },
+      },
+      description: 'Media item detail',
+    },
+    ...errorResponses(400, 401, 404, 500),
+  },
+});
+
+// POST /admin/collecting/media
+const addMediaRoute = createRoute({
+  method: 'post',
+  path: '/admin/collecting/media',
+  tags: ['Collecting', 'Admin'],
+  summary: 'Add physical media',
+  description:
+    'Add a movie to the physical media collection. Resolves via TMDb, pushes to Trakt, stores locally.',
+  request: {
+    body: {
+      content: {
+        'application/json': { schema: AddMediaBodySchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: AddMediaResponseSchema },
+      },
+      description: 'Media added successfully',
+    },
+    ...errorResponses(400, 401, 404, 500),
+  },
+});
+
+// POST /admin/collecting/media/:id/remove
+const removeMediaRoute = createRoute({
+  method: 'post',
+  path: '/admin/collecting/media/{id}/remove',
+  tags: ['Collecting', 'Admin'],
+  summary: 'Remove physical media',
+  description:
+    'Remove a movie from the physical media collection. Removes from both Trakt and local database.',
+  request: {
+    params: IdParamSchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: RemoveMediaResponseSchema },
+      },
+      description: 'Media removed',
+    },
+    ...errorResponses(400, 401, 404, 500),
+  },
+});
+
+// POST /admin/sync/trakt
+const syncTraktRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/trakt',
+  tags: ['Collecting', 'Admin'],
+  summary: 'Sync Trakt collection',
+  description: 'Trigger a manual sync of the Trakt physical media collection.',
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: SyncResponseSchema },
+      },
+      description: 'Sync completed',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// POST /admin/collecting/media/backfill-images
+const mediaBackfillImagesRoute = createRoute({
+  method: 'post',
+  path: '/admin/collecting/media/backfill-images',
+  tags: ['Collecting', 'Admin'],
+  summary: 'Backfill media poster images',
+  description:
+    'Process poster images for movies in the physical media collection that are missing image metadata.',
+  request: {
+    body: {
+      content: {
+        'application/json': { schema: BackfillLimitBodySchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: BackfillResponseSchema },
+      },
+      description: 'Backfill results',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// ─── Handlers ───────────────────────────────────────────────────────
 
 // GET /collecting/collection - paginated, filterable, searchable
-collecting.get('/collecting/collection', requireAuth('read'), async (c) => {
+collecting.openapi(collectionListRoute, async (c) => {
   try {
     const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
     const limit = Math.min(
@@ -200,12 +976,12 @@ collecting.get('/collecting/collection', requireAuth('read'), async (c) => {
     });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/collection: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // GET /collecting/stats
-collecting.get('/collecting/stats', requireAuth('read'), async (c) => {
+collecting.openapi(collectionStatsRoute, async (c) => {
   try {
     const db = createDb(c.env.DB);
 
@@ -248,12 +1024,12 @@ collecting.get('/collecting/stats', requireAuth('read'), async (c) => {
     } });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/stats: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // GET /collecting/recent
-collecting.get('/collecting/recent', requireAuth('read'), async (c) => {
+collecting.openapi(collectionRecentRoute, async (c) => {
   try {
     const limit = Math.min(
       20,
@@ -334,16 +1110,16 @@ collecting.get('/collecting/recent', requireAuth('read'), async (c) => {
     return c.json({ data });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/recent: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // GET /collecting/collection/:id
-collecting.get('/collecting/collection/:id', requireAuth('read'), async (c) => {
+collecting.openapi(collectionDetailRoute, async (c) => {
   try {
     const id = parseInt(c.req.param('id'), 10);
     if (isNaN(id)) {
-      return badRequest(c, 'Invalid collection item ID');
+      return badRequest(c, 'Invalid collection item ID') as any;
     }
 
     const db = createDb(c.env.DB);
@@ -381,7 +1157,7 @@ collecting.get('/collecting/collection/:id', requireAuth('read'), async (c) => {
       );
 
     if (!row) {
-      return notFound(c, 'Collection item not found');
+      return notFound(c, 'Collection item not found') as any;
     }
 
     const artistRows = await db
@@ -431,12 +1207,12 @@ collecting.get('/collecting/collection/:id', requireAuth('read'), async (c) => {
     });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/collection/:id: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // GET /collecting/wantlist
-collecting.get('/collecting/wantlist', requireAuth('read'), async (c) => {
+collecting.openapi(wantlistRoute, async (c) => {
   try {
     const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
     const limit = Math.min(
@@ -504,12 +1280,12 @@ collecting.get('/collecting/wantlist', requireAuth('read'), async (c) => {
     });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/wantlist: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // GET /collecting/formats
-collecting.get('/collecting/formats', requireAuth('read'), async (c) => {
+collecting.openapi(formatsRoute, async (c) => {
   try {
     const db = createDb(c.env.DB);
 
@@ -537,12 +1313,12 @@ collecting.get('/collecting/formats', requireAuth('read'), async (c) => {
     return c.json({ data });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/formats: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // GET /collecting/genres
-collecting.get('/collecting/genres', requireAuth('read'), async (c) => {
+collecting.openapi(genresRoute, async (c) => {
   try {
     const db = createDb(c.env.DB);
 
@@ -571,12 +1347,12 @@ collecting.get('/collecting/genres', requireAuth('read'), async (c) => {
     return c.json({ data });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/genres: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // GET /collecting/artists
-collecting.get('/collecting/artists', requireAuth('read'), async (c) => {
+collecting.openapi(artistsRoute, async (c) => {
   try {
     const limit = Math.min(
       100,
@@ -617,264 +1393,265 @@ collecting.get('/collecting/artists', requireAuth('read'), async (c) => {
     return c.json({ data });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/artists: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
 // GET /collecting/cross-reference
-collecting.get(
-  '/collecting/cross-reference',
-  requireAuth('read'),
-  async (c) => {
-    try {
-      const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
-      const limit = Math.min(
-        100,
-        Math.max(1, parseInt(c.req.query('limit') || '20', 10))
+collecting.openapi(crossRefRoute, async (c) => {
+  try {
+    const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(c.req.query('limit') || '20', 10))
+    );
+    const sort = c.req.query('sort') || 'plays';
+    const filter = c.req.query('filter') || 'all';
+
+    const db = createDb(c.env.DB);
+    const offset = (page - 1) * limit;
+
+    const conditions = [eq(collectionListeningXref.userId, 1)];
+
+    if (filter === 'listened') {
+      conditions.push(sql`${collectionListeningXref.playCount} > 0`);
+    } else if (filter === 'unlistened') {
+      conditions.push(
+        or(
+          eq(collectionListeningXref.playCount, 0),
+          eq(collectionListeningXref.matchType, 'none')
+        )!
       );
-      const sort = c.req.query('sort') || 'plays';
-      const filter = c.req.query('filter') || 'all';
-
-      const db = createDb(c.env.DB);
-      const offset = (page - 1) * limit;
-
-      const conditions = [eq(collectionListeningXref.userId, 1)];
-
-      if (filter === 'listened') {
-        conditions.push(sql`${collectionListeningXref.playCount} > 0`);
-      } else if (filter === 'unlistened') {
-        conditions.push(
-          or(
-            eq(collectionListeningXref.playCount, 0),
-            eq(collectionListeningXref.matchType, 'none')
-          )!
-        );
-      }
-
-      const whereClause = and(...conditions);
-
-      const [{ count: total }] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(collectionListeningXref)
-        .where(whereClause);
-
-      const orderBy =
-        sort === 'added'
-          ? desc(discogsCollection.dateAdded)
-          : desc(collectionListeningXref.playCount);
-
-      const rows = await db
-        .select({
-          xrefId: collectionListeningXref.id,
-          collectionId: collectionListeningXref.collectionId,
-          releaseId: collectionListeningXref.releaseId,
-          lastfmAlbumName: collectionListeningXref.lastfmAlbumName,
-          lastfmArtistName: collectionListeningXref.lastfmArtistName,
-          playCount: collectionListeningXref.playCount,
-          lastPlayed: collectionListeningXref.lastPlayed,
-          matchType: collectionListeningXref.matchType,
-          matchConfidence: collectionListeningXref.matchConfidence,
-          // Collection item fields
-          itemId: discogsCollection.id,
-          dateAdded: discogsCollection.dateAdded,
-          rating: discogsCollection.rating,
-          // Release fields
-          discogsId: discogsReleases.discogsId,
-          title: discogsReleases.title,
-          year: discogsReleases.year,
-          formats: discogsReleases.formats,
-          genres: discogsReleases.genres,
-          styles: discogsReleases.styles,
-          coverUrl: discogsReleases.coverUrl,
-          discogsUrl: discogsReleases.discogsUrl,
-        })
-        .from(collectionListeningXref)
-        .innerJoin(
-          discogsCollection,
-          eq(collectionListeningXref.collectionId, discogsCollection.id)
-        )
-        .innerJoin(
-          discogsReleases,
-          eq(collectionListeningXref.releaseId, discogsReleases.id)
-        )
-        .where(whereClause)
-        .orderBy(orderBy)
-        .limit(limit)
-        .offset(offset);
-
-      const releaseIds = rows.map((r) => String(r.discogsId));
-      const imageMap = await getImageAttachmentBatch(
-        db,
-        'collecting',
-        'releases',
-        releaseIds
-      );
-
-      const data = await Promise.all(
-        rows.map(async (row) => {
-          const artistRows = await db
-            .select({ name: discogsArtists.name })
-            .from(discogsReleaseArtists)
-            .innerJoin(
-              discogsArtists,
-              eq(discogsReleaseArtists.artistId, discogsArtists.id)
-            )
-            .innerJoin(
-              discogsReleases,
-              eq(discogsReleaseArtists.releaseId, discogsReleases.id)
-            )
-            .where(eq(discogsReleases.discogsId, row.discogsId));
-
-          const formats: string[] = row.formats ? JSON.parse(row.formats) : [];
-
-          return {
-            collection: {
-              id: row.itemId,
-              discogs_id: row.discogsId,
-              title: row.title,
-              artists: artistRows.map((a) => a.name),
-              year: row.year,
-              format: formats[0] || 'Unknown',
-              genres: row.genres ? JSON.parse(row.genres) : [],
-              styles: row.styles ? JSON.parse(row.styles) : [],
-              image: imageMap.get(String(row.discogsId)) ?? null,
-              date_added: row.dateAdded,
-              rating: row.rating,
-              discogs_url: row.discogsUrl,
-            },
-            listening: {
-              album_name: row.lastfmAlbumName,
-              artist_name: row.lastfmArtistName,
-              play_count: row.playCount,
-              last_played: row.lastPlayed,
-              match_type: row.matchType,
-              match_confidence: row.matchConfidence,
-            },
-          };
-        })
-      );
-
-      // Summary stats
-      const [{ totalMatches }] = await db
-        .select({
-          totalMatches: sql<number>`count(case when ${collectionListeningXref.matchType} != 'none' then 1 end)`,
-        })
-        .from(collectionListeningXref)
-        .where(eq(collectionListeningXref.userId, 1));
-
-      const [{ totalAll }] = await db
-        .select({ totalAll: sql<number>`count(*)` })
-        .from(collectionListeningXref)
-        .where(eq(collectionListeningXref.userId, 1));
-
-      const [{ unlistenedCount }] = await db
-        .select({
-          unlistenedCount: sql<number>`count(case when ${collectionListeningXref.playCount} = 0 or ${collectionListeningXref.matchType} = 'none' then 1 end)`,
-        })
-        .from(collectionListeningXref)
-        .where(eq(collectionListeningXref.userId, 1));
-
-      setCache(c, 'long');
-      return c.json({
-        data,
-        summary: {
-          total_matches: totalMatches,
-          listen_rate: totalAll > 0 ? totalMatches / totalAll : 0,
-          unlistened_count: unlistenedCount,
-        },
-        pagination: {
-          page,
-          limit,
-          total,
-          total_pages: Math.ceil(total / limit),
-        },
-      });
-    } catch (err) {
-      console.log(`[ERROR] GET /collecting/cross-reference: ${err}`);
-      return serverError(c);
     }
-  }
-);
 
-// POST /admin/sync/collecting -- moved to admin-sync.ts
-// Legacy path redirects to /v1/admin/sync/collecting
+    const whereClause = and(...conditions);
+
+    const [{ count: total }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(collectionListeningXref)
+      .where(whereClause);
+
+    const orderBy =
+      sort === 'added'
+        ? desc(discogsCollection.dateAdded)
+        : desc(collectionListeningXref.playCount);
+
+    const rows = await db
+      .select({
+        xrefId: collectionListeningXref.id,
+        collectionId: collectionListeningXref.collectionId,
+        releaseId: collectionListeningXref.releaseId,
+        lastfmAlbumName: collectionListeningXref.lastfmAlbumName,
+        lastfmArtistName: collectionListeningXref.lastfmArtistName,
+        playCount: collectionListeningXref.playCount,
+        lastPlayed: collectionListeningXref.lastPlayed,
+        matchType: collectionListeningXref.matchType,
+        matchConfidence: collectionListeningXref.matchConfidence,
+        // Collection item fields
+        itemId: discogsCollection.id,
+        dateAdded: discogsCollection.dateAdded,
+        rating: discogsCollection.rating,
+        // Release fields
+        discogsId: discogsReleases.discogsId,
+        title: discogsReleases.title,
+        year: discogsReleases.year,
+        formats: discogsReleases.formats,
+        genres: discogsReleases.genres,
+        styles: discogsReleases.styles,
+        coverUrl: discogsReleases.coverUrl,
+        discogsUrl: discogsReleases.discogsUrl,
+      })
+      .from(collectionListeningXref)
+      .innerJoin(
+        discogsCollection,
+        eq(collectionListeningXref.collectionId, discogsCollection.id)
+      )
+      .innerJoin(
+        discogsReleases,
+        eq(collectionListeningXref.releaseId, discogsReleases.id)
+      )
+      .where(whereClause)
+      .orderBy(orderBy)
+      .limit(limit)
+      .offset(offset);
+
+    const releaseIds = rows.map((r) => String(r.discogsId));
+    const imageMap = await getImageAttachmentBatch(
+      db,
+      'collecting',
+      'releases',
+      releaseIds
+    );
+
+    const data = await Promise.all(
+      rows.map(async (row) => {
+        const artistRows = await db
+          .select({ name: discogsArtists.name })
+          .from(discogsReleaseArtists)
+          .innerJoin(
+            discogsArtists,
+            eq(discogsReleaseArtists.artistId, discogsArtists.id)
+          )
+          .innerJoin(
+            discogsReleases,
+            eq(discogsReleaseArtists.releaseId, discogsReleases.id)
+          )
+          .where(eq(discogsReleases.discogsId, row.discogsId));
+
+        const formats: string[] = row.formats ? JSON.parse(row.formats) : [];
+
+        return {
+          collection: {
+            id: row.itemId,
+            discogs_id: row.discogsId,
+            title: row.title,
+            artists: artistRows.map((a) => a.name),
+            year: row.year,
+            format: formats[0] || 'Unknown',
+            genres: row.genres ? JSON.parse(row.genres) : [],
+            styles: row.styles ? JSON.parse(row.styles) : [],
+            image: imageMap.get(String(row.discogsId)) ?? null,
+            date_added: row.dateAdded,
+            rating: row.rating,
+            discogs_url: row.discogsUrl,
+          },
+          listening: {
+            album_name: row.lastfmAlbumName,
+            artist_name: row.lastfmArtistName,
+            play_count: row.playCount,
+            last_played: row.lastPlayed,
+            match_type: row.matchType,
+            match_confidence: row.matchConfidence,
+          },
+        };
+      })
+    );
+
+    // Summary stats
+    const [{ totalMatches }] = await db
+      .select({
+        totalMatches: sql<number>`count(case when ${collectionListeningXref.matchType} != 'none' then 1 end)`,
+      })
+      .from(collectionListeningXref)
+      .where(eq(collectionListeningXref.userId, 1));
+
+    const [{ totalAll }] = await db
+      .select({ totalAll: sql<number>`count(*)` })
+      .from(collectionListeningXref)
+      .where(eq(collectionListeningXref.userId, 1));
+
+    const [{ unlistenedCount }] = await db
+      .select({
+        unlistenedCount: sql<number>`count(case when ${collectionListeningXref.playCount} = 0 or ${collectionListeningXref.matchType} = 'none' then 1 end)`,
+      })
+      .from(collectionListeningXref)
+      .where(eq(collectionListeningXref.userId, 1));
+
+    setCache(c, 'long');
+    return c.json({
+      data,
+      summary: {
+        total_matches: totalMatches,
+        listen_rate: totalAll > 0 ? totalMatches / totalAll : 0,
+        unlistened_count: unlistenedCount,
+      },
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    console.log(`[ERROR] GET /collecting/cross-reference: ${err}`);
+    return serverError(c) as any;
+  }
+});
+
+// POST /admin/sync/collecting
+collecting.openapi(syncCollectingRoute, async (c) => {
+  try {
+    await syncCollecting(c.env);
+    return c.json({ status: 'ok', message: 'Collecting sync complete' });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.log(`[ERROR] POST /admin/sync/collecting: ${errorMsg}`);
+    return serverError(c, `Sync failed: ${errorMsg}`) as any;
+  }
+});
 
 // POST /admin/collecting/backfill-images
-collecting.post(
-  '/admin/collecting/backfill-images',
-  requireAuth('admin'),
-  async (c) => {
-    try {
-      const db = createDb(c.env.DB);
-      const body = await c.req
-        .json<{ limit?: number }>()
-        .catch(() => ({ limit: undefined }));
-      const maxItems = Math.min(body.limit || 50, 200);
+collecting.openapi(backfillImagesRoute, async (c) => {
+  try {
+    const db = createDb(c.env.DB);
+    const body = await c.req
+      .json<{ limit?: number }>()
+      .catch(() => ({ limit: undefined }));
+    const maxItems = Math.min(body.limit || 50, 200);
 
-      // Get releases without images, joined with primary artist name
-      const rows = await db
-        .select({
-          discogsId: discogsReleases.discogsId,
-          title: discogsReleases.title,
-        })
-        .from(discogsReleases)
-        .where(
-          sql`${discogsReleases.discogsId} NOT IN (
+    // Get releases without images, joined with primary artist name
+    const rows = await db
+      .select({
+        discogsId: discogsReleases.discogsId,
+        title: discogsReleases.title,
+      })
+      .from(discogsReleases)
+      .where(
+        sql`${discogsReleases.discogsId} NOT IN (
           SELECT ${images.entityId} FROM ${images}
           WHERE ${images.domain} = 'collecting' AND ${images.entityType} = 'releases'
         )`
-        )
-        .limit(maxItems);
+      )
+      .limit(maxItems);
 
-      // Get artist names for each release
-      const items: BackfillItem[] = await Promise.all(
-        rows.map(async (row) => {
-          const [artist] = await db
-            .select({ name: discogsArtists.name })
-            .from(discogsReleaseArtists)
-            .innerJoin(
-              discogsArtists,
-              eq(discogsReleaseArtists.artistId, discogsArtists.id)
-            )
-            .innerJoin(
-              discogsReleases,
-              eq(discogsReleaseArtists.releaseId, discogsReleases.id)
-            )
-            .where(eq(discogsReleases.discogsId, row.discogsId))
-            .limit(1);
+    // Get artist names for each release
+    const items: BackfillItem[] = await Promise.all(
+      rows.map(async (row) => {
+        const [artist] = await db
+          .select({ name: discogsArtists.name })
+          .from(discogsReleaseArtists)
+          .innerJoin(
+            discogsArtists,
+            eq(discogsReleaseArtists.artistId, discogsArtists.id)
+          )
+          .innerJoin(
+            discogsReleases,
+            eq(discogsReleaseArtists.releaseId, discogsReleases.id)
+          )
+          .where(eq(discogsReleases.discogsId, row.discogsId))
+          .limit(1);
 
-          return {
-            entityId: String(row.discogsId),
-            artistName: artist?.name,
-            albumName: row.title,
-          };
-        })
-      );
+        return {
+          entityId: String(row.discogsId),
+          artistName: artist?.name,
+          albumName: row.title,
+        };
+      })
+    );
 
-      const result = await backfillImages(
-        db,
-        c.env,
-        'collecting',
-        'releases',
-        items,
-        { batchSize: 5, delayMs: 500 }
-      );
+    const result = await backfillImages(
+      db,
+      c.env,
+      'collecting',
+      'releases',
+      items,
+      { batchSize: 5, delayMs: 500 }
+    );
 
-      return c.json({ success: true, results: result });
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.log(
-        `[ERROR] POST /admin/collecting/backfill-images: ${errorMsg}`
-      );
-      return serverError(c, `Backfill failed: ${errorMsg}`);
-    }
+    return c.json({ success: true, results: result });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.log(
+      `[ERROR] POST /admin/collecting/backfill-images: ${errorMsg}`
+    );
+    return serverError(c, `Backfill failed: ${errorMsg}`) as any;
   }
-);
+});
 
-// ─── Physical Media (Trakt) Routes ───────────────────────────────────
+// ─── Physical Media (Trakt) Handlers ────────────────────────────────
 
-// GET /collecting/media - paginated physical media collection
-collecting.get('/collecting/media', requireAuth('read'), async (c) => {
+// GET /collecting/media
+collecting.openapi(mediaListRoute, async (c) => {
   try {
     const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
     const limit = Math.min(
@@ -997,12 +1774,12 @@ collecting.get('/collecting/media', requireAuth('read'), async (c) => {
     });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/media: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
-// GET /collecting/media/stats - physical media stats
-collecting.get('/collecting/media/stats', requireAuth('read'), async (c) => {
+// GET /collecting/media/stats
+collecting.openapi(mediaStatsRoute, async (c) => {
   try {
     const db = createDb(c.env.DB);
 
@@ -1035,12 +1812,12 @@ collecting.get('/collecting/media/stats', requireAuth('read'), async (c) => {
     } });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/media/stats: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
-// GET /collecting/media/recent - recently added physical media
-collecting.get('/collecting/media/recent', requireAuth('read'), async (c) => {
+// GET /collecting/media/recent
+collecting.openapi(mediaRecentRoute, async (c) => {
   try {
     const limit = Math.min(
       20,
@@ -1097,12 +1874,12 @@ collecting.get('/collecting/media/recent', requireAuth('read'), async (c) => {
     return c.json({ data });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/media/recent: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
-// GET /collecting/media/formats - format breakdown counts
-collecting.get('/collecting/media/formats', requireAuth('read'), async (c) => {
+// GET /collecting/media/formats
+collecting.openapi(mediaFormatsRoute, async (c) => {
   try {
     const db = createDb(c.env.DB);
 
@@ -1125,162 +1902,158 @@ collecting.get('/collecting/media/formats', requireAuth('read'), async (c) => {
     return c.json({ data });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/media/formats: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
-// GET /collecting/media/cross-reference - owned vs watched
-collecting.get(
-  '/collecting/media/cross-reference',
-  requireAuth('read'),
-  async (c) => {
-    try {
-      const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
-      const limit = Math.min(
-        100,
-        Math.max(1, parseInt(c.req.query('limit') || '20', 10))
+// GET /collecting/media/cross-reference
+collecting.openapi(mediaCrossRefRoute, async (c) => {
+  try {
+    const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(c.req.query('limit') || '20', 10))
+    );
+    const filter = c.req.query('filter') || 'all';
+
+    const db = createDb(c.env.DB);
+    const offset = (page - 1) * limit;
+
+    // Base query: trakt_collection joined with movies and optional watch_history
+    const baseConditions = [eq(traktCollection.userId, 1)];
+
+    if (filter === 'watched') {
+      baseConditions.push(
+        sql`EXISTS (
+            SELECT 1 FROM watch_history wh
+            WHERE wh.movie_id = ${traktCollection.movieId}
+          )`
       );
-      const filter = c.req.query('filter') || 'all';
-
-      const db = createDb(c.env.DB);
-      const offset = (page - 1) * limit;
-
-      // Base query: trakt_collection joined with movies and optional watch_history
-      const baseConditions = [eq(traktCollection.userId, 1)];
-
-      if (filter === 'watched') {
-        baseConditions.push(
-          sql`EXISTS (
+    } else if (filter === 'unwatched') {
+      baseConditions.push(
+        sql`NOT EXISTS (
             SELECT 1 FROM watch_history wh
             WHERE wh.movie_id = ${traktCollection.movieId}
           )`
-        );
-      } else if (filter === 'unwatched') {
-        baseConditions.push(
-          sql`NOT EXISTS (
-            SELECT 1 FROM watch_history wh
-            WHERE wh.movie_id = ${traktCollection.movieId}
-          )`
-        );
-      }
-
-      const whereClause = and(...baseConditions);
-
-      const [{ count: total }] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(traktCollection)
-        .innerJoin(movies, eq(traktCollection.movieId, movies.id))
-        .where(whereClause);
-
-      const rows = await db
-        .select({
-          id: traktCollection.id,
-          movieId: traktCollection.movieId,
-          mediaType: traktCollection.mediaType,
-          resolution: traktCollection.resolution,
-          collectedAt: traktCollection.collectedAt,
-          title: movies.title,
-          year: movies.year,
-          tmdbId: movies.tmdbId,
-          posterPath: movies.posterPath,
-        })
-        .from(traktCollection)
-        .innerJoin(movies, eq(traktCollection.movieId, movies.id))
-        .where(whereClause)
-        .orderBy(desc(traktCollection.collectedAt))
-        .limit(limit)
-        .offset(offset);
-
-      // Get watch counts for each movie
-      const movieIds = rows.map((r) => r.movieId);
-      const watchCounts = new Map<number, { count: number; lastWatched: string | null }>();
-
-      if (movieIds.length > 0) {
-        const watchRows = await db
-          .select({
-            movieId: watchHistory.movieId,
-            count: sql<number>`count(*)`,
-            lastWatched: sql<string | null>`max(${watchHistory.watchedAt})`,
-          })
-          .from(watchHistory)
-          .where(inArray(watchHistory.movieId, movieIds))
-          .groupBy(watchHistory.movieId);
-
-        for (const wr of watchRows) {
-          watchCounts.set(wr.movieId, {
-            count: wr.count,
-            lastWatched: wr.lastWatched,
-          });
-        }
-      }
-
-      const data = rows.map((row) => {
-        const watch = watchCounts.get(row.movieId);
-        return {
-          collection: {
-            id: row.id,
-            title: row.title,
-            year: row.year,
-            tmdb_id: row.tmdbId,
-            image: null as null,
-            media_type: row.mediaType,
-            resolution: row.resolution,
-            collected_at: row.collectedAt,
-          },
-          watching: {
-            watched: !!watch,
-            watch_count: watch?.count || 0,
-            last_watched: watch?.lastWatched || null,
-          },
-        };
-      });
-
-      // Summary
-      const [{ totalOwned }] = await db
-        .select({ totalOwned: sql<number>`count(*)` })
-        .from(traktCollection)
-        .where(eq(traktCollection.userId, 1));
-
-      const [{ totalWatched }] = await db
-        .select({
-          totalWatched: sql<number>`count(distinct ${traktCollection.movieId})`,
-        })
-        .from(traktCollection)
-        .innerJoin(
-          watchHistory,
-          eq(traktCollection.movieId, watchHistory.movieId)
-        )
-        .where(eq(traktCollection.userId, 1));
-
-      setCache(c, 'long');
-      return c.json({
-        data,
-        summary: {
-          total_owned: totalOwned,
-          total_watched: totalWatched,
-          total_unwatched: totalOwned - totalWatched,
-          watch_rate: totalOwned > 0 ? totalWatched / totalOwned : 0,
-        },
-        pagination: {
-          page,
-          limit,
-          total,
-          total_pages: Math.ceil(total / limit),
-        },
-      });
-    } catch (err) {
-      console.log(`[ERROR] GET /collecting/media/cross-reference: ${err}`);
-      return serverError(c);
+      );
     }
-  }
-);
 
-// GET /collecting/media/:id - single physical media item detail
-collecting.get('/collecting/media/:id', requireAuth('read'), async (c) => {
+    const whereClause = and(...baseConditions);
+
+    const [{ count: total }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(traktCollection)
+      .innerJoin(movies, eq(traktCollection.movieId, movies.id))
+      .where(whereClause);
+
+    const rows = await db
+      .select({
+        id: traktCollection.id,
+        movieId: traktCollection.movieId,
+        mediaType: traktCollection.mediaType,
+        resolution: traktCollection.resolution,
+        collectedAt: traktCollection.collectedAt,
+        title: movies.title,
+        year: movies.year,
+        tmdbId: movies.tmdbId,
+        posterPath: movies.posterPath,
+      })
+      .from(traktCollection)
+      .innerJoin(movies, eq(traktCollection.movieId, movies.id))
+      .where(whereClause)
+      .orderBy(desc(traktCollection.collectedAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Get watch counts for each movie
+    const movieIds = rows.map((r) => r.movieId);
+    const watchCounts = new Map<number, { count: number; lastWatched: string | null }>();
+
+    if (movieIds.length > 0) {
+      const watchRows = await db
+        .select({
+          movieId: watchHistory.movieId,
+          count: sql<number>`count(*)`,
+          lastWatched: sql<string | null>`max(${watchHistory.watchedAt})`,
+        })
+        .from(watchHistory)
+        .where(inArray(watchHistory.movieId, movieIds))
+        .groupBy(watchHistory.movieId);
+
+      for (const wr of watchRows) {
+        watchCounts.set(wr.movieId, {
+          count: wr.count,
+          lastWatched: wr.lastWatched,
+        });
+      }
+    }
+
+    const data = rows.map((row) => {
+      const watch = watchCounts.get(row.movieId);
+      return {
+        collection: {
+          id: row.id,
+          title: row.title,
+          year: row.year,
+          tmdb_id: row.tmdbId,
+          image: null as null,
+          media_type: row.mediaType,
+          resolution: row.resolution,
+          collected_at: row.collectedAt,
+        },
+        watching: {
+          watched: !!watch,
+          watch_count: watch?.count || 0,
+          last_watched: watch?.lastWatched || null,
+        },
+      };
+    });
+
+    // Summary
+    const [{ totalOwned }] = await db
+      .select({ totalOwned: sql<number>`count(*)` })
+      .from(traktCollection)
+      .where(eq(traktCollection.userId, 1));
+
+    const [{ totalWatched }] = await db
+      .select({
+        totalWatched: sql<number>`count(distinct ${traktCollection.movieId})`,
+      })
+      .from(traktCollection)
+      .innerJoin(
+        watchHistory,
+        eq(traktCollection.movieId, watchHistory.movieId)
+      )
+      .where(eq(traktCollection.userId, 1));
+
+    setCache(c, 'long');
+    return c.json({
+      data,
+      summary: {
+        total_owned: totalOwned,
+        total_watched: totalWatched,
+        total_unwatched: totalOwned - totalWatched,
+        watch_rate: totalOwned > 0 ? totalWatched / totalOwned : 0,
+      },
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    console.log(`[ERROR] GET /collecting/media/cross-reference: ${err}`);
+    return serverError(c) as any;
+  }
+});
+
+// GET /collecting/media/:id
+collecting.openapi(mediaDetailRoute, async (c) => {
   try {
     const id = parseInt(c.req.param('id'), 10);
     if (isNaN(id)) {
-      return badRequest(c, 'Invalid media item ID');
+      return badRequest(c, 'Invalid media item ID') as any;
     }
 
     const db = createDb(c.env.DB);
@@ -1315,7 +2088,7 @@ collecting.get('/collecting/media/:id', requireAuth('read'), async (c) => {
       );
 
     if (!row) {
-      return notFound(c, 'Media item not found');
+      return notFound(c, 'Media item not found') as any;
     }
 
     // Get watch history for this movie
@@ -1360,12 +2133,12 @@ collecting.get('/collecting/media/:id', requireAuth('read'), async (c) => {
     });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/media/:id: ${err}`);
-    return serverError(c);
+    return serverError(c) as any;
   }
 });
 
-// POST /admin/collecting/media - add physical media to collection
-collecting.post('/admin/collecting/media', requireAuth('admin'), async (c) => {
+// POST /admin/collecting/media
+collecting.openapi(addMediaRoute, async (c) => {
   try {
     const body = await c.req.json<{
       tmdb_id?: number;
@@ -1380,7 +2153,7 @@ collecting.post('/admin/collecting/media', requireAuth('admin'), async (c) => {
     }>();
 
     if (!body.media_type) {
-      return badRequest(c, 'media_type is required');
+      return badRequest(c, 'media_type is required') as any;
     }
 
     const db = createDb(c.env.DB);
@@ -1396,7 +2169,7 @@ collecting.post('/admin/collecting/media', requireAuth('admin'), async (c) => {
     if (!tmdbId && body.title) {
       const results = await tmdbClient.searchMovie(body.title, body.year);
       if (results.length === 0) {
-        return notFound(c, `No movie found for "${body.title}"`);
+        return notFound(c, `No movie found for "${body.title}"`) as any;
       }
       if (results.length > 1 && !body.year) {
         return c.json({
@@ -1407,13 +2180,13 @@ collecting.post('/admin/collecting/media', requireAuth('admin'), async (c) => {
             title: r.title,
             release_date: r.release_date,
           })),
-        }, 422);
+        }, 422) as any;
       }
       tmdbId = results[0].id;
     }
 
     if (!tmdbId) {
-      return badRequest(c, 'Provide tmdb_id, imdb_id, or title to identify the movie');
+      return badRequest(c, 'Provide tmdb_id, imdb_id, or title to identify the movie') as any;
     }
 
     // Get movie detail from TMDb
@@ -1542,128 +2315,130 @@ collecting.post('/admin/collecting/media', requireAuth('admin'), async (c) => {
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.log(`[ERROR] POST /admin/collecting/media: ${errorMsg}`);
-    return serverError(c, `Failed to add media: ${errorMsg}`);
+    return serverError(c, `Failed to add media: ${errorMsg}`) as any;
   }
 });
 
-// POST /admin/collecting/media/:id/remove - remove from collection
-collecting.post(
-  '/admin/collecting/media/:id/remove',
-  requireAuth('admin'),
-  async (c) => {
-    try {
-      const id = parseInt(c.req.param('id'), 10);
-      if (isNaN(id)) {
-        return badRequest(c, 'Invalid media item ID');
-      }
-
-      const db = createDb(c.env.DB);
-
-      const [item] = await db
-        .select({
-          id: traktCollection.id,
-          traktId: traktCollection.traktId,
-          mediaType: traktCollection.mediaType,
-          tmdbId: movies.tmdbId,
-          title: movies.title,
-        })
-        .from(traktCollection)
-        .innerJoin(movies, eq(traktCollection.movieId, movies.id))
-        .where(
-          and(eq(traktCollection.id, id), eq(traktCollection.userId, 1))
-        );
-
-      if (!item) {
-        return notFound(c, 'Media item not found');
-      }
-
-      // Remove from Trakt
-      const accessToken = await getAccessToken(c.env, db);
-      const traktClient = new TraktClient(accessToken, c.env.TRAKT_CLIENT_ID);
-
-      await traktClient.removeFromCollection([
-        {
-          ids: { tmdb: item.tmdbId || undefined, trakt: item.traktId },
-          media_type: item.mediaType,
-        },
-      ]);
-
-      // Remove locally
-      await db
-        .delete(traktCollection)
-        .where(eq(traktCollection.id, id));
-
-      return c.json({
-        status: 'ok',
-        message: `Removed "${item.title}" (${item.mediaType}) from collection`,
-      });
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.log(`[ERROR] POST /admin/collecting/media/:id/remove: ${errorMsg}`);
-      return serverError(c, `Failed to remove media: ${errorMsg}`);
+// POST /admin/collecting/media/:id/remove
+// eslint-disable-next-line drizzle/enforce-delete-with-where
+collecting.openapi(removeMediaRoute, async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'), 10);
+    if (isNaN(id)) {
+      return badRequest(c, 'Invalid media item ID') as any;
     }
+
+    const db = createDb(c.env.DB);
+
+    const [item] = await db
+      .select({
+        id: traktCollection.id,
+        traktId: traktCollection.traktId,
+        mediaType: traktCollection.mediaType,
+        tmdbId: movies.tmdbId,
+        title: movies.title,
+      })
+      .from(traktCollection)
+      .innerJoin(movies, eq(traktCollection.movieId, movies.id))
+      .where(
+        and(eq(traktCollection.id, id), eq(traktCollection.userId, 1))
+      );
+
+    if (!item) {
+      return notFound(c, 'Media item not found') as any;
+    }
+
+    // Remove from Trakt
+    const accessToken = await getAccessToken(c.env, db);
+    const traktClient = new TraktClient(accessToken, c.env.TRAKT_CLIENT_ID);
+
+    await traktClient.removeFromCollection([
+      {
+        ids: { tmdb: item.tmdbId || undefined, trakt: item.traktId },
+        media_type: item.mediaType,
+      },
+    ]);
+
+    // Remove locally
+    await db
+      .delete(traktCollection)
+      .where(eq(traktCollection.id, id));
+
+    return c.json({
+      status: 'ok',
+      message: `Removed "${item.title}" (${item.mediaType}) from collection`,
+    });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.log(`[ERROR] POST /admin/collecting/media/:id/remove: ${errorMsg}`);
+    return serverError(c, `Failed to remove media: ${errorMsg}`) as any;
   }
-);
+});
 
-// POST /admin/sync/trakt -- moved to admin-sync.ts
-// Legacy path redirects to /v1/admin/sync/trakt
+// POST /admin/sync/trakt
+collecting.openapi(syncTraktRoute, async (c) => {
+  try {
+    await syncTraktCollection(c.env);
+    return c.json({ status: 'ok', message: 'Trakt collection sync complete' });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.log(`[ERROR] POST /admin/sync/trakt: ${errorMsg}`);
+    return serverError(c, `Trakt sync failed: ${errorMsg}`) as any;
+  }
+});
 
-// POST /admin/collecting/media/backfill-images - backfill poster images
-collecting.post(
-  '/admin/collecting/media/backfill-images',
-  requireAuth('admin'),
-  async (c) => {
-    try {
-      const db = createDb(c.env.DB);
-      const body = await c.req
-        .json<{ limit?: number }>()
-        .catch(() => ({ limit: undefined }));
-      const maxItems = Math.min(body.limit || 50, 200);
+// POST /admin/collecting/media/backfill-images
+collecting.openapi(mediaBackfillImagesRoute, async (c) => {
+  try {
+    const db = createDb(c.env.DB);
+    const body = await c.req
+      .json<{ limit?: number }>()
+      .catch(() => ({ limit: undefined }));
+    const maxItems = Math.min(body.limit || 50, 200);
 
-      // Get movies in Trakt collection without images
-      const rows = await db
-        .select({
-          tmdbId: movies.tmdbId,
-          title: movies.title,
-        })
-        .from(traktCollection)
-        .innerJoin(movies, eq(traktCollection.movieId, movies.id))
-        .where(
-          and(
-            eq(traktCollection.userId, 1),
-            sql`CAST(${movies.tmdbId} AS TEXT) NOT IN (
+    // Get movies in Trakt collection without images
+    const rows = await db
+      .select({
+        tmdbId: movies.tmdbId,
+        title: movies.title,
+      })
+      .from(traktCollection)
+      .innerJoin(movies, eq(traktCollection.movieId, movies.id))
+      .where(
+        and(
+          eq(traktCollection.userId, 1),
+          sql`CAST(${movies.tmdbId} AS TEXT) NOT IN (
               SELECT ${images.entityId} FROM ${images}
               WHERE ${images.domain} = 'watching' AND ${images.entityType} = 'movies'
             )`
-          )
         )
-        .limit(maxItems);
+      )
+      .limit(maxItems);
 
-      const items: BackfillItem[] = rows
-        .filter((r) => r.tmdbId !== null)
-        .map((row) => ({
-          entityId: String(row.tmdbId),
-          albumName: row.title,
-        }));
+    const items: BackfillItem[] = rows
+      .filter((r) => r.tmdbId !== null)
+      .map((row) => ({
+        entityId: String(row.tmdbId),
+        albumName: row.title,
+      }));
 
-      const result = await backfillImages(
-        db,
-        c.env,
-        'watching',
-        'movies',
-        items,
-        { batchSize: 5, delayMs: 500 }
-      );
+    const result = await backfillImages(
+      db,
+      c.env,
+      'watching',
+      'movies',
+      items,
+      { batchSize: 5, delayMs: 500 }
+    );
 
-      return c.json({ success: true, results: result });
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.log(
-        `[ERROR] POST /admin/collecting/media/backfill-images: ${errorMsg}`
-      );
-      return serverError(c, `Backfill failed: ${errorMsg}`);
-    }
+    return c.json({ success: true, results: result });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.log(
+      `[ERROR] POST /admin/collecting/media/backfill-images: ${errorMsg}`
+    );
+    return serverError(c, `Backfill failed: ${errorMsg}`) as any;
   }
-);
+});
 
 export default collecting;

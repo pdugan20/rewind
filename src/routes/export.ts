@@ -100,7 +100,7 @@ exportRoute.openapi(exportDomainRoute, async (c) => {
     return badRequest(
       c,
       `Invalid domain: ${domain}. Must be one of: ${VALID_DOMAINS.join(', ')}`
-    );
+    ) as any;
   }
 
   const db = drizzle(c.env.DB);

@@ -85,7 +85,7 @@ webhooks.openapi(stravaValidationRoute, (c) => {
     return c.json(
       { error: 'Invalid subscription validation', status: 400 },
       400
-    );
+    ) as any;
   }
 
   return c.json(result, 200);
@@ -166,7 +166,7 @@ webhooks.openapi(plexWebhookRoute, async (c) => {
   const payload = await parsePlexWebhook(c.req.raw);
 
   if (!payload) {
-    return c.json({ error: 'Invalid webhook payload', status: 400 }, 400);
+    return c.json({ error: 'Invalid webhook payload', status: 400 }, 400) as any;
   }
 
   // Verify webhook source
@@ -175,7 +175,7 @@ webhooks.openapi(plexWebhookRoute, async (c) => {
     !verifyPlexWebhook(payload, c.env.PLEX_WEBHOOK_SECRET)
   ) {
     console.log('[ERROR] Plex webhook verification failed');
-    return c.json({ error: 'Webhook verification failed', status: 403 }, 403);
+    return c.json({ error: 'Webhook verification failed', status: 403 }, 403) as any;
   }
 
   const db = createDb(c.env.DB);

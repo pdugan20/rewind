@@ -142,7 +142,7 @@ feed.openapi(getDomainFeedRoute, async (c) => {
     return badRequest(
       c,
       `Invalid domain: ${domain}. Must be one of: ${VALID_DOMAINS.join(', ')}`
-    );
+    ) as any;
   }
 
   const cursor = c.req.query('cursor');

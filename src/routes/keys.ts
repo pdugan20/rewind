@@ -135,17 +135,17 @@ keys.openapi(createKeyRoute, async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return badRequest(c, 'Invalid JSON body');
+    return badRequest(c, 'Invalid JSON body') as any;
   }
 
   const name = body.name;
   if (!name || typeof name !== 'string' || name.trim().length === 0) {
-    return badRequest(c, 'Field "name" is required');
+    return badRequest(c, 'Field "name" is required') as any;
   }
 
   const scope = body.scope || 'read';
   if (scope !== 'read' && scope !== 'admin') {
-    return badRequest(c, 'Field "scope" must be "read" or "admin"');
+    return badRequest(c, 'Field "scope" must be "read" or "admin"') as any;
   }
 
   // Generate a random API key
@@ -250,7 +250,7 @@ keys.openapi(deleteKeyRoute, async (c) => {
   const idParam = c.req.param('id');
   const id = parseInt(idParam, 10);
   if (isNaN(id)) {
-    return badRequest(c, 'Invalid key ID');
+    return badRequest(c, 'Invalid key ID') as any;
   }
 
   const db = drizzle(c.env.DB);
@@ -261,7 +261,7 @@ keys.openapi(deleteKeyRoute, async (c) => {
     .where(eq(apiKeys.id, id));
 
   if (!existing) {
-    return notFound(c, 'API key not found');
+    return notFound(c, 'API key not found') as any;
   }
 
   await db.update(apiKeys).set({ isActive: 0 }).where(eq(apiKeys.id, id));
