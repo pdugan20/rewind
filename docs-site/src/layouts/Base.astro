@@ -1,0 +1,58 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Personal data aggregation API.' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+    <footer>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/docs/">Docs</a>
+        <a href="/terms/">Terms</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="https://github.com/pdugan20/rewind">GitHub</a>
+      </nav>
+    </footer>
+  </body>
+</html>
+
+<style>
+  footer {
+    margin-top: auto;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  footer nav {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  footer a {
+    color: var(--text-dim);
+    font-size: 0.8125rem;
+    text-decoration: none;
+  }
+
+  footer a:hover {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+</style>

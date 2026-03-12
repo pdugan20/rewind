@@ -1,0 +1,82 @@
+---
+import Base from './Base.astro';
+
+interface Props {
+  title: string;
+  lastUpdated: string;
+}
+
+const { title, lastUpdated } = Astro.props;
+---
+
+<Base title={`${title} - Rewind`}>
+  <main>
+    <a href="/" class="back">&larr; Back to Rewind</a>
+    <h1>{title}</h1>
+    <p class="updated">Last updated: {lastUpdated}</p>
+    <div class="content">
+      <slot />
+    </div>
+  </main>
+</Base>
+
+<style>
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+  }
+
+  .back {
+    display: inline-block;
+    color: var(--text-dim);
+    text-decoration: none;
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .back:hover {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--white);
+  }
+
+  .updated {
+    color: var(--text-dim);
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+  }
+
+  .content :global(h2) {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    color: var(--white);
+  }
+
+  .content :global(p) {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .content :global(ul) {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .content :global(li) {
+    margin-bottom: 0.5rem;
+  }
+
+  .content :global(a) {
+    color: var(--white);
+  }
+</style>

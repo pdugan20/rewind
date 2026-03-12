@@ -1,0 +1,46 @@
+---
+layout: ../layouts/Legal.astro
+title: Privacy Policy
+lastUpdated: March 12, 2026
+---
+
+## 1. Overview
+
+Rewind is a personal data aggregation service. This policy explains what data is collected, how it is stored, and how it is used.
+
+## 2. Data We Collect
+
+Rewind syncs data from third-party services on behalf of the account owner. This includes:
+
+- **Listening data** from Last.fm (scrobbles, artist/album metadata)
+- **Running data** from Strava (activities, splits, gear, personal records)
+- **Watching data** from Plex and Letterboxd (watch history, ratings, reviews)
+- **Collecting data** from Discogs and Trakt (collection items, wantlist)
+
+## 3. How Data is Stored
+
+All data is stored in Cloudflare D1 (SQLite) databases. Images are stored in Cloudflare R2 object storage. All data is associated with a user ID and is not shared between users.
+
+## 4. How Data is Used
+
+Data is used solely to power the Rewind API. We do not sell, share, or transfer your data to third parties. Data is only accessible via authenticated API requests using your API key.
+
+## 5. Third-Party Services
+
+Rewind connects to third-party APIs (Last.fm, Strava, Plex, Letterboxd, Discogs, Trakt, TMDB) to sync data. Your use of those services is governed by their respective privacy policies.
+
+## 6. Data Retention
+
+Data is retained indefinitely unless you request deletion. You can export all your data at any time via the API's export endpoints.
+
+## 7. Security
+
+API access is protected by API keys. Keys are hashed using SHA-256 before storage. The raw key is only shown once at creation time and cannot be retrieved.
+
+## 8. Changes to This Policy
+
+We may update this policy from time to time. Changes will be reflected by updating the "Last updated" date above.
+
+## 9. Contact
+
+Questions about this policy? Contact [Pat Dugan](https://patdugan.me).

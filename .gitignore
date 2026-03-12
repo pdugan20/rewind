@@ -14,3 +14,5 @@ scripts/.strava-checkpoint.json
 scripts/.tmp-sql.sql
 scripts/.letterboxd-checkpoint.json
 scripts/.lastfm-checkpoint.json
+docs-site/dist/
+docs-site/.astro/

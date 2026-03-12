@@ -1,0 +1,86 @@
+---
+import Base from '../layouts/Base.astro';
+import Marquee from '../components/Marquee.astro';
+---
+
+<Base title="Rewind" description="Personal data aggregation API. Syncs and serves data from the services that track your life.">
+  <main>
+    <div class="hero">
+      <h1>Rewind</h1>
+      <p class="tagline">
+        Personal data aggregation API. Syncs and serves data from the services
+        that track your life.
+      </p>
+      <Marquee />
+      <div class="links">
+        <a href="/docs/" class="primary">API Documentation</a>
+        <a href="https://api.rewind.rest/v1/health" class="secondary">API Status</a>
+      </div>
+    </div>
+  </main>
+</Base>
+
+<style>
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hero {
+    max-width: 640px;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.75rem;
+    color: var(--white);
+  }
+
+  .tagline {
+    font-size: 1.125rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  .links {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+  }
+
+  .links a {
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.625rem 1.25rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .links a.primary {
+    background: var(--white);
+    color: var(--bg);
+  }
+
+  .links a.primary:hover {
+    background: var(--text);
+  }
+
+  .links a.secondary {
+    border: 1px solid #404040;
+    color: var(--white);
+  }
+
+  .links a.secondary:hover {
+    background: var(--surface);
+  }
+</style>

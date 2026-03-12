@@ -32,8 +32,9 @@
     "db:studio": "drizzle-kit studio",
     "spec:update": "vitest run src/__tests__/openapi-snapshot.test.ts --update",
     "lint:api": "spectral lint openapi.snapshot.json",
-    "docs:dev": "npx serve docs-site",
-    "docs:deploy": "npx wrangler pages deploy docs-site --project-name rewind-docs",
+    "docs:dev": "cd docs-site && npx astro dev",
+    "docs:build": "cd docs-site && npx astro build",
+    "docs:deploy": "cd docs-site && npx astro build && npx wrangler pages deploy dist --project-name rewind-docs",
     "prepare": "husky"
   },
   "lint-staged": {

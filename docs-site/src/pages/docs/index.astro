@@ -1,0 +1,42 @@
+---
+/**
+ * Scalar API docs — full-page, no shared layout (Scalar manages its own chrome).
+ */
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>API Docs - Rewind</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Rewind API reference documentation." />
+    <style>
+      body { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <script
+      id="api-reference"
+      data-url="https://api.rewind.rest/v1/openapi.json"
+      data-configuration={JSON.stringify({
+        theme: 'kepler',
+        layout: 'modern',
+        hideModels: false,
+        hideDownloadButton: false,
+        defaultHttpClient: {
+          targetKey: 'javascript',
+          clientKey: 'fetch',
+        },
+        authentication: {
+          preferredSecurityScheme: 'bearerAuth',
+        },
+        metaData: {
+          title: 'API Docs - Rewind',
+          description: 'Rewind API reference documentation.',
+        },
+      })}
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>

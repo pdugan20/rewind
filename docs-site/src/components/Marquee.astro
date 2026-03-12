@@ -1,0 +1,75 @@
+---
+/**
+ * Infinite scrolling marquee of service names.
+ * Pure CSS animation — no JS required.
+ */
+const services = ['Last.fm', 'Strava', 'Plex', 'Letterboxd', 'Discogs', 'Trakt'];
+
+// Double the items for seamless loop
+const items = [...services, ...services];
+---
+
+<div class="marquee-wrapper">
+  <div class="marquee-track">
+    {
+      items.map((name) => (
+        <span class="marquee-item">{name}</span>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .marquee-wrapper {
+    overflow: hidden;
+    width: 100%;
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 10%,
+      black 90%,
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 10%,
+      black 90%,
+      transparent
+    );
+    padding: 1.5rem 0;
+  }
+
+  .marquee-track {
+    display: flex;
+    gap: 2rem;
+    width: max-content;
+    animation: scroll 20s linear infinite;
+  }
+
+  .marquee-item {
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9375rem;
+    color: var(--text);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  @keyframes scroll {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .marquee-wrapper:hover .marquee-track {
+    animation-play-state: paused;
+  }
+</style>
