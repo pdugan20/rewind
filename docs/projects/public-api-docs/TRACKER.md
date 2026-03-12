@@ -155,26 +155,26 @@ Polish the spec with descriptions, examples, and organization so the docs are ge
 
 **5.1 -- Descriptions and Examples**
 
-- [ ] **5.1.1** Add summary and description to every operation (1-2 sentences each)
-- [ ] **5.1.2** Add example values to all common schemas (pagination, error, image attachment)
-- [ ] **5.1.3** Add example request/response pairs for the 5 most-used endpoints (now-playing, recent, top artists, activities, movies)
+- [x] **5.1.1** Add summary and description to every operation (1-2 sentences each)
+- [x] **5.1.2** Add example values to all common schemas (pagination, error, image attachment)
+- [x] **5.1.3** Add example request/response pairs for the 5 most-used endpoints (in OpenAPI description quick start section)
 
 **5.2 -- Organization**
 
-- [ ] **5.2.1** Group operations by tag: Listening, Running, Watching, Collecting, Feed, Images, System, Admin
-- [ ] **5.2.2** Add tag descriptions explaining each domain
-- [ ] **5.2.3** Order tags logically in the spec (public domains first, admin last)
+- [x] **5.2.1** Group operations by tag: Listening, Running, Watching, Collecting, Feed, Images, System, Admin
+- [x] **5.2.2** Add tag descriptions explaining each domain
+- [x] **5.2.3** Order tags logically in the spec (public domains first, admin last)
 
 **5.3 -- Authentication Documentation**
 
-- [ ] **5.3.1** Document the two key types (read vs admin) and their permission scopes
-- [ ] **5.3.2** Add a "Getting Started" section to the Scalar intro explaining how to obtain a key
-- [ ] **5.3.3** Mark admin-only endpoints clearly in the spec (separate tag or `x-admin-only` extension)
+- [x] **5.3.1** Document the two key types (read vs admin) and their permission scopes
+- [x] **5.3.2** Add a "Getting Started" section to the Scalar intro with quick start examples
+- [x] **5.3.3** Mark admin-only endpoints clearly in the spec (Admin tag on all admin routes)
 
 **5.4 -- Error Catalog**
 
-- [ ] **5.4.1** Document all error response shapes with examples (400, 401, 404, 429, 500)
-- [ ] **5.4.2** Add error responses to every operation definition (not just 200)
+- [x] **5.4.1** Document all error response shapes with examples (in OpenAPI description + ErrorResponse schema)
+- [x] **5.4.2** Add error responses to every operation definition (via errorResponses() helper)
 
 ## Phase 6: Launch
 
