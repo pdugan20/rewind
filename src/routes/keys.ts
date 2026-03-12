@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { apiKeys } from '../db/schema/system.js';
+import { clearAuthCache } from '../lib/auth.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { setCache } from '../lib/cache.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
@@ -61,7 +62,8 @@ const createKeyRoute = createRoute({
   path: '/',
   tags: ['Admin'],
   summary: 'Create API key',
-  description: 'Generate a new API key. The raw key is returned once and cannot be retrieved again.',
+  description:
+    'Generate a new API key. The raw key is returned once and cannot be retrieved again.',
   request: {
     body: {
       content: {
@@ -89,7 +91,8 @@ const listKeysRoute = createRoute({
   path: '/',
   tags: ['Admin'],
   summary: 'List API keys',
-  description: 'List all API keys with prefix and hint only. Key hashes are never exposed.',
+  description:
+    'List all API keys with prefix and hint only. Key hashes are never exposed.',
   responses: {
     200: {
       description: 'List of API keys',
@@ -243,7 +246,7 @@ keys.openapi(listKeysRoute, async (c) => {
 });
 
 // DELETE /v1/admin/keys/:id -- revoke a key (soft delete via is_active)
-// eslint-disable-next-line drizzle/enforce-delete-with-where
+
 keys.openapi(deleteKeyRoute, async (c) => {
   setCache(c, 'none');
 
@@ -265,6 +268,7 @@ keys.openapi(deleteKeyRoute, async (c) => {
   }
 
   await db.update(apiKeys).set({ isActive: 0 }).where(eq(apiKeys.id, id));
+  clearAuthCache();
 
   return c.json({ message: 'Key revoked' as const, id });
 });

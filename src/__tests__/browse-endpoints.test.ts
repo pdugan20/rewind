@@ -13,10 +13,7 @@ import {
   movieGenres,
   watchHistory,
 } from '../db/schema/watching.js';
-import {
-  stravaActivities,
-  stravaYearSummaries,
-} from '../db/schema/strava.js';
+import { stravaActivities, stravaYearSummaries } from '../db/schema/strava.js';
 import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 
 describe('Phase 6: Browse, Rating, Review, and Year-in-Review endpoints', () => {
@@ -57,7 +54,7 @@ describe('Phase 6: Browse, Rating, Review, and Year-in-Review endpoints', () => 
       })
       .returning();
 
-    const [album2] = await db
+    const [_album2] = await db
       .insert(lastfmAlbums)
       .values({
         name: 'Album Two',
@@ -170,9 +167,12 @@ describe('Phase 6: Browse, Rating, Review, and Year-in-Review endpoints', () => 
 
   describe('GET /v1/listening/artists (browse)', () => {
     it('returns paginated artists sorted by playcount', async () => {
-      const res = await SELF.fetch('http://localhost/v1/listening/artists?limit=10', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await SELF.fetch(
+        'http://localhost/v1/listening/artists?limit=10',
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
         data: Array<{ id: number; name: string; playcount: number }>;
@@ -181,7 +181,9 @@ describe('Phase 6: Browse, Rating, Review, and Year-in-Review endpoints', () => 
       expect(body.data.length).toBeGreaterThanOrEqual(2);
       expect(body.pagination.total).toBeGreaterThanOrEqual(2);
       // Default sort is playcount desc
-      expect(body.data[0].playcount).toBeGreaterThanOrEqual(body.data[1].playcount);
+      expect(body.data[0].playcount).toBeGreaterThanOrEqual(
+        body.data[1].playcount
+      );
     });
 
     it('filters artists by search', async () => {
@@ -200,9 +202,12 @@ describe('Phase 6: Browse, Rating, Review, and Year-in-Review endpoints', () => 
 
   describe('GET /v1/listening/albums (browse)', () => {
     it('returns paginated albums with artist info', async () => {
-      const res = await SELF.fetch('http://localhost/v1/listening/albums?limit=10', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await SELF.fetch(
+        'http://localhost/v1/listening/albums?limit=10',
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
         data: Array<{

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { env, SELF } from 'cloudflare:test';
+import { SELF } from 'cloudflare:test';
 import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 import { clearAuthCache } from './auth.js';
 import { resetRateLimitWindows } from './rate-limit.js';
@@ -16,14 +16,17 @@ describe('auth middleware', () => {
 
   describe('caching', () => {
     it('returns 401 for missing auth header', async () => {
-      const res = await SELF.fetch('http://localhost/v1/health/sync');
+      await SELF.fetch('http://localhost/v1/health/sync');
       // health/sync is not authed, use a protected endpoint
       const res2 = await SELF.fetch('http://localhost/v1/listening/recent');
       expect(res2.status).toBe(401);
     });
 
     it('authenticates valid token', async () => {
-      const token = await createTestApiKey({ scope: 'read', name: 'cache-test-1' });
+      const token = await createTestApiKey({
+        scope: 'read',
+        name: 'cache-test-1',
+      });
       const res = await SELF.fetch('http://localhost/v1/listening/recent', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -32,7 +35,10 @@ describe('auth middleware', () => {
     });
 
     it('uses cached auth on second request', async () => {
-      const token = await createTestApiKey({ scope: 'read', name: 'cache-test-2' });
+      const token = await createTestApiKey({
+        scope: 'read',
+        name: 'cache-test-2',
+      });
 
       // First request populates cache
       const res1 = await SELF.fetch('http://localhost/v1/listening/recent', {
@@ -48,8 +54,14 @@ describe('auth middleware', () => {
     });
 
     it('rejects revoked key after cache invalidation', async () => {
-      const adminToken = await createTestApiKey({ scope: 'admin', name: 'cache-admin' });
-      const readToken = await createTestApiKey({ scope: 'read', name: 'cache-revoke-target' });
+      const adminToken = await createTestApiKey({
+        scope: 'admin',
+        name: 'cache-admin',
+      });
+      const readToken = await createTestApiKey({
+        scope: 'read',
+        name: 'cache-revoke-target',
+      });
 
       // Authenticate to populate cache
       const res1 = await SELF.fetch('http://localhost/v1/listening/recent', {
@@ -61,8 +73,12 @@ describe('auth middleware', () => {
       const keysRes = await SELF.fetch('http://localhost/v1/admin/keys', {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
-      const keysBody = (await keysRes.json()) as { data: Array<{ id: number; name: string }> };
-      const targetKey = keysBody.data.find((k) => k.name === 'cache-revoke-target');
+      const keysBody = (await keysRes.json()) as {
+        data: Array<{ id: number; name: string }>;
+      };
+      const targetKey = keysBody.data.find(
+        (k) => k.name === 'cache-revoke-target'
+      );
       expect(targetKey).toBeDefined();
 
       // Revoke the key
@@ -85,7 +101,10 @@ describe('auth middleware', () => {
 
   describe('rate limiting', () => {
     it('includes rate limit headers in response', async () => {
-      const token = await createTestApiKey({ scope: 'read', name: 'ratelimit-headers' });
+      const token = await createTestApiKey({
+        scope: 'read',
+        name: 'ratelimit-headers',
+      });
       const res = await SELF.fetch('http://localhost/v1/listening/recent', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -98,7 +117,10 @@ describe('auth middleware', () => {
     it('returns 429 when rate limit exceeded', async () => {
       // Create a key with very low rate limit
       // Default is 60 RPM, but we'll just hammer it
-      const token = await createTestApiKey({ scope: 'read', name: 'ratelimit-test' });
+      const token = await createTestApiKey({
+        scope: 'read',
+        name: 'ratelimit-test',
+      });
 
       // Make requests up to and past the limit (default 60 RPM)
       // We can't easily make 60 requests in a test, so let's test the mechanism

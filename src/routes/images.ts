@@ -53,10 +53,7 @@ const SizeParam = z
 
 const SearchHintsQuery = z.object({
   artist_name: z.string().optional().openapi({ example: 'Radiohead' }),
-  album_name: z
-    .string()
-    .optional()
-    .openapi({ example: 'OK Computer' }),
+  album_name: z.string().optional().openapi({ example: 'OK Computer' }),
   mbid: z.string().optional().openapi({ example: 'a1b2c3d4-...' }),
   tmdb_id: z.string().optional().openapi({ example: '12345' }),
 });
@@ -342,12 +339,13 @@ imagesRoute.openapi(putOverrideRoute, async (c) => {
     const formData = await c.req.formData();
     const file = formData.get('image');
 
-    if (!file || !(file instanceof File)) {
+    if (!file || typeof file === 'string') {
       return badRequest(c, 'Missing image file in form data') as any;
     }
 
-    imageBytes = await file.arrayBuffer();
-    imageContentType = file.type || 'image/jpeg';
+    const blob = file as unknown as Blob;
+    imageBytes = await blob.arrayBuffer();
+    imageContentType = blob.type || 'image/jpeg';
   } else {
     // Option A: JSON with source_url
     let body: { source_url?: string };
@@ -436,7 +434,6 @@ const deleteOverrideRoute = createRoute({
   },
 });
 
-// eslint-disable-next-line drizzle/enforce-delete-with-where -- this is a Hono HTTP DELETE route, not a Drizzle delete
 imagesRoute.openapi(deleteOverrideRoute, async (c) => {
   const { domain, entity_type, entity_id } = c.req.valid('param');
 

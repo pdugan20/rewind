@@ -14,13 +14,34 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': [
         'error',
-        { argsIgnorePattern: '^_' },
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       'drizzle/enforce-delete-with-where': 'error',
       'drizzle/enforce-update-with-where': 'error',
     },
   },
+  // zod-openapi route handlers require `as any` casts on return types
   {
-    ignores: ['node_modules/', 'dist/', '.wrangler/', 'migrations/'],
+    files: ['src/routes/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  // Test files intentionally delete all rows for cleanup
+  {
+    files: ['src/**/*.test.ts', 'src/**/__tests__/**/*.ts'],
+    rules: {
+      'drizzle/enforce-delete-with-where': 'off',
+    },
+  },
+  {
+    ignores: [
+      'node_modules/',
+      'dist/',
+      '.wrangler/',
+      'migrations/',
+      'docs-site/',
+      'scripts/',
+    ],
   }
 );

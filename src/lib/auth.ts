@@ -25,6 +25,7 @@ function getCachedKey(keyHash: string): CachedKey | null {
   const entry = authCache.get(keyHash);
   if (!entry) return null;
   if (Date.now() - entry.cachedAt > AUTH_CACHE_TTL_MS) {
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Map.delete(), not Drizzle
     authCache.delete(keyHash);
     return null;
   }
@@ -39,6 +40,7 @@ function setCachedKey(keyHash: string, key: CachedKey): void {
  * Invalidate a cached key entry. Call when a key is revoked.
  */
 export function invalidateAuthCache(keyHash: string): void {
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- Map.delete(), not Drizzle
   authCache.delete(keyHash);
 }
 
@@ -103,7 +105,12 @@ export const requireAuth = (requiredScope: 'read' | 'admin' = 'read') =>
 
     // Rate limiting
     const rateResult = checkRateLimit(keyHash, keyData.rateLimitRpm);
-    setRateLimitHeaders(c, keyData.rateLimitRpm, rateResult.remaining, rateResult.resetAt);
+    setRateLimitHeaders(
+      c,
+      keyData.rateLimitRpm,
+      rateResult.remaining,
+      rateResult.resetAt
+    );
 
     if (!rateResult.allowed) {
       const retryAfter = Math.ceil((rateResult.resetAt - Date.now()) / 1000);
