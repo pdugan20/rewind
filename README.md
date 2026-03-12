@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/pdugan20/rewind/actions/workflows/ci.yml/badge.svg)](https://github.com/pdugan20/rewind/actions/workflows/ci.yml)
 [![docs](https://img.shields.io/badge/docs-docs.rewind.rest-blue)](https://docs.rewind.rest)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
 
@@ -10,10 +9,10 @@ Rewind is a personal API that pulls together data from the services that track m
 
 ## What it does
 
-Rewind syncs data from six services on a schedule, normalizes everything into a unified schema, and serves it through a REST API:
+Rewind syncs data on a schedule, normalizes everything into a unified schema, and serves it through a REST API:
 
-- **Listening** -- Last.fm scrobbles (123K+ plays), top artists/albums/tracks, listening streaks, and stats. Apple Music catalog data for metadata enrichment.
-- **Running** -- 14+ years of Strava activities with splits, personal records, gear tracking, and year-over-year summaries.
+- **Listening** -- Last.fm scrobble history, top artists/albums/tracks, listening streaks, and stats. Apple Music catalog data for metadata enrichment.
+- **Running** -- Strava activities since 2010 with splits, personal records, gear tracking, and year-over-year summaries.
 - **Watching** -- Plex watch history, Letterboxd diary/ratings/reviews, and TMDB metadata. Covers both movies and TV shows.
 - **Collecting** -- Discogs vinyl/CD collection with cross-referenced MusicBrainz data. Trakt physical media catalog.
 
