@@ -2809,7 +2809,10 @@
                           "type": "string"
                         },
                         "avg_pace": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "years_active": {
                           "type": "number"
@@ -2892,7 +2895,10 @@
                             "type": "number"
                           },
                           "avg_pace": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "longest_run_mi": {
                             "type": "number"
@@ -2978,7 +2984,10 @@
                           "type": "number"
                         },
                         "avg_pace": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "longest_run_mi": {
                           "type": "number"

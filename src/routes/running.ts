@@ -30,7 +30,7 @@ const LifetimeStatsSchema = z.object({
   total_distance_mi: z.number(),
   total_elevation_ft: z.number(),
   total_duration: z.string(),
-  avg_pace: z.string(),
+  avg_pace: z.string().nullable(),
   years_active: z.number(),
   first_run: z.string().nullable(),
   eddington_number: z.number(),
@@ -42,7 +42,7 @@ const YearSummarySchema = z.object({
   total_distance_mi: z.number(),
   total_elevation_ft: z.number(),
   total_duration_s: z.number(),
-  avg_pace: z.string(),
+  avg_pace: z.string().nullable(),
   longest_run_mi: z.number(),
   race_count: z.number(),
 });
