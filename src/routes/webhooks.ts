@@ -137,18 +137,8 @@ const plexWebhookRoute = createRoute({
   tags: ['Webhooks'],
   summary: 'Plex webhook event receiver',
   description:
-    'Receives Plex webhook events (multipart/form-data). No auth required -- uses its own verification via PLEX_WEBHOOK_SECRET.',
+    'Receives Plex webhook events (multipart/form-data). No auth required -- uses its own verification via PLEX_WEBHOOK_SECRET. Body is parsed manually to avoid double-consumption.',
   'x-internal': true,
-  request: {
-    body: {
-      required: true,
-      content: {
-        'multipart/form-data': {
-          schema: z.any(),
-        },
-      },
-    },
-  },
   responses: {
     200: {
       description: 'Webhook processed successfully',

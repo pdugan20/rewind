@@ -73,12 +73,18 @@ export async function parsePlexWebhook(
     const formData = await request.formData();
     const payloadField = formData.get('payload');
 
-    if (!payloadField || typeof payloadField !== 'string') {
+    if (!payloadField) {
       console.log('[ERROR] Plex webhook: no payload field found');
       return null;
     }
 
-    return JSON.parse(payloadField) as PlexWebhookPayload;
+    // Workers may return a File/Blob instead of a string for form fields
+    const payloadStr =
+      typeof payloadField === 'string'
+        ? payloadField
+        : await (payloadField as File).text();
+
+    return JSON.parse(payloadStr) as PlexWebhookPayload;
   } catch (error) {
     console.log(
       `[ERROR] Plex webhook parse error: ${error instanceof Error ? error.message : String(error)}`
