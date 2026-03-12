@@ -1,7 +1,8 @@
-import { Hono } from 'hono';
+import { createRoute, z } from '@hono/zod-openapi';
 import { eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import type { Env } from '../types/env.js';
+import { createOpenAPIApp } from '../lib/openapi.js';
+import { errorResponses } from '../lib/schemas/common.js';
 import { activityFeed, syncRuns } from '../db/schema/system.js';
 import { badRequest } from '../lib/errors.js';
 import { setCache } from '../lib/cache.js';
@@ -50,14 +51,51 @@ const DOMAIN_TABLES: Record<string, string[]> = {
   ],
 };
 
-const exportRoute = new Hono<{ Bindings: Env }>();
+const exportRoute = createOpenAPIApp();
+
+// ─── Schemas ────────────────────────────────────────────────────────
+
+const DomainParam = z.object({
+  domain: z
+    .enum(['listening', 'running', 'watching', 'collecting'])
+    .openapi({ example: 'listening' }),
+});
+
+const ExportResponse = z
+  .object({
+    domain: z.string().openapi({ example: 'listening' }),
+    exported_at: z.string().datetime().openapi({ example: '2024-01-15T12:00:00.000Z' }),
+    tables: z.record(z.string(), z.array(z.unknown())),
+  })
+  .openapi('ExportResponse');
+
+// ─── Routes ─────────────────────────────────────────────────────────
+
+const exportDomainRoute = createRoute({
+  method: 'get',
+  path: '/{domain}',
+  tags: ['Admin'],
+  summary: 'Export domain data',
+  description:
+    'Exports all data for a given domain as a downloadable JSON file. Includes all domain tables, activity feed entries, and sync runs.',
+  request: {
+    params: DomainParam,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ExportResponse } },
+      description: 'Domain data export as downloadable JSON',
+    },
+    ...errorResponses(400, 401),
+  },
+});
 
 // GET /v1/export/:domain -- full domain data as JSON (admin only)
 // Auth is enforced by the /v1/admin/* middleware in index.ts
-exportRoute.get('/:domain', async (c) => {
+exportRoute.openapi(exportDomainRoute, async (c) => {
   setCache(c, 'none');
 
-  const domain = c.req.param('domain');
+  const domain = c.req.valid('param').domain;
   if (!VALID_DOMAINS.includes(domain)) {
     return badRequest(
       c,

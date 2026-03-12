@@ -1,24 +1,76 @@
-import { Hono } from 'hono';
+import { createRoute, z } from '@hono/zod-openapi';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import type { Env } from '../types/env.js';
+import { createOpenAPIApp } from '../lib/openapi.js';
+import { PaginationMeta, errorResponses } from '../lib/schemas/common.js';
 import { setCache } from '../lib/cache.js';
 import { requireAuth } from '../lib/auth.js';
 import { badRequest } from '../lib/errors.js';
 
 const VALID_DOMAINS = ['listening', 'running', 'watching', 'collecting'];
 
-const search = new Hono<{ Bindings: Env }>();
+const search = createOpenAPIApp();
 
 search.use('*', requireAuth('read'));
 
+const SearchResultSchema = z.object({
+  domain: z.string(),
+  entity_type: z.string(),
+  entity_id: z.string(),
+  title: z.string(),
+  subtitle: z.string().nullable(),
+  image_key: z.string().nullable(),
+});
+
+const SearchResponseSchema = z.object({
+  data: z.array(SearchResultSchema),
+  pagination: PaginationMeta,
+});
+
+const searchRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['Search'],
+  summary: 'Cross-domain search',
+  description:
+    'Full-text search across all data domains (listening, running, watching, collecting).',
+  request: {
+    query: z.object({
+      q: z.string().openapi({ description: 'Search query string' }),
+      domain: z
+        .enum(['listening', 'running', 'watching', 'collecting'])
+        .optional()
+        .openapi({ description: 'Filter results to a specific domain' }),
+      limit: z
+        .string()
+        .optional()
+        .openapi({ description: 'Results per page (1-100, default 20)' }),
+      page: z
+        .string()
+        .optional()
+        .openapi({ description: 'Page number (default 1)' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Search results with pagination',
+      content: {
+        'application/json': {
+          schema: SearchResponseSchema,
+        },
+      },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
 // GET /v1/search -- cross-domain full-text search
-search.get('/', async (c) => {
+search.openapi(searchRoute, async (c) => {
   setCache(c, 'short');
 
   const query = c.req.query('q');
   if (!query || query.trim().length === 0) {
-    return badRequest(c, 'Query parameter "q" is required');
+    return badRequest(c, 'Query parameter "q" is required') as any;
   }
 
   const domain = c.req.query('domain');
@@ -26,7 +78,7 @@ search.get('/', async (c) => {
     return badRequest(
       c,
       `Invalid domain: ${domain}. Must be one of: ${VALID_DOMAINS.join(', ')}`
-    );
+    ) as any;
   }
 
   const limitParam = c.req.query('limit');

@@ -1,20 +1,82 @@
-import { Hono } from 'hono';
+import { createRoute, z } from '@hono/zod-openapi';
 import { desc, eq, and, lt, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import type { Env } from '../types/env.js';
 import { activityFeed } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
 import { requireAuth } from '../lib/auth.js';
 import { badRequest } from '../lib/errors.js';
+import { createOpenAPIApp } from '../lib/openapi.js';
+import { errorResponses } from '../lib/schemas/common.js';
 
 const VALID_DOMAINS = ['listening', 'running', 'watching', 'collecting'];
 
-const feed = new Hono<{ Bindings: Env }>();
+const feed = createOpenAPIApp();
 
 feed.use('*', requireAuth('read'));
 
-// GET /v1/feed -- cross-domain activity feed with cursor-based pagination
-feed.get('/', async (c) => {
+// --- Schemas ---
+
+const CursorPaginationQuerySchema = z.object({
+  cursor: z.string().optional().openapi({ description: 'Cursor for pagination (feed item ID)', example: '42' }),
+  limit: z.string().optional().openapi({ description: 'Number of items per page (1-100, default 50)', example: '50' }),
+});
+
+const FeedItemSchema = z.object({
+  id: z.number(),
+  domain: z.string(),
+  event_type: z.string(),
+  occurred_at: z.string(),
+  title: z.string(),
+  subtitle: z.string().nullable(),
+  image_key: z.string().nullable(),
+  source_id: z.string(),
+  metadata: z.any().nullable(),
+  created_at: z.string(),
+});
+
+const CursorPaginationSchema = z.object({
+  next_cursor: z.string().nullable(),
+  has_more: z.boolean(),
+  limit: z.number(),
+});
+
+const FeedResponseSchema = z.object({
+  data: z.array(FeedItemSchema),
+  pagination: CursorPaginationSchema,
+});
+
+const DomainParamSchema = z.object({
+  domain: z.enum(['listening', 'running', 'watching', 'collecting'] as const).openapi({
+    description: 'Activity domain to filter by',
+    example: 'listening',
+  }),
+});
+
+// --- Routes ---
+
+const getFeedRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['Feed'],
+  summary: 'Cross-domain activity feed',
+  description: 'Returns a cross-domain activity feed with cursor-based pagination.',
+  request: {
+    query: CursorPaginationQuerySchema,
+  },
+  responses: {
+    200: {
+      description: 'Activity feed items with cursor pagination',
+      content: {
+        'application/json': {
+          schema: FeedResponseSchema,
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+feed.openapi(getFeedRoute, async (c) => {
   setCache(c, 'short');
 
   const cursor = c.req.query('cursor');
@@ -49,8 +111,30 @@ feed.get('/', async (c) => {
   });
 });
 
-// GET /v1/feed/domain/:domain -- single-domain feed
-feed.get('/domain/:domain', async (c) => {
+const getDomainFeedRoute = createRoute({
+  method: 'get',
+  path: '/domain/{domain}',
+  tags: ['Feed'],
+  summary: 'Single-domain activity feed',
+  description: 'Returns an activity feed filtered to a single domain with cursor-based pagination.',
+  request: {
+    params: DomainParamSchema,
+    query: CursorPaginationQuerySchema,
+  },
+  responses: {
+    200: {
+      description: 'Domain-filtered activity feed items with cursor pagination',
+      content: {
+        'application/json': {
+          schema: FeedResponseSchema,
+        },
+      },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+feed.openapi(getDomainFeedRoute, async (c) => {
   setCache(c, 'short');
 
   const domain = c.req.param('domain');

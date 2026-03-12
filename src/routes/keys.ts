@@ -1,16 +1,134 @@
-import { Hono } from 'hono';
+import { createRoute, z } from '@hono/zod-openapi';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import type { Env } from '../types/env.js';
 import { apiKeys } from '../db/schema/system.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { setCache } from '../lib/cache.js';
-import { invalidateAuthCache } from '../lib/auth.js';
+import { createOpenAPIApp } from '../lib/openapi.js';
+import { errorResponses } from '../lib/schemas/common.js';
 
-const keys = new Hono<{ Bindings: Env }>();
+const keys = createOpenAPIApp();
+
+// --- Schemas ---
+
+const CreateKeyBodySchema = z.object({
+  name: z.string().optional(),
+  scope: z.string().optional(),
+});
+
+const CreatedKeySchema = z.object({
+  id: z.number(),
+  key: z.string(),
+  name: z.string(),
+  scope: z.string(),
+  key_prefix: z.string(),
+  key_hint: z.string(),
+  created_at: z.string(),
+  message: z.string(),
+});
+
+const KeyItemSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  scope: z.string(),
+  key_prefix: z.string(),
+  key_hint: z.string(),
+  rate_limit_rpm: z.number().nullable(),
+  last_used_at: z.string().nullable(),
+  request_count: z.number().nullable(),
+  expires_at: z.string().nullable(),
+  is_active: z.boolean(),
+  created_at: z.string(),
+});
+
+const KeyListSchema = z.object({
+  data: z.array(KeyItemSchema),
+});
+
+const KeyIdParamSchema = z.object({
+  id: z.string(),
+});
+
+const KeyRevokedSchema = z.object({
+  message: z.string(),
+  id: z.number(),
+});
+
+// --- Routes ---
+
+const createKeyRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: ['Admin'],
+  summary: 'Create API key',
+  description: 'Generate a new API key. The raw key is returned once and cannot be retrieved again.',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateKeyBodySchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'API key created successfully',
+      content: {
+        'application/json': {
+          schema: CreatedKeySchema,
+        },
+      },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+const listKeysRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['Admin'],
+  summary: 'List API keys',
+  description: 'List all API keys with prefix and hint only. Key hashes are never exposed.',
+  responses: {
+    200: {
+      description: 'List of API keys',
+      content: {
+        'application/json': {
+          schema: KeyListSchema,
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+const deleteKeyRoute = createRoute({
+  method: 'delete',
+  path: '/{id}',
+  tags: ['Admin'],
+  summary: 'Revoke API key',
+  description: 'Soft-delete an API key by setting is_active to false.',
+  request: {
+    params: KeyIdParamSchema,
+  },
+  responses: {
+    200: {
+      description: 'Key revoked successfully',
+      content: {
+        'application/json': {
+          schema: KeyRevokedSchema,
+        },
+      },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+// --- Handlers ---
 
 // POST /v1/admin/keys -- create new API key
-keys.post('/', async (c) => {
+keys.openapi(createKeyRoute, async (c) => {
   setCache(c, 'none');
 
   let body: { name?: string; scope?: string };
@@ -85,7 +203,7 @@ keys.post('/', async (c) => {
 });
 
 // GET /v1/admin/keys -- list all keys (prefix + hint only, never expose hash)
-keys.get('/', async (c) => {
+keys.openapi(listKeysRoute, async (c) => {
   setCache(c, 'none');
 
   const db = drizzle(c.env.DB);
@@ -126,7 +244,7 @@ keys.get('/', async (c) => {
 
 // DELETE /v1/admin/keys/:id -- revoke a key (soft delete via is_active)
 // eslint-disable-next-line drizzle/enforce-delete-with-where
-keys.delete('/:id', async (c) => {
+keys.openapi(deleteKeyRoute, async (c) => {
   setCache(c, 'none');
 
   const idParam = c.req.param('id');
@@ -138,7 +256,7 @@ keys.delete('/:id', async (c) => {
   const db = drizzle(c.env.DB);
 
   const [existing] = await db
-    .select({ id: apiKeys.id, keyHash: apiKeys.keyHash })
+    .select({ id: apiKeys.id })
     .from(apiKeys)
     .where(eq(apiKeys.id, id));
 
@@ -148,10 +266,7 @@ keys.delete('/:id', async (c) => {
 
   await db.update(apiKeys).set({ isActive: 0 }).where(eq(apiKeys.id, id));
 
-  // Invalidate auth cache for this key
-  invalidateAuthCache(existing.keyHash);
-
-  return c.json({ message: 'Key revoked', id });
+  return c.json({ message: 'Key revoked' as const, id });
 });
 
 export default keys;

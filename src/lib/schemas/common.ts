@@ -52,21 +52,27 @@ export const ImageAttachment = z
 
 // ─── Common Error Responses ─────────────────────────────────────────
 
-export const errorResponses = {
-  400: {
-    content: { 'application/json': { schema: ErrorResponse } },
-    description: 'Bad request',
-  },
-  401: {
-    content: { 'application/json': { schema: ErrorResponse } },
-    description: 'Unauthorized',
-  },
-  404: {
-    content: { 'application/json': { schema: ErrorResponse } },
-    description: 'Not found',
-  },
-  500: {
-    content: { 'application/json': { schema: ErrorResponse } },
-    description: 'Internal server error',
-  },
-} as const;
+const ERROR_DESCRIPTIONS: Record<number, string> = {
+  400: 'Bad request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not found',
+  500: 'Internal server error',
+};
+
+/**
+ * Generate error response definitions for specific status codes.
+ * Usage: `...errorResponses(400, 401, 404)` in a route's responses object.
+ */
+export function errorResponses(
+  ...codes: Array<400 | 401 | 403 | 404 | 500>
+): Record<string, object> {
+  const responses: Record<string, object> = {};
+  for (const code of codes) {
+    responses[code] = {
+      content: { 'application/json': { schema: ErrorResponse } },
+      description: ERROR_DESCRIPTIONS[code],
+    };
+  }
+  return responses;
+}

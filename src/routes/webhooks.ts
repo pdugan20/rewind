@@ -1,5 +1,6 @@
-import { Hono } from 'hono';
-import type { Env } from '../types/env.js';
+import { createRoute, z } from '@hono/zod-openapi';
+import { createOpenAPIApp } from '../lib/openapi.js';
+import { errorResponses } from '../lib/schemas/common.js';
 import { createDb } from '../db/client.js';
 import {
   validateSubscription,
@@ -12,12 +13,66 @@ import {
   handlePlexWebhook,
 } from '../services/plex/webhook.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
-import { badRequest } from '../lib/errors.js';
+const webhooks = createOpenAPIApp();
 
-const webhooks = new Hono<{ Bindings: Env }>();
+// --- Schemas ---
 
-// Strava webhook subscription validation (no auth required)
-webhooks.get('/webhooks/strava', (c) => {
+const StravaSubscriptionQuerySchema = z.object({
+  'hub.mode': z.string().optional(),
+  'hub.challenge': z.string().optional(),
+  'hub.verify_token': z.string().optional(),
+});
+
+const StravaSubscriptionResponseSchema = z.object({
+  'hub.challenge': z.string(),
+});
+
+const StravaWebhookEventSchema = z.object({
+  aspect_type: z.enum(['create', 'update', 'delete']),
+  event_time: z.number(),
+  object_id: z.number(),
+  object_type: z.enum(['activity', 'athlete']),
+  owner_id: z.number(),
+  subscription_id: z.number(),
+  updates: z.record(z.string(), z.unknown()),
+});
+
+const StatusOkResponseSchema = z.object({
+  status: z.literal('ok'),
+});
+
+const PlexWebhookResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+// --- Routes ---
+
+const stravaValidationRoute = createRoute({
+  method: 'get',
+  path: '/webhooks/strava',
+  tags: ['Webhooks'],
+  summary: 'Strava webhook subscription validation',
+  description:
+    'Validates a Strava webhook subscription by echoing back the hub.challenge parameter. No auth required.',
+  'x-internal': true,
+  request: {
+    query: StravaSubscriptionQuerySchema,
+  },
+  responses: {
+    200: {
+      description: 'Subscription validation successful',
+      content: {
+        'application/json': {
+          schema: StravaSubscriptionResponseSchema,
+        },
+      },
+    },
+    ...errorResponses(400),
+  },
+});
+
+webhooks.openapi(stravaValidationRoute, (c) => {
   const query = {
     'hub.mode': c.req.query('hub.mode'),
     'hub.challenge': c.req.query('hub.challenge'),
@@ -27,29 +82,87 @@ webhooks.get('/webhooks/strava', (c) => {
   const result = validateSubscription(query, c.env.STRAVA_WEBHOOK_VERIFY_TOKEN);
 
   if (!result) {
-    return badRequest(c, 'Invalid subscription validation');
+    return c.json(
+      { error: 'Invalid subscription validation', status: 400 },
+      400
+    );
   }
 
-  return c.json(result);
+  return c.json(result, 200);
 });
 
-// Strava webhook event receiver (no auth required)
-webhooks.post('/webhooks/strava', async (c) => {
+const stravaEventRoute = createRoute({
+  method: 'post',
+  path: '/webhooks/strava',
+  tags: ['Webhooks'],
+  summary: 'Strava webhook event receiver',
+  description:
+    'Receives Strava webhook events for activity creates, updates, and deletes. Must respond within 2 seconds. No auth required.',
+  'x-internal': true,
+  request: {
+    body: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: StravaWebhookEventSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Event received successfully',
+      content: {
+        'application/json': {
+          schema: StatusOkResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+webhooks.openapi(stravaEventRoute, async (c) => {
   const event = await c.req.json<StravaWebhookEvent>();
   const db = createDb(c.env.DB);
 
   await processWebhookEvent(event, c.env, db, c.executionCtx);
 
   // Must respond with 200 within 2 seconds
-  return c.json({ status: 'ok' });
+  return c.json({ status: 'ok' as const });
 });
 
-/**
- * POST /v1/webhooks/plex
- * Receives Plex webhook events (multipart/form-data).
- * No auth required -- uses its own verification.
- */
-webhooks.post('/webhooks/plex', async (c) => {
+const plexWebhookRoute = createRoute({
+  method: 'post',
+  path: '/webhooks/plex',
+  tags: ['Webhooks'],
+  summary: 'Plex webhook event receiver',
+  description:
+    'Receives Plex webhook events (multipart/form-data). No auth required -- uses its own verification via PLEX_WEBHOOK_SECRET.',
+  'x-internal': true,
+  request: {
+    body: {
+      required: true,
+      content: {
+        'multipart/form-data': {
+          schema: z.any(),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Webhook processed successfully',
+      content: {
+        'application/json': {
+          schema: PlexWebhookResponseSchema,
+        },
+      },
+    },
+    ...errorResponses(400, 403),
+  },
+});
+
+webhooks.openapi(plexWebhookRoute, async (c) => {
   const payload = await parsePlexWebhook(c.req.raw);
 
   if (!payload) {
@@ -70,10 +183,13 @@ webhooks.post('/webhooks/plex', async (c) => {
 
   const result = await handlePlexWebhook(db, payload, tmdbClient);
 
-  return c.json({
-    success: result.success,
-    message: result.message,
-  });
+  return c.json(
+    {
+      success: result.success,
+      message: result.message,
+    },
+    200
+  );
 });
 
 export default webhooks;
