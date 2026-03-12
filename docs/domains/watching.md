@@ -230,7 +230,7 @@ Watching the same movie on different dates always creates separate watch events.
 - **Plex webhooks**: `media.scrobble` events (real-time)
 - **Plex catch-up cron** (daily 5 AM): scan Plex library for watched items not in DB
 - **Letterboxd cron** (every 6 hours): fetch RSS feed, insert new entries not already in DB
-- **Letterboxd initial import**: one-time CSV import from `https://letterboxd.com/user/exportdata/` for full diary history
+- **Letterboxd initial import**: one-time import from `https://letterboxd.com/settings/data/` export. Merges diary.csv (watch dates + rewatch), ratings.csv (ratings for movies not in diary), and reviews.csv (review text). Adds `review` column to watch_history.
 - **Manual entry**: on-demand via admin endpoint
 - **TMDB enrichment**: on first encounter of a movie from any source, fetch TMDB details + credits + images. Store in `movies` table with genres/directors in join tables.
 - **Dedup check**: before inserting any watch event, check for existing entry with same movie_id + same calendar date
@@ -291,6 +291,7 @@ interface WatchEvent {
   user_rating: number | null;
   percent_complete: number | null;
   rewatch: boolean;
+  review: string | null;
 }
 
 interface WatchingStats {

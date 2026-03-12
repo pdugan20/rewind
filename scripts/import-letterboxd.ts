@@ -1,27 +1,30 @@
 /**
  * Letterboxd CSV Import Script
  *
- * One-time script to import full Letterboxd diary history from a CSV export
+ * One-time script to import full Letterboxd export (diary, ratings, reviews)
  * into the remote D1 database. Enriches each movie from TMDB.
+ *
+ * Merges three CSV files into unified entries:
+ *   - diary.csv: watch date, rating, rewatch flag
+ *   - ratings.csv: rating (for movies not in the diary)
+ *   - reviews.csv: review text (matched to diary/rating entries by Letterboxd URI)
  *
  * Prerequisites:
  *   1. Export your Letterboxd data at https://letterboxd.com/settings/data/
- *   2. Extract the zip -- you need the `diary.csv` file.
+ *   2. Extract the zip -- you need the export directory.
  *   3. Set TMDB_API_KEY env var.
  *   4. Ensure wrangler is authenticated (`npx wrangler login`).
  *
  * Usage:
- *   TMDB_API_KEY=xxx npx tsx scripts/import-letterboxd.ts path/to/diary.csv
+ *   TMDB_API_KEY=xxx npx tsx scripts/import-letterboxd.ts path/to/letterboxd-export/
  *
  * Resume from checkpoint:
- *   TMDB_API_KEY=xxx npx tsx scripts/import-letterboxd.ts path/to/diary.csv --resume
- *
- * Diary CSV columns: Date, Name, Year, Letterboxd URI, Rating, Rewatch, Tags, Watched Date
+ *   TMDB_API_KEY=xxx npx tsx scripts/import-letterboxd.ts path/to/letterboxd-export/ --resume
  */
 
-import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 
 const DB_NAME = 'rewind-db';
 const CHECKPOINT_FILE = resolve(
@@ -33,14 +36,14 @@ const TMDB_RATE_LIMIT_MS = 250; // ~4 req/sec to stay under TMDB's 40 req/10sec
 
 // --- Types ---
 
-interface DiaryEntry {
-  date: string;
+interface ImportEntry {
   name: string;
   year: number | null;
   letterboxdUri: string;
   rating: number | null;
   rewatch: boolean;
-  watchedDate: string;
+  watchedDate: string | null; // null for ratings-only entries
+  review: string | null;
 }
 
 interface TmdbMovieDetail {
@@ -71,51 +74,14 @@ if (!tmdbApiKey) {
   process.exit(1);
 }
 
-const csvPath = process.argv.find((a) => a.endsWith('.csv'));
-if (!csvPath) {
-  console.error('[ERROR] Provide path to diary.csv as argument');
+// Find the export directory argument: skip node binary, script path, and flags
+const exportDir = process.argv.slice(2).find((a) => !a.startsWith('-'));
+if (!exportDir || !existsSync(exportDir)) {
+  console.error('[ERROR] Provide path to Letterboxd export directory as argument');
   process.exit(1);
 }
 
 // --- CSV parsing ---
-
-function parseDiaryCsv(filePath: string): DiaryEntry[] {
-  const content = readFileSync(filePath, 'utf-8');
-  const lines = content.split('\n').filter((l) => l.trim());
-
-  // Skip header
-  const entries: DiaryEntry[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const fields = parseCSVLine(lines[i]);
-    if (fields.length < 8) continue;
-
-    const [
-      date,
-      name,
-      yearStr,
-      letterboxdUri,
-      ratingStr,
-      rewatchStr,
-      ,
-      watchedDate,
-    ] = fields;
-
-    if (!name || !watchedDate) continue;
-
-    entries.push({
-      date: date.trim(),
-      name: name.trim(),
-      year: yearStr ? parseInt(yearStr, 10) : null,
-      letterboxdUri: letterboxdUri.trim(),
-      rating: ratingStr ? parseFloat(ratingStr) : null,
-      rewatch: rewatchStr?.toLowerCase() === 'yes',
-      watchedDate: watchedDate.trim(),
-    });
-  }
-
-  return entries;
-}
 
 function parseCSVLine(line: string): string[] {
   const fields: string[] = [];
@@ -140,6 +106,119 @@ function parseCSVLine(line: string): string[] {
   }
   fields.push(current);
   return fields;
+}
+
+function parseCSVFile(filePath: string): string[][] {
+  if (!existsSync(filePath)) return [];
+  const content = readFileSync(filePath, 'utf-8');
+  const lines = content.split('\n').filter((l) => l.trim());
+  // Skip header, return parsed rows
+  return lines.slice(1).map(parseCSVLine);
+}
+
+function mergeEntries(exportPath: string): ImportEntry[] {
+  const diaryPath = join(exportPath, 'diary.csv');
+  const ratingsPath = join(exportPath, 'ratings.csv');
+  const reviewsPath = join(exportPath, 'reviews.csv');
+
+  // Build a map keyed by Letterboxd URI for deduplication and merging
+  const entryMap = new Map<string, ImportEntry>();
+
+  // 1. Parse diary.csv: Date, Name, Year, Letterboxd URI, Rating, Rewatch, Tags, Watched Date
+  const diaryRows = parseCSVFile(diaryPath);
+  for (const fields of diaryRows) {
+    if (fields.length < 8) continue;
+    const [, name, yearStr, uri, ratingStr, rewatchStr, , watchedDate] = fields;
+    if (!name || !uri) continue;
+
+    entryMap.set(uri.trim(), {
+      name: name.trim(),
+      year: yearStr ? parseInt(yearStr, 10) : null,
+      letterboxdUri: uri.trim(),
+      rating: ratingStr ? parseFloat(ratingStr) : null,
+      rewatch: rewatchStr?.toLowerCase() === 'yes',
+      watchedDate: watchedDate?.trim() || null,
+      review: null,
+    });
+  }
+  console.log(`[INFO] Parsed ${diaryRows.length} diary entries`);
+
+  // 2. Parse ratings.csv: Date, Name, Year, Letterboxd URI, Rating
+  //    Only add entries not already in diary
+  let ratingsAdded = 0;
+  const ratingsRows = parseCSVFile(ratingsPath);
+  for (const fields of ratingsRows) {
+    if (fields.length < 5) continue;
+    const [date, name, yearStr, uri, ratingStr] = fields;
+    if (!name || !uri) continue;
+
+    const trimmedUri = uri.trim();
+    if (entryMap.has(trimmedUri)) {
+      // Diary already has this movie -- update rating if diary didn't have one
+      const existing = entryMap.get(trimmedUri)!;
+      if (existing.rating === null && ratingStr) {
+        existing.rating = parseFloat(ratingStr);
+      }
+      continue;
+    }
+
+    entryMap.set(trimmedUri, {
+      name: name.trim(),
+      year: yearStr ? parseInt(yearStr, 10) : null,
+      letterboxdUri: trimmedUri,
+      rating: ratingStr ? parseFloat(ratingStr) : null,
+      rewatch: false,
+      watchedDate: date?.trim() || null, // use the rating date as a fallback
+      review: null,
+    });
+    ratingsAdded++;
+  }
+  console.log(
+    `[INFO] Parsed ${ratingsRows.length} ratings (${ratingsAdded} new movies not in diary)`
+  );
+
+  // 3. Parse reviews.csv: Date, Name, Year, Letterboxd URI, Rating, Rewatch, Review, Tags, Watched Date
+  //    Merge review text into existing entries, or create new entries
+  let reviewsMatched = 0;
+  let reviewsAdded = 0;
+  const reviewsRows = parseCSVFile(reviewsPath);
+  for (const fields of reviewsRows) {
+    if (fields.length < 7) continue;
+    const [date, name, yearStr, uri, ratingStr, rewatchStr, review, , watchedDate] =
+      fields;
+    if (!name || !uri) continue;
+
+    const trimmedUri = uri.trim();
+    const reviewText = review?.trim() || null;
+
+    if (entryMap.has(trimmedUri)) {
+      // Attach review to existing entry
+      const existing = entryMap.get(trimmedUri)!;
+      if (reviewText) {
+        existing.review = reviewText;
+        reviewsMatched++;
+      }
+    } else {
+      // Review for a movie not in diary or ratings
+      entryMap.set(trimmedUri, {
+        name: name.trim(),
+        year: yearStr ? parseInt(yearStr, 10) : null,
+        letterboxdUri: trimmedUri,
+        rating: ratingStr ? parseFloat(ratingStr) : null,
+        rewatch: rewatchStr?.toLowerCase() === 'yes',
+        watchedDate: watchedDate?.trim() || date?.trim() || null,
+        review: reviewText,
+      });
+      reviewsAdded++;
+    }
+  }
+  console.log(
+    `[INFO] Parsed ${reviewsRows.length} reviews (${reviewsMatched} matched, ${reviewsAdded} new)`
+  );
+
+  const entries = [...entryMap.values()];
+  console.log(`[INFO] Total unique movies to import: ${entries.length}`);
+  return entries;
 }
 
 // --- TMDB API ---
@@ -263,40 +342,25 @@ function escapeSQL(value: string | null | undefined): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+// Use --command (query API) for all D1 calls. The --file flag routes through
+// the import API which returns summary stats instead of actual row data,
+// breaking all SELECT queries.
+//
+// execFileSync bypasses the shell entirely, so no escaping is needed —
+// SQL with $, *, backticks, quotes, etc. is passed as-is to wrangler.
+
+function wranglerD1(sql: string, json: boolean): string {
+  const args = ['wrangler', 'd1', 'execute', DB_NAME, '--remote', `--command=${sql}`];
+  if (json) args.push('--json');
+  return execFileSync('npx', args, { stdio: 'pipe', timeout: 30_000 }).toString();
+}
+
 function executeRemoteSQL(sql: string): string {
-  const tmpFile = resolve(import.meta.dirname ?? '.', '.tmp-sql.sql');
-  writeFileSync(tmpFile, sql);
-  try {
-    const result = execSync(
-      `npx wrangler d1 execute ${DB_NAME} --remote --file="${tmpFile}"`,
-      { stdio: 'pipe', timeout: 30_000 }
-    ).toString();
-    return result;
-  } finally {
-    try {
-      execSync(`rm "${tmpFile}"`, { stdio: 'pipe' });
-    } catch {
-      // ignore
-    }
-  }
+  return wranglerD1(sql, false);
 }
 
 function executeRemoteSQLJson(sql: string): string {
-  const tmpFile = resolve(import.meta.dirname ?? '.', '.tmp-sql.sql');
-  writeFileSync(tmpFile, sql);
-  try {
-    const result = execSync(
-      `npx wrangler d1 execute ${DB_NAME} --remote --file="${tmpFile}" --json`,
-      { stdio: 'pipe', timeout: 30_000 }
-    ).toString();
-    return result;
-  } finally {
-    try {
-      execSync(`rm "${tmpFile}"`, { stdio: 'pipe' });
-    } catch {
-      // ignore
-    }
-  }
+  return wranglerD1(sql, true);
 }
 
 // --- Checkpoint ---
@@ -363,6 +427,22 @@ async function findOrCreateMovie(
   // Fetch full TMDB details
   const detail = await getMovieDetail(tmdbId);
 
+  // Check if movie exists by IMDB ID (catches title mismatches from Plex sync)
+  if (detail.imdb_id) {
+    try {
+      const imdbCheckSQL = `SELECT id FROM movies WHERE imdb_id = ${escapeSQL(detail.imdb_id)} LIMIT 1;`;
+      const result = executeRemoteSQLJson(imdbCheckSQL);
+      const parsed = JSON.parse(result) as Array<{
+        results: Array<{ id: number }>;
+      }>;
+      if (parsed[0]?.results?.length > 0) {
+        return parsed[0].results[0].id;
+      }
+    } catch {
+      // continue
+    }
+  }
+
   // Insert movie
   const now = new Date().toISOString();
   const insertSQL = `INSERT INTO movies (user_id, title, year, tmdb_id, imdb_id, tagline, summary, content_rating, runtime, poster_path, backdrop_path, tmdb_rating, created_at) VALUES (1, ${escapeSQL(detail.title)}, ${detail.year ?? 'NULL'}, ${detail.id}, ${escapeSQL(detail.imdb_id)}, ${escapeSQL(detail.tagline)}, ${escapeSQL(detail.overview)}, ${escapeSQL(detail.content_rating)}, ${detail.runtime ?? 'NULL'}, ${escapeSQL(detail.poster_path)}, ${escapeSQL(detail.backdrop_path)}, ${detail.vote_average ?? 'NULL'}, ${escapeSQL(now)});`;
@@ -422,10 +502,14 @@ async function main() {
   const isResume = process.argv.includes('--resume');
   let checkpoint: Checkpoint | null = isResume ? loadCheckpoint() : null;
 
-  console.log(`[INFO] Letterboxd CSV import starting: ${csvPath}`);
+  console.log(`[INFO] Letterboxd import starting from: ${exportDir}`);
 
-  const entries = parseDiaryCsv(csvPath!);
-  console.log(`[INFO] Parsed ${entries.length} diary entries`);
+  const entries = mergeEntries(exportDir!);
+
+  if (entries.length === 0) {
+    console.log('[INFO] No entries to import');
+    return;
+  }
 
   if (checkpoint) {
     console.log(
@@ -443,41 +527,100 @@ async function main() {
 
     const entry = entries[i];
 
+    const total = entries.length;
+    const done = synced + skipped + errors;
+    console.log(`[${done + 1}/${total}] Processing: "${entry.name}" (${entry.year})`);
+
     try {
       const movieId = await findOrCreateMovie(entry.name, entry.year);
 
       if (!movieId) {
+        console.log(`  -> skipped (no TMDB match)`);
         skipped++;
         processedSet.add(i);
         continue;
       }
 
-      // Check for duplicate watch (same movie + same date)
-      const watchedAt = `${entry.watchedDate}T12:00:00.000Z`;
-      const dateStr = entry.watchedDate;
+      if (entry.watchedDate) {
+        // Check for duplicate watch (same movie + same date)
+        const watchedAt = `${entry.watchedDate}T12:00:00.000Z`;
+        const dateStr = entry.watchedDate;
 
-      try {
-        const dupCheck = executeRemoteSQLJson(
-          `SELECT id FROM watch_history WHERE movie_id = ${movieId} AND substr(watched_at, 1, 10) = ${escapeSQL(dateStr)} LIMIT 1;`
-        );
-        const dupParsed = JSON.parse(dupCheck) as Array<{
-          results: Array<{ id: number }>;
-        }>;
-        if (dupParsed[0]?.results?.length > 0) {
+        let existingWatchId: number | null = null;
+        try {
+          const dupCheck = executeRemoteSQLJson(
+            `SELECT id FROM watch_history WHERE movie_id = ${movieId} AND substr(watched_at, 1, 10) = ${escapeSQL(dateStr)} LIMIT 1;`
+          );
+          const dupParsed = JSON.parse(dupCheck) as Array<{
+            results: Array<{ id: number }>;
+          }>;
+          if (dupParsed[0]?.results?.length > 0) {
+            existingWatchId = dupParsed[0].results[0].id;
+          }
+        } catch {
+          // continue
+        }
+
+        if (existingWatchId) {
+          if (entry.review) {
+            executeRemoteSQL(
+              `UPDATE watch_history SET review = ${escapeSQL(entry.review)} WHERE id = ${existingWatchId};`
+            );
+            console.log(`  -> updated review on existing watch`);
+          } else {
+            console.log(`  -> skipped (already exists)`);
+          }
           skipped++;
           processedSet.add(i);
           continue;
         }
-      } catch {
-        // continue with insert
+
+        // Insert watch history with review
+        const now = new Date().toISOString();
+        const watchSQL = `INSERT INTO watch_history (user_id, movie_id, watched_at, source, user_rating, rewatch, review, created_at) VALUES (1, ${movieId}, ${escapeSQL(watchedAt)}, 'letterboxd', ${entry.rating ?? 'NULL'}, ${entry.rewatch ? 1 : 0}, ${escapeSQL(entry.review)}, ${escapeSQL(now)});`;
+
+        executeRemoteSQL(watchSQL);
+        console.log(`  -> synced (watch + rating${entry.review ? ' + review' : ''})`);
+        synced++;
+      } else {
+        // No watched date -- ratings-only entry. Check if any watch exists for this movie.
+        let existingWatchId: number | null = null;
+        try {
+          const existCheck = executeRemoteSQLJson(
+            `SELECT id FROM watch_history WHERE movie_id = ${movieId} LIMIT 1;`
+          );
+          const existParsed = JSON.parse(existCheck) as Array<{
+            results: Array<{ id: number }>;
+          }>;
+          if (existParsed[0]?.results?.length > 0) {
+            existingWatchId = existParsed[0].results[0].id;
+          }
+        } catch {
+          // continue
+        }
+
+        if (existingWatchId) {
+          const updates: string[] = [];
+          if (entry.rating !== null) updates.push(`user_rating = ${entry.rating}`);
+          if (entry.review) updates.push(`review = ${escapeSQL(entry.review)}`);
+          if (updates.length > 0) {
+            executeRemoteSQL(
+              `UPDATE watch_history SET ${updates.join(', ')} WHERE id = ${existingWatchId};`
+            );
+            console.log(`  -> updated ${updates.length > 1 ? 'rating + review' : entry.rating !== null ? 'rating' : 'review'} on existing watch`);
+          } else {
+            console.log(`  -> skipped (already exists, no new data)`);
+          }
+          skipped++;
+        } else {
+          const now = new Date().toISOString();
+          const watchSQL = `INSERT INTO watch_history (user_id, movie_id, watched_at, source, user_rating, rewatch, review, created_at) VALUES (1, ${movieId}, ${escapeSQL(now)}, 'letterboxd', ${entry.rating ?? 'NULL'}, 0, ${escapeSQL(entry.review)}, ${escapeSQL(now)});`;
+          executeRemoteSQL(watchSQL);
+          console.log(`  -> synced (rating only, no watch date)`);
+          synced++;
+        }
       }
 
-      // Insert watch history
-      const now = new Date().toISOString();
-      const watchSQL = `INSERT INTO watch_history (user_id, movie_id, watched_at, source, user_rating, rewatch, created_at) VALUES (1, ${movieId}, ${escapeSQL(watchedAt)}, 'letterboxd', ${entry.rating ?? 'NULL'}, ${entry.rewatch ? 1 : 0}, ${escapeSQL(now)});`;
-
-      executeRemoteSQL(watchSQL);
-      synced++;
       processedSet.add(i);
     } catch (error) {
       console.error(
@@ -501,7 +644,7 @@ async function main() {
   checkpoint = { processedIndices: [...processedSet] };
   saveCheckpoint(checkpoint);
 
-  console.log('[SUCCESS] Letterboxd CSV import completed');
+  console.log('[SUCCESS] Letterboxd import completed');
   console.log(
     `[INFO] Synced: ${synced}, Skipped: ${skipped}, Errors: ${errors}`
   );
