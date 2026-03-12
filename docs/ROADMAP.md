@@ -406,7 +406,7 @@
 - [x] **4.8.5** Implement TMDB enrichment for new movies from Letterboxd (reuse watching/tmdb.ts)
 - [x] **4.8.6** Map Letterboxd rating (0.5-5.0) to user_rating field
 - [x] **4.8.7** Wire cron handler: every 6 hours Letterboxd RSS sync
-- ~~**4.8.8** Create scripts/import-letterboxd.ts~~ (moved to Phase 6.5)
+- [x] **4.8.8** Create scripts/import-letterboxd.ts (full export import: diary + ratings + reviews)
 - [x] **4.8.9** Write tests for Letterboxd sync
 
 **4.9 -- Manual Movie Entry**
@@ -550,7 +550,7 @@
 - [x] **6.5.3.1** Run Last.fm historical backfill (~124K scrobbles) -- 130,245 scrobbles in production, stats/top-lists required full sync trigger
 - [ ] **6.5.3.2** Run Strava bulk import (~1347 activities) -- in progress, 821/1347 (restarted after rate-limit stall)
 - [x] **6.5.3.3** Run Plex library import (368 movies, 1582 TV episodes) -- 400 movies, 98 shows, 1569 episodes imported. All images backfilled to R2.
-- [ ] **6.5.3.4** Run Letterboxd CSV import -- requires user's diary.csv export
+- [x] **6.5.3.4** Run Letterboxd CSV import -- 524 movies imported (424 synced, 77 skipped as existing, 3 retried). Diary watches, ratings (442), and reviews (82) merged from full Letterboxd export. Added `review` column to watch_history.
 - [ ] **6.5.3.6** Run Apple Music listening history import -- requires CSV from Apple privacy export (https://privacy.apple.com)
 - [x] **6.5.3.5a** Update Discogs collection -- bulk added 139 items (33 CDs + 106 vinyl) via scripts/add-discogs-collection.ts, collection now ~284 items
 - [x] **6.5.3.5b** Run Discogs collection import -- 284 items synced to D1, cross-reference with Last.fm completed
