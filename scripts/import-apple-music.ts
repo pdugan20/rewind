@@ -970,6 +970,12 @@ async function main() {
   console.log(
     `[INFO] Cached entities: ${artistCache.size} artists, ${albumCache.size} albums, ${trackCache.size} tracks`
   );
+  console.log('');
+  console.log('[INFO] Next steps:');
+  console.log('  1. Trigger a listening sync to update search index and activity feed:');
+  console.log('     curl -X POST -H "Authorization: Bearer $API_KEY" https://api.rewind.rest/v1/admin/sync/listening');
+  console.log('  2. If Apple Music-only artists need indexing, run search backfill:');
+  console.log('     npx wrangler d1 execute rewind-db --remote --command "INSERT OR IGNORE INTO search_index (domain, entity_type, entity_id, title) SELECT \'listening\', \'artist\', CAST(id AS TEXT), name FROM lastfm_artists WHERE id NOT IN (SELECT CAST(entity_id AS INTEGER) FROM search_index WHERE domain = \'listening\' AND entity_type = \'artist\')"');
 }
 
 main().catch((error) => {
