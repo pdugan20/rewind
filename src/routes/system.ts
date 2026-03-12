@@ -1,28 +1,84 @@
-import { Hono } from 'hono';
+import { createRoute, z } from '@hono/zod-openapi';
 import { desc, eq, sql, and } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import type { Env } from '../types/env.js';
+import { createOpenAPIApp } from '../lib/openapi.js';
 import { syncRuns } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
 
 const DOMAINS = ['listening', 'running', 'watching', 'collecting'];
 
-const system = new Hono<{ Bindings: Env }>();
+const system = createOpenAPIApp();
 
-system.get('/health', (c) => {
+// ─── Schemas ────────────────────────────────────────────────────────
+
+const HealthResponse = z
+  .object({
+    status: z.literal('ok'),
+    timestamp: z.string().datetime(),
+  })
+  .openapi('HealthResponse');
+
+const SyncDomainStatus = z.object({
+  last_sync: z.string().datetime().nullable(),
+  status: z.string().openapi({ example: 'completed' }),
+  sync_type: z.string().openapi({ example: 'scrobbles' }),
+  items_synced: z.number().int().nullable(),
+  duration_ms: z.number().int().nullable(),
+  error: z.string().nullable(),
+  error_rate: z.number().openapi({ example: 0.0 }),
+});
+
+const SyncHealthResponse = z
+  .object({
+    status: z.literal('ok'),
+    domains: z.record(z.string(), SyncDomainStatus),
+  })
+  .openapi('SyncHealthResponse');
+
+// ─── Routes ─────────────────────────────────────────────────────────
+
+const healthRoute = createRoute({
+  method: 'get',
+  path: '/health',
+  tags: ['System'],
+  summary: 'Health check',
+  description: 'Returns API health status and current timestamp.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: HealthResponse } },
+      description: 'API is healthy',
+    },
+  },
+});
+
+system.openapi(healthRoute, (c) => {
   setCache(c, 'realtime');
   return c.json({
-    status: 'ok',
+    status: 'ok' as const,
     timestamp: new Date().toISOString(),
   });
 });
 
-system.get('/health/sync', async (c) => {
+const syncHealthRoute = createRoute({
+  method: 'get',
+  path: '/health/sync',
+  tags: ['System'],
+  summary: 'Sync health status',
+  description:
+    'Returns the latest sync status for each data domain, including last sync time, items synced, duration, and 24-hour error rate.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: SyncHealthResponse } },
+      description: 'Sync status for all domains',
+    },
+  },
+});
+
+system.openapi(syncHealthRoute, async (c) => {
   setCache(c, 'short');
 
   const db = drizzle(c.env.DB);
 
-  // Get the latest sync run for each domain
   const domains: Record<
     string,
     {
@@ -37,7 +93,6 @@ system.get('/health/sync', async (c) => {
   > = {};
 
   for (const domain of DOMAINS) {
-    // Latest sync run
     const [latest] = await db
       .select()
       .from(syncRuns)
@@ -45,7 +100,6 @@ system.get('/health/sync', async (c) => {
       .orderBy(desc(syncRuns.startedAt))
       .limit(1);
 
-    // Error rate: count failed vs total in last 24 hours
     const twentyFourHoursAgo = new Date(
       Date.now() - 24 * 60 * 60 * 1000
     ).toISOString();
@@ -86,7 +140,7 @@ system.get('/health/sync', async (c) => {
   }
 
   return c.json({
-    status: 'ok',
+    status: 'ok' as const,
     domains,
   });
 });

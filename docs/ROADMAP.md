@@ -548,7 +548,7 @@
 **6.5.3 -- Initial Data Imports**
 
 - [x] **6.5.3.1** Run Last.fm historical backfill (~124K scrobbles) -- 130,245 scrobbles in production, stats/top-lists required full sync trigger
-- [ ] **6.5.3.2** Run Strava bulk import (~1347 activities) -- in progress, 821/1347 (restarted after rate-limit stall)
+- [x] **6.5.3.2** Run Strava bulk import -- 1,348 activities imported (paginated fetch with rate-limit handling and checkpoint/resume)
 - [x] **6.5.3.3** Run Plex library import (368 movies, 1582 TV episodes) -- 400 movies, 98 shows, 1569 episodes imported. All images backfilled to R2.
 - [x] **6.5.3.4** Run Letterboxd CSV import -- 524 movies imported (424 synced, 77 skipped as existing, 3 retried). Diary watches, ratings (442), and reviews (82) merged from full Letterboxd export. Added `review` column to watch_history.
 - [ ] **6.5.3.6** Run Apple Music listening history import -- requires CSV from Apple privacy export (https://privacy.apple.com)
@@ -621,9 +621,9 @@ Centralize all images through the R2 pipeline. Stop serving direct external URLs
 - [x] **9.6.1** Backfill listening album images -- 8,748 succeeded, 1,557 no-source placeholders (all zero-play soundtrack fragments/playlist artifacts), 100% real album coverage
 - [x] **9.6.2** Backfill watching images -- 609/609 movies with TMDB IDs covered (100%), 0 skipped
 - [x] **9.6.3** Backfill collecting release images -- 1 succeeded, 17 no-source placeholders (comedy albums, soundtracks)
-- [ ] **9.6.4** Backfill listening artist images
-- [ ] **9.6.5** Verify CDN delivery and image transforms for all domains
-- [ ] **9.6.6** Populate search_hints for all existing image records
+- [x] **9.6.4** Backfill listening artist images -- 1,712 succeeded, 2,785 no-source placeholders (niche/compilation artists without images on any source)
+- [x] **9.6.5** Verify CDN delivery and image transforms for all domains -- 11,470 images total, 0 missing thumbhash, 100% coverage
+- [x] **9.6.6** Populate search_hints for all existing image records -- 11,470/11,470 populated
 
 **9.7 -- Cleanup**
 

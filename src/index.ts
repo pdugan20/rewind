@@ -1,8 +1,12 @@
-import { Hono } from 'hono';
+import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Env } from './types/env.js';
 import { cors } from './lib/cors.js';
 import { requireAuth } from './lib/auth.js';
 import { createDb } from './db/client.js';
+import {
+  openAPIConfig,
+  securitySchemes,
+} from './lib/openapi.js';
 import system from './routes/system.js';
 import listening from './routes/listening.js';
 import running from './routes/running.js';
@@ -30,7 +34,7 @@ import {
 import { shouldRetry } from './lib/sync-retry.js';
 import { shouldSkipWatchingImages } from './services/images/sync-images.js';
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new OpenAPIHono<{ Bindings: Env }>();
 
 // Global middleware
 app.use('*', async (c, next) => {
@@ -45,7 +49,8 @@ app.use('/v1/*', async (c, next) => {
   if (
     path.startsWith('/v1/webhooks/') ||
     path === '/v1/health' ||
-    path === '/v1/health/sync'
+    path === '/v1/health/sync' ||
+    path === '/v1/openapi.json'
   ) {
     return next();
   }
@@ -77,6 +82,20 @@ const routes = app
   .route('/admin/export', exportRoute)
   .route('/admin/keys', keys)
   .route('/', adminSync);
+
+// Register OpenAPI security scheme
+routes.openAPIRegistry.registerComponent(
+  'securitySchemes',
+  'bearerAuth',
+  securitySchemes.bearerAuth
+);
+
+// OpenAPI spec endpoint
+routes.use('/openapi.json', async (c, next) => {
+  await next();
+  c.header('Cache-Control', 'public, max-age=300, s-maxage=300');
+});
+routes.doc31('/openapi.json', openAPIConfig);
 
 // Cron handler
 export default {

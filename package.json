@@ -51,6 +51,7 @@
   },
   "homepage": "https://github.com/pdugan20/rewind#readme",
   "dependencies": {
+    "@hono/zod-openapi": "^1.2.2",
     "@hono/zod-validator": "^0.7.6",
     "drizzle-orm": "^0.45.1",
     "fast-png": "^8.0.0",

@@ -57,6 +57,10 @@ Route code (Hono + Zod schemas)
 | 5 | Spec quality | Descriptions, examples, authentication docs, error catalog |
 | 6 | Launch | DNS, CORS, final review, announce |
 
+## Prerequisites
+
+The reliability-improvements project (Phases 4, 6, 9.2) has been completed. Admin paths are normalized to `/v1/admin/sync/:domain`, new endpoints (browse, ratings, year-in-review) are in place, and response envelopes are consistent. The API surface is stable and ready to document.
+
 ## Sequencing Notes
 
 - Phase 1 is the proof of concept -- validates the approach before committing to a full migration
@@ -68,7 +72,7 @@ Route code (Hono + Zod schemas)
 
 ## Route File Inventory
 
-Files to migrate in Phase 2, ordered by complexity (simplest first):
+Files to migrate in Phase 2, ordered by complexity (simplest first). **100 total endpoints across 12 files.**
 
 | File | Endpoints | Complexity | Notes |
 |------|-----------|------------|-------|
@@ -77,9 +81,10 @@ Files to migrate in Phase 2, ordered by complexity (simplest first):
 | `search.ts` | 1 | Low | Single cross-domain search |
 | `feed.ts` | 2 | Low | Activity feed |
 | `export.ts` | 1 | Low | Data export |
-| `images.ts` | 4 | Medium | Proxy + admin overrides |
-| `webhooks.ts` | 2 | Medium | Strava + Plex webhooks (admin-only, may exclude from public docs) |
-| `collecting.ts` | 9 | Medium | Discogs + Trakt |
-| `watching.ts` | 15 | High | Movies + TV + manual entry |
-| `running.ts` | 18 | High | Strava activities + stats |
-| `listening.ts` | 15 | High | Last.fm scrobbles + tops + streaks |
+| `images.ts` | 5 | Medium | Proxy + admin overrides + reprocess |
+| `webhooks.ts` | 3 | Medium | Strava + Plex webhooks (admin-only, may exclude from public docs) |
+| `admin-sync.ts` | 7 | Medium | Sync triggers + delete activity + recompute stats |
+| `collecting.ts` | 19 | High | Discogs collection + Trakt media collection + wantlist + admin |
+| `watching.ts` | 19 | High | Movies + TV + ratings + reviews + year-in-review + admin |
+| `running.ts` | 19 | High | Activities + stats + charts + streaks + races + eddington + year-in-review |
+| `listening.ts` | 19 | High | Scrobbles + tops + browse + streaks + calendar + year-in-review + admin |
