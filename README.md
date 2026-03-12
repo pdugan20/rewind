@@ -19,30 +19,6 @@ Rewind syncs data from six services on a schedule, normalizes everything into a 
 
 A unified activity feed combines all domains into a single chronological stream.
 
-## How it works
-
-```mermaid
-graph TD
-    subgraph Sources
-        LF[Last.fm]
-        ST[Strava]
-        PX[Plex]
-        LB[Letterboxd]
-        DC[Discogs]
-        TR[Trakt]
-    end
-
-    LF & ST & PX & LB & DC & TR -->|Cron Triggers| SW[Sync Workers]
-    SW --> D1[(D1 / SQLite)]
-    SW --> R2[(R2 Images)]
-    R2 -->|ThumbHash + color extraction| CDN[cdn.rewind.rest]
-    D1 --> API[Hono REST API]
-    API -->|72 endpoints| DOCS[docs.rewind.rest]
-    API -->|Hono RPC| SITE[Consuming Apps]
-```
-
-The image pipeline fetches artwork from Cover Art Archive, Apple Music, Fanart.tv, and TMDB, stores originals in R2, and serves resized variants through Cloudflare Images with pre-computed ThumbHash placeholders and dominant color extraction.
-
 ## Live endpoints
 
 | Service   | URL                                                  |
@@ -50,7 +26,6 @@ The image pipeline fetches artwork from Cover Art Archive, Apple Music, Fanart.t
 | API       | [api.rewind.rest](https://api.rewind.rest/v1/health) |
 | API Docs  | [docs.rewind.rest](https://docs.rewind.rest)         |
 | Image CDN | [cdn.rewind.rest](https://cdn.rewind.rest)           |
-| Landing   | [rewind.rest](https://rewind.rest)                   |
 
 ## Built with
 
@@ -68,8 +43,4 @@ npm run db:generate  # Generate Drizzle migrations
 npm run db:migrate   # Apply migrations locally
 ```
 
-## Documentation
-
-- **[Interactive API docs](https://docs.rewind.rest)** -- OpenAPI spec rendered by Scalar
-- [Architecture](docs/ARCHITECTURE.md) -- system diagram, sync flow, caching, image pipeline
-- [API reference](docs/API.md) -- endpoint catalog
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design, sync flow, caching strategy, and image pipeline details.

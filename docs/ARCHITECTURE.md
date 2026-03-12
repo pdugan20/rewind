@@ -2,57 +2,24 @@
 
 ## System Overview
 
-```text
-+-------------------+     +-------------------+     +-------------------+     +-------------------+
-|    Last.fm API    |     |    Strava API     |     |    Plex Server    |     |   Discogs API    |
-+--------+----------+     +--------+----------+     +--------+----------+     +--------+----------+
-         |                         |                         |                         |
-         | Cron 15m / 3 AM        | Cron 3:15 AM            | Webhook /               | Cron Sun 3:45 AM
-         |                        | + Webhook                | Cron 3:30 AM            |
-         v                        v                          v                         v
-+--------+----------+     +--------+----------+     +--------+----------+     +--------+----------+
-| Listening Sync    |     | Running Sync      |     | Watching Sync     |     | Collecting Sync  |
-| Worker            |     | Worker            |     | Worker            |     | Worker           |
-+---------+---------+     +---------+---------+     +---------+---------+     +---------+---------+
-          |                        |                         |                         |
-          +----------+-------------+-----------+-------------+
-                     |                         |
-                     v                         v
-              +------+------+          +-------+-------+
-              |   D1        |          |   Images      |
-              |  (SQLite)   |          |   Table       |
-              +------+------+          +-------+-------+
-                     |                         |
-                     |                         |  Source Waterfall:
-                     |                         |  Cover Art Archive -> iTunes ->
-                     |                         |  Apple Music -> Fanart.tv -> TMDB
-                     |                         |
-                     |                         v
-                     |                  +------+------+
-                     |                  |   R2        |
-                     |                  |  (Images)   |
-                     |                  +------+------+
-                     |                         |
-          +----------+-----------+             |
-          |                      |             |
-          v                      v             v
-   +------+------+       +------+------+------+------+
-   | Hono Route  |       | Image Proxy |             |
-   | Handlers    |       | Handler     |             |
-   +------+------+       +------+------+             |
-          |                      |                    |
-          v                      v                    |
-   +------+------+       +------+------+             |
-   | api.rewind  |       | cdn.rewind  |             |
-   |   .rest     |       |   .rest     |<------------+
-   +------+------+       +-------------+
-          |
-          v
-   +------+------+
-   | pat-portfolio|
-   | (Hono RPC   |
-   |  client)    |
-   +-------------+
+```mermaid
+graph TD
+    subgraph Sources
+        LF[Last.fm]
+        ST[Strava]
+        PX[Plex]
+        LB[Letterboxd]
+        DC[Discogs]
+        TR[Trakt]
+    end
+
+    LF & ST & PX & LB & DC & TR -->|Cron Triggers| SW[Sync Workers]
+    SW --> D1[(D1 / SQLite)]
+    SW --> R2[(R2 Images)]
+    R2 -->|ThumbHash + color extraction| CDN[cdn.rewind.rest]
+    D1 --> API[Hono REST API]
+    API -->|72 endpoints| DOCS[docs.rewind.rest]
+    API -->|Hono RPC| SITE[Consuming Apps]
 ```
 
 ## Authentication
