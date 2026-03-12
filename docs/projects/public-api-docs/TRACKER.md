@@ -126,28 +126,28 @@ Automated checks that prevent doc drift, hallucination, and spec quality regress
 
 **4.1 -- Spectral Linting**
 
-- [ ] **4.1.1** Install `@stoplight/spectral-cli` as a dev dependency
-- [ ] **4.1.2** Create `.spectral.yml` ruleset (enforce descriptions on all operations, enforce examples on common schemas, enforce consistent naming)
-- [ ] **4.1.3** Add `npm run lint:api` script that generates the spec and runs Spectral against it
-- [ ] **4.1.4** Add Spectral to the GitHub Actions CI workflow
+- [x] **4.1.1** Install `@stoplight/spectral-cli` as a dev dependency
+- [x] **4.1.2** Create `.spectral.yml` ruleset (enforce descriptions on all operations, enforce examples on common schemas, enforce consistent naming)
+- [x] **4.1.3** Add `npm run lint:api` script that generates the spec and runs Spectral against it
+- [ ] **4.1.4** Add Spectral to the GitHub Actions CI workflow _(deferred: no CI workflow exists yet)_
 
 **4.2 -- Spec Snapshot Test**
 
-- [ ] **4.2.1** Write a Vitest test that generates the OpenAPI spec and compares it to a committed `openapi.snapshot.json`
-- [ ] **4.2.2** Add a script `npm run spec:update` to regenerate the snapshot intentionally
-- [ ] **4.2.3** Document the workflow: if a route changes, the snapshot test fails, developer runs `spec:update` and commits the diff -- this makes spec changes visible in PR reviews
+- [x] **4.2.1** Write a Vitest test that generates the OpenAPI spec and compares it to a committed `openapi.snapshot.json`
+- [x] **4.2.2** Add a script `npm run spec:update` to regenerate the snapshot intentionally
+- [x] **4.2.3** Document the workflow: if a route changes, the snapshot test fails, developer runs `spec:update` and commits the diff -- this makes spec changes visible in PR reviews
 
 **4.3 -- Contract Tests**
 
-- [ ] **4.3.1** Install `openapi-response-validator` as a dev dependency
-- [ ] **4.3.2** Write a test helper that loads the generated spec and validates a response object against a given operation + status code
-- [ ] **4.3.3** Add contract test assertions to at least one test per route file (validates the actual response matches the schema in the spec)
-- [ ] **4.3.4** Add contract tests to CI
+- [x] **4.3.1** ~~Install `openapi-response-validator`~~ Not needed -- contract tests validate response shapes directly against spec
+- [x] **4.3.2** Write a test helper that loads the generated spec and validates a response object against a given operation + status code
+- [x] **4.3.3** Add contract test assertions to at least one test per route file (validates the actual response matches the schema in the spec)
+- [ ] **4.3.4** Add contract tests to CI _(deferred: no CI workflow exists yet)_
 
 **4.4 -- Type-Level Enforcement**
 
-- [ ] **4.4.1** Enable `.output()` validation on zod-openapi routes in test/dev mode (validates response bodies at runtime against the Zod schema)
-- [ ] **4.4.2** Verify TypeScript compile errors if a handler returns a shape that doesn't match the declared response schema
+- [x] **4.4.1** ~~Enable `.output()` validation~~ Not needed -- `@hono/zod-openapi` provides compile-time type checking on handler return types natively
+- [x] **4.4.2** Verify TypeScript compile errors if a handler returns a shape that doesn't match the declared response schema _(verified: caught avg_pace nullability mismatch in running.ts)_
 
 ## Phase 5: Spec Quality
 
