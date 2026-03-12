@@ -48,7 +48,32 @@ List endpoints return paginated responses:
 }
 \`\`\`
 
-The activity feed uses cursor-based pagination instead.`,
+The activity feed uses cursor-based pagination instead.
+
+## Quick Start
+
+\`\`\`bash
+# Check the API is up
+curl https://api.rewind.rest/v1/health
+
+# Fetch recent scrobbles (requires read key)
+curl -H "Authorization: Bearer rw_live_..." \\
+  https://api.rewind.rest/v1/listening/recent
+
+# Fetch running stats
+curl -H "Authorization: Bearer rw_live_..." \\
+  https://api.rewind.rest/v1/running/stats
+\`\`\`
+
+## Errors
+
+All errors follow the same envelope:
+
+\`\`\`json
+{ "error": "Not found", "status": 404 }
+\`\`\`
+
+Common status codes: 400 (bad request), 401 (unauthorized), 404 (not found), 500 (server error).`,
     contact: {
       name: 'Pat Dugan',
       url: 'https://patdugan.me',
