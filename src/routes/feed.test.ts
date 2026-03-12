@@ -5,8 +5,6 @@ import { activityFeed } from '../db/schema/system.js';
 import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 import { insertFeedItem, insertFeedItems } from './feed.js';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 describe('feed routes', () => {
   let token: string;
 
@@ -17,7 +15,7 @@ describe('feed routes', () => {
 
   beforeEach(async () => {
     const db = drizzle(env.DB);
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
+
     await db.delete(activityFeed);
   });
 

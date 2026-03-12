@@ -193,7 +193,9 @@ interface CSVRow {
 async function main() {
   const csvPath = process.argv[2];
   if (!csvPath) {
-    console.error('[ERROR] Usage: npx tsx scripts/import-strava-csv.ts <path-to-activities.csv>');
+    console.error(
+      '[ERROR] Usage: npx tsx scripts/import-strava-csv.ts <path-to-activities.csv>'
+    );
     process.exit(1);
   }
 
@@ -204,7 +206,9 @@ async function main() {
   // Filter to runs only
   const runTypes = new Set(['Run', 'Trail Run', 'Virtual Run']);
   const runs = rows.filter((r) => runTypes.has(r['Activity Type']));
-  console.log(`[INFO] Found ${runs.length} runs in CSV (${rows.length} total activities)`);
+  console.log(
+    `[INFO] Found ${runs.length} runs in CSV (${rows.length} total activities)`
+  );
 
   // Get existing activity IDs from remote DB
   console.log('[INFO] Fetching existing activity IDs from remote DB...');
@@ -356,7 +360,9 @@ async function main() {
     }
   }
 
-  console.log(`[SUCCESS] Import complete: ${imported} activities imported, ${errors} errors`);
+  console.log(
+    `[SUCCESS] Import complete: ${imported} activities imported, ${errors} errors`
+  );
 
   // Verify final count
   const finalCount = executeRemoteSQLJson(

@@ -178,14 +178,14 @@ Trakt API provides physical movie media collection tracking (Blu-ray, 4K UHD, HD
 
 #### Key Endpoints
 
-| Method | Endpoint                                   | Description                | Key Params    |
-| ------ | ------------------------------------------ | -------------------------- | ------------- |
-| GET    | /users/{username}/collection/movies        | All collected movies       | none          |
-| POST   | /sync/collection                           | Add items to collection    | movies array  |
-| POST   | /sync/collection/remove                    | Remove items from collection | movies array |
-| GET    | /users/{username}/watchlist                | Watchlist items            | none          |
-| POST   | /oauth/device/code                         | Start device code flow     | client_id     |
-| POST   | /oauth/device/token                        | Poll for device auth token | code, client_id, client_secret |
+| Method | Endpoint                            | Description                  | Key Params                     |
+| ------ | ----------------------------------- | ---------------------------- | ------------------------------ |
+| GET    | /users/{username}/collection/movies | All collected movies         | none                           |
+| POST   | /sync/collection                    | Add items to collection      | movies array                   |
+| POST   | /sync/collection/remove             | Remove items from collection | movies array                   |
+| GET    | /users/{username}/watchlist         | Watchlist items              | none                           |
+| POST   | /oauth/device/code                  | Start device code flow       | client_id                      |
+| POST   | /oauth/device/token                 | Poll for device auth token   | code, client_id, client_secret |
 
 ### Sync Strategy
 
@@ -204,20 +204,20 @@ Physical media items are cross-referenced with the watching domain using `tmdb_i
 
 ### Supported Media Metadata
 
-| Field          | Values                                           | Description                        |
-| -------------- | ------------------------------------------------ | ---------------------------------- |
-| format         | bluray, 4k_uhd, hddvd                           | Physical disc format               |
-| resolution     | hd_720p, hd_1080p, uhd_4k                       | Video resolution                   |
-| hdr            | dolby_vision, hdr10, hdr10_plus, hlg, none       | HDR format                         |
-| audio          | dolby_atmos, dolby_digital, dts_x, dts_hd, lpcm | Audio codec                        |
-| audio_channels | 2.0, 5.1, 7.1                                   | Audio channel configuration        |
-| media_type     | movie                                            | Currently movies only              |
+| Field          | Values                                          | Description                 |
+| -------------- | ----------------------------------------------- | --------------------------- |
+| format         | bluray, 4k_uhd, hddvd                           | Physical disc format        |
+| resolution     | hd_720p, hd_1080p, uhd_4k                       | Video resolution            |
+| hdr            | dolby_vision, hdr10, hdr10_plus, hlg, none      | HDR format                  |
+| audio          | dolby_atmos, dolby_digital, dts_x, dts_hd, lpcm | Audio codec                 |
+| audio_channels | 2.0, 5.1, 7.1                                   | Audio channel configuration |
+| media_type     | movie                                           | Currently movies only       |
 
 ### Environment Variables
 
-| Variable           | Description                            |
-| ------------------ | -------------------------------------- |
-| TRAKT_CLIENT_ID    | Trakt OAuth2 application client ID     |
+| Variable            | Description                            |
+| ------------------- | -------------------------------------- |
+| TRAKT_CLIENT_ID     | Trakt OAuth2 application client ID     |
 | TRAKT_CLIENT_SECRET | Trakt OAuth2 application client secret |
 
 ### Setup

@@ -10,10 +10,7 @@ import {
   discogsCollectionStats,
   collectionListeningXref,
 } from '../db/schema/discogs.js';
-import {
-  traktCollection,
-  traktCollectionStats,
-} from '../db/schema/trakt.js';
+import { traktCollection, traktCollectionStats } from '../db/schema/trakt.js';
 import { movies } from '../db/schema/watching.js';
 import { watchHistory } from '../db/schema/watching.js';
 import { images } from '../db/schema/system.js';
@@ -28,10 +25,7 @@ import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { runPipeline } from '../services/images/pipeline.js';
 import type { SourceSearchParams } from '../services/images/sources/types.js';
-import {
-  getImageAttachment,
-  getImageAttachmentBatch,
-} from '../lib/images.js';
+import { getImageAttachment, getImageAttachmentBatch } from '../lib/images.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import {
   errorResponses,
@@ -160,7 +154,10 @@ const MediaItemSchema = z.object({
   collected_at: z.string().nullable(),
 });
 
-const MediaRecentItemSchema = MediaItemSchema.omit({ imdb_id: true, runtime: true });
+const MediaRecentItemSchema = MediaItemSchema.omit({
+  imdb_id: true,
+  runtime: true,
+});
 
 const MediaDetailSchema = z.object({
   id: z.number(),
@@ -449,7 +446,8 @@ const formatsRoute = createRoute({
   path: '/collecting/formats',
   tags: ['Collecting'],
   summary: 'Format breakdown',
-  description: 'Count of collection items grouped by primary format (Vinyl, CD, Cassette, etc).',
+  description:
+    'Count of collection items grouped by primary format (Vinyl, CD, Cassette, etc).',
   responses: {
     200: {
       content: {
@@ -653,7 +651,8 @@ const mediaFormatsRoute = createRoute({
   path: '/collecting/media/formats',
   tags: ['Collecting'],
   summary: 'Media format breakdown',
-  description: 'Count of physical media items grouped by format type (bluray, dvd, etc).',
+  description:
+    'Count of physical media items grouped by format type (bluray, dvd, etc).',
   responses: {
     200: {
       content: {
@@ -991,37 +990,41 @@ collecting.openapi(collectionStatsRoute, async (c) => {
       .where(eq(discogsCollectionStats.userId, 1));
 
     if (!stats) {
-      return c.json({ data: {
-        total_items: 0,
-        by_format: { vinyl: 0, cd: 0, cassette: 0, other: 0 },
-        wantlist_count: 0,
-        unique_artists: 0,
-        estimated_value: null,
-        top_genre: null,
-        oldest_release_year: null,
-        newest_release_year: null,
-        most_collected_artist: null,
-        added_this_year: 0,
-      } });
+      return c.json({
+        data: {
+          total_items: 0,
+          by_format: { vinyl: 0, cd: 0, cassette: 0, other: 0 },
+          wantlist_count: 0,
+          unique_artists: 0,
+          estimated_value: null,
+          top_genre: null,
+          oldest_release_year: null,
+          newest_release_year: null,
+          most_collected_artist: null,
+          added_this_year: 0,
+        },
+      });
     }
 
     setCache(c, 'long');
-    return c.json({ data: {
-      total_items: stats.totalItems,
-      by_format: stats.byFormat
-        ? JSON.parse(stats.byFormat)
-        : { vinyl: 0, cd: 0, cassette: 0, other: 0 },
-      wantlist_count: stats.wantlistCount,
-      unique_artists: stats.uniqueArtists,
-      estimated_value: stats.estimatedValue,
-      top_genre: stats.topGenre,
-      oldest_release_year: stats.oldestReleaseYear,
-      newest_release_year: stats.newestReleaseYear,
-      most_collected_artist: stats.mostCollectedArtist
-        ? JSON.parse(stats.mostCollectedArtist)
-        : null,
-      added_this_year: stats.addedThisYear,
-    } });
+    return c.json({
+      data: {
+        total_items: stats.totalItems,
+        by_format: stats.byFormat
+          ? JSON.parse(stats.byFormat)
+          : { vinyl: 0, cd: 0, cassette: 0, other: 0 },
+        wantlist_count: stats.wantlistCount,
+        unique_artists: stats.uniqueArtists,
+        estimated_value: stats.estimatedValue,
+        top_genre: stats.topGenre,
+        oldest_release_year: stats.oldestReleaseYear,
+        newest_release_year: stats.newestReleaseYear,
+        most_collected_artist: stats.mostCollectedArtist
+          ? JSON.parse(stats.mostCollectedArtist)
+          : null,
+        added_this_year: stats.addedThisYear,
+      },
+    });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/stats: ${err}`);
     return serverError(c) as any;
@@ -1641,9 +1644,7 @@ collecting.openapi(backfillImagesRoute, async (c) => {
     return c.json({ success: true, results: result });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.log(
-      `[ERROR] POST /admin/collecting/backfill-images: ${errorMsg}`
-    );
+    console.log(`[ERROR] POST /admin/collecting/backfill-images: ${errorMsg}`);
     return serverError(c, `Backfill failed: ${errorMsg}`) as any;
   }
 });
@@ -1670,9 +1671,7 @@ collecting.openapi(mediaListRoute, async (c) => {
     const conditions = [eq(traktCollection.userId, 1)];
 
     if (format) {
-      conditions.push(
-        sql`${traktCollection.mediaType} = ${format}`
-      );
+      conditions.push(sql`${traktCollection.mediaType} = ${format}`);
     }
     if (genre) {
       conditions.push(
@@ -1789,27 +1788,31 @@ collecting.openapi(mediaStatsRoute, async (c) => {
       .where(eq(traktCollectionStats.userId, 1));
 
     if (!stats) {
-      return c.json({ data: {
-        total_items: 0,
-        by_format: {},
-        by_resolution: {},
-        by_hdr: {},
-        by_genre: {},
-        by_decade: {},
-        added_this_year: 0,
-      } });
+      return c.json({
+        data: {
+          total_items: 0,
+          by_format: {},
+          by_resolution: {},
+          by_hdr: {},
+          by_genre: {},
+          by_decade: {},
+          added_this_year: 0,
+        },
+      });
     }
 
     setCache(c, 'long');
-    return c.json({ data: {
-      total_items: stats.totalItems,
-      by_format: stats.byFormat ? JSON.parse(stats.byFormat) : {},
-      by_resolution: stats.byResolution ? JSON.parse(stats.byResolution) : {},
-      by_hdr: stats.byHdr ? JSON.parse(stats.byHdr) : {},
-      by_genre: stats.byGenre ? JSON.parse(stats.byGenre) : {},
-      by_decade: stats.byDecade ? JSON.parse(stats.byDecade) : {},
-      added_this_year: stats.addedThisYear,
-    } });
+    return c.json({
+      data: {
+        total_items: stats.totalItems,
+        by_format: stats.byFormat ? JSON.parse(stats.byFormat) : {},
+        by_resolution: stats.byResolution ? JSON.parse(stats.byResolution) : {},
+        by_hdr: stats.byHdr ? JSON.parse(stats.byHdr) : {},
+        by_genre: stats.byGenre ? JSON.parse(stats.byGenre) : {},
+        by_decade: stats.byDecade ? JSON.parse(stats.byDecade) : {},
+        added_this_year: stats.addedThisYear,
+      },
+    });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/media/stats: ${err}`);
     return serverError(c) as any;
@@ -1967,7 +1970,10 @@ collecting.openapi(mediaCrossRefRoute, async (c) => {
 
     // Get watch counts for each movie
     const movieIds = rows.map((r) => r.movieId);
-    const watchCounts = new Map<number, { count: number; lastWatched: string | null }>();
+    const watchCounts = new Map<
+      number,
+      { count: number; lastWatched: string | null }
+    >();
 
     if (movieIds.length > 0) {
       const watchRows = await db
@@ -2083,9 +2089,7 @@ collecting.openapi(mediaDetailRoute, async (c) => {
       })
       .from(traktCollection)
       .innerJoin(movies, eq(traktCollection.movieId, movies.id))
-      .where(
-        and(eq(traktCollection.id, id), eq(traktCollection.userId, 1))
-      );
+      .where(and(eq(traktCollection.id, id), eq(traktCollection.userId, 1)));
 
     if (!row) {
       return notFound(c, 'Media item not found') as any;
@@ -2172,21 +2176,27 @@ collecting.openapi(addMediaRoute, async (c) => {
         return notFound(c, `No movie found for "${body.title}"`) as any;
       }
       if (results.length > 1 && !body.year) {
-        return c.json({
-          status: 'ambiguous',
-          message: 'Multiple results found. Specify year or tmdb_id.',
-          candidates: results.slice(0, 5).map((r) => ({
-            tmdb_id: r.id,
-            title: r.title,
-            release_date: r.release_date,
-          })),
-        }, 422) as any;
+        return c.json(
+          {
+            status: 'ambiguous',
+            message: 'Multiple results found. Specify year or tmdb_id.',
+            candidates: results.slice(0, 5).map((r) => ({
+              tmdb_id: r.id,
+              title: r.title,
+              release_date: r.release_date,
+            })),
+          },
+          422
+        ) as any;
       }
       tmdbId = results[0].id;
     }
 
     if (!tmdbId) {
-      return badRequest(c, 'Provide tmdb_id, imdb_id, or title to identify the movie') as any;
+      return badRequest(
+        c,
+        'Provide tmdb_id, imdb_id, or title to identify the movie'
+      ) as any;
     }
 
     // Get movie detail from TMDb
@@ -2227,10 +2237,12 @@ collecting.openapi(addMediaRoute, async (c) => {
     const traktClient = new TraktClient(accessToken, c.env.TRAKT_CLIENT_ID);
 
     // Map local uhd_bluray to Trakt's bluray + uhd_4k resolution
-    const traktMediaType = body.media_type === 'uhd_bluray' ? 'bluray' : body.media_type;
-    const traktResolution = body.media_type === 'uhd_bluray'
-      ? (body.resolution || 'uhd_4k')
-      : body.resolution;
+    const traktMediaType =
+      body.media_type === 'uhd_bluray' ? 'bluray' : body.media_type;
+    const traktResolution =
+      body.media_type === 'uhd_bluray'
+        ? body.resolution || 'uhd_4k'
+        : body.resolution;
 
     const traktResult = await traktClient.addToCollection([
       {
@@ -2246,9 +2258,7 @@ collecting.openapi(addMediaRoute, async (c) => {
     // Sync back from Trakt to get the trakt_id
     // (The add response doesn't return the trakt ID directly)
     const collection = await traktClient.getCollection();
-    const traktItem = collection.find(
-      (item) => item.movie.ids.tmdb === tmdbId
-    );
+    const traktItem = collection.find((item) => item.movie.ids.tmdb === tmdbId);
 
     const traktId = traktItem?.movie.ids.trakt || 0;
 
@@ -2258,11 +2268,15 @@ collecting.openapi(addMediaRoute, async (c) => {
       .values({
         movieId,
         traktId,
-        mediaType: body.media_type as typeof traktCollection.$inferInsert.mediaType,
-        resolution: (body.resolution || null) as typeof traktCollection.$inferInsert.resolution,
+        mediaType:
+          body.media_type as typeof traktCollection.$inferInsert.mediaType,
+        resolution: (body.resolution ||
+          null) as typeof traktCollection.$inferInsert.resolution,
         hdr: (body.hdr || null) as typeof traktCollection.$inferInsert.hdr,
-        audio: (body.audio || null) as typeof traktCollection.$inferInsert.audio,
-        audioChannels: (body.audio_channels || null) as typeof traktCollection.$inferInsert.audioChannels,
+        audio: (body.audio ||
+          null) as typeof traktCollection.$inferInsert.audio,
+        audioChannels: (body.audio_channels ||
+          null) as typeof traktCollection.$inferInsert.audioChannels,
         collectedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -2320,7 +2334,7 @@ collecting.openapi(addMediaRoute, async (c) => {
 });
 
 // POST /admin/collecting/media/:id/remove
-// eslint-disable-next-line drizzle/enforce-delete-with-where
+
 collecting.openapi(removeMediaRoute, async (c) => {
   try {
     const id = parseInt(c.req.param('id'), 10);
@@ -2340,9 +2354,7 @@ collecting.openapi(removeMediaRoute, async (c) => {
       })
       .from(traktCollection)
       .innerJoin(movies, eq(traktCollection.movieId, movies.id))
-      .where(
-        and(eq(traktCollection.id, id), eq(traktCollection.userId, 1))
-      );
+      .where(and(eq(traktCollection.id, id), eq(traktCollection.userId, 1)));
 
     if (!item) {
       return notFound(c, 'Media item not found') as any;
@@ -2360,9 +2372,7 @@ collecting.openapi(removeMediaRoute, async (c) => {
     ]);
 
     // Remove locally
-    await db
-      .delete(traktCollection)
-      .where(eq(traktCollection.id, id));
+    await db.delete(traktCollection).where(eq(traktCollection.id, id));
 
     return c.json({
       status: 'ok',

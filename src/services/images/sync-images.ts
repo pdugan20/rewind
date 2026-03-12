@@ -8,7 +8,11 @@ import { and, eq, desc, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { lastfmAlbums, lastfmArtists } from '../../db/schema/lastfm.js';
 import { movies, plexShows } from '../../db/schema/watching.js';
-import { discogsReleases, discogsArtists, discogsReleaseArtists } from '../../db/schema/discogs.js';
+import {
+  discogsReleases,
+  discogsArtists,
+  discogsReleaseArtists,
+} from '../../db/schema/discogs.js';
 import { images, syncRuns } from '../../db/schema/system.js';
 import { insertNoSourcePlaceholder } from './placeholder.js';
 import type { PipelineEnv } from './pipeline.js';
@@ -116,7 +120,10 @@ export async function processListeningImages(
       artistName: lastfmArtists.name,
     })
     .from(lastfmAlbums)
-    .innerJoin(lastfmArtists, sql`${lastfmAlbums.artistId} = ${lastfmArtists.id}`)
+    .innerJoin(
+      lastfmArtists,
+      sql`${lastfmAlbums.artistId} = ${lastfmArtists.id}`
+    )
     .where(
       and(
         eq(lastfmAlbums.isFiltered, 0),
@@ -166,7 +173,9 @@ export async function processListeningImages(
     mbid: a.mbid ?? undefined,
   }));
 
-  results.push(await processItems(db, env, 'listening', 'artists', artistItems));
+  results.push(
+    await processItems(db, env, 'listening', 'artists', artistItems)
+  );
 
   return results;
 }

@@ -78,7 +78,12 @@ export async function syncLetterboxd(
 
     let synced = 0;
     let skipped = 0;
-    const newWatches: Array<{ movieId: number; title: string; year: number | null; watchedAt: string }> = [];
+    const newWatches: Array<{
+      movieId: number;
+      title: string;
+      year: number | null;
+      watchedAt: string;
+    }> = [];
 
     for (const entry of entries) {
       const movieId = await resolveMovieFromLetterboxd(db, entry, tmdbClient);

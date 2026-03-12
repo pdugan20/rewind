@@ -64,7 +64,10 @@ const DomainParam = z.object({
 const ExportResponse = z
   .object({
     domain: z.string().openapi({ example: 'listening' }),
-    exported_at: z.string().datetime().openapi({ example: '2024-01-15T12:00:00.000Z' }),
+    exported_at: z
+      .string()
+      .datetime()
+      .openapi({ example: '2024-01-15T12:00:00.000Z' }),
     tables: z.record(z.string(), z.array(z.unknown())),
   })
   .openapi('ExportResponse');

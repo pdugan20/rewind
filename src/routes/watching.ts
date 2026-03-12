@@ -19,10 +19,7 @@ import { TmdbClient } from '../services/watching/tmdb.js';
 import { resolveMovie } from '../services/watching/resolve-movie.js';
 import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
-import {
-  getImageAttachment,
-  getImageAttachmentBatch,
-} from '../lib/images.js';
+import { getImageAttachment, getImageAttachmentBatch } from '../lib/images.js';
 import type { ImageAttachment } from '../lib/images.js';
 import { images } from '../db/schema/system.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
@@ -275,7 +272,11 @@ const recentRoute = createRoute({
   responses: {
     200: {
       description: 'Recent watches',
-      content: { 'application/json': { schema: z.object({ data: z.array(WatchEventSchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(WatchEventSchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -320,7 +321,8 @@ const movieDetailRoute = createRoute({
   path: '/movies/{id}',
   tags: ['Watching'],
   summary: 'Movie detail',
-  description: 'Returns full details for a single movie including watch history.',
+  description:
+    'Returns full details for a single movie including watch history.',
   request: {
     params: z.object({ id: z.string() }),
   },
@@ -342,7 +344,9 @@ const statsRoute = createRoute({
   responses: {
     200: {
       description: 'Watch stats',
-      content: { 'application/json': { schema: z.object({ data: WatchStatsSchema }) } },
+      content: {
+        'application/json': { schema: z.object({ data: WatchStatsSchema }) },
+      },
     },
     ...errorResponses(401),
   },
@@ -357,7 +361,11 @@ const genreStatsRoute = createRoute({
   responses: {
     200: {
       description: 'Genre stats',
-      content: { 'application/json': { schema: z.object({ data: z.array(GenreStatSchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(GenreStatSchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -372,7 +380,11 @@ const decadeStatsRoute = createRoute({
   responses: {
     200: {
       description: 'Decade stats',
-      content: { 'application/json': { schema: z.object({ data: z.array(DecadeStatSchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(DecadeStatSchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -392,7 +404,11 @@ const directorStatsRoute = createRoute({
   responses: {
     200: {
       description: 'Director stats',
-      content: { 'application/json': { schema: z.object({ data: z.array(DirectorStatSchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(DirectorStatSchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -487,7 +503,8 @@ const showDetailRoute = createRoute({
   path: '/shows/{id}',
   tags: ['Watching'],
   summary: 'Show detail',
-  description: 'Returns full details for a single TV show including watched episodes.',
+  description:
+    'Returns full details for a single TV show including watched episodes.',
   request: {
     params: z.object({ id: z.string() }),
   },
@@ -593,7 +610,8 @@ const yearInReviewRoute = createRoute({
   path: '/year/{year}',
   tags: ['Watching'],
   summary: 'Year in review',
-  description: 'Returns aggregate stats and top-rated movies for a specific year.',
+  description:
+    'Returns aggregate stats and top-rated movies for a specific year.',
   request: {
     params: z.object({ year: z.string() }),
   },
@@ -607,18 +625,22 @@ const yearInReviewRoute = createRoute({
             total_movies: z.number(),
             genres: z.array(z.object({ name: z.string(), count: z.number() })),
             decades: z.array(DecadeStatSchema),
-            monthly: z.array(z.object({ month: z.string(), count: z.number() })),
-            top_rated: z.array(z.object({
-              movie: z.object({
-                id: z.number(),
-                title: z.string(),
-                year: z.number().nullable(),
-                tmdb_id: z.number().nullable(),
-                image: ImageAttachmentSchema,
-              }),
-              user_rating: z.number().nullable(),
-              watched_at: z.string(),
-            })),
+            monthly: z.array(
+              z.object({ month: z.string(), count: z.number() })
+            ),
+            top_rated: z.array(
+              z.object({
+                movie: z.object({
+                  id: z.number(),
+                  title: z.string(),
+                  year: z.number().nullable(),
+                  tmdb_id: z.number().nullable(),
+                  image: ImageAttachmentSchema,
+                }),
+                user_rating: z.number().nullable(),
+                watched_at: z.string(),
+              })
+            ),
           }),
         },
       },
@@ -993,18 +1015,20 @@ watching.openapi(statsRoute, async (c) => {
     .limit(1);
 
   if (!stats) {
-    return c.json({ data: {
-      total_movies: 0,
-      total_watch_time_hours: 0,
-      movies_this_year: 0,
-      avg_per_month: 0,
-      top_genre: null,
-      top_decade: null,
-      top_director: null,
-      total_shows: 0,
-      total_episodes_watched: 0,
-      episodes_this_year: 0,
-    } }) as any;
+    return c.json({
+      data: {
+        total_movies: 0,
+        total_watch_time_hours: 0,
+        movies_this_year: 0,
+        avg_per_month: 0,
+        top_genre: null,
+        top_decade: null,
+        top_director: null,
+        total_shows: 0,
+        total_episodes_watched: 0,
+        episodes_this_year: 0,
+      },
+    }) as any;
   }
 
   // Top genre
@@ -1062,18 +1086,20 @@ watching.openapi(statsRoute, async (c) => {
         : stats.totalMovies;
   }
 
-  return c.json({ data: {
-    total_movies: stats.totalMovies,
-    total_watch_time_hours: Math.round(stats.totalWatchTimeS / 3600),
-    movies_this_year: stats.moviesThisYear,
-    avg_per_month: avgPerMonth,
-    top_genre: topGenre?.name || null,
-    top_decade: topDecade?.decade || null,
-    top_director: topDirector?.name || null,
-    total_shows: stats.totalShows,
-    total_episodes_watched: stats.totalEpisodesWatched,
-    episodes_this_year: stats.episodesThisYear,
-  } }) as any;
+  return c.json({
+    data: {
+      total_movies: stats.totalMovies,
+      total_watch_time_hours: Math.round(stats.totalWatchTimeS / 3600),
+      movies_this_year: stats.moviesThisYear,
+      avg_per_month: avgPerMonth,
+      top_genre: topGenre?.name || null,
+      top_decade: topDecade?.decade || null,
+      top_director: topDirector?.name || null,
+      total_shows: stats.totalShows,
+      total_episodes_watched: stats.totalEpisodesWatched,
+      episodes_this_year: stats.episodesThisYear,
+    },
+  }) as any;
 });
 
 // ─── Stats: Genres ───────────────────────────────────────────────────
@@ -1413,7 +1439,10 @@ watching.openapi(ratingsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
   const page = Math.max(parseInt(c.req.query('page') || '1'), 1);
-  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '20'), 1), 100);
+  const limit = Math.min(
+    Math.max(parseInt(c.req.query('limit') || '20'), 1),
+    100
+  );
   const offset = (page - 1) * limit;
   const sort = c.req.query('sort') || 'rating';
   const order = c.req.query('order') || 'desc';
@@ -1428,9 +1457,15 @@ watching.openapi(ratingsRoute, async (c) => {
 
   let orderByClause;
   if (sort === 'date') {
-    orderByClause = order === 'asc' ? asc(watchHistory.watchedAt) : desc(watchHistory.watchedAt);
+    orderByClause =
+      order === 'asc'
+        ? asc(watchHistory.watchedAt)
+        : desc(watchHistory.watchedAt);
   } else {
-    orderByClause = order === 'asc' ? asc(watchHistory.userRating) : desc(watchHistory.userRating);
+    orderByClause =
+      order === 'asc'
+        ? asc(watchHistory.userRating)
+        : desc(watchHistory.userRating);
   }
 
   const rows = await db
@@ -1453,7 +1488,12 @@ watching.openapi(ratingsRoute, async (c) => {
     .offset(offset);
 
   const movieIds = rows.map((r) => String(r.movieId));
-  const imageMap = await getImageAttachmentBatch(db, 'watching', 'movies', movieIds);
+  const imageMap = await getImageAttachmentBatch(
+    db,
+    'watching',
+    'movies',
+    movieIds
+  );
 
   return c.json({
     data: rows.map((r) => ({
@@ -1479,7 +1519,10 @@ watching.openapi(reviewsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
   const page = Math.max(parseInt(c.req.query('page') || '1'), 1);
-  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '20'), 1), 100);
+  const limit = Math.min(
+    Math.max(parseInt(c.req.query('limit') || '20'), 1),
+    100
+  );
   const offset = (page - 1) * limit;
 
   const whereClause = sql`${watchHistory.review} IS NOT NULL AND ${watchHistory.review} != ''`;
@@ -1510,7 +1553,12 @@ watching.openapi(reviewsRoute, async (c) => {
     .offset(offset);
 
   const movieIds = rows.map((r) => String(r.movieId));
-  const imageMap = await getImageAttachmentBatch(db, 'watching', 'movies', movieIds);
+  const imageMap = await getImageAttachmentBatch(
+    db,
+    'watching',
+    'movies',
+    movieIds
+  );
 
   return c.json({
     data: rows.map((r) => ({
@@ -1612,7 +1660,12 @@ watching.openapi(yearInReviewRoute, async (c) => {
     .orderBy(desc(count()));
 
   const movieIds = topRated.map((r) => String(r.movieId));
-  const imageMap = await getImageAttachmentBatch(db, 'watching', 'movies', movieIds);
+  const imageMap = await getImageAttachmentBatch(
+    db,
+    'watching',
+    'movies',
+    movieIds
+  );
 
   return c.json({
     year,

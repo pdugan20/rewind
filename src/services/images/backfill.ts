@@ -76,7 +76,12 @@ export async function backfillImages(
         } else {
           result.skipped++;
           // Insert a placeholder so this entity isn't retried
-          await insertNoSourcePlaceholder(db, domain, entityType, item.entityId);
+          await insertNoSourcePlaceholder(
+            db,
+            domain,
+            entityType,
+            item.entityId
+          );
         }
       } catch (error) {
         result.failed++;

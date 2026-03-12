@@ -4,8 +4,6 @@ import { drizzle } from 'drizzle-orm/d1';
 import { syncRuns } from '../db/schema/system.js';
 import { setupTestDb } from '../test-helpers.js';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 describe('health/sync endpoint', () => {
   beforeAll(async () => {
     await setupTestDb();

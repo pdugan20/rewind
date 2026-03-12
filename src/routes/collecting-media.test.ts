@@ -7,14 +7,9 @@ import {
 } from 'cloudflare:test';
 import app from '../index.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const testEnv = env as any;
 
-function authRequest(
-  path: string,
-  method = 'GET',
-  body?: object
-): Request {
+function authRequest(path: string, method = 'GET', body?: object): Request {
   const init: RequestInit = {
     method,
     headers: {
@@ -108,7 +103,6 @@ describe('collecting media routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/media'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
       expect(body.pagination).toEqual({
@@ -126,7 +120,6 @@ describe('collecting media routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/media'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toHaveLength(1);
       expect(body.data[0].title).toBe('The Matrix');
@@ -145,7 +138,6 @@ describe('collecting media routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toHaveLength(1);
       expect(body.data[0].title).toBe('Blade Runner');
@@ -166,7 +158,6 @@ describe('collecting media routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data.total_items).toBe(0);
     });
@@ -181,7 +172,6 @@ describe('collecting media routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data.total_items).toBe(25);
       expect(body.data.by_format.bluray).toBe(15);
@@ -196,7 +186,6 @@ describe('collecting media routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
     });
@@ -205,14 +194,19 @@ describe('collecting media routes', () => {
       await insertMovie(1, 'Old Movie', 1985, 100);
       await insertMovie(2, 'New Movie', 2023, 200);
       await insertCollectionItem(1, 1, 481, 'bluray', '2024-01-01T00:00:00Z');
-      await insertCollectionItem(2, 2, 482, 'uhd_bluray', '2024-06-15T00:00:00Z');
+      await insertCollectionItem(
+        2,
+        2,
+        482,
+        'uhd_bluray',
+        '2024-06-15T00:00:00Z'
+      );
 
       const response = await fetchApp(
         authRequest('/v1/collecting/media/recent')
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toHaveLength(2);
       // Most recent first
@@ -231,7 +225,6 @@ describe('collecting media routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toHaveLength(1);
     });
@@ -244,7 +237,6 @@ describe('collecting media routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
     });
@@ -262,16 +254,13 @@ describe('collecting media routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data.length).toBeGreaterThanOrEqual(2);
 
       const bluray = body.data.find(
         (f: { name: string }) => f.name === 'bluray'
       );
-      const hddvd = body.data.find(
-        (f: { name: string }) => f.name === 'hddvd'
-      );
+      const hddvd = body.data.find((f: { name: string }) => f.name === 'hddvd');
       expect(bluray.count).toBe(2);
       expect(hddvd.count).toBe(1);
     });
@@ -279,16 +268,12 @@ describe('collecting media routes', () => {
 
   describe('GET /v1/collecting/media/:id', () => {
     it('should return 400 for invalid id', async () => {
-      const response = await fetchApp(
-        authRequest('/v1/collecting/media/abc')
-      );
+      const response = await fetchApp(authRequest('/v1/collecting/media/abc'));
       expect(response.status).toBe(400);
     });
 
     it('should return 404 for nonexistent item', async () => {
-      const response = await fetchApp(
-        authRequest('/v1/collecting/media/999')
-      );
+      const response = await fetchApp(authRequest('/v1/collecting/media/999'));
       expect(response.status).toBe(404);
     });
 
@@ -296,12 +281,9 @@ describe('collecting media routes', () => {
       await insertMovie(1, 'The Matrix', 1999, 603);
       await insertCollectionItem(1, 1, 481, 'bluray', '2024-06-15T00:00:00Z');
 
-      const response = await fetchApp(
-        authRequest('/v1/collecting/media/1')
-      );
+      const response = await fetchApp(authRequest('/v1/collecting/media/1'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.title).toBe('The Matrix');
       expect(body.media_type).toBe('bluray');
@@ -316,7 +298,6 @@ describe('collecting media routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
       expect(body.summary).toBeDefined();

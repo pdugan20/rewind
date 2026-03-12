@@ -3,10 +3,7 @@ import type { Env } from './types/env.js';
 import { cors } from './lib/cors.js';
 import { requireAuth } from './lib/auth.js';
 import { createDb } from './db/client.js';
-import {
-  openAPIConfig,
-  securitySchemes,
-} from './lib/openapi.js';
+import { openAPIConfig, securitySchemes } from './lib/openapi.js';
 import system from './routes/system.js';
 import listening from './routes/listening.js';
 import running from './routes/running.js';
@@ -67,7 +64,7 @@ app.use('/v1/*', async (c, next) => {
 });
 
 // Route registration
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used for AppType export
+
 const routes = app
   .basePath('/v1')
   .route('/', system)

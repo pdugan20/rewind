@@ -86,7 +86,5 @@ export const traktCollectionStats = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
   },
-  (table) => [
-    uniqueIndex('idx_trakt_collection_stats_user').on(table.userId),
-  ]
+  (table) => [uniqueIndex('idx_trakt_collection_stats_user').on(table.userId)]
 );

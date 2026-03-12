@@ -900,14 +900,14 @@ Schema changes are made in the Drizzle schema files, then `npm run db:generate` 
 
 ## Sync Strategy
 
-| Domain               | Trigger        | Schedule                                                             | Strategy                                                           | Rate Limit                  |
-| -------------------- | -------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------- |
-| Listening (Last.fm)  | Cron           | `*/15 * * * *` (scrobbles), `0 3 * * *` (top lists, stats)          | Incremental from last scrobble timestamp                           | 5 req/sec                   |
-| Running (Strava)     | Cron + Webhook | `15 3 * * *` catch-up + real-time webhook on activity create/update  | Incremental since last synced activity                             | 200 req/15min, 2000 req/day |
-| Watching (Plex)      | Webhook + Cron | Real-time scrobble webhook + `30 3 * * *` library scan              | Webhook-driven for watch events, cron catch-up for library changes | ~50 req/sec (TMDB)          |
-| Watching (Letterboxd)| Cron           | `0 */6 * * *` RSS feed sync                                        | RSS feed parse, deduplicate against existing watch history         | N/A (RSS)                   |
-| Collecting (Discogs) | Cron           | `45 3 * * SUN`                                                      | Full collection sync (replace all)                                 | 60 req/min                  |
-| Collecting (Trakt)   | Cron           | `45 3 * * SUN`                                                      | Full collection sync with write-through                            | 1000 req/5min               |
+| Domain                | Trigger        | Schedule                                                            | Strategy                                                           | Rate Limit                  |
+| --------------------- | -------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------- |
+| Listening (Last.fm)   | Cron           | `*/15 * * * *` (scrobbles), `0 3 * * *` (top lists, stats)          | Incremental from last scrobble timestamp                           | 5 req/sec                   |
+| Running (Strava)      | Cron + Webhook | `15 3 * * *` catch-up + real-time webhook on activity create/update | Incremental since last synced activity                             | 200 req/15min, 2000 req/day |
+| Watching (Plex)       | Webhook + Cron | Real-time scrobble webhook + `30 3 * * *` library scan              | Webhook-driven for watch events, cron catch-up for library changes | ~50 req/sec (TMDB)          |
+| Watching (Letterboxd) | Cron           | `0 */6 * * *` RSS feed sync                                         | RSS feed parse, deduplicate against existing watch history         | N/A (RSS)                   |
+| Collecting (Discogs)  | Cron           | `45 3 * * SUN`                                                      | Full collection sync (replace all)                                 | 60 req/min                  |
+| Collecting (Trakt)    | Cron           | `45 3 * * SUN`                                                      | Full collection sync with write-through                            | 1000 req/5min               |
 
 Each sync run is recorded in the `sync_runs` table with status (`running`, `completed`, `failed`), item count, duration, and any error message. The `/v1/health/sync` endpoint exposes the most recent sync run per domain for monitoring.
 

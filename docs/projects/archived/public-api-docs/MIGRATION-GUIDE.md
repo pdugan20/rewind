@@ -70,13 +70,13 @@ app.openapi(healthRoute, (c) => {
 
 ## Key Changes
 
-| Aspect | Before | After |
-|--------|--------|-------|
-| Import | `Hono` | `OpenAPIHono`, `createRoute`, `z` |
-| App creation | `new Hono<{ Bindings: Env }>()` | `new OpenAPIHono<{ Bindings: Env }>()` |
-| Route definition | Inline in `.get()` | Separate `createRoute()` object |
-| Handler registration | `app.get(path, handler)` | `app.openapi(route, handler)` |
-| Response typing | Implicit | Explicit Zod schema |
+| Aspect               | Before                          | After                                  |
+| -------------------- | ------------------------------- | -------------------------------------- |
+| Import               | `Hono`                          | `OpenAPIHono`, `createRoute`, `z`      |
+| App creation         | `new Hono<{ Bindings: Env }>()` | `new OpenAPIHono<{ Bindings: Env }>()` |
+| Route definition     | Inline in `.get()`              | Separate `createRoute()` object        |
+| Handler registration | `app.get(path, handler)`        | `app.openapi(route, handler)`          |
+| Response typing      | Implicit                        | Explicit Zod schema                    |
 
 ## Patterns for Common Shapes
 
@@ -84,9 +84,20 @@ app.openapi(healthRoute, (c) => {
 
 ```typescript
 const PaginationQuery = z.object({
-  page: z.coerce.number().int().min(1).optional().default(1)
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .default(1)
     .openapi({ example: 1 }),
-  limit: z.coerce.number().int().min(1).max(50).optional().default(20)
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .optional()
+    .default(20)
     .openapi({ example: 20 }),
 });
 ```
@@ -133,12 +144,14 @@ responses: {
 ### Image Attachment
 
 ```typescript
-const ImageAttachment = z.object({
-  url: z.string().url(),
-  thumbhash: z.string().nullable(),
-  dominant_color: z.string().nullable(),
-  accent_color: z.string().nullable(),
-}).nullable();
+const ImageAttachment = z
+  .object({
+    url: z.string().url(),
+    thumbhash: z.string().nullable(),
+    dominant_color: z.string().nullable(),
+    accent_color: z.string().nullable(),
+  })
+  .nullable();
 ```
 
 ### Path Parameters
@@ -146,7 +159,7 @@ const ImageAttachment = z.object({
 ```typescript
 const route = createRoute({
   method: 'get',
-  path: '/artists/{id}',  // Note: OpenAPI uses {id}, not :id
+  path: '/artists/{id}', // Note: OpenAPI uses {id}, not :id
   request: {
     params: z.object({
       id: z.coerce.number().int().positive().openapi({ example: 42 }),
@@ -160,7 +173,8 @@ const route = createRoute({
 
 ```typescript
 const PeriodQuery = z.object({
-  period: z.enum(['7day', '1month', '3month', '6month', '12month', 'overall'])
+  period: z
+    .enum(['7day', '1month', '3month', '6month', '12month', 'overall'])
     .optional()
     .default('7day')
     .openapi({ example: '7day' }),

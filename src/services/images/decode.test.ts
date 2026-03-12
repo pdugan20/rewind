@@ -1,11 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as jpeg from 'jpeg-js';
 import { encode as encodePng } from 'fast-png';
-import {
-  detectFormat,
-  downsample,
-  decodeImageForAnalysis,
-} from './decode.js';
+import { detectFormat, downsample, decodeImageForAnalysis } from './decode.js';
 
 /**
  * Create a minimal JPEG image with a solid color fill.
@@ -89,10 +85,22 @@ describe('downsample', () => {
   it('preserves pixel values during downsampling', () => {
     // 2x2 image with distinct colors per pixel
     const pixels = new Uint8Array([
-      255, 0, 0, 255, // red
-      0, 255, 0, 255, // green
-      0, 0, 255, 255, // blue
-      255, 255, 0, 255, // yellow
+      255,
+      0,
+      0,
+      255, // red
+      0,
+      255,
+      0,
+      255, // green
+      0,
+      0,
+      255,
+      255, // blue
+      255,
+      255,
+      0,
+      255, // yellow
     ]);
     // Downsample 2x2 to 1x1 should pick top-left (nearest neighbor)
     const result = downsample(pixels, 2, 2, 1);
@@ -160,9 +168,7 @@ describe('decodeImageForAnalysis', () => {
   });
 
   it('returns null for unsupported formats', () => {
-    const gifHeader = new Uint8Array([
-      0x47, 0x49, 0x46, 0x38, 0x39, 0x61,
-    ]);
+    const gifHeader = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
     const result = decodeImageForAnalysis(gifHeader.buffer as ArrayBuffer);
     expect(result).toBeNull();
   });

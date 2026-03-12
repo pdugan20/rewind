@@ -231,7 +231,9 @@ describe('recomputeStats incremental vs full', () => {
       .where(eq(stravaLifetimeStats.userId, 1));
 
     expect(incLifetime.totalRuns).toBe(fullLifetime.totalRuns);
-    expect(incLifetime.totalDistanceMiles).toBe(fullLifetime.totalDistanceMiles);
+    expect(incLifetime.totalDistanceMiles).toBe(
+      fullLifetime.totalDistanceMiles
+    );
     expect(incLifetime.yearsActive).toBe(fullLifetime.yearsActive);
   });
 

@@ -28,34 +28,34 @@ Route code (Hono + Zod schemas)
 
 ## Technology Choices
 
-| Component | Choice | Rationale |
-|-----------|--------|-----------|
-| Schema layer | `@hono/zod-openapi` | First-party Hono integration, generates OpenAPI 3.1 from route definitions |
-| Validation | `zod` (already installed) | Shared schemas for runtime validation + spec generation |
-| Doc renderer | Scalar | Free, open source, excellent UX, single HTML page or React component |
-| Hosting | Cloudflare Pages | Already on Cloudflare, free, CNAME to `docs.rewind.rest` |
-| Spec linting | `@stoplight/spectral` | Industry-standard OpenAPI linter, catches missing descriptions and inconsistencies |
-| Contract testing | `openapi-response-validator` | Validates actual API responses against the generated spec |
+| Component        | Choice                       | Rationale                                                                          |
+| ---------------- | ---------------------------- | ---------------------------------------------------------------------------------- |
+| Schema layer     | `@hono/zod-openapi`          | First-party Hono integration, generates OpenAPI 3.1 from route definitions         |
+| Validation       | `zod` (already installed)    | Shared schemas for runtime validation + spec generation                            |
+| Doc renderer     | Scalar                       | Free, open source, excellent UX, single HTML page or React component               |
+| Hosting          | Cloudflare Pages             | Already on Cloudflare, free, CNAME to `docs.rewind.rest`                           |
+| Spec linting     | `@stoplight/spectral`        | Industry-standard OpenAPI linter, catches missing descriptions and inconsistencies |
+| Contract testing | `openapi-response-validator` | Validates actual API responses against the generated spec                          |
 
 ## Documents
 
-| File | Purpose |
-|------|---------|
-| [TRACKER.md](TRACKER.md) | Master task tracker with 6 phases and all discrete tasks |
+| File                                     | Purpose                                                                 |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| [TRACKER.md](TRACKER.md)                 | Master task tracker with 6 phases and all discrete tasks                |
 | [MIGRATION-GUIDE.md](MIGRATION-GUIDE.md) | How to convert a Hono route file to zod-openapi (patterns and examples) |
-| [ENFORCEMENT.md](ENFORCEMENT.md) | CI pipeline design for preventing doc drift and hallucination |
-| [SCALAR-SETUP.md](SCALAR-SETUP.md) | Scalar configuration and Cloudflare Pages deployment |
+| [ENFORCEMENT.md](ENFORCEMENT.md)         | CI pipeline design for preventing doc drift and hallucination           |
+| [SCALAR-SETUP.md](SCALAR-SETUP.md)       | Scalar configuration and Cloudflare Pages deployment                    |
 
 ## Phase Summary
 
-| Phase | Focus | Scope |
-|-------|-------|-------|
-| 1 | OpenAPI foundation | Install deps, convert `system.ts` as proof of concept, expose `/v1/openapi.json` |
-| 2 | Route migration | Convert all 10 route files to zod-openapi, domain by domain |
-| 3 | Scalar docs site | Set up Cloudflare Pages project with Scalar, configure `docs.rewind.rest` |
-| 4 | CI enforcement | Spectral linting, spec snapshot tests, contract tests |
-| 5 | Spec quality | Descriptions, examples, authentication docs, error catalog |
-| 6 | Launch | DNS, CORS, final review, announce |
+| Phase | Focus              | Scope                                                                            |
+| ----- | ------------------ | -------------------------------------------------------------------------------- |
+| 1     | OpenAPI foundation | Install deps, convert `system.ts` as proof of concept, expose `/v1/openapi.json` |
+| 2     | Route migration    | Convert all 10 route files to zod-openapi, domain by domain                      |
+| 3     | Scalar docs site   | Set up Cloudflare Pages project with Scalar, configure `docs.rewind.rest`        |
+| 4     | CI enforcement     | Spectral linting, spec snapshot tests, contract tests                            |
+| 5     | Spec quality       | Descriptions, examples, authentication docs, error catalog                       |
+| 6     | Launch             | DNS, CORS, final review, announce                                                |
 
 ## Prerequisites
 
@@ -74,17 +74,17 @@ The reliability-improvements project (Phases 4, 6, 9.2) has been completed. Admi
 
 Files to migrate in Phase 2, ordered by complexity (simplest first). **100 total endpoints across 12 files.**
 
-| File | Endpoints | Complexity | Notes |
-|------|-----------|------------|-------|
-| `system.ts` | 2 | Low | Phase 1 proof of concept |
-| `keys.ts` | 3 | Low | CRUD for API keys |
-| `search.ts` | 1 | Low | Single cross-domain search |
-| `feed.ts` | 2 | Low | Activity feed |
-| `export.ts` | 1 | Low | Data export |
-| `images.ts` | 5 | Medium | Proxy + admin overrides + reprocess |
-| `webhooks.ts` | 3 | Medium | Strava + Plex webhooks (admin-only, may exclude from public docs) |
-| `admin-sync.ts` | 7 | Medium | Sync triggers + delete activity + recompute stats |
-| `collecting.ts` | 19 | High | Discogs collection + Trakt media collection + wantlist + admin |
-| `watching.ts` | 19 | High | Movies + TV + ratings + reviews + year-in-review + admin |
-| `running.ts` | 19 | High | Activities + stats + charts + streaks + races + eddington + year-in-review |
-| `listening.ts` | 19 | High | Scrobbles + tops + browse + streaks + calendar + year-in-review + admin |
+| File            | Endpoints | Complexity | Notes                                                                      |
+| --------------- | --------- | ---------- | -------------------------------------------------------------------------- |
+| `system.ts`     | 2         | Low        | Phase 1 proof of concept                                                   |
+| `keys.ts`       | 3         | Low        | CRUD for API keys                                                          |
+| `search.ts`     | 1         | Low        | Single cross-domain search                                                 |
+| `feed.ts`       | 2         | Low        | Activity feed                                                              |
+| `export.ts`     | 1         | Low        | Data export                                                                |
+| `images.ts`     | 5         | Medium     | Proxy + admin overrides + reprocess                                        |
+| `webhooks.ts`   | 3         | Medium     | Strava + Plex webhooks (admin-only, may exclude from public docs)          |
+| `admin-sync.ts` | 7         | Medium     | Sync triggers + delete activity + recompute stats                          |
+| `collecting.ts` | 19        | High       | Discogs collection + Trakt media collection + wantlist + admin             |
+| `watching.ts`   | 19        | High       | Movies + TV + ratings + reviews + year-in-review + admin                   |
+| `running.ts`    | 19        | High       | Activities + stats + charts + streaks + races + eddington + year-in-review |
+| `listening.ts`  | 19        | High       | Scrobbles + tops + browse + streaks + calendar + year-in-review + admin    |

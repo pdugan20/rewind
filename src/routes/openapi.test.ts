@@ -2,8 +2,6 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { SELF } from 'cloudflare:test';
 import { setupTestDb } from '../test-helpers.js';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 describe('OpenAPI spec endpoint', () => {
   beforeAll(async () => {
     await setupTestDb();

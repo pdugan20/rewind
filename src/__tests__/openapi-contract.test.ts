@@ -17,19 +17,27 @@ describe('OpenAPI contract tests', () => {
 
   beforeAll(async () => {
     await setupTestDb();
-    readToken = await createTestApiKey({ name: 'contract-test', scope: 'read' });
+    readToken = await createTestApiKey({
+      name: 'contract-test',
+      scope: 'read',
+    });
 
     const specRes = await SELF.fetch('http://localhost/v1/openapi.json');
     spec = (await specRes.json()) as any;
   });
 
-  function getResponseSchema(path: string, method: string, status = '200'): any {
+  function getResponseSchema(
+    path: string,
+    method: string,
+    status = '200'
+  ): any {
     const pathObj = spec.paths[path];
     if (!pathObj) throw new Error(`Path ${path} not found in spec`);
     const op = pathObj[method];
     if (!op) throw new Error(`Method ${method} not found on ${path}`);
     const response = op.responses[status];
-    if (!response) throw new Error(`Status ${status} not found on ${method} ${path}`);
+    if (!response)
+      throw new Error(`Status ${status} not found on ${method} ${path}`);
     return response.content?.['application/json']?.schema;
   }
 
@@ -37,7 +45,10 @@ describe('OpenAPI contract tests', () => {
     if (!schema || !schema.properties) return;
     for (const key of Object.keys(schema.properties)) {
       if (schema.required && schema.required.includes(key)) {
-        expect(actual, `${context}: missing required field "${key}"`).toHaveProperty(key);
+        expect(
+          actual,
+          `${context}: missing required field "${key}"`
+        ).toHaveProperty(key);
       }
     }
   }

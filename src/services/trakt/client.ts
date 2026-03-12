@@ -62,10 +62,7 @@ export class TraktClient {
     this.clientId = clientId;
   }
 
-  private async request<T>(
-    path: string,
-    options?: RequestInit
-  ): Promise<T> {
+  private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const url = `${BASE_URL}${path}`;
     const response = await fetch(url, {
       ...options,
@@ -152,8 +149,6 @@ export class TraktClient {
    */
   async searchMovie(query: string): Promise<TraktSearchResult[]> {
     const encoded = encodeURIComponent(query);
-    return this.request<TraktSearchResult[]>(
-      `/search/movie?query=${encoded}`
-    );
+    return this.request<TraktSearchResult[]>(`/search/movie?query=${encoded}`);
   }
 }

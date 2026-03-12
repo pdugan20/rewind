@@ -171,9 +171,7 @@ describe('TraktClient', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(url).toContain('/search/movie?query=');
-    expect(url).toContain(
-      encodeURIComponent('Lord of the Rings: Fellowship')
-    );
+    expect(url).toContain(encodeURIComponent('Lord of the Rings: Fellowship'));
     expect(url).not.toContain(' ');
   });
 

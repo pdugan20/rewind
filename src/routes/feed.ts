@@ -17,8 +17,14 @@ feed.use('*', requireAuth('read'));
 // --- Schemas ---
 
 const CursorPaginationQuerySchema = z.object({
-  cursor: z.string().optional().openapi({ description: 'Cursor for pagination (feed item ID)', example: '42' }),
-  limit: z.string().optional().openapi({ description: 'Number of items per page (1-100, default 50)', example: '50' }),
+  cursor: z.string().optional().openapi({
+    description: 'Cursor for pagination (feed item ID)',
+    example: '42',
+  }),
+  limit: z.string().optional().openapi({
+    description: 'Number of items per page (1-100, default 50)',
+    example: '50',
+  }),
 });
 
 const FeedItemSchema = z.object({
@@ -46,10 +52,12 @@ const FeedResponseSchema = z.object({
 });
 
 const DomainParamSchema = z.object({
-  domain: z.enum(['listening', 'running', 'watching', 'collecting'] as const).openapi({
-    description: 'Activity domain to filter by',
-    example: 'listening',
-  }),
+  domain: z
+    .enum(['listening', 'running', 'watching', 'collecting'] as const)
+    .openapi({
+      description: 'Activity domain to filter by',
+      example: 'listening',
+    }),
 });
 
 // --- Routes ---
@@ -59,7 +67,8 @@ const getFeedRoute = createRoute({
   path: '/',
   tags: ['Feed'],
   summary: 'Cross-domain activity feed',
-  description: 'Returns a cross-domain activity feed with cursor-based pagination.',
+  description:
+    'Returns a cross-domain activity feed with cursor-based pagination.',
   request: {
     query: CursorPaginationQuerySchema,
   },
@@ -116,7 +125,8 @@ const getDomainFeedRoute = createRoute({
   path: '/domain/{domain}',
   tags: ['Feed'],
   summary: 'Single-domain activity feed',
-  description: 'Returns an activity feed filtered to a single domain with cursor-based pagination.',
+  description:
+    'Returns an activity feed filtered to a single domain with cursor-based pagination.',
   request: {
     params: DomainParamSchema,
     query: CursorPaginationQuerySchema,

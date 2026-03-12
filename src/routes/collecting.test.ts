@@ -7,7 +7,6 @@ import {
 } from 'cloudflare:test';
 import app from '../index.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const testEnv = env as any;
 
 // Helper to create an authenticated request
@@ -74,7 +73,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/collection'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
       expect(body.pagination).toEqual({
@@ -102,7 +100,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/collection'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toHaveLength(1);
       expect(body.data[0].title).toBe('Test Album');
@@ -124,7 +121,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/stats'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data.total_items).toBe(0);
     });
@@ -137,7 +133,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/stats'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data.total_items).toBe(42);
       expect(body.data.by_format.vinyl).toBe(30);
@@ -150,7 +145,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/recent'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
     });
@@ -197,7 +191,6 @@ describe('collecting routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.title).toBe('Detail Album');
       expect(body.tracklist).toHaveLength(1);
@@ -210,7 +203,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/wantlist'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
       expect(body.pagination.total).toBe(0);
@@ -224,7 +216,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/wantlist'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toHaveLength(1);
       expect(body.data[0].title).toBe('Wanted Album');
@@ -236,7 +227,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/formats'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
     });
@@ -247,7 +237,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/genres'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
     });
@@ -258,7 +247,6 @@ describe('collecting routes', () => {
       const response = await fetchApp(authRequest('/v1/collecting/artists'));
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
     });
@@ -271,7 +259,6 @@ describe('collecting routes', () => {
       );
       expect(response.status).toBe(200);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body = (await response.json()) as any;
       expect(body.data).toEqual([]);
       expect(body.summary).toBeDefined();

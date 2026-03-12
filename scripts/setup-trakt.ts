@@ -84,7 +84,9 @@ interface TokenResponse {
   token_type: string;
 }
 
-async function requestDeviceCode(clientId: string): Promise<DeviceCodeResponse> {
+async function requestDeviceCode(
+  clientId: string
+): Promise<DeviceCodeResponse> {
   const response = await fetch(`${TRAKT_BASE_URL}/oauth/device/code`, {
     method: 'POST',
     headers: {
@@ -190,7 +192,9 @@ async function main(): Promise<void> {
   console.log(`  Enter code: ${device.user_code}`);
   console.log('='.repeat(50));
   console.log('');
-  console.log(`[INFO] Waiting for approval (expires in ${device.expires_in}s)...`);
+  console.log(
+    `[INFO] Waiting for approval (expires in ${device.expires_in}s)...`
+  );
 
   // Step 2: Poll for token
   const token = await pollForToken(
@@ -220,7 +224,9 @@ ON CONFLICT DO UPDATE SET
   d1Execute(sql, remote);
 
   console.log(`[SUCCESS] Trakt tokens stored in ${target} D1`);
-  console.log(`[INFO] Access token expires at: ${new Date(expiresAt * 1000).toISOString()}`);
+  console.log(
+    `[INFO] Access token expires at: ${new Date(expiresAt * 1000).toISOString()}`
+  );
 }
 
 main().catch((err) => {

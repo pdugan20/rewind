@@ -2,8 +2,6 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { SELF } from 'cloudflare:test';
 import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 describe('API key management routes', () => {
   let adminToken: string;
 

@@ -29,7 +29,9 @@ const RATE_LIMIT_MS = 1100; // Discogs: 60 req/min
 const DRY_RUN = process.argv.includes('--dry-run');
 
 if (!DISCOGS_TOKEN || !DISCOGS_USERNAME) {
-  console.error('[ERROR] Missing DISCOGS_PERSONAL_TOKEN or DISCOGS_USERNAME in .dev.vars');
+  console.error(
+    '[ERROR] Missing DISCOGS_PERSONAL_TOKEN or DISCOGS_USERNAME in .dev.vars'
+  );
   process.exit(1);
 }
 
@@ -68,61 +70,134 @@ interface ExistingItem {
 
 const ITEMS_TO_ADD: CollectionItem[] = [
   // === CDs (33) ===
-  { artist: 'Various', title: 'Layer Cake (Music from the Motion Picture)', format: 'CD' },
-  { artist: 'Taylor Swift', title: '1989 (Taylor\'s Version)', format: 'CD' },
+  {
+    artist: 'Various',
+    title: 'Layer Cake (Music from the Motion Picture)',
+    format: 'CD',
+  },
+  { artist: 'Taylor Swift', title: "1989 (Taylor's Version)", format: 'CD' },
   { artist: 'The Black Keys', title: 'Thickfreakness', format: 'CD' },
   { artist: 'The Black Keys', title: 'Attack & Release', format: 'CD' },
   { artist: 'The Black Keys', title: 'Turn Blue', format: 'CD' },
   { artist: 'Taylor Swift', title: 'Midnights', format: 'CD' },
   { artist: 'Taylor Swift', title: 'Folklore', format: 'CD' },
-  { artist: 'Taylor Swift', title: 'Speak Now (Taylor\'s Version)', format: 'CD' },
-  { artist: 'Taylor Swift', title: 'The Tortured Poets Department', format: 'CD' },
+  {
+    artist: 'Taylor Swift',
+    title: "Speak Now (Taylor's Version)",
+    format: 'CD',
+  },
+  {
+    artist: 'Taylor Swift',
+    title: 'The Tortured Poets Department',
+    format: 'CD',
+  },
   { artist: 'Nirvana', title: 'MTV Unplugged In New York', format: 'CD' },
-  { artist: 'Nirvana', title: 'From The Muddy Banks Of The Wishkah', format: 'CD' },
+  {
+    artist: 'Nirvana',
+    title: 'From The Muddy Banks Of The Wishkah',
+    format: 'CD',
+  },
   { artist: 'Nirvana', title: 'Sliver: The Best Of The Box', format: 'CD' },
   { artist: 'Nirvana', title: 'Nevermind', format: 'CD' },
   { artist: 'Nirvana', title: 'In Utero', format: 'CD' },
   { artist: 'Nirvana', title: 'Nirvana', format: 'CD' },
-  { artist: 'Bob Dylan', title: 'The Freewheelin\' Bob Dylan', format: 'CD' },
+  { artist: 'Bob Dylan', title: "The Freewheelin' Bob Dylan", format: 'CD' },
   { artist: 'Bob Dylan', title: 'Another Side Of Bob Dylan', format: 'CD' },
   { artist: 'Bob Dylan', title: 'Highway 61 Revisited', format: 'CD' },
   { artist: 'Bob Dylan', title: 'Bob Dylan', format: 'CD', discogsId: 2420778 },
   { artist: 'Bob Dylan', title: 'Blood On The Tracks', format: 'CD' },
   { artist: 'Weezer', title: 'Weezer (Green Album)', format: 'CD' },
   { artist: 'Weezer', title: 'Weezer (Blue Album)', format: 'CD' },
-  { artist: 'Various', title: 'Juno (Music From The Motion Picture)', format: 'CD' },
-  { artist: 'Elmer Bernstein', title: 'The Magnificent Seven (Original Soundtrack)', format: 'CD' },
-  { artist: 'Adam Sandler', title: 'What The Hell Happened To Me?', format: 'CD' },
-  { artist: 'Taylor Swift', title: 'The Tortured Poets Department', format: 'CD', notes: 'second copy' },
+  {
+    artist: 'Various',
+    title: 'Juno (Music From The Motion Picture)',
+    format: 'CD',
+  },
+  {
+    artist: 'Elmer Bernstein',
+    title: 'The Magnificent Seven (Original Soundtrack)',
+    format: 'CD',
+  },
+  {
+    artist: 'Adam Sandler',
+    title: 'What The Hell Happened To Me?',
+    format: 'CD',
+  },
+  {
+    artist: 'Taylor Swift',
+    title: 'The Tortured Poets Department',
+    format: 'CD',
+    notes: 'second copy',
+  },
   { artist: 'The Black Keys', title: 'El Camino', format: 'CD' },
   { artist: 'Johnny Cash', title: 'At Folsom Prison', format: 'CD' },
-  { artist: 'Adam Sandler', title: 'Stan And Judy\'s Kid', format: 'CD' },
-  { artist: 'Adam Sandler', title: 'They\'re All Gonna Laugh At You!', format: 'CD' },
+  { artist: 'Adam Sandler', title: "Stan And Judy's Kid", format: 'CD' },
+  {
+    artist: 'Adam Sandler',
+    title: "They're All Gonna Laugh At You!",
+    format: 'CD',
+  },
   { artist: 'Chris Rock', title: 'Bigger & Blacker', format: 'CD' },
-  { artist: 'Adam Sandler', title: 'What\'s Your Name?', format: 'CD' },
+  { artist: 'Adam Sandler', title: "What's Your Name?", format: 'CD' },
   { artist: 'Griff', title: 'Vertigo', format: 'CD', discogsId: 31205986 },
 
   // === Vinyl Shelf 1 (38) ===
-  { artist: 'Taylor Swift', title: '1989 (Taylor\'s Version)', format: 'Vinyl', discogsId: 28638091 },
+  {
+    artist: 'Taylor Swift',
+    title: "1989 (Taylor's Version)",
+    format: 'Vinyl',
+    discogsId: 28638091,
+  },
   { artist: 'Taylor Swift', title: 'Life Of A Showgirl', format: 'Vinyl' },
-  { artist: 'Taylor Swift', title: 'Lover (Live From Paris)', format: 'Vinyl', discogsId: 32796732 },
+  {
+    artist: 'Taylor Swift',
+    title: 'Lover (Live From Paris)',
+    format: 'Vinyl',
+    discogsId: 32796732,
+  },
   { artist: 'Nirvana', title: 'Nevermind', format: 'Vinyl' },
   { artist: 'Frank Sinatra', title: 'September Of My Years', format: 'Vinyl' },
-  { artist: 'Frank Sinatra', title: 'All The Way', format: 'Vinyl', discogsId: 2194000 },
-  { artist: 'Neil Young', title: 'Everybody Knows This Is Nowhere', format: 'Vinyl' },
+  {
+    artist: 'Frank Sinatra',
+    title: 'All The Way',
+    format: 'Vinyl',
+    discogsId: 2194000,
+  },
+  {
+    artist: 'Neil Young',
+    title: 'Everybody Knows This Is Nowhere',
+    format: 'Vinyl',
+  },
   { artist: 'Wilco', title: 'Yankee Hotel Foxtrot', format: 'Vinyl' },
-  { artist: 'Various', title: 'Easy Rider (Music From The Soundtrack)', format: 'Vinyl' },
+  {
+    artist: 'Various',
+    title: 'Easy Rider (Music From The Soundtrack)',
+    format: 'Vinyl',
+  },
   { artist: 'The Rolling Stones', title: 'Aftermath', format: 'Vinyl' },
   { artist: 'The Beatles', title: 'Magical Mystery Tour', format: 'Vinyl' },
   { artist: 'The Rolling Stones', title: 'Sticky Fingers', format: 'Vinyl' },
-  { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', format: 'Vinyl', discogsId: 17765626 },
-  { artist: 'The Doobie Brothers', title: 'Best Of The Doobies', format: 'Vinyl' },
+  {
+    artist: 'Led Zeppelin',
+    title: 'Led Zeppelin IV',
+    format: 'Vinyl',
+    discogsId: 17765626,
+  },
+  {
+    artist: 'The Doobie Brothers',
+    title: 'Best Of The Doobies',
+    format: 'Vinyl',
+  },
   { artist: 'The Beatles', title: 'Abbey Road', format: 'Vinyl' },
   { artist: 'The Beatles', title: 'Hey Jude', format: 'Vinyl' },
   { artist: 'King Tuff', title: 'Black Moon Spell', format: 'Vinyl' },
   { artist: 'Lana Del Rey', title: 'Paradise', format: 'Vinyl' },
   { artist: 'Eminem', title: 'The Eminem Show', format: 'Vinyl' },
-  { artist: 'Courtney Barnett', title: 'Sometimes I Sit And Think, And Sometimes I Just Sit', format: 'Vinyl' },
+  {
+    artist: 'Courtney Barnett',
+    title: 'Sometimes I Sit And Think, And Sometimes I Just Sit',
+    format: 'Vinyl',
+  },
   { artist: 'Beastie Boys', title: 'Ill Communication', format: 'Vinyl' },
   { artist: 'Ramones', title: 'Ramones', format: 'Vinyl' },
   { artist: 'The Beatles', title: 'Revolver', format: 'Vinyl' },
@@ -136,20 +211,33 @@ const ITEMS_TO_ADD: CollectionItem[] = [
   { artist: 'Ratatat', title: 'LP4', format: 'Vinyl' },
   { artist: 'Billy Joel', title: 'Turnstiles', format: 'Vinyl' },
   { artist: 'Gorillaz', title: 'Plastic Beach', format: 'Vinyl' },
-  { artist: 'Weezer', title: 'Everything Will Be Alright In The End', format: 'Vinyl' },
+  {
+    artist: 'Weezer',
+    title: 'Everything Will Be Alright In The End',
+    format: 'Vinyl',
+  },
   { artist: 'Weezer', title: 'The Lion And The Witch', format: 'Vinyl' },
   { artist: 'Weezer', title: 'Pinkerton', format: 'Vinyl' },
   { artist: 'Vance Joy', title: 'Nation Of Two', format: 'Vinyl' },
-  { artist: 'Sabrina Carpenter', title: 'Man\'s Best Friend', format: 'Vinyl' },
+  { artist: 'Sabrina Carpenter', title: "Man's Best Friend", format: 'Vinyl' },
 
   // === Vinyl Shelf 2 (40) ===
   { artist: 'Johnny Cash', title: 'At Folsom Prison', format: 'Vinyl' },
-  { artist: 'Justin Hurwitz', title: 'La La Land (Original Motion Picture Soundtrack)', format: 'Vinyl', discogsId: 9740448 },
+  {
+    artist: 'Justin Hurwitz',
+    title: 'La La Land (Original Motion Picture Soundtrack)',
+    format: 'Vinyl',
+    discogsId: 9740448,
+  },
   { artist: 'N.W.A.', title: 'Straight Outta Compton', format: 'Vinyl' },
   { artist: 'Louis C.K.', title: 'Oh My God', format: 'Vinyl' },
   { artist: 'Jamie XX', title: 'In Colour', format: 'Vinyl' },
   { artist: 'Pepper Rabbit', title: 'Red Velvet Snow Ball', format: 'Vinyl' },
-  { artist: 'Father John Misty', title: 'I Love You, Honeybear', format: 'Vinyl' },
+  {
+    artist: 'Father John Misty',
+    title: 'I Love You, Honeybear',
+    format: 'Vinyl',
+  },
   { artist: 'Neil Young', title: 'Harvest', format: 'Vinyl' },
   { artist: 'Neil Young', title: 'After The Gold Rush', format: 'Vinyl' },
   { artist: 'Glen Campbell', title: 'Wichita Lineman', format: 'Vinyl' },
@@ -158,114 +246,290 @@ const ITEMS_TO_ADD: CollectionItem[] = [
   { artist: 'The Rolling Stones', title: 'Let It Bleed', format: 'Vinyl' },
   { artist: 'The Rolling Stones', title: 'Flowers', format: 'Vinyl' },
   { artist: 'The Mamas & The Papas', title: 'Greatest Hits', format: 'Vinyl' },
-  { artist: 'Various', title: 'Pulp Fiction (Music From The Motion Picture)', format: 'Vinyl' },
+  {
+    artist: 'Various',
+    title: 'Pulp Fiction (Music From The Motion Picture)',
+    format: 'Vinyl',
+  },
   { artist: 'Wings', title: 'Band On The Run', format: 'Vinyl' },
-  { artist: 'Ice Cube', title: 'AmeriKKKa\'s Most Wanted', format: 'Vinyl' },
+  { artist: 'Ice Cube', title: "AmeriKKKa's Most Wanted", format: 'Vinyl' },
   { artist: 'The Doors', title: 'Waiting For The Sun', format: 'Vinyl' },
-  { artist: 'Taylor Swift', title: 'Speak Now (Taylor\'s Version)', format: 'Vinyl' },
-  { artist: 'Taylor Swift', title: 'The Tortured Poets Department', format: 'Vinyl' },
-  { artist: 'Taylor Swift', title: 'The Tortured Poets Department', format: 'Vinyl', notes: 'second copy' },
-  { artist: 'Various', title: '30th Century Records Compilation, Volume 1', format: 'Vinyl', discogsId: 7924501 },
+  {
+    artist: 'Taylor Swift',
+    title: "Speak Now (Taylor's Version)",
+    format: 'Vinyl',
+  },
+  {
+    artist: 'Taylor Swift',
+    title: 'The Tortured Poets Department',
+    format: 'Vinyl',
+  },
+  {
+    artist: 'Taylor Swift',
+    title: 'The Tortured Poets Department',
+    format: 'Vinyl',
+    notes: 'second copy',
+  },
+  {
+    artist: 'Various',
+    title: '30th Century Records Compilation, Volume 1',
+    format: 'Vinyl',
+    discogsId: 7924501,
+  },
   { artist: 'Weezer', title: 'Weezer (White Album)', format: 'Vinyl' },
   { artist: 'Starfucker', title: 'Miracle Mile', format: 'Vinyl' },
-  { artist: 'Bob Dylan', title: 'In Concert (Brandeis University 1963)', format: 'Vinyl' },
-  { artist: 'The Beatles', title: 'The Beatles (White Album)', format: 'Vinyl' },
+  {
+    artist: 'Bob Dylan',
+    title: 'In Concert (Brandeis University 1963)',
+    format: 'Vinyl',
+  },
+  {
+    artist: 'The Beatles',
+    title: 'The Beatles (White Album)',
+    format: 'Vinyl',
+  },
   { artist: 'The Rolling Stones', title: 'Exile On Main St.', format: 'Vinyl' },
   { artist: 'The Grateful Dead', title: 'American Beauty', format: 'Vinyl' },
-  { artist: 'Wu-Tang Clan', title: 'Enter The Wu-Tang (36 Chambers)', format: 'Vinyl' },
+  {
+    artist: 'Wu-Tang Clan',
+    title: 'Enter The Wu-Tang (36 Chambers)',
+    format: 'Vinyl',
+  },
   { artist: 'The Rolling Stones', title: 'Beggars Banquet', format: 'Vinyl' },
   { artist: 'The Rolling Stones', title: 'Out Of Our Heads', format: 'Vinyl' },
   { artist: 'Bob Dylan', title: 'John Wesley Harding', format: 'Vinyl' },
   { artist: '2Pac', title: 'All Eyez On Me', format: 'Vinyl' },
-  { artist: 'John Coltrane', title: 'Coltrane', format: 'Vinyl', discogsId: 3016396 },
+  {
+    artist: 'John Coltrane',
+    title: 'Coltrane',
+    format: 'Vinyl',
+    discogsId: 3016396,
+  },
   { artist: 'Wings', title: 'Venus And Mars', format: 'Vinyl' },
   { artist: 'The Black Keys', title: 'The Big Come Up', format: 'Vinyl' },
   { artist: 'Nirvana', title: 'Bleach', format: 'Vinyl' },
   { artist: 'George Carlin', title: 'Class Clown', format: 'Vinyl' },
-  { artist: 'Beastie Boys', title: 'Hot Sauce Committee Part Two', format: 'Vinyl' },
+  {
+    artist: 'Beastie Boys',
+    title: 'Hot Sauce Committee Part Two',
+    format: 'Vinyl',
+  },
 
   // === Vinyl Shelf 3 (38) ===
-  { artist: 'Taylor Swift', title: '1989 (Taylor\'s Version)', format: 'Vinyl', notes: 'copy 2', discogsId: 28714936 },
-  { artist: 'Taylor Swift', title: '1989 (Taylor\'s Version)', format: 'Vinyl', notes: 'copy 3', discogsId: 28714750 },
-  { artist: 'Taylor Swift', title: '1989 (Taylor\'s Version)', format: 'Vinyl', notes: 'copy 4', discogsId: 28714732 },
-  { artist: 'Taylor Swift', title: '1989 (Taylor\'s Version)', format: 'Vinyl', notes: 'copy 5', discogsId: 28714738 },
-  { artist: 'Eagles', title: 'Their Greatest Hits, Volumes 1 & 2', format: 'Vinyl' },
-  { artist: 'David Bowie', title: 'The Rise And Fall Of Ziggy Stardust And The Spiders From Mars', format: 'Vinyl' },
+  {
+    artist: 'Taylor Swift',
+    title: "1989 (Taylor's Version)",
+    format: 'Vinyl',
+    notes: 'copy 2',
+    discogsId: 28714936,
+  },
+  {
+    artist: 'Taylor Swift',
+    title: "1989 (Taylor's Version)",
+    format: 'Vinyl',
+    notes: 'copy 3',
+    discogsId: 28714750,
+  },
+  {
+    artist: 'Taylor Swift',
+    title: "1989 (Taylor's Version)",
+    format: 'Vinyl',
+    notes: 'copy 4',
+    discogsId: 28714732,
+  },
+  {
+    artist: 'Taylor Swift',
+    title: "1989 (Taylor's Version)",
+    format: 'Vinyl',
+    notes: 'copy 5',
+    discogsId: 28714738,
+  },
+  {
+    artist: 'Eagles',
+    title: 'Their Greatest Hits, Volumes 1 & 2',
+    format: 'Vinyl',
+  },
+  {
+    artist: 'David Bowie',
+    title: 'The Rise And Fall Of Ziggy Stardust And The Spiders From Mars',
+    format: 'Vinyl',
+  },
   { artist: 'Wings', title: 'Wings Over America', format: 'Vinyl' },
   { artist: 'Beastie Boys', title: 'To The 5 Boroughs', format: 'Vinyl' },
   { artist: 'Bon Iver', title: '22, A Million', format: 'Vinyl' },
   { artist: 'Taylor Swift', title: 'Midnights', format: 'Vinyl' },
-  { artist: 'Taylor Swift', title: 'Midnights', format: 'Vinyl', notes: 'copy 2' },
-  { artist: 'Beastie Boys', title: 'Paul\'s Boutique', format: 'Vinyl' },
-  { artist: 'Nirvana', title: 'Pennyroyal Tea', format: 'Vinyl', discogsId: 5610084 },
-  { artist: 'Creedence Clearwater Revival', title: 'Willy And The Poor Boys', format: 'Vinyl' },
-  { artist: 'Jefferson Airplane', title: 'Volunteers', format: 'Vinyl', discogsId: 1305465 },
-  { artist: 'The Plastic Ono Band', title: 'Live Peace In Toronto 1969', format: 'Vinyl' },
+  {
+    artist: 'Taylor Swift',
+    title: 'Midnights',
+    format: 'Vinyl',
+    notes: 'copy 2',
+  },
+  { artist: 'Beastie Boys', title: "Paul's Boutique", format: 'Vinyl' },
+  {
+    artist: 'Nirvana',
+    title: 'Pennyroyal Tea',
+    format: 'Vinyl',
+    discogsId: 5610084,
+  },
+  {
+    artist: 'Creedence Clearwater Revival',
+    title: 'Willy And The Poor Boys',
+    format: 'Vinyl',
+  },
+  {
+    artist: 'Jefferson Airplane',
+    title: 'Volunteers',
+    format: 'Vinyl',
+    discogsId: 1305465,
+  },
+  {
+    artist: 'The Plastic Ono Band',
+    title: 'Live Peace In Toronto 1969',
+    format: 'Vinyl',
+  },
   { artist: 'The Black Keys', title: 'Rubber Factory', format: 'Vinyl' },
   { artist: 'Sylvan Esso', title: 'What Now', format: 'Vinyl' },
   { artist: 'Eddie Murphy', title: 'Comedian', format: 'Vinyl' },
   { artist: 'The Who', title: 'Live At Leeds', format: 'Vinyl' },
   { artist: 'The Who', title: 'Tommy', format: 'Vinyl' },
-  { artist: 'Sabrina Carpenter', title: 'Short n\' Sweet', format: 'Vinyl' },
+  { artist: 'Sabrina Carpenter', title: "Short n' Sweet", format: 'Vinyl' },
   { artist: 'Alabama Shakes', title: 'Boys & Girls', format: 'Vinyl' },
   { artist: 'Beastie Boys', title: 'Hello Nasty', format: 'Vinyl' },
-  { artist: 'A Tribe Called Quest', title: 'Midnight Marauders', format: 'Vinyl' },
+  {
+    artist: 'A Tribe Called Quest',
+    title: 'Midnight Marauders',
+    format: 'Vinyl',
+  },
   { artist: 'Miles Davis', title: 'Kind Of Blue', format: 'Vinyl' },
   { artist: 'The Velvet Underground', title: 'Loaded', format: 'Vinyl' },
   { artist: 'Etta James', title: 'At Last!', format: 'Vinyl' },
-  { artist: 'Frank Sinatra', title: 'Try A Little Tenderness', format: 'Vinyl' },
+  {
+    artist: 'Frank Sinatra',
+    title: 'Try A Little Tenderness',
+    format: 'Vinyl',
+  },
   { artist: 'The Beach Boys', title: 'Pet Sounds', format: 'Vinyl' },
-  { artist: 'Steve Martin', title: 'Let\'s Get Small', format: 'Vinyl' },
-  { artist: 'The Rolling Stones', title: 'Big Hits (High Tide And Green Grass)', format: 'Vinyl' },
+  { artist: 'Steve Martin', title: "Let's Get Small", format: 'Vinyl' },
+  {
+    artist: 'The Rolling Stones',
+    title: 'Big Hits (High Tide And Green Grass)',
+    format: 'Vinyl',
+  },
   { artist: 'John Lennon', title: 'Imagine', format: 'Vinyl' },
   { artist: 'Johnny Cash', title: 'At San Quentin', format: 'Vinyl' },
   { artist: 'Ratatat', title: 'Magnifique', format: 'Vinyl' },
   { artist: 'Wilco', title: 'Star Wars', format: 'Vinyl' },
-  { artist: 'Various', title: 'High Fidelity (Original Soundtrack)', format: 'Vinyl' },
+  {
+    artist: 'Various',
+    title: 'High Fidelity (Original Soundtrack)',
+    format: 'Vinyl',
+  },
   { artist: 'Don McLean', title: 'American Pie', format: 'Vinyl' },
   { artist: 'The War On Drugs', title: 'Lost In The Dream', format: 'Vinyl' },
   { artist: 'Bob Frank', title: 'Bob Frank', format: 'Vinyl' },
 
   // === Vinyl Shelf 4 (41) ===
-  { artist: 'Taylor Swift', title: 'Life Of A Showgirl', format: 'Vinyl', notes: 'copy 2' },
-  { artist: 'Taylor Swift', title: 'Life Of A Showgirl', format: 'Vinyl', notes: 'copy 3' },
-  { artist: 'Taylor Swift', title: 'Life Of A Showgirl', format: 'Vinyl', notes: 'copy 4' },
+  {
+    artist: 'Taylor Swift',
+    title: 'Life Of A Showgirl',
+    format: 'Vinyl',
+    notes: 'copy 2',
+  },
+  {
+    artist: 'Taylor Swift',
+    title: 'Life Of A Showgirl',
+    format: 'Vinyl',
+    notes: 'copy 3',
+  },
+  {
+    artist: 'Taylor Swift',
+    title: 'Life Of A Showgirl',
+    format: 'Vinyl',
+    notes: 'copy 4',
+  },
   { artist: 'Taylor Swift', title: 'Folklore', format: 'Vinyl' },
   { artist: 'Beyonce', title: 'Cowboy Carter', format: 'Vinyl' },
-  { artist: 'The Beach Boys', title: 'The Beach Boys\' Christmas Album', format: 'Vinyl' },
-  { artist: 'Frank Sinatra', title: 'A Jolly Christmas From Frank Sinatra', format: 'Vinyl' },
+  {
+    artist: 'The Beach Boys',
+    title: "The Beach Boys' Christmas Album",
+    format: 'Vinyl',
+  },
+  {
+    artist: 'Frank Sinatra',
+    title: 'A Jolly Christmas From Frank Sinatra',
+    format: 'Vinyl',
+  },
   { artist: 'Jack + Eliza', title: 'Gentle Warnings', format: 'Vinyl' },
-  { artist: 'Ella Fitzgerald', title: 'Ella Wishes You A Swinging Christmas', format: 'Vinyl' },
+  {
+    artist: 'Ella Fitzgerald',
+    title: 'Ella Wishes You A Swinging Christmas',
+    format: 'Vinyl',
+  },
   { artist: 'Bing Crosby', title: 'Christmas Classics', format: 'Vinyl' },
   { artist: 'Nirvana', title: 'In Utero', format: 'Vinyl' },
   { artist: 'Common', title: 'Resurrection', format: 'Vinyl' },
   { artist: 'Dr. Dre', title: 'The Chronic', format: 'Vinyl' },
   { artist: 'Fleet Foxes', title: 'Fleet Foxes', format: 'Vinyl' },
   { artist: 'Beastie Boys', title: 'The Mix-Up', format: 'Vinyl' },
-  { artist: 'Buddy Holly', title: 'For The First Time Anywhere', format: 'Vinyl' },
+  {
+    artist: 'Buddy Holly',
+    title: 'For The First Time Anywhere',
+    format: 'Vinyl',
+  },
   { artist: 'Beirut', title: 'The Flying Club Cup', format: 'Vinyl' },
   { artist: 'The Beatles', title: '1', format: 'Vinyl', discogsId: 7790160 },
   { artist: 'The Black Keys', title: 'Thickfreakness', format: 'Vinyl' },
-  { artist: 'John Coltrane', title: 'Coltrane Jazz', format: 'Vinyl', discogsId: 645553 },
+  {
+    artist: 'John Coltrane',
+    title: 'Coltrane Jazz',
+    format: 'Vinyl',
+    discogsId: 645553,
+  },
   { artist: 'Paul And Linda McCartney', title: 'Ram', format: 'Vinyl' },
-  { artist: 'Al Green', title: 'I\'m Still In Love With You', format: 'Vinyl' },
+  { artist: 'Al Green', title: "I'm Still In Love With You", format: 'Vinyl' },
   { artist: 'Billy Joel', title: 'An Innocent Man', format: 'Vinyl' },
-  { artist: 'Woody Guthrie', title: 'Poor Boy', format: 'Vinyl', discogsId: 2291090 },
+  {
+    artist: 'Woody Guthrie',
+    title: 'Poor Boy',
+    format: 'Vinyl',
+    discogsId: 2291090,
+  },
   { artist: 'Bob Dylan', title: 'Blonde On Blonde', format: 'Vinyl' },
-  { artist: 'Bob Dylan', title: 'The Times They Are A-Changin\'', format: 'Vinyl' },
+  {
+    artist: 'Bob Dylan',
+    title: "The Times They Are A-Changin'",
+    format: 'Vinyl',
+  },
   { artist: 'Bob Dylan', title: 'Nashville Skyline', format: 'Vinyl' },
   { artist: 'Bob Dylan', title: 'Blood On The Tracks', format: 'Vinyl' },
   { artist: 'The Shins', title: 'Wincing The Night Away', format: 'Vinyl' },
-  { artist: 'Taylor Swift', title: 'Folklore', format: 'Vinyl', notes: 'copy 2' },
+  {
+    artist: 'Taylor Swift',
+    title: 'Folklore',
+    format: 'Vinyl',
+    notes: 'copy 2',
+  },
   { artist: 'Ratatat', title: 'Classics', format: 'Vinyl' },
   { artist: 'Weezer', title: 'Weezer (Blue Album)', format: 'Vinyl' },
-  { artist: 'Otis Redding', title: 'In Person At The Whisky A Go Go', format: 'Vinyl' },
+  {
+    artist: 'Otis Redding',
+    title: 'In Person At The Whisky A Go Go',
+    format: 'Vinyl',
+  },
   { artist: 'Fleetwood Mac', title: 'Rumours', format: 'Vinyl' },
   { artist: 'Nirvana', title: 'MTV Unplugged In New York', format: 'Vinyl' },
   { artist: 'Billy Joel', title: 'The Stranger', format: 'Vinyl' },
   { artist: 'The Black Keys', title: 'Turn Blue', format: 'Vinyl' },
-  { artist: 'A Tribe Called Quest', title: 'We Got It From Here... Thank You 4 Your Service', format: 'Vinyl' },
-  { artist: 'Various', title: 'Jackie Brown (Music From The Miramax Motion Picture)', format: 'Vinyl' },
+  {
+    artist: 'A Tribe Called Quest',
+    title: 'We Got It From Here... Thank You 4 Your Service',
+    format: 'Vinyl',
+  },
+  {
+    artist: 'Various',
+    title: 'Jackie Brown (Music From The Miramax Motion Picture)',
+    format: 'Vinyl',
+  },
   { artist: 'R.L. Burnside', title: 'Too Bad Jim', format: 'Vinyl' },
   { artist: 'Billy Joel', title: 'Piano Man', format: 'Vinyl' },
   { artist: 'Leon Bridges', title: 'Coming Home', format: 'Vinyl' },
@@ -278,7 +542,10 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function discogsGet(path: string, params?: Record<string, string>): Promise<unknown> {
+async function discogsGet(
+  path: string,
+  params?: Record<string, string>
+): Promise<unknown> {
   const url = new URL(`https://api.discogs.com${path}`);
   if (params) {
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -296,7 +563,9 @@ async function discogsGet(path: string, params?: Record<string, string>): Promis
     return discogsGet(path, params);
   }
   if (!res.ok) {
-    throw new Error(`Discogs API error: ${res.status} ${res.statusText} for ${path}`);
+    throw new Error(
+      `Discogs API error: ${res.status} ${res.statusText} for ${path}`
+    );
   }
   return res.json();
 }
@@ -319,7 +588,9 @@ async function discogsPost(path: string): Promise<unknown> {
   }
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Discogs API error: ${res.status} ${res.statusText} - ${body}`);
+    throw new Error(
+      `Discogs API error: ${res.status} ${res.statusText} - ${body}`
+    );
   }
   return res.json();
 }
@@ -380,7 +651,12 @@ async function searchRelease(
   artist: string,
   title: string,
   format: 'Vinyl' | 'CD'
-): Promise<{ releaseId: number; displayTitle: string; year: string; country: string } | null> {
+): Promise<{
+  releaseId: number;
+  displayTitle: string;
+  year: string;
+  country: string;
+} | null> {
   // Search with artist + title + format
   const query = `${artist} ${title}`;
   const data = (await discogsGet('/database/search', {
@@ -442,7 +718,9 @@ function isAlreadyInCollection(
 // --- Main ---
 
 async function main() {
-  console.log(`[INFO] Discogs Collection Bulk Add${DRY_RUN ? ' (DRY RUN)' : ''}`);
+  console.log(
+    `[INFO] Discogs Collection Bulk Add${DRY_RUN ? ' (DRY RUN)' : ''}`
+  );
   console.log(`[INFO] Total items to process: ${ITEMS_TO_ADD.length}`);
   console.log('');
 
@@ -454,7 +732,12 @@ async function main() {
   let added = 0;
   let skipped = 0;
   let failed = 0;
-  const failures: Array<{ artist: string; title: string; format: string; reason: string }> = [];
+  const failures: Array<{
+    artist: string;
+    title: string;
+    format: string;
+    reason: string;
+  }> = [];
 
   // Track how many times we've added each release ID in this run
   // (for handling multiple copies of the same album)
@@ -464,10 +747,17 @@ async function main() {
     const item = ITEMS_TO_ADD[i];
     const label = `[${i + 1}/${ITEMS_TO_ADD.length}]`;
 
-    process.stdout.write(`${label} ${item.artist} - ${item.title} [${item.format}]...`);
+    process.stdout.write(
+      `${label} ${item.artist} - ${item.title} [${item.format}]...`
+    );
 
     try {
-      let result: { releaseId: number; displayTitle: string; year: string; country: string } | null;
+      let result: {
+        releaseId: number;
+        displayTitle: string;
+        year: string;
+        country: string;
+      } | null;
 
       if (item.discogsId) {
         // Use the override ID directly, fetch display info
@@ -478,7 +768,8 @@ async function main() {
           artists: Array<{ name: string }>;
         };
         await sleep(RATE_LIMIT_MS);
-        const artistName = release.artists?.map((a) => a.name).join(', ') || item.artist;
+        const artistName =
+          release.artists?.map((a) => a.name).join(', ') || item.artist;
         result = {
           releaseId: item.discogsId,
           displayTitle: `${artistName} - ${release.title}`,
@@ -510,20 +801,26 @@ async function main() {
       // For items with notes (explicit duplicates), we want to add regardless
       // For items without notes, skip if already exists
       if (totalCopies > 0 && !item.notes) {
-        console.log(` SKIP (already in collection as ${existing.find(e => e.id === result.releaseId)?.formats.join(', ') || item.format})`);
+        console.log(
+          ` SKIP (already in collection as ${existing.find((e) => e.id === result.releaseId)?.formats.join(', ') || item.format})`
+        );
         skipped++;
         continue;
       }
 
       if (DRY_RUN) {
-        console.log(` WOULD ADD: ${result.displayTitle} (${result.year}, ${result.country})`);
+        console.log(
+          ` WOULD ADD: ${result.displayTitle} (${result.year}, ${result.country})`
+        );
         added++;
       } else {
         await discogsPost(
           `/users/${DISCOGS_USERNAME}/collection/folders/1/releases/${result.releaseId}`
         );
         await sleep(RATE_LIMIT_MS);
-        console.log(` ADDED: ${result.displayTitle} (${result.year}, ${result.country})`);
+        console.log(
+          ` ADDED: ${result.displayTitle} (${result.year}, ${result.country})`
+        );
         added++;
       }
 

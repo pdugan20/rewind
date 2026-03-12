@@ -4,8 +4,6 @@ import { drizzle } from 'drizzle-orm/d1';
 import { activityFeed } from '../db/schema/system.js';
 import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 describe('export routes', () => {
   let adminToken: string;
   let readToken: string;

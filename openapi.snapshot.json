@@ -76,28 +76,21 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ok"
-            ]
+            "enum": ["ok"]
           },
           "timestamp": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": [
-          "status",
-          "timestamp"
-        ]
+        "required": ["status", "timestamp"]
       },
       "SyncHealthResponse": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ok"
-            ]
+            "enum": ["ok"]
           },
           "domains": {
             "type": "object",
@@ -105,10 +98,7 @@
               "type": "object",
               "properties": {
                 "last_sync": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": ["string", "null"],
                   "format": "date-time"
                 },
                 "status": {
@@ -120,22 +110,13 @@
                   "example": "scrobbles"
                 },
                 "items_synced": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "duration_ms": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "error": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "error_rate": {
                   "type": "number",
@@ -154,10 +135,7 @@
             }
           }
         },
-        "required": [
-          "status",
-          "domains"
-        ]
+        "required": ["status", "domains"]
       },
       "ErrorResponse": {
         "type": "object",
@@ -171,10 +149,7 @@
             "example": 404
           }
         },
-        "required": [
-          "error",
-          "status"
-        ]
+        "required": ["error", "status"]
       },
       "PaginationMeta": {
         "type": "object",
@@ -196,18 +171,10 @@
             "example": 8
           }
         },
-        "required": [
-          "page",
-          "limit",
-          "total",
-          "total_pages"
-        ]
+        "required": ["page", "limit", "total", "total_pages"]
       },
       "ImageAttachment": {
-        "type": [
-          "object",
-          "null"
-        ],
+        "type": ["object", "null"],
         "properties": {
           "url": {
             "type": "string",
@@ -215,33 +182,19 @@
             "example": "https://cdn.rewind.rest/..."
           },
           "thumbhash": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "example": "YJqGPQw7d4..."
           },
           "dominant_color": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "example": "#1a1a2e"
           },
           "accent_color": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "example": "#e94560"
           }
         },
-        "required": [
-          "url",
-          "thumbhash",
-          "dominant_color",
-          "accent_color"
-        ]
+        "required": ["url", "thumbhash", "dominant_color", "accent_color"]
       },
       "ImageAlternativesResponse": {
         "type": "object",
@@ -259,17 +212,10 @@
                 "type": "string"
               }
             },
-            "required": [
-              "domain",
-              "entity_type",
-              "entity_id"
-            ]
+            "required": ["domain", "entity_type", "entity_id"]
           },
           "current_source": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "is_override": {
             "type": "boolean"
@@ -288,33 +234,17 @@
                   "format": "uri"
                 },
                 "width": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "height": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 }
               },
-              "required": [
-                "source",
-                "url",
-                "width",
-                "height"
-              ]
+              "required": ["source", "url", "width", "height"]
             }
           }
         },
-        "required": [
-          "entity",
-          "current_source",
-          "is_override",
-          "alternatives"
-        ]
+        "required": ["entity", "current_source", "is_override", "alternatives"]
       },
       "ImageResultResponse": {
         "type": "object",
@@ -342,22 +272,13 @@
             "type": "integer"
           },
           "thumbhash": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "dominant_color": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "accent_color": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           }
         },
         "required": [
@@ -393,20 +314,14 @@
             }
           }
         },
-        "required": [
-          "domain",
-          "exported_at",
-          "tables"
-        ]
+        "required": ["domain", "exported_at", "tables"]
       },
       "SyncCompletedResponse": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "completed"
-            ]
+            "enum": ["completed"]
           },
           "items_synced": {
             "type": "integer",
@@ -417,10 +332,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "status",
-          "items_synced"
-        ]
+        "required": ["status", "items_synced"]
       },
       "WatchingSyncResponse": {
         "anyOf": [
@@ -437,15 +349,11 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "enum": [
-              true
-            ]
+            "enum": [true]
           },
           "source": {
             "type": "string",
-            "enum": [
-              "plex"
-            ]
+            "enum": ["plex"]
           },
           "movies_synced": {
             "type": "integer"
@@ -454,27 +362,18 @@
             "type": "integer"
           }
         },
-        "required": [
-          "success",
-          "source",
-          "movies_synced",
-          "shows_synced"
-        ]
+        "required": ["success", "source", "movies_synced", "shows_synced"]
       },
       "WatchingLetterboxdSyncResponse": {
         "type": "object",
         "properties": {
           "success": {
             "type": "boolean",
-            "enum": [
-              true
-            ]
+            "enum": [true]
           },
           "source": {
             "type": "string",
-            "enum": [
-              "letterboxd"
-            ]
+            "enum": ["letterboxd"]
           },
           "synced": {
             "type": "integer"
@@ -483,49 +382,35 @@
             "type": "integer"
           }
         },
-        "required": [
-          "success",
-          "source",
-          "synced",
-          "skipped"
-        ]
+        "required": ["success", "source", "synced", "skipped"]
       },
       "SyncStatusResponse": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "completed"
-            ]
+            "enum": ["completed"]
           },
           "timestamp": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": [
-          "status"
-        ]
+        "required": ["status"]
       },
       "ActivityDeletedResponse": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "deleted"
-            ]
+            "enum": ["deleted"]
           },
           "strava_id": {
             "type": "integer",
             "example": 12345
           }
         },
-        "required": [
-          "status",
-          "strava_id"
-        ]
+        "required": ["status", "strava_id"]
       }
     },
     "parameters": {}
@@ -533,9 +418,7 @@
   "paths": {
     "/v1/health": {
       "get": {
-        "tags": [
-          "System"
-        ],
+        "tags": ["System"],
         "summary": "Health check",
         "description": "Returns API health status and current timestamp.",
         "responses": {
@@ -554,9 +437,7 @@
     },
     "/v1/health/sync": {
       "get": {
-        "tags": [
-          "System"
-        ],
+        "tags": ["System"],
         "summary": "Sync health status",
         "description": "Returns the latest sync status for each data domain, including last sync time, items synced, duration, and 24-hour error rate.",
         "responses": {
@@ -575,9 +456,7 @@
     },
     "/v1/listening/now-playing": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Now playing",
         "description": "Returns the currently playing or most recently scrobbled track from Last.fm.",
         "responses": {
@@ -593,16 +472,10 @@
                     },
                     "track": {},
                     "scrobbled_at": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     }
                   },
-                  "required": [
-                    "is_playing",
-                    "scrobbled_at"
-                  ]
+                  "required": ["is_playing", "scrobbled_at"]
                 }
               }
             }
@@ -622,9 +495,7 @@
     },
     "/v1/listening/recent": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Recent scrobbles",
         "description": "Returns the most recent scrobbles.",
         "parameters": [
@@ -664,17 +535,10 @@
                                 "type": "string"
                               },
                               "url": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               }
                             },
-                            "required": [
-                              "id",
-                              "name",
-                              "url"
-                            ]
+                            "required": ["id", "name", "url"]
                           },
                           "artist": {
                             "type": "object",
@@ -686,49 +550,30 @@
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "id",
-                              "name"
-                            ]
+                            "required": ["id", "name"]
                           },
                           "album": {
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "name": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "image": {}
                             },
-                            "required": [
-                              "id",
-                              "name"
-                            ]
+                            "required": ["id", "name"]
                           },
                           "scrobbled_at": {
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "track",
-                          "artist",
-                          "album",
-                          "scrobbled_at"
-                        ]
+                        "required": ["track", "artist", "album", "scrobbled_at"]
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -748,9 +593,7 @@
     },
     "/v1/listening/top/artists": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Top artists",
         "description": "Returns top artists for a given time period.",
         "parameters": [
@@ -846,11 +689,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "period",
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["period", "data", "pagination"]
                 }
               }
             }
@@ -880,9 +719,7 @@
     },
     "/v1/listening/top/albums": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Top albums",
         "description": "Returns top albums for a given time period.",
         "parameters": [
@@ -978,11 +815,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "period",
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["period", "data", "pagination"]
                 }
               }
             }
@@ -1012,9 +845,7 @@
     },
     "/v1/listening/top/tracks": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Top tracks",
         "description": "Returns top tracks for a given time period.",
         "parameters": [
@@ -1110,11 +941,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "period",
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["period", "data", "pagination"]
                 }
               }
             }
@@ -1144,9 +971,7 @@
     },
     "/v1/listening/stats": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Listening stats",
         "description": "Returns overall listening statistics.",
         "responses": {
@@ -1170,10 +995,7 @@
                       "type": "number"
                     },
                     "registered_date": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "years_tracking": {
                       "type": "number"
@@ -1210,9 +1032,7 @@
     },
     "/v1/listening/history": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Scrobble history",
         "description": "Returns paginated scrobble history with optional filters.",
         "parameters": [
@@ -1299,17 +1119,10 @@
                                 "type": "string"
                               },
                               "url": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               }
                             },
-                            "required": [
-                              "id",
-                              "name",
-                              "url"
-                            ]
+                            "required": ["id", "name", "url"]
                           },
                           "artist": {
                             "type": "object",
@@ -1321,53 +1134,33 @@
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "id",
-                              "name"
-                            ]
+                            "required": ["id", "name"]
                           },
                           "album": {
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "name": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "image": {}
                             },
-                            "required": [
-                              "id",
-                              "name"
-                            ]
+                            "required": ["id", "name"]
                           },
                           "scrobbled_at": {
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "track",
-                          "artist",
-                          "album",
-                          "scrobbled_at"
-                        ]
+                        "required": ["track", "artist", "album", "scrobbled_at"]
                       }
                     },
                     "pagination": {
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -1387,9 +1180,7 @@
     },
     "/v1/listening/artists": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Browse artists",
         "description": "Returns paginated list of all artists.",
         "parameters": [
@@ -1419,10 +1210,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "playcount",
-                "name"
-              ],
+              "enum": ["playcount", "name"],
               "default": "playcount",
               "example": "playcount"
             },
@@ -1433,10 +1221,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ],
+              "enum": ["asc", "desc"],
               "default": "desc",
               "example": "desc"
             },
@@ -1474,32 +1259,21 @@
                             "type": "string"
                           },
                           "playcount": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "url": {
                             "type": "string"
                           },
                           "image": {}
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "playcount",
-                          "url"
-                        ]
+                        "required": ["id", "name", "playcount", "url"]
                       }
                     },
                     "pagination": {
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -1519,9 +1293,7 @@
     },
     "/v1/listening/albums": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Browse albums",
         "description": "Returns paginated list of all albums.",
         "parameters": [
@@ -1551,11 +1323,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "playcount",
-                "name",
-                "recent"
-              ],
+              "enum": ["playcount", "name", "recent"],
               "default": "playcount",
               "example": "playcount"
             },
@@ -1566,10 +1334,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ],
+              "enum": ["asc", "desc"],
               "default": "desc",
               "example": "desc"
             },
@@ -1625,39 +1390,24 @@
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "id",
-                              "name"
-                            ]
+                            "required": ["id", "name"]
                           },
                           "playcount": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "url": {
                             "type": "string"
                           },
                           "image": {}
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "artist",
-                          "playcount",
-                          "url"
-                        ]
+                        "required": ["id", "name", "artist", "playcount", "url"]
                       }
                     },
                     "pagination": {
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -1677,9 +1427,7 @@
     },
     "/v1/listening/artists/{id}": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Artist detail",
         "description": "Returns detailed information about an artist including top albums and tracks.",
         "parameters": [
@@ -1708,16 +1456,10 @@
                       "type": "string"
                     },
                     "mbid": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "url": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "playcount": {
                       "type": "number"
@@ -1742,11 +1484,7 @@
                           },
                           "image": {}
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "playcount"
-                        ]
+                        "required": ["id", "name", "playcount"]
                       }
                     },
                     "top_tracks": {
@@ -1764,11 +1502,7 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "scrobble_count"
-                        ]
+                        "required": ["id", "name", "scrobble_count"]
                       }
                     }
                   },
@@ -1821,9 +1555,7 @@
     },
     "/v1/listening/albums/{id}": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Album detail",
         "description": "Returns detailed information about an album including tracks.",
         "parameters": [
@@ -1852,16 +1584,10 @@
                       "type": "string"
                     },
                     "mbid": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "url": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "playcount": {
                       "type": "number"
@@ -1877,10 +1603,7 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "id",
-                        "name"
-                      ]
+                      "required": ["id", "name"]
                     },
                     "tracks": {
                       "type": "array",
@@ -1897,11 +1620,7 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "scrobble_count"
-                        ]
+                        "required": ["id", "name", "scrobble_count"]
                       }
                     }
                   },
@@ -1953,18 +1672,13 @@
     },
     "/v1/listening/calendar": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Scrobble calendar",
         "description": "Returns daily scrobble counts for a given year.",
         "parameters": [
           {
             "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
+              "type": ["integer", "null"],
               "example": 2024
             },
             "required": false,
@@ -1995,10 +1709,7 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "date",
-                          "count"
-                        ]
+                        "required": ["date", "count"]
                       }
                     },
                     "total": {
@@ -2014,18 +1725,10 @@
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "date",
-                        "count"
-                      ]
+                      "required": ["date", "count"]
                     }
                   },
-                  "required": [
-                    "year",
-                    "days",
-                    "total",
-                    "max_day"
-                  ]
+                  "required": ["year", "days", "total", "max_day"]
                 }
               }
             }
@@ -2055,21 +1758,14 @@
     },
     "/v1/listening/trends": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Listening trends",
         "description": "Returns monthly trend data for a given metric.",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "scrobbles",
-                "artists",
-                "albums",
-                "tracks"
-              ],
+              "enum": ["scrobbles", "artists", "albums", "tracks"],
               "default": "scrobbles",
               "example": "scrobbles"
             },
@@ -2119,17 +1815,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "period",
-                          "value"
-                        ]
+                        "required": ["period", "value"]
                       }
                     }
                   },
-                  "required": [
-                    "metric",
-                    "data"
-                  ]
+                  "required": ["metric", "data"]
                 }
               }
             }
@@ -2159,9 +1849,7 @@
     },
     "/v1/listening/streaks": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Listening streaks",
         "description": "Returns current and longest listening streaks.",
         "responses": {
@@ -2179,20 +1867,13 @@
                           "type": "number"
                         },
                         "start_date": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "total_scrobbles": {
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "days",
-                        "start_date",
-                        "total_scrobbles"
-                      ]
+                      "required": ["days", "start_date", "total_scrobbles"]
                     },
                     "longest": {
                       "type": "object",
@@ -2201,16 +1882,10 @@
                           "type": "number"
                         },
                         "start_date": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "end_date": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "total_scrobbles": {
                           "type": "number"
@@ -2224,10 +1899,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "current",
-                    "longest"
-                  ]
+                  "required": ["current", "longest"]
                 }
               }
             }
@@ -2247,9 +1919,7 @@
     },
     "/v1/listening/year/{year}": {
       "get": {
-        "tags": [
-          "Listening"
-        ],
+        "tags": ["Listening"],
         "summary": "Year in review",
         "description": "Returns year-in-review listening data.",
         "parameters": [
@@ -2302,11 +1972,7 @@
                           },
                           "image": {}
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "scrobbles"
-                        ]
+                        "required": ["id", "name", "scrobbles"]
                       }
                     },
                     "top_albums": {
@@ -2328,12 +1994,7 @@
                           },
                           "image": {}
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "artist",
-                          "scrobbles"
-                        ]
+                        "required": ["id", "name", "artist", "scrobbles"]
                       }
                     },
                     "top_tracks": {
@@ -2354,12 +2015,7 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "artist",
-                          "scrobbles"
-                        ]
+                        "required": ["id", "name", "artist", "scrobbles"]
                       }
                     },
                     "monthly": {
@@ -2429,10 +2085,7 @@
     },
     "/v1/listening/admin/filters": {
       "get": {
-        "tags": [
-          "Listening",
-          "Admin"
-        ],
+        "tags": ["Listening", "Admin"],
         "summary": "List listening filters",
         "description": "Returns all listening filters.",
         "responses": {
@@ -2458,16 +2111,10 @@
                             "type": "string"
                           },
                           "scope": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "reason": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "created_at": {
                             "type": "string"
@@ -2484,9 +2131,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -2504,10 +2149,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Listening",
-          "Admin"
-        ],
+        "tags": ["Listening", "Admin"],
         "summary": "Create listening filter",
         "description": "Creates a new listening filter.",
         "requestBody": {
@@ -2533,11 +2175,7 @@
                     "example": "Seasonal music"
                   }
                 },
-                "required": [
-                  "filter_type",
-                  "pattern",
-                  "scope"
-                ]
+                "required": ["filter_type", "pattern", "scope"]
               }
             }
           }
@@ -2560,16 +2198,10 @@
                       "type": "string"
                     },
                     "scope": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "reason": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "created_at": {
                       "type": "string"
@@ -2622,10 +2254,7 @@
     },
     "/v1/listening/admin/filters/{id}": {
       "delete": {
-        "tags": [
-          "Listening",
-          "Admin"
-        ],
+        "tags": ["Listening", "Admin"],
         "summary": "Delete listening filter",
         "description": "Deletes a listening filter by ID.",
         "parameters": [
@@ -2654,10 +2283,7 @@
                       "type": "number"
                     }
                   },
-                  "required": [
-                    "success",
-                    "deleted_id"
-                  ]
+                  "required": ["success", "deleted_id"]
                 }
               }
             }
@@ -2697,10 +2323,7 @@
     },
     "/v1/listening/admin/listening/backfill-images": {
       "post": {
-        "tags": [
-          "Listening",
-          "Admin"
-        ],
+        "tags": ["Listening", "Admin"],
         "summary": "Backfill listening images",
         "description": "Backfills missing images for albums and/or artists.",
         "requestBody": {
@@ -2711,11 +2334,7 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": [
-                      "albums",
-                      "artists",
-                      "all"
-                    ],
+                    "enum": ["albums", "artists", "all"],
                     "default": "albums",
                     "example": "albums"
                   },
@@ -2747,10 +2366,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "success",
-                    "results"
-                  ]
+                  "required": ["success", "results"]
                 }
               }
             }
@@ -2780,9 +2396,7 @@
     },
     "/v1/running/stats": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Lifetime running statistics",
         "description": "Returns aggregate lifetime running statistics.",
         "responses": {
@@ -2809,19 +2423,13 @@
                           "type": "string"
                         },
                         "avg_pace": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "years_active": {
                           "type": "number"
                         },
                         "first_run": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "eddington_number": {
                           "type": "number"
@@ -2839,9 +2447,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -2861,9 +2467,7 @@
     },
     "/v1/running/stats/years": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "All year summaries",
         "description": "Returns running summaries for all years.",
         "responses": {
@@ -2895,10 +2499,7 @@
                             "type": "number"
                           },
                           "avg_pace": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "longest_run_mi": {
                             "type": "number"
@@ -2920,9 +2521,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -2942,9 +2541,7 @@
     },
     "/v1/running/stats/years/{year}": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Single year summary",
         "description": "Returns running summary for a specific year.",
         "parameters": [
@@ -2984,10 +2581,7 @@
                           "type": "number"
                         },
                         "avg_pace": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "longest_run_mi": {
                           "type": "number"
@@ -3008,9 +2602,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -3050,9 +2642,7 @@
     },
     "/v1/running/prs": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Personal records",
         "description": "Returns personal records for standard race distances.",
         "responses": {
@@ -3106,9 +2696,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -3128,9 +2716,7 @@
     },
     "/v1/running/recent": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Recent activities",
         "description": "Returns the last N activities (default 5, max 20).",
         "parameters": [
@@ -3187,52 +2773,28 @@
                             "type": "number"
                           },
                           "heartrate_avg": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "heartrate_max": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "cadence": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "calories": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "suffer_score": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "city": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "state": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "polyline": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "is_race": {
                             "type": "boolean"
@@ -3241,10 +2803,7 @@
                             "type": "string"
                           },
                           "strava_url": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -3272,9 +2831,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -3294,9 +2851,7 @@
     },
     "/v1/running/activities": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "List activities",
         "description": "Returns a paginated, filterable list of running activities.",
         "parameters": [
@@ -3421,52 +2976,28 @@
                             "type": "number"
                           },
                           "heartrate_avg": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "heartrate_max": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "cadence": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "calories": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "suffer_score": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "city": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "state": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "polyline": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "is_race": {
                             "type": "boolean"
@@ -3475,10 +3006,7 @@
                             "type": "string"
                           },
                           "strava_url": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -3521,18 +3049,10 @@
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "page",
-                        "limit",
-                        "total",
-                        "total_pages"
-                      ]
+                      "required": ["page", "limit", "total", "total_pages"]
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -3552,9 +3072,7 @@
     },
     "/v1/running/activities/{id}": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Activity detail",
         "description": "Returns a single activity by Strava ID.",
         "parameters": [
@@ -3603,52 +3121,28 @@
                       "type": "number"
                     },
                     "heartrate_avg": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "heartrate_max": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "cadence": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "calories": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "suffer_score": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "city": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "state": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "polyline": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "is_race": {
                       "type": "boolean"
@@ -3657,10 +3151,7 @@
                       "type": "string"
                     },
                     "strava_url": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     }
                   },
                   "required": [
@@ -3724,9 +3215,7 @@
     },
     "/v1/running/activities/{id}/splits": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Activity splits",
         "description": "Returns per-mile splits for a specific activity.",
         "parameters": [
@@ -3771,10 +3260,7 @@
                             "type": "string"
                           },
                           "heartrate": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           }
                         },
                         "required": [
@@ -3789,9 +3275,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -3831,9 +3315,7 @@
     },
     "/v1/running/gear": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Gear list",
         "description": "Returns all gear/shoes with activity counts.",
         "responses": {
@@ -3856,16 +3338,10 @@
                             "type": "string"
                           },
                           "brand": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "model": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "distance_mi": {
                             "type": "number"
@@ -3889,9 +3365,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -3911,9 +3385,7 @@
     },
     "/v1/running/calendar": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Activity calendar",
         "description": "Returns daily activity heatmap data for a given year.",
         "parameters": [
@@ -3952,18 +3424,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "date",
-                          "count",
-                          "total_distance_mi"
-                        ]
+                        "required": ["date", "count", "total_distance_mi"]
                       }
                     }
                   },
-                  "required": [
-                    "year",
-                    "data"
-                  ]
+                  "required": ["year", "data"]
                 }
               }
             }
@@ -3983,9 +3448,7 @@
     },
     "/v1/running/charts/cumulative": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Cumulative distance chart",
         "description": "Returns year-over-year cumulative distance data for charting.",
         "parameters": [
@@ -4020,17 +3483,12 @@
                               "type": "number"
                             }
                           },
-                          "required": [
-                            "day",
-                            "cumulative_mi"
-                          ]
+                          "required": ["day", "cumulative_mi"]
                         }
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -4050,18 +3508,13 @@
     },
     "/v1/running/charts/pace-trend": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Pace trend chart",
         "description": "Returns pace over time with a rolling weighted average.",
         "parameters": [
           {
             "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
+              "type": ["integer", "null"],
               "default": 30
             },
             "required": false,
@@ -4127,10 +3580,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "window",
-                    "data"
-                  ]
+                  "required": ["window", "data"]
                 }
               }
             }
@@ -4150,9 +3600,7 @@
     },
     "/v1/running/charts/time-of-day": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Time of day chart",
         "description": "Returns run frequency by hour of day.",
         "parameters": [
@@ -4185,16 +3633,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "hour",
-                          "count"
-                        ]
+                        "required": ["hour", "count"]
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -4214,9 +3657,7 @@
     },
     "/v1/running/charts/elevation": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Elevation chart",
         "description": "Returns elevation data with cumulative totals.",
         "parameters": [
@@ -4264,9 +3705,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -4286,9 +3725,7 @@
     },
     "/v1/running/cities": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Cities",
         "description": "Returns cities where runs occurred with counts and distances.",
         "responses": {
@@ -4305,22 +3742,13 @@
                         "type": "object",
                         "properties": {
                           "city": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "state": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "country": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "run_count": {
                             "type": "number"
@@ -4339,9 +3767,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -4361,9 +3787,7 @@
     },
     "/v1/running/streaks": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Running streaks",
         "description": "Returns current and longest running streaks.",
         "responses": {
@@ -4384,23 +3808,13 @@
                               "type": "number"
                             },
                             "start": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
+                              "type": ["string", "null"]
                             },
                             "end": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
+                              "type": ["string", "null"]
                             }
                           },
-                          "required": [
-                            "days",
-                            "start",
-                            "end"
-                          ]
+                          "required": ["days", "start", "end"]
                         },
                         "longest": {
                           "type": "object",
@@ -4409,34 +3823,19 @@
                               "type": "number"
                             },
                             "start": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
+                              "type": ["string", "null"]
                             },
                             "end": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
+                              "type": ["string", "null"]
                             }
                           },
-                          "required": [
-                            "days",
-                            "start",
-                            "end"
-                          ]
+                          "required": ["days", "start", "end"]
                         }
                       },
-                      "required": [
-                        "current",
-                        "longest"
-                      ]
+                      "required": ["current", "longest"]
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -4456,9 +3855,7 @@
     },
     "/v1/running/races": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Race activities",
         "description": "Returns all race activities, optionally filtered by distance category.",
         "parameters": [
@@ -4512,52 +3909,28 @@
                             "type": "number"
                           },
                           "heartrate_avg": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "heartrate_max": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "cadence": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "calories": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "suffer_score": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "city": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "state": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "polyline": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "is_race": {
                             "type": "boolean"
@@ -4566,10 +3939,7 @@
                             "type": "string"
                           },
                           "strava_url": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -4597,9 +3967,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -4619,9 +3987,7 @@
     },
     "/v1/running/eddington": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Eddington number",
         "description": "Returns the Eddington number and progress toward the next target.",
         "responses": {
@@ -4651,18 +4017,10 @@
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "target",
-                        "days_completed",
-                        "runs_needed"
-                      ]
+                      "required": ["target", "days_completed", "runs_needed"]
                     }
                   },
-                  "required": [
-                    "number",
-                    "explanation",
-                    "progress"
-                  ]
+                  "required": ["number", "explanation", "progress"]
                 }
               }
             }
@@ -4682,9 +4040,7 @@
     },
     "/v1/running/year/{year}": {
       "get": {
-        "tags": [
-          "Running"
-        ],
+        "tags": ["Running"],
         "summary": "Year in review",
         "description": "Returns a year-in-review summary with monthly breakdown and top runs.",
         "parameters": [
@@ -4792,52 +4148,28 @@
                             "type": "number"
                           },
                           "heartrate_avg": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "heartrate_max": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "cadence": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "calories": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "suffer_score": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "city": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "state": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "polyline": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "is_race": {
                             "type": "boolean"
@@ -4846,10 +4178,7 @@
                             "type": "string"
                           },
                           "strava_url": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -4928,9 +4257,7 @@
     },
     "/v1/watching/recent": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Recent watches",
         "description": "Returns most recently watched movies.",
         "parameters": [
@@ -4969,16 +4296,10 @@
                                 "type": "string"
                               },
                               "year": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "director": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "directors": {
                                 "type": "array",
@@ -4993,49 +4314,28 @@
                                 }
                               },
                               "duration_min": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "rating": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "image": {
                                 "$ref": "#/components/schemas/ImageAttachment"
                               },
                               "imdb_id": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "tmdb_id": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "tmdb_rating": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "tagline": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "summary": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               }
                             },
                             "required": [
@@ -5059,22 +4359,13 @@
                             "type": "string"
                           },
                           "source": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "user_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "percent_complete": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "rewatch": {
                             "type": "boolean"
@@ -5091,9 +4382,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -5113,9 +4402,7 @@
     },
     "/v1/watching/movies": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "List movies",
         "description": "Returns paginated list of movies with optional filters.",
         "parameters": [
@@ -5211,16 +4498,10 @@
                             "type": "string"
                           },
                           "year": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "director": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "directors": {
                             "type": "array",
@@ -5235,49 +4516,28 @@
                             }
                           },
                           "duration_min": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "rating": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "image": {
                             "$ref": "#/components/schemas/ImageAttachment"
                           },
                           "imdb_id": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "tmdb_id": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "tmdb_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "tagline": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "summary": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -5302,10 +4562,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -5325,9 +4582,7 @@
     },
     "/v1/watching/movies/{id}": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Movie detail",
         "description": "Returns full details for a single movie including watch history.",
         "parameters": [
@@ -5355,16 +4610,10 @@
                       "type": "string"
                     },
                     "year": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "director": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "directors": {
                       "type": "array",
@@ -5379,49 +4628,28 @@
                       }
                     },
                     "duration_min": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "rating": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "image": {
                       "$ref": "#/components/schemas/ImageAttachment"
                     },
                     "imdb_id": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "tmdb_id": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "tmdb_rating": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "tagline": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "summary": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "watch_history": {
                       "type": "array",
@@ -5435,22 +4663,13 @@
                             "type": "string"
                           },
                           "source": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "user_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "percent_complete": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "rewatch": {
                             "type": "boolean"
@@ -5523,9 +4742,7 @@
     },
     "/v1/watching/stats": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Watch stats",
         "description": "Returns aggregate watching statistics.",
         "responses": {
@@ -5552,22 +4769,13 @@
                           "type": "number"
                         },
                         "top_genre": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "top_decade": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
+                          "type": ["number", "null"]
                         },
                         "top_director": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "total_shows": {
                           "type": "number"
@@ -5593,9 +4801,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -5615,9 +4821,7 @@
     },
     "/v1/watching/stats/genres": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Genre stats",
         "description": "Returns genre breakdown for all watched movies.",
         "responses": {
@@ -5643,17 +4847,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count",
-                          "percentage"
-                        ]
+                        "required": ["name", "count", "percentage"]
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -5673,9 +4871,7 @@
     },
     "/v1/watching/stats/decades": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Decade stats",
         "description": "Returns decade breakdown for all watched movies.",
         "responses": {
@@ -5698,16 +4894,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "decade",
-                          "count"
-                        ]
+                        "required": ["decade", "count"]
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -5727,9 +4918,7 @@
     },
     "/v1/watching/stats/directors": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Director stats",
         "description": "Returns top directors by movie count.",
         "parameters": [
@@ -5765,16 +4954,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count"
-                        ]
+                        "required": ["name", "count"]
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -5794,9 +4978,7 @@
     },
     "/v1/watching/calendar": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Watch calendar",
         "description": "Returns daily watch counts for a given year.",
         "parameters": [
@@ -5832,17 +5014,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "date",
-                          "count"
-                        ]
+                        "required": ["date", "count"]
                       }
                     }
                   },
-                  "required": [
-                    "year",
-                    "data"
-                  ]
+                  "required": ["year", "data"]
                 }
               }
             }
@@ -5862,9 +5038,7 @@
     },
     "/v1/watching/trends": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Watch trends",
         "description": "Returns weekly or monthly watch counts.",
         "parameters": [
@@ -5901,17 +5075,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "period",
-                          "count"
-                        ]
+                        "required": ["period", "count"]
                       }
                     }
                   },
-                  "required": [
-                    "period",
-                    "data"
-                  ]
+                  "required": ["period", "data"]
                 }
               }
             }
@@ -5931,9 +5099,7 @@
     },
     "/v1/watching/shows": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "List TV shows",
         "description": "Returns paginated list of TV shows.",
         "parameters": [
@@ -5997,49 +5163,28 @@
                             "type": "string"
                           },
                           "year": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "tmdb_id": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "tmdb_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "content_rating": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "summary": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "image": {
                             "$ref": "#/components/schemas/ImageAttachment"
                           },
                           "total_seasons": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "total_episodes": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "episodes_watched": {
                             "type": "number"
@@ -6064,10 +5209,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -6087,9 +5229,7 @@
     },
     "/v1/watching/shows/{id}": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Show detail",
         "description": "Returns full details for a single TV show including watched episodes.",
         "parameters": [
@@ -6117,49 +5257,28 @@
                       "type": "string"
                     },
                     "year": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "tmdb_id": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "tmdb_rating": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "content_rating": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "summary": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "image": {
                       "$ref": "#/components/schemas/ImageAttachment"
                     },
                     "total_seasons": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "total_episodes": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "episodes_watched": {
                       "type": "number"
@@ -6187,10 +5306,7 @@
                                   "type": "number"
                                 },
                                 "title": {
-                                  "type": [
-                                    "string",
-                                    "null"
-                                  ]
+                                  "type": ["string", "null"]
                                 },
                                 "watched_at": {
                                   "type": "string"
@@ -6266,9 +5382,7 @@
     },
     "/v1/watching/shows/{id}/seasons/{season}": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Season detail",
         "description": "Returns watched episodes for a specific season of a show.",
         "parameters": [
@@ -6318,21 +5432,13 @@
                             "type": "number"
                           },
                           "title": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "watched_at": {
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "season",
-                          "episode",
-                          "title",
-                          "watched_at"
-                        ]
+                        "required": ["season", "episode", "title", "watched_at"]
                       }
                     }
                   },
@@ -6381,9 +5487,7 @@
     },
     "/v1/watching/ratings": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Rated movies",
         "description": "Returns paginated list of movies with user ratings.",
         "parameters": [
@@ -6450,22 +5554,13 @@
                                 "type": "string"
                               },
                               "year": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "tmdb_id": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "tmdb_rating": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "image": {
                                 "$ref": "#/components/schemas/ImageAttachment"
@@ -6481,19 +5576,13 @@
                             ]
                           },
                           "user_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "watched_at": {
                             "type": "string"
                           },
                           "source": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -6508,10 +5597,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -6531,9 +5617,7 @@
     },
     "/v1/watching/reviews": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Movie reviews",
         "description": "Returns paginated list of movies with user reviews.",
         "parameters": [
@@ -6582,16 +5666,10 @@
                                 "type": "string"
                               },
                               "year": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "tmdb_id": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "image": {
                                 "$ref": "#/components/schemas/ImageAttachment"
@@ -6606,25 +5684,16 @@
                             ]
                           },
                           "user_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "review": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "watched_at": {
                             "type": "string"
                           },
                           "source": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -6640,10 +5709,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -6663,9 +5729,7 @@
     },
     "/v1/watching/year/{year}": {
       "get": {
-        "tags": [
-          "Watching"
-        ],
+        "tags": ["Watching"],
         "summary": "Year in review",
         "description": "Returns aggregate stats and top-rated movies for a specific year.",
         "parameters": [
@@ -6704,10 +5768,7 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count"
-                        ]
+                        "required": ["name", "count"]
                       }
                     },
                     "decades": {
@@ -6722,10 +5783,7 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "decade",
-                          "count"
-                        ]
+                        "required": ["decade", "count"]
                       }
                     },
                     "monthly": {
@@ -6740,10 +5798,7 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "month",
-                          "count"
-                        ]
+                        "required": ["month", "count"]
                       }
                     },
                     "top_rated": {
@@ -6761,16 +5816,10 @@
                                 "type": "string"
                               },
                               "year": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "tmdb_id": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "image": {
                                 "$ref": "#/components/schemas/ImageAttachment"
@@ -6785,20 +5834,13 @@
                             ]
                           },
                           "user_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "watched_at": {
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "movie",
-                          "user_rating",
-                          "watched_at"
-                        ]
+                        "required": ["movie", "user_rating", "watched_at"]
                       }
                     }
                   },
@@ -6839,10 +5881,7 @@
     },
     "/v1/watching/admin/watching/movies": {
       "post": {
-        "tags": [
-          "Watching",
-          "Admin"
-        ],
+        "tags": ["Watching", "Admin"],
         "summary": "Add movie manually",
         "description": "Create a manual watch event by TMDB ID or title search.",
         "requestBody": {
@@ -6892,16 +5931,10 @@
                       "type": "string"
                     },
                     "source": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "user_rating": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "rewatch": {
                       "type": "boolean"
@@ -6954,10 +5987,7 @@
     },
     "/v1/watching/admin/watching/movies/{id}": {
       "put": {
-        "tags": [
-          "Watching",
-          "Admin"
-        ],
+        "tags": ["Watching", "Admin"],
         "summary": "Edit watch event",
         "description": "Update fields on an existing watch event.",
         "parameters": [
@@ -7008,16 +6038,10 @@
                       "type": "string"
                     },
                     "source": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "user_rating": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "rewatch": {
                       "type": "boolean"
@@ -7068,10 +6092,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Watching",
-          "Admin"
-        ],
+        "tags": ["Watching", "Admin"],
         "summary": "Delete watch event",
         "description": "Delete a watch event by ID.",
         "parameters": [
@@ -7099,10 +6120,7 @@
                       "type": "number"
                     }
                   },
-                  "required": [
-                    "success",
-                    "deleted_id"
-                  ]
+                  "required": ["success", "deleted_id"]
                 }
               }
             }
@@ -7142,10 +6160,7 @@
     },
     "/v1/watching/admin/watching/backfill-images": {
       "post": {
-        "tags": [
-          "Watching",
-          "Admin"
-        ],
+        "tags": ["Watching", "Admin"],
         "summary": "Backfill images",
         "description": "Backfill missing images for movies and/or shows from TMDB.",
         "requestBody": {
@@ -7181,10 +6196,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "success",
-                    "results"
-                  ]
+                  "required": ["success", "results"]
                 }
               }
             }
@@ -7214,9 +6226,7 @@
     },
     "/v1/webhooks/strava": {
       "get": {
-        "tags": [
-          "Webhooks"
-        ],
+        "tags": ["Webhooks"],
         "summary": "Strava webhook subscription validation",
         "description": "Validates a Strava webhook subscription by echoing back the hub.challenge parameter. No auth required.",
         "x-internal": true,
@@ -7258,9 +6268,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "hub.challenge"
-                  ]
+                  "required": ["hub.challenge"]
                 }
               }
             }
@@ -7278,9 +6286,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Webhooks"
-        ],
+        "tags": ["Webhooks"],
         "summary": "Strava webhook event receiver",
         "description": "Receives Strava webhook events for activity creates, updates, and deletes. Must respond within 2 seconds. No auth required.",
         "x-internal": true,
@@ -7293,11 +6299,7 @@
                 "properties": {
                   "aspect_type": {
                     "type": "string",
-                    "enum": [
-                      "create",
-                      "update",
-                      "delete"
-                    ]
+                    "enum": ["create", "update", "delete"]
                   },
                   "event_time": {
                     "type": "number"
@@ -7307,10 +6309,7 @@
                   },
                   "object_type": {
                     "type": "string",
-                    "enum": [
-                      "activity",
-                      "athlete"
-                    ]
+                    "enum": ["activity", "athlete"]
                   },
                   "owner_id": {
                     "type": "number"
@@ -7346,14 +6345,10 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": [
-                        "ok"
-                      ]
+                      "enum": ["ok"]
                     }
                   },
-                  "required": [
-                    "status"
-                  ]
+                  "required": ["status"]
                 }
               }
             }
@@ -7363,20 +6358,10 @@
     },
     "/v1/webhooks/plex": {
       "post": {
-        "tags": [
-          "Webhooks"
-        ],
+        "tags": ["Webhooks"],
         "summary": "Plex webhook event receiver",
-        "description": "Receives Plex webhook events (multipart/form-data). No auth required -- uses its own verification via PLEX_WEBHOOK_SECRET.",
+        "description": "Receives Plex webhook events (multipart/form-data). No auth required -- uses its own verification via PLEX_WEBHOOK_SECRET. Body is parsed manually to avoid double-consumption.",
         "x-internal": true,
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {}
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Webhook processed successfully",
@@ -7392,10 +6377,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "success",
-                    "message"
-                  ]
+                  "required": ["success", "message"]
                 }
               }
             }
@@ -7425,20 +6407,14 @@
     },
     "/v1/images/{domain}/{entity_type}/{entity_id}/{size}": {
       "get": {
-        "tags": [
-          "Images"
-        ],
+        "tags": ["Images"],
         "summary": "Get image by entity",
         "description": "Serve image via CDN redirect. Triggers the image pipeline on cache miss. Returns a 302 redirect to the CDN URL with metadata in response headers.",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "listening",
-                "watching",
-                "collecting"
-              ],
+              "enum": ["listening", "watching", "collecting"],
               "example": "listening"
             },
             "required": true,
@@ -7448,13 +6424,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "albums",
-                "artists",
-                "movies",
-                "shows",
-                "releases"
-              ],
+              "enum": ["albums", "artists", "movies", "shows", "releases"],
               "example": "albums"
             },
             "required": true,
@@ -7576,21 +6546,14 @@
     },
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}/alternatives": {
       "get": {
-        "tags": [
-          "Images",
-          "Admin"
-        ],
+        "tags": ["Images", "Admin"],
         "summary": "Browse image alternatives",
         "description": "Browse available images from all configured sources for an entity. Shows the current source and whether it is an override.",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "listening",
-                "watching",
-                "collecting"
-              ],
+              "enum": ["listening", "watching", "collecting"],
               "example": "listening"
             },
             "required": true,
@@ -7600,13 +6563,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "albums",
-                "artists",
-                "movies",
-                "shows",
-                "releases"
-              ],
+              "enum": ["albums", "artists", "movies", "shows", "releases"],
               "example": "albums"
             },
             "required": true,
@@ -7696,21 +6653,14 @@
     },
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}": {
       "put": {
-        "tags": [
-          "Images",
-          "Admin"
-        ],
+        "tags": ["Images", "Admin"],
         "summary": "Set image override",
         "description": "Set an image override for an entity. Accepts either a JSON body with source_url or a multipart/form-data upload with an image file.",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "listening",
-                "watching",
-                "collecting"
-              ],
+              "enum": ["listening", "watching", "collecting"],
               "example": "listening"
             },
             "required": true,
@@ -7720,13 +6670,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "albums",
-                "artists",
-                "movies",
-                "shows",
-                "releases"
-              ],
+              "enum": ["albums", "artists", "movies", "shows", "releases"],
               "example": "albums"
             },
             "required": true,
@@ -7790,21 +6734,14 @@
     },
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}/override": {
       "delete": {
-        "tags": [
-          "Images",
-          "Admin"
-        ],
+        "tags": ["Images", "Admin"],
         "summary": "Revert image override",
         "description": "Revert an image override and re-run the automatic pipeline to select the best available source.",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "listening",
-                "watching",
-                "collecting"
-              ],
+              "enum": ["listening", "watching", "collecting"],
               "example": "listening"
             },
             "required": true,
@@ -7814,13 +6751,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "albums",
-                "artists",
-                "movies",
-                "shows",
-                "releases"
-              ],
+              "enum": ["albums", "artists", "movies", "shows", "releases"],
               "example": "albums"
             },
             "required": true,
@@ -7930,9 +6861,7 @@
     },
     "/v1/collecting/collection": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "List vinyl collection",
         "description": "Paginated, filterable, searchable Discogs vinyl collection with artist and image data.",
         "parameters": [
@@ -8037,10 +6966,7 @@
                             }
                           },
                           "year": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "format": {
                             "type": "string"
@@ -8067,22 +6993,13 @@
                             "$ref": "#/components/schemas/ImageAttachment"
                           },
                           "date_added": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "discogs_url": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -8107,10 +7024,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -8140,9 +7054,7 @@
     },
     "/v1/collecting/stats": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Collection statistics",
         "description": "Aggregate statistics for the vinyl collection including format breakdown, top genre, and artist counts.",
         "responses": {
@@ -8158,47 +7070,26 @@
                     },
                     "by_format": {},
                     "wantlist_count": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "unique_artists": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "estimated_value": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "top_genre": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "oldest_release_year": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "newest_release_year": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "most_collected_artist": {},
                     "added_this_year": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     }
                   },
                   "required": [
@@ -8240,9 +7131,7 @@
     },
     "/v1/collecting/recent": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Recent additions",
         "description": "Most recently added items to the vinyl collection.",
         "parameters": [
@@ -8287,10 +7176,7 @@
                             }
                           },
                           "year": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "format": {
                             "type": "string"
@@ -8317,22 +7203,13 @@
                             "$ref": "#/components/schemas/ImageAttachment"
                           },
                           "date_added": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "discogs_url": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -8354,9 +7231,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -8386,9 +7261,7 @@
     },
     "/v1/collecting/collection/{id}": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Collection item detail",
         "description": "Full detail for a single collection item including tracklist, country, and marketplace data.",
         "parameters": [
@@ -8425,10 +7298,7 @@
                       }
                     },
                     "year": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "format": {
                       "type": "string"
@@ -8455,56 +7325,32 @@
                       "$ref": "#/components/schemas/ImageAttachment"
                     },
                     "date_added": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "rating": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "discogs_url": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "tracklist": {
                       "type": "array",
                       "items": {}
                     },
                     "country": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "community_have": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "community_want": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "lowest_price": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "num_for_sale": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "notes": {}
                   },
@@ -8579,9 +7425,7 @@
     },
     "/v1/collecting/wantlist": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Wantlist",
         "description": "Paginated Discogs wantlist with sorting.",
         "parameters": [
@@ -8654,10 +7498,7 @@
                             }
                           },
                           "year": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "formats": {
                             "type": "array",
@@ -8675,28 +7516,16 @@
                             "type": "null"
                           },
                           "discogs_url": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "notes": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "date_added": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -8719,10 +7548,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -8752,9 +7578,7 @@
     },
     "/v1/collecting/formats": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Format breakdown",
         "description": "Count of collection items grouped by primary format (Vinyl, CD, Cassette, etc).",
         "responses": {
@@ -8777,16 +7601,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count"
-                        ]
+                        "required": ["name", "count"]
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -8816,9 +7635,7 @@
     },
     "/v1/collecting/genres": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Genre breakdown",
         "description": "Count of collection items grouped by genre.",
         "responses": {
@@ -8841,16 +7658,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count"
-                        ]
+                        "required": ["name", "count"]
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -8880,9 +7692,7 @@
     },
     "/v1/collecting/artists": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Top artists",
         "description": "Artists ranked by number of releases in the collection.",
         "parameters": [
@@ -8918,10 +7728,7 @@
                             "type": "number"
                           },
                           "image_url": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "release_count": {
                             "type": "number"
@@ -8936,9 +7743,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -8968,9 +7773,7 @@
     },
     "/v1/collecting/cross-reference": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Collection-listening cross-reference",
         "description": "Cross-references vinyl collection with Last.fm listening data showing play counts and match confidence.",
         "parameters": [
@@ -9046,10 +7849,7 @@
                                 }
                               },
                               "year": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "format": {
                                 "type": "string"
@@ -9070,22 +7870,13 @@
                                 "$ref": "#/components/schemas/ImageAttachment"
                               },
                               "date_added": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "rating": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "discogs_url": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               }
                             },
                             "required": [
@@ -9107,40 +7898,22 @@
                             "type": "object",
                             "properties": {
                               "album_name": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "artist_name": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "play_count": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "last_played": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "match_type": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "match_confidence": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               }
                             },
                             "required": [
@@ -9153,10 +7926,7 @@
                             ]
                           }
                         },
-                        "required": [
-                          "collection",
-                          "listening"
-                        ]
+                        "required": ["collection", "listening"]
                       }
                     },
                     "summary": {
@@ -9182,11 +7952,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "summary",
-                    "pagination"
-                  ]
+                  "required": ["data", "summary", "pagination"]
                 }
               }
             }
@@ -9216,9 +7982,7 @@
     },
     "/v1/admin/sync/collecting": {
       "post": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Trigger Discogs collection sync",
         "description": "Manually trigger a Discogs collection sync.",
         "responses": {
@@ -9257,10 +8021,7 @@
     },
     "/v1/admin/collecting/backfill-images": {
       "post": {
-        "tags": [
-          "Collecting",
-          "Admin"
-        ],
+        "tags": ["Collecting", "Admin"],
         "summary": "Backfill collection images",
         "description": "Process images for Discogs releases that are missing image metadata.",
         "requestBody": {
@@ -9290,9 +8051,7 @@
                     },
                     "results": {}
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -9322,9 +8081,7 @@
     },
     "/v1/collecting/media": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "List physical media collection",
         "description": "Paginated, filterable Trakt physical media collection (Blu-ray, DVD, etc) with movie metadata.",
         "parameters": [
@@ -9412,70 +8169,40 @@
                             "type": "string"
                           },
                           "year": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "tmdb_id": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "imdb_id": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "image": {
                             "$ref": "#/components/schemas/ImageAttachment"
                           },
                           "runtime": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "tmdb_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "media_type": {
                             "type": "string"
                           },
                           "resolution": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "hdr": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "audio": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "audio_channels": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "collected_at": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -9500,10 +8227,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -9533,9 +8257,7 @@
     },
     "/v1/collecting/media/stats": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Physical media statistics",
         "description": "Aggregate statistics for the physical media collection by format, resolution, HDR, genre, and decade.",
         "responses": {
@@ -9555,16 +8277,10 @@
                     "by_genre": {},
                     "by_decade": {},
                     "added_this_year": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     }
                   },
-                  "required": [
-                    "total_items",
-                    "added_this_year"
-                  ]
+                  "required": ["total_items", "added_this_year"]
                 }
               }
             }
@@ -9594,9 +8310,7 @@
     },
     "/v1/collecting/media/recent": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Recently added physical media",
         "description": "Most recently added items to the physical media collection.",
         "parameters": [
@@ -9632,58 +8346,34 @@
                             "type": "string"
                           },
                           "year": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "tmdb_id": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "image": {
                             "$ref": "#/components/schemas/ImageAttachment"
                           },
                           "tmdb_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "media_type": {
                             "type": "string"
                           },
                           "resolution": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "hdr": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "audio": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "audio_channels": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "collected_at": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -9703,9 +8393,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -9735,9 +8423,7 @@
     },
     "/v1/collecting/media/formats": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Media format breakdown",
         "description": "Count of physical media items grouped by format type (bluray, dvd, etc).",
         "responses": {
@@ -9760,16 +8446,11 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count"
-                        ]
+                        "required": ["name", "count"]
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -9799,9 +8480,7 @@
     },
     "/v1/collecting/media/cross-reference": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Owned vs watched cross-reference",
         "description": "Cross-references physical media collection with watch history showing watched/unwatched status.",
         "parameters": [
@@ -9859,16 +8538,10 @@
                                 "type": "string"
                               },
                               "year": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "tmdb_id": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
+                                "type": ["number", "null"]
                               },
                               "image": {
                                 "type": "null"
@@ -9877,16 +8550,10 @@
                                 "type": "string"
                               },
                               "resolution": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               },
                               "collected_at": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               }
                             },
                             "required": [
@@ -9910,10 +8577,7 @@
                                 "type": "number"
                               },
                               "last_watched": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
+                                "type": ["string", "null"]
                               }
                             },
                             "required": [
@@ -9923,10 +8587,7 @@
                             ]
                           }
                         },
-                        "required": [
-                          "collection",
-                          "watching"
-                        ]
+                        "required": ["collection", "watching"]
                       }
                     },
                     "summary": {
@@ -9956,11 +8617,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "summary",
-                    "pagination"
-                  ]
+                  "required": ["data", "summary", "pagination"]
                 }
               }
             }
@@ -9990,9 +8647,7 @@
     },
     "/v1/collecting/media/{id}": {
       "get": {
-        "tags": [
-          "Collecting"
-        ],
+        "tags": ["Collecting"],
         "summary": "Physical media item detail",
         "description": "Full detail for a single physical media item including movie metadata and watch history.",
         "parameters": [
@@ -10020,88 +8675,49 @@
                       "type": "string"
                     },
                     "year": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "tmdb_id": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "imdb_id": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "tagline": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "summary": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "image": {
                       "$ref": "#/components/schemas/ImageAttachment"
                     },
                     "runtime": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "tmdb_rating": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
+                      "type": ["number", "null"]
                     },
                     "content_rating": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "media_type": {
                       "type": "string"
                     },
                     "resolution": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "hdr": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "audio": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "audio_channels": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "collected_at": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "watch_history": {
                       "type": "array",
@@ -10109,29 +8725,16 @@
                         "type": "object",
                         "properties": {
                           "watched_at": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "source": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "user_rating": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           }
                         },
-                        "required": [
-                          "watched_at",
-                          "source",
-                          "user_rating"
-                        ]
+                        "required": ["watched_at", "source", "user_rating"]
                       }
                     }
                   },
@@ -10204,10 +8807,7 @@
     },
     "/v1/admin/collecting/media": {
       "post": {
-        "tags": [
-          "Collecting",
-          "Admin"
-        ],
+        "tags": ["Collecting", "Admin"],
         "summary": "Add physical media",
         "description": "Add a movie to the physical media collection. Resolves via TMDb, pushes to Trakt, stores locally.",
         "requestBody": {
@@ -10244,9 +8844,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "media_type"
-                ]
+                "required": ["media_type"]
               }
             }
           }
@@ -10269,20 +8867,13 @@
                           "type": "string"
                         },
                         "year": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
+                          "type": ["number", "null"]
                         },
                         "tmdb_id": {
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "title",
-                        "year",
-                        "tmdb_id"
-                      ]
+                      "required": ["title", "year", "tmdb_id"]
                     },
                     "media_type": {
                       "type": "string"
@@ -10297,10 +8888,7 @@
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "added",
-                        "existing"
-                      ]
+                      "required": ["added", "existing"]
                     },
                     "image_processed": {
                       "type": "boolean"
@@ -10362,10 +8950,7 @@
     },
     "/v1/admin/collecting/media/{id}/remove": {
       "post": {
-        "tags": [
-          "Collecting",
-          "Admin"
-        ],
+        "tags": ["Collecting", "Admin"],
         "summary": "Remove physical media",
         "description": "Remove a movie from the physical media collection. Removes from both Trakt and local database.",
         "parameters": [
@@ -10393,10 +8978,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "status",
-                    "message"
-                  ]
+                  "required": ["status", "message"]
                 }
               }
             }
@@ -10446,9 +9028,7 @@
     },
     "/v1/admin/sync/trakt": {
       "post": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Trigger Trakt collection sync",
         "description": "Manually trigger a Trakt collection sync.",
         "responses": {
@@ -10487,10 +9067,7 @@
     },
     "/v1/admin/collecting/media/backfill-images": {
       "post": {
-        "tags": [
-          "Collecting",
-          "Admin"
-        ],
+        "tags": ["Collecting", "Admin"],
         "summary": "Backfill media poster images",
         "description": "Process poster images for movies in the physical media collection that are missing image metadata.",
         "requestBody": {
@@ -10520,9 +9097,7 @@
                     },
                     "results": {}
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -10552,9 +9127,7 @@
     },
     "/v1/feed": {
       "get": {
-        "tags": [
-          "Feed"
-        ],
+        "tags": ["Feed"],
         "summary": "Cross-domain activity feed",
         "description": "Returns a cross-domain activity feed with cursor-based pagination.",
         "parameters": [
@@ -10610,16 +9183,10 @@
                             "type": "string"
                           },
                           "subtitle": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "image_key": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "source_id": {
                             "type": "string"
@@ -10646,10 +9213,7 @@
                       "type": "object",
                       "properties": {
                         "next_cursor": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "has_more": {
                           "type": "boolean"
@@ -10658,17 +9222,10 @@
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "next_cursor",
-                        "has_more",
-                        "limit"
-                      ]
+                      "required": ["next_cursor", "has_more", "limit"]
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -10688,21 +9245,14 @@
     },
     "/v1/feed/domain/{domain}": {
       "get": {
-        "tags": [
-          "Feed"
-        ],
+        "tags": ["Feed"],
         "summary": "Single-domain activity feed",
         "description": "Returns an activity feed filtered to a single domain with cursor-based pagination.",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "listening",
-                "running",
-                "watching",
-                "collecting"
-              ],
+              "enum": ["listening", "running", "watching", "collecting"],
               "description": "Activity domain to filter by",
               "example": "listening"
             },
@@ -10763,16 +9313,10 @@
                             "type": "string"
                           },
                           "subtitle": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "image_key": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "source_id": {
                             "type": "string"
@@ -10799,10 +9343,7 @@
                       "type": "object",
                       "properties": {
                         "next_cursor": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         },
                         "has_more": {
                           "type": "boolean"
@@ -10811,17 +9352,10 @@
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "next_cursor",
-                        "has_more",
-                        "limit"
-                      ]
+                      "required": ["next_cursor", "has_more", "limit"]
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -10851,9 +9385,7 @@
     },
     "/v1/search": {
       "get": {
-        "tags": [
-          "Search"
-        ],
+        "tags": ["Search"],
         "summary": "Cross-domain search",
         "description": "Full-text search across all data domains (listening, running, watching, collecting).",
         "parameters": [
@@ -10870,12 +9402,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "listening",
-                "running",
-                "watching",
-                "collecting"
-              ],
+              "enum": ["listening", "running", "watching", "collecting"],
               "description": "Filter results to a specific domain"
             },
             "required": false,
@@ -10930,16 +9457,10 @@
                             "type": "string"
                           },
                           "subtitle": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "image_key": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           }
                         },
                         "required": [
@@ -10956,10 +9477,7 @@
                       "$ref": "#/components/schemas/PaginationMeta"
                     }
                   },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ]
+                  "required": ["data", "pagination"]
                 }
               }
             }
@@ -10989,21 +9507,14 @@
     },
     "/v1/admin/export/{domain}": {
       "get": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Export domain data",
         "description": "Exports all data for a given domain as a downloadable JSON file. Includes all domain tables, activity feed entries, and sync runs.",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "listening",
-                "running",
-                "watching",
-                "collecting"
-              ],
+              "enum": ["listening", "running", "watching", "collecting"],
               "example": "listening"
             },
             "required": true,
@@ -11047,9 +9558,7 @@
     },
     "/v1/admin/keys": {
       "post": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Create API key",
         "description": "Generate a new API key. The raw key is returned once and cannot be retrieved again.",
         "requestBody": {
@@ -11139,9 +9648,7 @@
         }
       },
       "get": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "List API keys",
         "description": "List all API keys with prefix and hint only. Key hashes are never exposed.",
         "responses": {
@@ -11173,28 +9680,16 @@
                             "type": "string"
                           },
                           "rate_limit_rpm": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "last_used_at": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "request_count": {
-                            "type": [
-                              "number",
-                              "null"
-                            ]
+                            "type": ["number", "null"]
                           },
                           "expires_at": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": ["string", "null"]
                           },
                           "is_active": {
                             "type": "boolean"
@@ -11219,9 +9714,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "data"
-                  ]
+                  "required": ["data"]
                 }
               }
             }
@@ -11241,9 +9734,7 @@
     },
     "/v1/admin/keys/{id}": {
       "delete": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Revoke API key",
         "description": "Soft-delete an API key by setting is_active to false.",
         "parameters": [
@@ -11271,10 +9762,7 @@
                       "type": "number"
                     }
                   },
-                  "required": [
-                    "message",
-                    "id"
-                  ]
+                  "required": ["message", "id"]
                 }
               }
             }
@@ -11314,9 +9802,7 @@
     },
     "/v1/admin/sync/listening": {
       "post": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Trigger Last.fm sync",
         "description": "Manually trigger a Last.fm listening sync. Supports scrobbles, top_lists, stats, full, and backfill sync types.",
         "requestBody": {
@@ -11389,9 +9875,7 @@
     },
     "/v1/admin/sync/running": {
       "post": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Trigger Strava sync",
         "description": "Manually trigger a Strava running activities sync.",
         "responses": {
@@ -11430,19 +9914,14 @@
     },
     "/v1/admin/sync/watching": {
       "post": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Trigger watching sync",
         "description": "Manually trigger a watching sync from Plex or Letterboxd. Use the source query parameter to select the source.",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "plex",
-                "letterboxd"
-              ],
+              "enum": ["plex", "letterboxd"],
               "default": "plex",
               "example": "plex"
             },
@@ -11487,9 +9966,7 @@
     },
     "/v1/admin/running/activities/{id}": {
       "delete": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Soft-delete a Strava activity",
         "description": "Soft-delete a Strava activity by its ID and recompute running stats.",
         "parameters": [
@@ -11551,9 +10028,7 @@
     },
     "/v1/admin/running/recompute": {
       "post": {
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "summary": "Recompute running stats",
         "description": "Recompute all running year summaries from activity data. Useful after bulk imports or corrections.",
         "responses": {

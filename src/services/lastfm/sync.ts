@@ -227,7 +227,10 @@ export async function syncRecentScrobbles(
   const runId = await startSyncRun(db, 'scrobbles');
   let totalSynced = 0;
   const newArtists = new Map<string, string>();
-  const newAlbums = new Map<string, { id: string; albumName: string; artistName: string }>();
+  const newAlbums = new Map<
+    string,
+    { id: string; albumName: string; artistName: string }
+  >();
 
   try {
     const lastTimestamp = await getLastScrobbleTimestamp(db);
@@ -285,7 +288,11 @@ export async function syncRecentScrobbles(
         if (artist.isNew && !newArtists.has(track.artistName)) {
           newArtists.set(track.artistName, String(artist.id));
         }
-        if (album?.isNew && track.albumName && !newAlbums.has(`${track.artistName}:${track.albumName}`)) {
+        if (
+          album?.isNew &&
+          track.albumName &&
+          !newAlbums.has(`${track.artistName}:${track.albumName}`)
+        ) {
           newAlbums.set(`${track.artistName}:${track.albumName}`, {
             id: String(album.id),
             albumName: track.albumName,
@@ -376,7 +383,11 @@ async function syncTopArtistsForPeriod(
 
   let rank = 0;
   for (const item of artists) {
-    const { id: artistId } = await upsertArtist(db, item.name, item.mbid || null);
+    const { id: artistId } = await upsertArtist(
+      db,
+      item.name,
+      item.mbid || null
+    );
 
     // Update playcount on artist
     await db

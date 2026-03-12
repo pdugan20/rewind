@@ -59,19 +59,26 @@ const title = args
   .join(' ');
 
 if (!title) {
-  console.log('Usage: npx tsx scripts/add-trakt-movie.ts "Movie Title" --format bluray');
+  console.log(
+    'Usage: npx tsx scripts/add-trakt-movie.ts "Movie Title" --format bluray'
+  );
   console.log('Formats: bluray, uhd_bluray, hddvd, dvd, digital');
   process.exit(1);
 }
 
 const VALID_FORMATS = ['bluray', 'uhd_bluray', 'hddvd', 'dvd', 'digital'];
 if (!VALID_FORMATS.includes(format)) {
-  console.log(`[ERROR] Invalid format "${format}". Must be one of: ${VALID_FORMATS.join(', ')}`);
+  console.log(
+    `[ERROR] Invalid format "${format}". Must be one of: ${VALID_FORMATS.join(', ')}`
+  );
   process.exit(1);
 }
 
 function prompt(question: string): Promise<string> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
       rl.close();
@@ -80,7 +87,11 @@ function prompt(question: string): Promise<string> {
   });
 }
 
-async function searchTmdb(query: string): Promise<Array<{ id: number; title: string; year: number; overview: string }>> {
+async function searchTmdb(
+  query: string
+): Promise<
+  Array<{ id: number; title: string; year: number; overview: string }>
+> {
   const params = new URLSearchParams({ query });
   if (yearFilter) params.set('year', String(yearFilter));
 
@@ -146,7 +157,9 @@ async function addMovie(tmdbId: number): Promise<void> {
 }
 
 async function main() {
-  console.log(`[INFO] Searching for "${title}"${yearFilter ? ` (${yearFilter})` : ''}...`);
+  console.log(
+    `[INFO] Searching for "${title}"${yearFilter ? ` (${yearFilter})` : ''}...`
+  );
 
   const results = await searchTmdb(title);
   if (results.length === 0) {
@@ -166,7 +179,9 @@ async function main() {
     process.exit(0);
   }
 
-  const choice = await prompt(`\nSelect (1-${results.length}) or 'q' to quit: `);
+  const choice = await prompt(
+    `\nSelect (1-${results.length}) or 'q' to quit: `
+  );
   if (choice === 'q' || choice === '') {
     console.log('[INFO] Cancelled');
     process.exit(0);
@@ -179,7 +194,9 @@ async function main() {
   }
 
   const selected = results[idx];
-  console.log(`\n[INFO] Adding "${selected.title}" (${selected.year}) as ${format}...`);
+  console.log(
+    `\n[INFO] Adding "${selected.title}" (${selected.year}) as ${format}...`
+  );
   await addMovie(selected.id);
 }
 

@@ -86,16 +86,46 @@ Common status codes: 400 (bad request), 401 (unauthorized), 404 (not found), 500
     },
   ],
   tags: [
-    { name: 'Listening', description: 'Last.fm scrobbles, top charts, streaks, and stats.' },
-    { name: 'Running', description: 'Strava activities, splits, gear, records, and year summaries.' },
-    { name: 'Watching', description: 'Movies, TV shows, watch history, ratings, and reviews from Plex and Letterboxd.' },
-    { name: 'Collecting', description: 'Vinyl/CD collection from Discogs and physical media from Trakt.' },
-    { name: 'Feed', description: 'Cross-domain activity feed with cursor-based pagination.' },
+    {
+      name: 'Listening',
+      description: 'Last.fm scrobbles, top charts, streaks, and stats.',
+    },
+    {
+      name: 'Running',
+      description:
+        'Strava activities, splits, gear, records, and year summaries.',
+    },
+    {
+      name: 'Watching',
+      description:
+        'Movies, TV shows, watch history, ratings, and reviews from Plex and Letterboxd.',
+    },
+    {
+      name: 'Collecting',
+      description:
+        'Vinyl/CD collection from Discogs and physical media from Trakt.',
+    },
+    {
+      name: 'Feed',
+      description: 'Cross-domain activity feed with cursor-based pagination.',
+    },
     { name: 'Search', description: 'Full-text search across all domains.' },
-    { name: 'Images', description: 'Image proxy with on-the-fly transforms via Cloudflare Images.' },
+    {
+      name: 'Images',
+      description:
+        'Image proxy with on-the-fly transforms via Cloudflare Images.',
+    },
     { name: 'System', description: 'Health checks and sync status.' },
-    { name: 'Admin', description: 'API key management, sync triggers, and data administration. Requires admin key.' },
-    { name: 'Webhooks', description: 'Inbound webhook receivers for Strava and Plex. No auth required.' },
+    {
+      name: 'Admin',
+      description:
+        'API key management, sync triggers, and data administration. Requires admin key.',
+    },
+    {
+      name: 'Webhooks',
+      description:
+        'Inbound webhook receivers for Strava and Plex. No auth required.',
+    },
   ],
   security: [{ bearerAuth: [] as string[] }],
 };

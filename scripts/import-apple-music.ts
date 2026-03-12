@@ -40,17 +40,35 @@ const DEFAULT_MIN_DURATION_MS = 30000;
 // --- Filter patterns (mirrored from src/services/lastfm/filters.ts) ---
 
 const HOLIDAY_ALBUM_PATTERNS = [
-  'charlie brown christmas', 'merry christmas', 'white christmas',
-  'christmas album', 'holiday', 'christmas songs',
+  'charlie brown christmas',
+  'merry christmas',
+  'white christmas',
+  'christmas album',
+  'holiday',
+  'christmas songs',
 ];
 
 const HOLIDAY_TRACK_PATTERNS = [
-  'jingle bell', 'silent night', 'santa claus', 'deck the hall',
-  'rudolph', 'frosty the snowman', 'winter wonderland', 'o holy night',
-  'little drummer boy', 'away in a manger', 'hark the herald',
-  'o come all ye faithful', 'we wish you a merry', 'sleigh ride',
-  'silver bells', 'blue christmas', 'last christmas', 'christmas time',
-  'holly jolly', 'joy to the world',
+  'jingle bell',
+  'silent night',
+  'santa claus',
+  'deck the hall',
+  'rudolph',
+  'frosty the snowman',
+  'winter wonderland',
+  'o holy night',
+  'little drummer boy',
+  'away in a manger',
+  'hark the herald',
+  'o come all ye faithful',
+  'we wish you a merry',
+  'sleigh ride',
+  'silver bells',
+  'blue christmas',
+  'last christmas',
+  'christmas time',
+  'holly jolly',
+  'joy to the world',
 ];
 
 const HOLIDAY_ARTIST_TRACKS = [
@@ -60,27 +78,48 @@ const HOLIDAY_ARTIST_TRACKS = [
 ];
 
 const AUDIOBOOK_ARTISTS = [
-  'stephen king', 'thomas pynchon', 'hunter s. thompson', 'andy weir',
+  'stephen king',
+  'thomas pynchon',
+  'hunter s. thompson',
+  'andy weir',
 ];
 
 const AUDIOBOOK_TRACK_PATTERNS = ['libby--open-'];
 const AUDIOBOOK_TRACK_REGEXES = [
-  /- Part \d+/i, /- Track \d+/i, /- \d{2,3}$/, / \(\d+\)$/,
+  /- Part \d+/i,
+  /- Track \d+/i,
+  /- \d{2,3}$/,
+  / \(\d+\)$/,
 ];
 
-function checkFiltered(artistName: string, albumName: string, trackName: string): boolean {
+function checkFiltered(
+  artistName: string,
+  albumName: string,
+  trackName: string
+): boolean {
   const artistLower = artistName.toLowerCase();
   const albumLower = albumName.toLowerCase();
   const trackLower = trackName.toLowerCase();
 
-  for (const p of HOLIDAY_ALBUM_PATTERNS) { if (albumLower.includes(p)) return true; }
-  for (const p of HOLIDAY_TRACK_PATTERNS) { if (trackLower.includes(p)) return true; }
-  for (const entry of HOLIDAY_ARTIST_TRACKS) {
-    if (artistLower.includes(entry.artist) && trackLower === entry.track) return true;
+  for (const p of HOLIDAY_ALBUM_PATTERNS) {
+    if (albumLower.includes(p)) return true;
   }
-  for (const a of AUDIOBOOK_ARTISTS) { if (artistLower === a) return true; }
-  for (const p of AUDIOBOOK_TRACK_PATTERNS) { if (trackLower.includes(p)) return true; }
-  for (const regex of AUDIOBOOK_TRACK_REGEXES) { if (regex.test(trackName)) return true; }
+  for (const p of HOLIDAY_TRACK_PATTERNS) {
+    if (trackLower.includes(p)) return true;
+  }
+  for (const entry of HOLIDAY_ARTIST_TRACKS) {
+    if (artistLower.includes(entry.artist) && trackLower === entry.track)
+      return true;
+  }
+  for (const a of AUDIOBOOK_ARTISTS) {
+    if (artistLower === a) return true;
+  }
+  for (const p of AUDIOBOOK_TRACK_PATTERNS) {
+    if (trackLower.includes(p)) return true;
+  }
+  for (const regex of AUDIOBOOK_TRACK_REGEXES) {
+    if (regex.test(trackName)) return true;
+  }
   return false;
 }
 
@@ -126,8 +165,8 @@ interface Checkpoint {
 
 // In-memory caches (loaded from DB)
 const artistCache: Map<string, number> = new Map(); // lowercase name -> id
-const albumCache: Map<string, number> = new Map();  // "name_lower|artistId" -> id
-const trackCache: Map<string, number> = new Map();  // "name_lower|artistId" -> id
+const albumCache: Map<string, number> = new Map(); // "name_lower|artistId" -> id
+const trackCache: Map<string, number> = new Map(); // "name_lower|artistId" -> id
 
 // --- Env ---
 
@@ -155,7 +194,9 @@ function loadCfToken(): string {
     'Library/Preferences/.wrangler/config/default.toml'
   );
   if (!existsSync(cfgPath)) {
-    console.error('[ERROR] Wrangler config not found. Run `npx wrangler login` first.');
+    console.error(
+      '[ERROR] Wrangler config not found. Run `npx wrangler login` first.'
+    );
     process.exit(1);
   }
   const content = readFileSync(cfgPath, 'utf-8');
@@ -178,11 +219,14 @@ function escapeSQL(value: string | null | undefined): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-async function d1Query(sql: string, cfToken: string): Promise<Array<Record<string, unknown>>> {
+async function d1Query(
+  sql: string,
+  cfToken: string
+): Promise<Array<Record<string, unknown>>> {
   const response = await fetch(D1_API_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${cfToken}`,
+      Authorization: `Bearer ${cfToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ sql }),
@@ -193,14 +237,15 @@ async function d1Query(sql: string, cfToken: string): Promise<Array<Record<strin
     throw new Error(`D1 API error (${response.status}): ${errText}`);
   }
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     success: boolean;
     errors?: Array<{ message: string }>;
     result: Array<{ results: Array<Record<string, unknown>> }>;
   };
 
   if (!data.success) {
-    const errMsg = data.errors?.map(e => e.message).join(', ') ?? 'Unknown error';
+    const errMsg =
+      data.errors?.map((e) => e.message).join(', ') ?? 'Unknown error';
     throw new Error(`D1 query failed: ${errMsg}`);
   }
 
@@ -211,7 +256,10 @@ async function executeSQL(sql: string, cfToken: string): Promise<void> {
   await d1Query(sql, cfToken);
 }
 
-async function queryRows(sql: string, cfToken: string): Promise<Array<Record<string, unknown>>> {
+async function queryRows(
+  sql: string,
+  cfToken: string
+): Promise<Array<Record<string, unknown>>> {
   try {
     return await d1Query(sql, cfToken);
   } catch (err) {
@@ -244,7 +292,9 @@ function buildColumnMap(headers: string[]): Map<string, number> {
   const map = new Map<string, number>();
   for (const [canonical, variants] of Object.entries(COLUMN_VARIANTS)) {
     for (const variant of variants) {
-      const idx = headers.findIndex(h => h.toLowerCase() === variant.toLowerCase());
+      const idx = headers.findIndex(
+        (h) => h.toLowerCase() === variant.toLowerCase()
+      );
       if (idx !== -1) {
         map.set(canonical, idx);
         break;
@@ -299,7 +349,7 @@ function parseCsvLine(line: string): string[] {
 
 function parseCsv(content: string): CsvRow[] {
   // Strip UTF-8 BOM
-  if (content.charCodeAt(0) === 0xFEFF) {
+  if (content.charCodeAt(0) === 0xfeff) {
     content = content.slice(1);
   }
 
@@ -323,7 +373,11 @@ function parseCsv(content: string): CsvRow[] {
   return rows;
 }
 
-function csvRowToApplePlay(row: CsvRow, columnMap: Map<string, number>, headers: string[]): ApplePlay | null {
+function csvRowToApplePlay(
+  row: CsvRow,
+  columnMap: Map<string, number>,
+  headers: string[]
+): ApplePlay | null {
   const get = (canonical: string): string => {
     const idx = columnMap.get(canonical);
     if (idx === undefined) return '';
@@ -416,7 +470,10 @@ const FILTER_PIPELINE: Array<{ name: string; fn: FilterFn }> = [
   { name: 'radio_source', fn: (p) => filterRadioSource(p) },
   { name: 'podcast_or_audiobook_content', fn: (p) => filterContentType(p) },
   { name: 'preview_play', fn: (p) => filterPreview(p) },
-  { name: 'insufficient_play_duration', fn: (p, pct) => filterPlayDuration(p, pct) },
+  {
+    name: 'insufficient_play_duration',
+    fn: (p, pct) => filterPlayDuration(p, pct),
+  },
   { name: 'missing_artist_or_track', fn: (p) => filterMissingFields(p) },
   { name: 'holiday_or_audiobook', fn: (p) => filterHolidayAudiobook(p) },
 ];
@@ -435,7 +492,10 @@ function applyFilters(play: ApplePlay, minPlayPct: number): FilterResult {
  * Deduplicate Apple events for the same play.
  * Group by artist+track+minute timestamp; keep only one per group.
  */
-function deduplicateAppleEvents(plays: ApplePlay[]): { deduped: ApplePlay[]; duplicateCount: number } {
+function deduplicateAppleEvents(plays: ApplePlay[]): {
+  deduped: ApplePlay[];
+  duplicateCount: number;
+} {
   const seen = new Set<string>();
   const deduped: ApplePlay[] = [];
   let duplicateCount = 0;
@@ -465,7 +525,11 @@ function truncateToMinute(isoStr: string): number {
 }
 
 function buildScrobbleDedupSet(
-  scrobbles: Array<{ track_name: string; artist_name: string; scrobbled_at: string }>
+  scrobbles: Array<{
+    track_name: string;
+    artist_name: string;
+    scrobbled_at: string;
+  }>
 ): Set<string> {
   const dedupSet = new Set<string>();
   for (const s of scrobbles) {
@@ -507,7 +571,10 @@ async function loadEntities(
 ): Promise<void> {
   const whereClause = minId > 0 ? ` WHERE id > ${minId}` : '';
   const cols = table === 'lastfm_artists' ? 'id, name' : 'id, name, artist_id';
-  const rows = await queryRows(`SELECT ${cols} FROM ${table}${whereClause};`, cfToken);
+  const rows = await queryRows(
+    `SELECT ${cols} FROM ${table}${whereClause};`,
+    cfToken
+  );
   if (minId === 0) cache.clear();
   for (const row of rows) {
     const key = keyFn(row);
@@ -523,22 +590,52 @@ function getMaxCacheId(cache: Map<string, number>): number {
   return max;
 }
 
-async function loadAllArtists(cfToken: string, incremental = false): Promise<void> {
+async function loadAllArtists(
+  cfToken: string,
+  incremental = false
+): Promise<void> {
   const minId = incremental ? getMaxCacheId(artistCache) : 0;
-  await loadEntities('lastfm_artists', artistCache, (row) =>
-    row.name ? (row.name as string).toLowerCase() : null, cfToken, minId);
+  await loadEntities(
+    'lastfm_artists',
+    artistCache,
+    (row) => (row.name ? (row.name as string).toLowerCase() : null),
+    cfToken,
+    minId
+  );
 }
 
-async function loadAllAlbums(cfToken: string, incremental = false): Promise<void> {
+async function loadAllAlbums(
+  cfToken: string,
+  incremental = false
+): Promise<void> {
   const minId = incremental ? getMaxCacheId(albumCache) : 0;
-  await loadEntities('lastfm_albums', albumCache, (row) =>
-    row.name ? `${(row.name as string).toLowerCase()}|${row.artist_id}` : null, cfToken, minId);
+  await loadEntities(
+    'lastfm_albums',
+    albumCache,
+    (row) =>
+      row.name
+        ? `${(row.name as string).toLowerCase()}|${row.artist_id}`
+        : null,
+    cfToken,
+    minId
+  );
 }
 
-async function loadAllTracks(cfToken: string, incremental = false): Promise<void> {
+async function loadAllTracks(
+  cfToken: string,
+  incremental = false
+): Promise<void> {
   const minId = incremental ? getMaxCacheId(trackCache) : 0;
-  await loadEntities('lastfm_tracks', trackCache, (row) =>
-    row.name ? `${(row.name as string).toLowerCase()}|${row.artist_id}` : null, cfToken, minId);
+  await loadEntities(
+    'lastfm_tracks',
+    trackCache,
+    (row) =>
+      row.name
+        ? `${(row.name as string).toLowerCase()}|${row.artist_id}`
+        : null,
+    cfToken,
+    minId
+  );
 }
 
 async function preloadCaches(cfToken: string): Promise<void> {
@@ -562,13 +659,20 @@ async function loadExistingScrobbles(cfToken: string): Promise<Set<string>> {
   );
   console.log(`[INFO] Loaded ${rows.length} existing scrobbles`);
   return buildScrobbleDedupSet(
-    rows as Array<{ track_name: string; artist_name: string; scrobbled_at: string }>
+    rows as Array<{
+      track_name: string;
+      artist_name: string;
+      scrobbled_at: string;
+    }>
   );
 }
 
 // --- Batch upsert operations ---
 
-async function batchUpsertArtists(plays: ParsedPlay[], cfToken: string): Promise<void> {
+async function batchUpsertArtists(
+  plays: ParsedPlay[],
+  cfToken: string
+): Promise<void> {
   const newArtists = new Map<string, ParsedPlay>();
   for (const p of plays) {
     const key = p.artistName.toLowerCase();
@@ -579,9 +683,12 @@ async function batchUpsertArtists(plays: ParsedPlay[], cfToken: string): Promise
   if (newArtists.size === 0) return;
 
   const now = new Date().toISOString();
-  const values = [...newArtists.values()].map(p =>
-    `(1, ${escapeSQL(p.artistName)}, NULL, '', 0, ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
-  ).join(',\n');
+  const values = [...newArtists.values()]
+    .map(
+      (p) =>
+        `(1, ${escapeSQL(p.artistName)}, NULL, '', 0, ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+    )
+    .join(',\n');
 
   try {
     await executeSQL(
@@ -596,7 +703,10 @@ async function batchUpsertArtists(plays: ParsedPlay[], cfToken: string): Promise
   await loadAllArtists(cfToken, true);
 }
 
-async function batchUpsertAlbums(plays: ParsedPlay[], cfToken: string): Promise<void> {
+async function batchUpsertAlbums(
+  plays: ParsedPlay[],
+  cfToken: string
+): Promise<void> {
   const newAlbums = new Map<string, { p: ParsedPlay; artistId: number }>();
   for (const p of plays) {
     if (!p.albumName) continue;
@@ -610,9 +720,12 @@ async function batchUpsertAlbums(plays: ParsedPlay[], cfToken: string): Promise<
   if (newAlbums.size === 0) return;
 
   const now = new Date().toISOString();
-  const values = [...newAlbums.values()].map(({ p, artistId }) =>
-    `(1, ${escapeSQL(p.albumName)}, NULL, ${artistId}, '', 0, ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
-  ).join(',\n');
+  const values = [...newAlbums.values()]
+    .map(
+      ({ p, artistId }) =>
+        `(1, ${escapeSQL(p.albumName)}, NULL, ${artistId}, '', 0, ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+    )
+    .join(',\n');
 
   try {
     await executeSQL(
@@ -627,8 +740,14 @@ async function batchUpsertAlbums(plays: ParsedPlay[], cfToken: string): Promise<
   await loadAllAlbums(cfToken, true);
 }
 
-async function batchUpsertTracks(plays: ParsedPlay[], cfToken: string): Promise<void> {
-  const newTracks = new Map<string, { p: ParsedPlay; artistId: number; albumId: number | null }>();
+async function batchUpsertTracks(
+  plays: ParsedPlay[],
+  cfToken: string
+): Promise<void> {
+  const newTracks = new Map<
+    string,
+    { p: ParsedPlay; artistId: number; albumId: number | null }
+  >();
   for (const p of plays) {
     const artistId = artistCache.get(p.artistName.toLowerCase());
     if (!artistId) continue;
@@ -636,7 +755,7 @@ async function batchUpsertTracks(plays: ParsedPlay[], cfToken: string): Promise<
     if (trackCache.has(key) || newTracks.has(key)) continue;
 
     const albumId = p.albumName
-      ? albumCache.get(`${p.albumName.toLowerCase()}|${artistId}`) ?? null
+      ? (albumCache.get(`${p.albumName.toLowerCase()}|${artistId}`) ?? null)
       : null;
 
     newTracks.set(key, { p, artistId, albumId });
@@ -644,9 +763,12 @@ async function batchUpsertTracks(plays: ParsedPlay[], cfToken: string): Promise<
   if (newTracks.size === 0) return;
 
   const now = new Date().toISOString();
-  const values = [...newTracks.values()].map(({ p, artistId, albumId }) =>
-    `(1, ${escapeSQL(p.trackName)}, NULL, ${artistId}, ${albumId ?? 'NULL'}, '', ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
-  ).join(',\n');
+  const values = [...newTracks.values()]
+    .map(
+      ({ p, artistId, albumId }) =>
+        `(1, ${escapeSQL(p.trackName)}, NULL, ${artistId}, ${albumId ?? 'NULL'}, '', ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+    )
+    .join(',\n');
 
   try {
     await executeSQL(
@@ -661,7 +783,10 @@ async function batchUpsertTracks(plays: ParsedPlay[], cfToken: string): Promise<
   await loadAllTracks(cfToken, true);
 }
 
-async function batchInsertScrobbles(plays: ParsedPlay[], cfToken: string): Promise<number> {
+async function batchInsertScrobbles(
+  plays: ParsedPlay[],
+  cfToken: string
+): Promise<number> {
   const now = new Date().toISOString();
   const values: string[] = [];
 
@@ -722,11 +847,13 @@ interface CliArgs {
 
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
-  const flags = new Set(args.filter(a => a.startsWith('--')));
-  const positional = args.filter(a => !a.startsWith('--'));
+  const flags = new Set(args.filter((a) => a.startsWith('--')));
+  const positional = args.filter((a) => !a.startsWith('--'));
 
   if (positional.length === 0) {
-    console.error('[ERROR] Usage: npx tsx scripts/import-apple-music.ts <path-to-csv> [--dry-run] [--resume] [--limit N] [--min-play-pct N]');
+    console.error(
+      '[ERROR] Usage: npx tsx scripts/import-apple-music.ts <path-to-csv> [--dry-run] [--resume] [--limit N] [--min-play-pct N]'
+    );
     process.exit(1);
   }
 
@@ -785,8 +912,11 @@ async function main() {
 
   // Build column map from headers
   const firstRowContent = readFileSync(cliArgs.csvPath, 'utf-8');
-  const headerLine = (firstRowContent.charCodeAt(0) === 0xFEFF ? firstRowContent.slice(1) : firstRowContent)
-    .split(/\r?\n/)[0];
+  const headerLine = (
+    firstRowContent.charCodeAt(0) === 0xfeff
+      ? firstRowContent.slice(1)
+      : firstRowContent
+  ).split(/\r?\n/)[0];
   const headers = parseCsvLine(headerLine);
   const columnMap = buildColumnMap(headers);
 
@@ -841,7 +971,14 @@ async function main() {
   let existingDupeCount = 0;
   const newPlays: ApplePlay[] = [];
   for (const play of playsToProcess) {
-    if (isDuplicateScrobble(scrobbleDedupSet, play.artistName, play.trackName, play.timestamp)) {
+    if (
+      isDuplicateScrobble(
+        scrobbleDedupSet,
+        play.artistName,
+        play.trackName,
+        play.timestamp
+      )
+    ) {
       existingDupeCount++;
     } else {
       newPlays.push(play);
@@ -857,21 +994,28 @@ async function main() {
     console.log(`Total CSV rows: ${rawRows.length}`);
     console.log(`Valid rows with timestamps: ${allPlays.length}`);
     console.log('\nRows rejected by filter:');
-    for (const [reason, count] of Object.entries(filterStats).sort((a, b) => b[1] - a[1])) {
+    for (const [reason, count] of Object.entries(filterStats).sort(
+      (a, b) => b[1] - a[1]
+    )) {
       console.log(`  ${reason}: ${count}`);
     }
     console.log(`\nApple event duplicates removed: ${appleDedupeCount}`);
-    console.log(`Duplicates with existing Last.fm scrobbles: ${existingDupeCount}`);
+    console.log(
+      `Duplicates with existing Last.fm scrobbles: ${existingDupeCount}`
+    );
     console.log(`Net new plays to import: ${newPlays.length}`);
 
     if (newPlays.length > 0) {
-      const dates = newPlays.map(p => p.timestamp);
+      const dates = newPlays.map((p) => p.timestamp);
       console.log(`\nDate range: ${dates[0]} to ${dates[dates.length - 1]}`);
 
       // Top 20 artists by play count
       const artistCounts = new Map<string, number>();
       for (const play of newPlays) {
-        artistCounts.set(play.artistName, (artistCounts.get(play.artistName) ?? 0) + 1);
+        artistCounts.set(
+          play.artistName,
+          (artistCounts.get(play.artistName) ?? 0) + 1
+        );
       }
       const topArtists = [...artistCounts.entries()]
         .sort((a, b) => b[1] - a[1])
@@ -886,7 +1030,9 @@ async function main() {
       console.log('\nSample of plays that would be inserted:');
       const sample = newPlays.slice(0, 10);
       for (const play of sample) {
-        console.log(`  ${play.timestamp} | ${play.artistName} - ${play.trackName} (${play.albumName || 'no album'})`);
+        console.log(
+          `  ${play.timestamp} | ${play.artistName} - ${play.trackName} (${play.albumName || 'no album'})`
+        );
       }
     }
 
@@ -909,14 +1055,18 @@ async function main() {
     const checkpoint = loadCheckpoint();
     if (checkpoint && checkpoint.csvHash === csvHash) {
       startIndex = checkpoint.processedIndex;
-      console.log(`[INFO] Resuming from index ${startIndex} (${checkpoint.totalInserted} previously inserted)`);
+      console.log(
+        `[INFO] Resuming from index ${startIndex} (${checkpoint.totalInserted} previously inserted)`
+      );
     } else if (checkpoint) {
-      console.log('[INFO] CSV file changed since last checkpoint. Starting from beginning.');
+      console.log(
+        '[INFO] CSV file changed since last checkpoint. Starting from beginning.'
+      );
     }
   }
 
   // Convert to ParsedPlay objects
-  const parsedPlays: ParsedPlay[] = newPlays.map(play => ({
+  const parsedPlays: ParsedPlay[] = newPlays.map((play) => ({
     trackName: play.trackName,
     artistName: play.artistName,
     albumName: play.albumName,
@@ -972,10 +1122,18 @@ async function main() {
   );
   console.log('');
   console.log('[INFO] Next steps:');
-  console.log('  1. Trigger a listening sync to update search index and activity feed:');
-  console.log('     curl -X POST -H "Authorization: Bearer $API_KEY" https://api.rewind.rest/v1/admin/sync/listening');
-  console.log('  2. If Apple Music-only artists need indexing, run search backfill:');
-  console.log('     npx wrangler d1 execute rewind-db --remote --command "INSERT OR IGNORE INTO search_index (domain, entity_type, entity_id, title) SELECT \'listening\', \'artist\', CAST(id AS TEXT), name FROM lastfm_artists WHERE id NOT IN (SELECT CAST(entity_id AS INTEGER) FROM search_index WHERE domain = \'listening\' AND entity_type = \'artist\')"');
+  console.log(
+    '  1. Trigger a listening sync to update search index and activity feed:'
+  );
+  console.log(
+    '     curl -X POST -H "Authorization: Bearer $API_KEY" https://api.rewind.rest/v1/admin/sync/listening'
+  );
+  console.log(
+    '  2. If Apple Music-only artists need indexing, run search backfill:'
+  );
+  console.log(
+    "     npx wrangler d1 execute rewind-db --remote --command \"INSERT OR IGNORE INTO search_index (domain, entity_type, entity_id, title) SELECT 'listening', 'artist', CAST(id AS TEXT), name FROM lastfm_artists WHERE id NOT IN (SELECT CAST(entity_id AS INTEGER) FROM search_index WHERE domain = 'listening' AND entity_type = 'artist')\""
+  );
 }
 
 main().catch((error) => {

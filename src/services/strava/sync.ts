@@ -42,7 +42,12 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
 
   let itemsSynced = 0;
   const changedYears = new Set<number>();
-  const newActivities: Array<{ id: number; name: string; date: string; distanceMiles: number }> = [];
+  const newActivities: Array<{
+    id: number;
+    name: string;
+    date: string;
+    distanceMiles: number;
+  }> = [];
 
   try {
     const client = new StravaClient(env, db);
@@ -99,9 +104,7 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
         const transformed = transformActivity(detailedActivity);
 
         // Track which years are affected
-        changedYears.add(
-          new Date(transformed.startDateLocal).getFullYear()
-        );
+        changedYears.add(new Date(transformed.startDateLocal).getFullYear());
 
         // Upsert activity
         await db
@@ -145,10 +148,7 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
     await syncGear(client, db);
 
     // Recompute stats incrementally for affected years (full if no new activities)
-    await recomputeStats(
-      db,
-      changedYears.size > 0 ? changedYears : undefined
-    );
+    await recomputeStats(db, changedYears.size > 0 ? changedYears : undefined);
 
     // Mark sync as completed
     await db
@@ -372,9 +372,7 @@ async function recomputeLifetimeFromSummaries(db: Database): Promise<void> {
     .where(eq(stravaActivities.isDeleted, 0))
     .orderBy(stravaActivities.startDate);
 
-  const streaks = calculateStreaks(
-    runDateRows.map((r) => r.startDateLocal)
-  );
+  const streaks = calculateStreaks(runDateRows.map((r) => r.startDateLocal));
 
   // Eddington: need daily distance totals
   const dailyMilesMap = new Map<string, number>();
@@ -433,7 +431,9 @@ async function recomputeIncremental(
   changedYears: Set<number>
 ): Promise<void> {
   const years = [...changedYears];
-  console.log(`[SYNC] Incremental stats recomputation for years: ${years.join(', ')}`);
+  console.log(
+    `[SYNC] Incremental stats recomputation for years: ${years.join(', ')}`
+  );
 
   await recomputeYearSummaries(db, years);
   await recomputeLifetimeFromSummaries(db);
@@ -635,21 +635,25 @@ export async function syncSingleActivity(
   // Post-sync: feed, search, revalidation
   await afterSync(db, {
     domain: 'running',
-    feedItems: [{
-      domain: 'running',
-      eventType: 'activity',
-      occurredAt: transformed.startDateLocal,
-      title: transformed.name,
-      subtitle: `${transformed.distanceMiles.toFixed(1)} mi`,
-      sourceId: `strava:${stravaId}`,
-    }],
-    searchItems: [{
-      domain: 'running',
-      entityType: 'activity',
-      entityId: String(stravaId),
-      title: transformed.name,
-      subtitle: `${transformed.distanceMiles.toFixed(1)} mi`,
-    }],
+    feedItems: [
+      {
+        domain: 'running',
+        eventType: 'activity',
+        occurredAt: transformed.startDateLocal,
+        title: transformed.name,
+        subtitle: `${transformed.distanceMiles.toFixed(1)} mi`,
+        sourceId: `strava:${stravaId}`,
+      },
+    ],
+    searchItems: [
+      {
+        domain: 'running',
+        entityType: 'activity',
+        entityId: String(stravaId),
+        title: transformed.name,
+        subtitle: `${transformed.distanceMiles.toFixed(1)} mi`,
+      },
+    ],
   });
 
   console.log(`[SYNC] Single activity ${stravaId} synced`);

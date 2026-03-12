@@ -20,7 +20,7 @@ rules:
   # Descriptions should not be empty
   no-empty-description:
     description: Descriptions must not be empty strings.
-    given: "$..description"
+    given: '$..description'
     severity: warn
     then:
       function: truthy

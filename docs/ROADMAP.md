@@ -783,7 +783,7 @@ Activity feed, search index, and revalidation hooks have full infrastructure (sc
 
 **8.6 -- Cron Integration**
 
-- [x] **8.6.1** Wire Trakt sync into 0 3 * * * cron handler (Sunday only, alongside Discogs)
+- [x] **8.6.1** Wire Trakt sync into 0 3 \* \* \* cron handler (Sunday only, alongside Discogs)
 - [x] **8.6.2** Import syncTraktCollection in src/index.ts
 
 **8.7 -- Cataloging**

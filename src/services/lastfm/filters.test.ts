@@ -14,7 +14,11 @@ import {
 beforeAll(() => {
   seedFilterCache([
     // Holiday album patterns
-    { filterType: 'holiday', pattern: 'charlie brown christmas', scope: 'album' },
+    {
+      filterType: 'holiday',
+      pattern: 'charlie brown christmas',
+      scope: 'album',
+    },
     { filterType: 'holiday', pattern: 'merry christmas', scope: 'album' },
     { filterType: 'holiday', pattern: 'white christmas', scope: 'album' },
     { filterType: 'holiday', pattern: 'christmas album', scope: 'album' },
@@ -27,9 +31,21 @@ beforeAll(() => {
     { filterType: 'holiday', pattern: 'santa claus', scope: 'track' },
     { filterType: 'holiday', pattern: 'sleigh ride', scope: 'track' },
     // Holiday artist+track patterns
-    { filterType: 'holiday', pattern: 'vince guaraldi||skating', scope: 'artist_track' },
-    { filterType: 'holiday', pattern: 'vince guaraldi||greensleeves', scope: 'artist_track' },
-    { filterType: 'holiday', pattern: 'vince guaraldi||linus and lucy', scope: 'artist_track' },
+    {
+      filterType: 'holiday',
+      pattern: 'vince guaraldi||skating',
+      scope: 'artist_track',
+    },
+    {
+      filterType: 'holiday',
+      pattern: 'vince guaraldi||greensleeves',
+      scope: 'artist_track',
+    },
+    {
+      filterType: 'holiday',
+      pattern: 'vince guaraldi||linus and lucy',
+      scope: 'artist_track',
+    },
     // Audiobook artist patterns
     { filterType: 'audiobook', pattern: 'stephen king', scope: 'artist' },
     { filterType: 'audiobook', pattern: 'andy weir', scope: 'artist' },

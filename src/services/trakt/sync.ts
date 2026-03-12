@@ -60,14 +60,15 @@ async function syncCollection(
   for (const item of items) {
     const tmdbId = item.movie.ids.tmdb;
     if (!tmdbId) {
-      console.log(
-        `[INFO] Skipping ${item.movie.title} - no TMDb ID`
-      );
+      console.log(`[INFO] Skipping ${item.movie.title} - no TMDb ID`);
       continue;
     }
 
     const traktId = item.movie.ids.trakt;
-    const mediaType = normalizeMediaType(item.metadata?.media_type, item.metadata?.resolution);
+    const mediaType = normalizeMediaType(
+      item.metadata?.media_type,
+      item.metadata?.resolution
+    );
     remoteKeys.add(`${traktId}:${mediaType}`);
 
     // Ensure movie exists in local DB
@@ -86,10 +87,14 @@ async function syncCollection(
         movieId,
         traktId,
         mediaType,
-        resolution: (item.metadata?.resolution || null) as typeof traktCollection.$inferInsert.resolution,
-        hdr: (item.metadata?.hdr || null) as typeof traktCollection.$inferInsert.hdr,
-        audio: (item.metadata?.audio || null) as typeof traktCollection.$inferInsert.audio,
-        audioChannels: (item.metadata?.audio_channels || null) as typeof traktCollection.$inferInsert.audioChannels,
+        resolution: (item.metadata?.resolution ||
+          null) as typeof traktCollection.$inferInsert.resolution,
+        hdr: (item.metadata?.hdr ||
+          null) as typeof traktCollection.$inferInsert.hdr,
+        audio: (item.metadata?.audio ||
+          null) as typeof traktCollection.$inferInsert.audio,
+        audioChannels: (item.metadata?.audio_channels ||
+          null) as typeof traktCollection.$inferInsert.audioChannels,
         collectedAt: item.collected_at,
         updatedAt: new Date().toISOString(),
       })
@@ -127,9 +132,7 @@ async function syncCollection(
   for (const local of localItems) {
     const key = `${local.traktId}:${local.mediaType}`;
     if (!remoteKeys.has(key)) {
-      await db
-        .delete(traktCollection)
-        .where(eq(traktCollection.id, local.id));
+      await db.delete(traktCollection).where(eq(traktCollection.id, local.id));
       removed++;
     }
   }

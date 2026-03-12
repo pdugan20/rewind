@@ -4,8 +4,6 @@ import { drizzle } from 'drizzle-orm/d1';
 import { setupTestDbWithFts5, createTestApiKey } from '../test-helpers.js';
 import { upsertSearchIndex, upsertSearchIndexBatch } from './search.js';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 describe('search routes', () => {
   let token: string;
 

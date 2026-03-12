@@ -474,28 +474,39 @@ export async function handlePlexWebhook(
     await computeWatchStats(db);
 
     // Post-sync: feed, search, revalidation
-    const title = mediaType === 'movie'
-      ? `Watched ${payload.Metadata.title}${payload.Metadata.year ? ` (${payload.Metadata.year})` : ''}`
-      : `Watched ${payload.Metadata.grandparentTitle} S${payload.Metadata.parentIndex}E${payload.Metadata.index}`;
+    const title =
+      mediaType === 'movie'
+        ? `Watched ${payload.Metadata.title}${payload.Metadata.year ? ` (${payload.Metadata.year})` : ''}`
+        : `Watched ${payload.Metadata.grandparentTitle} S${payload.Metadata.parentIndex}E${payload.Metadata.index}`;
     const entityType = mediaType === 'movie' ? 'movie' : 'show';
-    const entityId = mediaType === 'movie' ? String(result.movieId) : String(result.showId);
+    const entityId =
+      mediaType === 'movie' ? String(result.movieId) : String(result.showId);
 
     await afterSync(db, {
       domain: 'watching',
-      feedItems: [{
-        domain: 'watching',
-        eventType: `${mediaType}_watched`,
-        occurredAt: new Date().toISOString(),
-        title,
-        sourceId: `plex:webhook:${eventId}`,
-      }],
-      searchItems: entityId !== 'undefined' ? [{
-        domain: 'watching',
-        entityType,
-        entityId,
-        title: payload.Metadata.title,
-        subtitle: payload.Metadata.year ? String(payload.Metadata.year) : undefined,
-      }] : [],
+      feedItems: [
+        {
+          domain: 'watching',
+          eventType: `${mediaType}_watched`,
+          occurredAt: new Date().toISOString(),
+          title,
+          sourceId: `plex:webhook:${eventId}`,
+        },
+      ],
+      searchItems:
+        entityId !== 'undefined'
+          ? [
+              {
+                domain: 'watching',
+                entityType,
+                entityId,
+                title: payload.Metadata.title,
+                subtitle: payload.Metadata.year
+                  ? String(payload.Metadata.year)
+                  : undefined,
+              },
+            ]
+          : [],
     });
   }
 

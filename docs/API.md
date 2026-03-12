@@ -98,22 +98,22 @@ When no image exists, the field is `null`:
 }
 ```
 
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| cdn_url | string | Cloudflare Images transform URL with size preset |
-| thumbhash | string or null | Base64 ThumbHash for blur placeholder |
-| dominant_color | string or null | Hex color for background placeholder |
-| accent_color | string or null | Hex color for UI accents |
+| Field          | Type           | Description                                      |
+| -------------- | -------------- | ------------------------------------------------ |
+| cdn_url        | string         | Cloudflare Images transform URL with size preset |
+| thumbhash      | string or null | Base64 ThumbHash for blur placeholder            |
+| dominant_color | string or null | Hex color for background placeholder             |
+| accent_color   | string or null | Hex color for UI accents                         |
 
 ### Rate Limiting
 
 All endpoints return rate limiting headers:
 
-| Header                | Description                                    |
-| --------------------- | ---------------------------------------------- |
-| X-RateLimit-Limit     | Requests allowed per minute                    |
-| X-RateLimit-Remaining | Requests remaining in current window           |
-| X-RateLimit-Reset     | Unix timestamp when the window resets          |
+| Header                | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| X-RateLimit-Limit     | Requests allowed per minute                      |
+| X-RateLimit-Remaining | Requests remaining in current window             |
+| X-RateLimit-Reset     | Unix timestamp when the window resets            |
 | Retry-After           | Seconds to wait (included in 429 responses only) |
 
 When rate limited, the API returns a `429 Too Many Requests` response with the `Retry-After` header indicating how many seconds to wait before retrying.
@@ -199,9 +199,9 @@ curl -X POST https://api.rewind.rest/v1/admin/sync/listening \
 
 The listening sync accepts an optional JSON body to specify sync type:
 
-| Body Field | Type   | Default    | Description                              |
-| ---------- | ------ | ---------- | ---------------------------------------- |
-| type       | string | scrobbles  | scrobbles, top_lists, stats, full, backfill |
+| Body Field | Type   | Default   | Description                                 |
+| ---------- | ------ | --------- | ------------------------------------------- |
+| type       | string | scrobbles | scrobbles, top_lists, stats, full, backfill |
 
 ```bash
 curl -X POST https://api.rewind.rest/v1/admin/sync/listening \
@@ -374,12 +374,12 @@ Cache: max-age=300
 
 Cross-domain full-text search using SQLite FTS5. Returns a flat list of results across all domains, each tagged with its domain and entity type.
 
-| Parameter | Type   | Default  | Description                                             |
-| --------- | ------ | -------- | ------------------------------------------------------- |
-| q         | string | required | Search query string (prefix matching supported)         |
+| Parameter | Type   | Default  | Description                                                    |
+| --------- | ------ | -------- | -------------------------------------------------------------- |
+| q         | string | required | Search query string (prefix matching supported)                |
 | domain    | string | all      | Filter to one domain: listening, running, watching, collecting |
-| page      | number | 1        | Page number                                             |
-| limit     | number | 20       | Results per page (1-100)                                |
+| page      | number | 1        | Page number                                                    |
+| limit     | number | 20       | Results per page (1-100)                                       |
 
 ```bash
 curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/search?q=radiohead"
@@ -730,13 +730,13 @@ Cache: max-age=86400
 
 Browse all artists. Paginated with search and sort options.
 
-| Parameter | Type   | Default   | Description                |
-| --------- | ------ | --------- | -------------------------- |
-| page      | number | 1         | Page number                |
-| limit     | number | 20        | Items per page             |
-| sort      | string | playcount | playcount, name            |
-| order     | string | desc      | asc, desc                  |
-| search    | string | -         | Filter by artist name      |
+| Parameter | Type   | Default   | Description           |
+| --------- | ------ | --------- | --------------------- |
+| page      | number | 1         | Page number           |
+| limit     | number | 20        | Items per page        |
+| sort      | string | playcount | playcount, name       |
+| order     | string | desc      | asc, desc             |
+| search    | string | -         | Filter by artist name |
 
 ```bash
 curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/listening/artists?sort=playcount&limit=10"
@@ -768,14 +768,14 @@ Cache: max-age=3600
 
 Browse all albums. Paginated with artist filter, search, and sort options.
 
-| Parameter | Type   | Default   | Description                |
-| --------- | ------ | --------- | -------------------------- |
-| page      | number | 1         | Page number                |
-| limit     | number | 20        | Items per page             |
-| sort      | string | playcount | playcount, name, recent    |
-| order     | string | desc      | asc, desc                  |
-| artist    | string | -         | Filter by artist name      |
-| search    | string | -         | Filter by album name       |
+| Parameter | Type   | Default   | Description             |
+| --------- | ------ | --------- | ----------------------- |
+| page      | number | 1         | Page number             |
+| limit     | number | 20        | Items per page          |
+| sort      | string | playcount | playcount, name, recent |
+| order     | string | desc      | asc, desc               |
+| artist    | string | -         | Filter by artist name   |
+| search    | string | -         | Filter by album name    |
 
 ```bash
 curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/listening/albums?artist=Radiohead&sort=playcount"
@@ -1544,12 +1544,12 @@ Cache: max-age=86400
 
 Movies with user ratings. Paginated with sort options.
 
-| Parameter | Type   | Default | Description        |
-| --------- | ------ | ------- | ------------------ |
-| page      | number | 1       | Page number        |
-| limit     | number | 20      | Items per page     |
-| sort      | string | rating  | rating, date       |
-| order     | string | desc    | asc, desc          |
+| Parameter | Type   | Default | Description    |
+| --------- | ------ | ------- | -------------- |
+| page      | number | 1       | Page number    |
+| limit     | number | 20      | Items per page |
+| sort      | string | rating  | rating, date   |
+| order     | string | desc    | asc, desc      |
 
 ```bash
 curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/watching/ratings?sort=rating&order=desc"
@@ -1856,15 +1856,15 @@ Cache: max-age=86400
 
 Paginated list of physical media items from Trakt collection.
 
-| Parameter | Type   | Default | Description                          |
-| --------- | ------ | ------- | ------------------------------------ |
-| page      | number | 1       | Page number                          |
-| limit     | number | 20      | Items per page                       |
-| format    | string | -       | Filter: bluray, 4k_uhd, hddvd       |
-| genre     | string | -       | Filter by genre                      |
-| q         | string | -       | Search title                         |
-| sort      | string | added   | added, title, year                   |
-| order     | string | desc    | asc, desc                            |
+| Parameter | Type   | Default | Description                   |
+| --------- | ------ | ------- | ----------------------------- |
+| page      | number | 1       | Page number                   |
+| limit     | number | 20      | Items per page                |
+| format    | string | -       | Filter: bluray, 4k_uhd, hddvd |
+| genre     | string | -       | Filter by genre               |
+| q         | string | -       | Search title                  |
+| sort      | string | added   | added, title, year            |
+| order     | string | desc    | asc, desc                     |
 
 ```bash
 curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/collecting/media?format=4k_uhd&limit=10"
@@ -2002,11 +2002,11 @@ Cache: max-age=86400
 
 Cross-reference owned physical media with watching domain watch history.
 
-| Parameter | Type   | Default | Description                   |
-| --------- | ------ | ------- | ----------------------------- |
-| filter    | string | all     | all, watched, unwatched       |
-| page      | number | 1       | Page number                   |
-| limit     | number | 20      | Items per page                |
+| Parameter | Type   | Default | Description             |
+| --------- | ------ | ------- | ----------------------- |
+| filter    | string | all     | all, watched, unwatched |
+| page      | number | 1       | Page number             |
+| limit     | number | 20      | Items per page          |
 
 ```bash
 curl -H "Authorization: Bearer rw_live_..." "https://api.rewind.rest/v1/collecting/media/cross-reference?filter=unwatched"
@@ -2265,12 +2265,12 @@ curl -H "Authorization: Bearer rw_admin_..." https://api.rewind.rest/v1/listenin
 
 Create a new scrobble filter. Admin key required.
 
-| Body Field  | Type   | Required | Description                                          |
-| ----------- | ------ | -------- | ---------------------------------------------------- |
-| filter_type | string | yes      | holiday, audiobook, custom                           |
-| pattern     | string | yes      | Text pattern to match                                |
-| scope       | string | yes      | album, track, artist, artist_track, track_regex      |
-| reason      | string | no       | Human-readable reason for the filter                 |
+| Body Field  | Type   | Required | Description                                     |
+| ----------- | ------ | -------- | ----------------------------------------------- |
+| filter_type | string | yes      | holiday, audiobook, custom                      |
+| pattern     | string | yes      | Text pattern to match                           |
+| scope       | string | yes      | album, track, artist, artist_track, track_regex |
+| reason      | string | no       | Human-readable reason for the filter            |
 
 ```bash
 curl -X POST https://api.rewind.rest/v1/listening/admin/filters \
@@ -2301,9 +2301,9 @@ curl -X DELETE https://api.rewind.rest/v1/listening/admin/filters/1 \
 
 Backfill images for listening entities missing them. Admin key required.
 
-| Body Field | Type   | Default | Description              |
-| ---------- | ------ | ------- | ------------------------ |
-| type       | string | albums  | albums, artists, all     |
+| Body Field | Type   | Default | Description                    |
+| ---------- | ------ | ------- | ------------------------------ |
+| type       | string | albums  | albums, artists, all           |
 | limit      | number | 50      | Max items to process (max 200) |
 
 ```bash
@@ -2317,9 +2317,9 @@ curl -X POST https://api.rewind.rest/v1/listening/admin/listening/backfill-image
 
 Backfill images for watching entities missing them. Admin key required.
 
-| Body Field | Type   | Default | Description              |
-| ---------- | ------ | ------- | ------------------------ |
-| type       | string | movies  | movies, shows, all       |
+| Body Field | Type   | Default | Description                    |
+| ---------- | ------ | ------- | ------------------------------ |
+| type       | string | movies  | movies, shows, all             |
 | limit      | number | 50      | Max items to process (max 200) |
 
 ```bash
@@ -2333,8 +2333,8 @@ curl -X POST https://api.rewind.rest/v1/watching/admin/watching/backfill-images 
 
 Re-generate thumbhash and colors for images that have R2 keys but missing metadata. Reads from R2, no external API calls needed. Admin key required.
 
-| Body Field | Type   | Default | Description              |
-| ---------- | ------ | ------- | ------------------------ |
+| Body Field | Type   | Default | Description                    |
+| ---------- | ------ | ------- | ------------------------------ |
 | limit      | number | 50      | Max items to process (max 100) |
 
 ```bash

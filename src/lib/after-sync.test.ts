@@ -6,8 +6,6 @@ import { setupTestDb } from '../test-helpers.js';
 import { afterSync } from './after-sync.js';
 import type { FeedItem } from './after-sync.js';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 describe('afterSync', () => {
   beforeAll(async () => {
     await setupTestDb();
@@ -15,9 +13,9 @@ describe('afterSync', () => {
 
   beforeEach(async () => {
     const db = drizzle(env.DB);
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
+
     await db.delete(activityFeed);
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
+
     await db.delete(revalidationHooks);
     vi.restoreAllMocks();
   });
@@ -127,7 +125,11 @@ describe('afterSync', () => {
 
     // Should not throw
     await afterSync(db, { domain: 'listening' });
-    await afterSync(db, { domain: 'listening', feedItems: [], searchItems: [] });
+    await afterSync(db, {
+      domain: 'listening',
+      feedItems: [],
+      searchItems: [],
+    });
 
     const items = await db.select().from(activityFeed);
     expect(items).toHaveLength(0);

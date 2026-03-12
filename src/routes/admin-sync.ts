@@ -10,7 +10,11 @@ import { errorResponses } from '../lib/schemas/common.js';
 import { createDb } from '../db/client.js';
 import { LastfmClient } from '../services/lastfm/client.js';
 import { syncListening } from '../services/lastfm/sync.js';
-import { syncRunning, recomputeStats, deleteActivity } from '../services/strava/sync.js';
+import {
+  syncRunning,
+  recomputeStats,
+  deleteActivity,
+} from '../services/strava/sync.js';
 import { syncWatching } from '../services/plex/sync.js';
 import { syncLetterboxd } from '../services/letterboxd/sync.js';
 import { syncCollecting } from '../services/discogs/sync.js';
@@ -75,7 +79,9 @@ const WatchingSyncResponse = z
   .openapi('WatchingSyncResponse');
 
 const ActivityIdParam = z.object({
-  id: z.string().openapi({ example: '12345', description: 'Strava activity ID' }),
+  id: z
+    .string()
+    .openapi({ example: '12345', description: 'Strava activity ID' }),
 });
 
 const DeletedResponse = z
@@ -126,7 +132,10 @@ adminSync.openapi(syncListeningRoute, async (c) => {
 
   const validTypes = ['scrobbles', 'top_lists', 'stats', 'full', 'backfill'];
   if (!validTypes.includes(syncType)) {
-    return badRequest(c, `Invalid sync type. Valid: ${validTypes.join(', ')}`) as any;
+    return badRequest(
+      c,
+      `Invalid sync type. Valid: ${validTypes.join(', ')}`
+    ) as any;
   }
 
   try {

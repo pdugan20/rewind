@@ -55,7 +55,8 @@ export async function resolveMovie(
     if (existing) {
       // Back-fill tmdbId if the row doesn't have one
       if (!existing.tmdbId) {
-        const resolvedTmdbId = params.tmdbId ?? (await searchTmdbId(tmdbClient, params));
+        const resolvedTmdbId =
+          params.tmdbId ?? (await searchTmdbId(tmdbClient, params));
         if (resolvedTmdbId) {
           await backfillTmdbId(db, existing.id, resolvedTmdbId);
         }
@@ -90,12 +91,7 @@ export async function resolveMovie(
     return null;
   }
 
-  const movieId = await createMovieFromTmdb(
-    db,
-    tmdbClient,
-    tmdbId,
-    params
-  );
+  const movieId = await createMovieFromTmdb(db, tmdbClient, tmdbId, params);
 
   return { id: movieId, created: true };
 }
@@ -105,7 +101,11 @@ export async function resolveMovie(
 async function findByTmdbId(
   db: Database,
   tmdbId: number
-): Promise<{ id: number; tmdbId: number | null; plexRatingKey: string | null } | null> {
+): Promise<{
+  id: number;
+  tmdbId: number | null;
+  plexRatingKey: string | null;
+} | null> {
   const [row] = await db
     .select({
       id: movies.id,
@@ -121,7 +121,11 @@ async function findByTmdbId(
 async function findByPlexRatingKey(
   db: Database,
   plexRatingKey: string
-): Promise<{ id: number; tmdbId: number | null; plexRatingKey: string | null } | null> {
+): Promise<{
+  id: number;
+  tmdbId: number | null;
+  plexRatingKey: string | null;
+} | null> {
   const [row] = await db
     .select({
       id: movies.id,
@@ -177,10 +181,7 @@ async function backfillTmdbId(
   movieId: number,
   tmdbId: number
 ): Promise<void> {
-  await db
-    .update(movies)
-    .set({ tmdbId })
-    .where(eq(movies.id, movieId));
+  await db.update(movies).set({ tmdbId }).where(eq(movies.id, movieId));
 }
 
 async function createMovieFromTmdb(

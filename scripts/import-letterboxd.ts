@@ -77,7 +77,9 @@ if (!tmdbApiKey) {
 // Find the export directory argument: skip node binary, script path, and flags
 const exportDir = process.argv.slice(2).find((a) => !a.startsWith('-'));
 if (!exportDir || !existsSync(exportDir)) {
-  console.error('[ERROR] Provide path to Letterboxd export directory as argument');
+  console.error(
+    '[ERROR] Provide path to Letterboxd export directory as argument'
+  );
   process.exit(1);
 }
 
@@ -184,8 +186,17 @@ function mergeEntries(exportPath: string): ImportEntry[] {
   const reviewsRows = parseCSVFile(reviewsPath);
   for (const fields of reviewsRows) {
     if (fields.length < 7) continue;
-    const [date, name, yearStr, uri, ratingStr, rewatchStr, review, , watchedDate] =
-      fields;
+    const [
+      date,
+      name,
+      yearStr,
+      uri,
+      ratingStr,
+      rewatchStr,
+      review,
+      ,
+      watchedDate,
+    ] = fields;
     if (!name || !uri) continue;
 
     const trimmedUri = uri.trim();
@@ -350,9 +361,19 @@ function escapeSQL(value: string | null | undefined): string {
 // SQL with $, *, backticks, quotes, etc. is passed as-is to wrangler.
 
 function wranglerD1(sql: string, json: boolean): string {
-  const args = ['wrangler', 'd1', 'execute', DB_NAME, '--remote', `--command=${sql}`];
+  const args = [
+    'wrangler',
+    'd1',
+    'execute',
+    DB_NAME,
+    '--remote',
+    `--command=${sql}`,
+  ];
   if (json) args.push('--json');
-  return execFileSync('npx', args, { stdio: 'pipe', timeout: 30_000 }).toString();
+  return execFileSync('npx', args, {
+    stdio: 'pipe',
+    timeout: 30_000,
+  }).toString();
 }
 
 function executeRemoteSQL(sql: string): string {
@@ -529,7 +550,9 @@ async function main() {
 
     const total = entries.length;
     const done = synced + skipped + errors;
-    console.log(`[${done + 1}/${total}] Processing: "${entry.name}" (${entry.year})`);
+    console.log(
+      `[${done + 1}/${total}] Processing: "${entry.name}" (${entry.year})`
+    );
 
     try {
       const movieId = await findOrCreateMovie(entry.name, entry.year);
@@ -580,7 +603,9 @@ async function main() {
         const watchSQL = `INSERT INTO watch_history (user_id, movie_id, watched_at, source, user_rating, rewatch, review, created_at) VALUES (1, ${movieId}, ${escapeSQL(watchedAt)}, 'letterboxd', ${entry.rating ?? 'NULL'}, ${entry.rewatch ? 1 : 0}, ${escapeSQL(entry.review)}, ${escapeSQL(now)});`;
 
         executeRemoteSQL(watchSQL);
-        console.log(`  -> synced (watch + rating${entry.review ? ' + review' : ''})`);
+        console.log(
+          `  -> synced (watch + rating${entry.review ? ' + review' : ''})`
+        );
         synced++;
       } else {
         // No watched date -- ratings-only entry. Check if any watch exists for this movie.
@@ -601,13 +626,16 @@ async function main() {
 
         if (existingWatchId) {
           const updates: string[] = [];
-          if (entry.rating !== null) updates.push(`user_rating = ${entry.rating}`);
+          if (entry.rating !== null)
+            updates.push(`user_rating = ${entry.rating}`);
           if (entry.review) updates.push(`review = ${escapeSQL(entry.review)}`);
           if (updates.length > 0) {
             executeRemoteSQL(
               `UPDATE watch_history SET ${updates.join(', ')} WHERE id = ${existingWatchId};`
             );
-            console.log(`  -> updated ${updates.length > 1 ? 'rating + review' : entry.rating !== null ? 'rating' : 'review'} on existing watch`);
+            console.log(
+              `  -> updated ${updates.length > 1 ? 'rating + review' : entry.rating !== null ? 'rating' : 'review'} on existing watch`
+            );
           } else {
             console.log(`  -> skipped (already exists, no new data)`);
           }

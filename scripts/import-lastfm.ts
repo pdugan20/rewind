@@ -36,17 +36,35 @@ const BATCH_SIZE = 200; // Max per page from Last.fm API
 // --- Filter patterns (mirrored from src/services/lastfm/filters.ts) ---
 
 const HOLIDAY_ALBUM_PATTERNS = [
-  'charlie brown christmas', 'merry christmas', 'white christmas',
-  'christmas album', 'holiday', 'christmas songs',
+  'charlie brown christmas',
+  'merry christmas',
+  'white christmas',
+  'christmas album',
+  'holiday',
+  'christmas songs',
 ];
 
 const HOLIDAY_TRACK_PATTERNS = [
-  'jingle bell', 'silent night', 'santa claus', 'deck the hall',
-  'rudolph', 'frosty the snowman', 'winter wonderland', 'o holy night',
-  'little drummer boy', 'away in a manger', 'hark the herald',
-  'o come all ye faithful', 'we wish you a merry', 'sleigh ride',
-  'silver bells', 'blue christmas', 'last christmas', 'christmas time',
-  'holly jolly', 'joy to the world',
+  'jingle bell',
+  'silent night',
+  'santa claus',
+  'deck the hall',
+  'rudolph',
+  'frosty the snowman',
+  'winter wonderland',
+  'o holy night',
+  'little drummer boy',
+  'away in a manger',
+  'hark the herald',
+  'o come all ye faithful',
+  'we wish you a merry',
+  'sleigh ride',
+  'silver bells',
+  'blue christmas',
+  'last christmas',
+  'christmas time',
+  'holly jolly',
+  'joy to the world',
 ];
 
 const HOLIDAY_ARTIST_TRACKS = [
@@ -56,27 +74,48 @@ const HOLIDAY_ARTIST_TRACKS = [
 ];
 
 const AUDIOBOOK_ARTISTS = [
-  'stephen king', 'thomas pynchon', 'hunter s. thompson', 'andy weir',
+  'stephen king',
+  'thomas pynchon',
+  'hunter s. thompson',
+  'andy weir',
 ];
 
 const AUDIOBOOK_TRACK_PATTERNS = ['libby--open-'];
 const AUDIOBOOK_TRACK_REGEXES = [
-  /- Part \d+/i, /- Track \d+/i, /- \d{2,3}$/, / \(\d+\)$/,
+  /- Part \d+/i,
+  /- Track \d+/i,
+  /- \d{2,3}$/,
+  / \(\d+\)$/,
 ];
 
-function checkFiltered(artistName: string, albumName: string, trackName: string): boolean {
+function checkFiltered(
+  artistName: string,
+  albumName: string,
+  trackName: string
+): boolean {
   const artistLower = artistName.toLowerCase();
   const albumLower = albumName.toLowerCase();
   const trackLower = trackName.toLowerCase();
 
-  for (const p of HOLIDAY_ALBUM_PATTERNS) { if (albumLower.includes(p)) return true; }
-  for (const p of HOLIDAY_TRACK_PATTERNS) { if (trackLower.includes(p)) return true; }
-  for (const entry of HOLIDAY_ARTIST_TRACKS) {
-    if (artistLower.includes(entry.artist) && trackLower === entry.track) return true;
+  for (const p of HOLIDAY_ALBUM_PATTERNS) {
+    if (albumLower.includes(p)) return true;
   }
-  for (const a of AUDIOBOOK_ARTISTS) { if (artistLower === a) return true; }
-  for (const p of AUDIOBOOK_TRACK_PATTERNS) { if (trackLower.includes(p)) return true; }
-  for (const regex of AUDIOBOOK_TRACK_REGEXES) { if (regex.test(trackName)) return true; }
+  for (const p of HOLIDAY_TRACK_PATTERNS) {
+    if (trackLower.includes(p)) return true;
+  }
+  for (const entry of HOLIDAY_ARTIST_TRACKS) {
+    if (artistLower.includes(entry.artist) && trackLower === entry.track)
+      return true;
+  }
+  for (const a of AUDIOBOOK_ARTISTS) {
+    if (artistLower === a) return true;
+  }
+  for (const p of AUDIOBOOK_TRACK_PATTERNS) {
+    if (trackLower.includes(p)) return true;
+  }
+  for (const regex of AUDIOBOOK_TRACK_REGEXES) {
+    if (regex.test(trackName)) return true;
+  }
   return false;
 }
 
@@ -100,8 +139,8 @@ interface Checkpoint {
 
 // In-memory caches (loaded from DB)
 const artistCache: Map<string, number> = new Map(); // lowercase name -> id
-const albumCache: Map<string, number> = new Map();  // "name_lower|artistId" -> id
-const trackCache: Map<string, number> = new Map();  // "name_lower|artistId" -> id
+const albumCache: Map<string, number> = new Map(); // "name_lower|artistId" -> id
+const trackCache: Map<string, number> = new Map(); // "name_lower|artistId" -> id
 
 // --- Env ---
 
@@ -128,7 +167,9 @@ const apiKey = devVars.LASTFM_API_KEY;
 const username = devVars.LASTFM_USERNAME;
 
 if (!apiKey || !username) {
-  console.error('[ERROR] LASTFM_API_KEY and LASTFM_USERNAME required in .dev.vars');
+  console.error(
+    '[ERROR] LASTFM_API_KEY and LASTFM_USERNAME required in .dev.vars'
+  );
   process.exit(1);
 }
 
@@ -139,7 +180,9 @@ function loadCfToken(): string {
     'Library/Preferences/.wrangler/config/default.toml'
   );
   if (!existsSync(cfgPath)) {
-    console.error('[ERROR] Wrangler config not found. Run `npx wrangler login` first.');
+    console.error(
+      '[ERROR] Wrangler config not found. Run `npx wrangler login` first.'
+    );
     process.exit(1);
   }
   const content = readFileSync(cfgPath, 'utf-8');
@@ -168,7 +211,7 @@ async function d1Query(sql: string): Promise<Array<Record<string, unknown>>> {
   const response = await fetch(D1_API_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${cfToken}`,
+      Authorization: `Bearer ${cfToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ sql }),
@@ -179,14 +222,15 @@ async function d1Query(sql: string): Promise<Array<Record<string, unknown>>> {
     throw new Error(`D1 API error (${response.status}): ${errText}`);
   }
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     success: boolean;
     errors?: Array<{ message: string }>;
     result: Array<{ results: Array<Record<string, unknown>> }>;
   };
 
   if (!data.success) {
-    const errMsg = data.errors?.map(e => e.message).join(', ') ?? 'Unknown error';
+    const errMsg =
+      data.errors?.map((e) => e.message).join(', ') ?? 'Unknown error';
     throw new Error(`D1 query failed: ${errMsg}`);
   }
 
@@ -234,20 +278,38 @@ function getMaxCacheId(cache: Map<string, number>): number {
 
 async function loadAllArtists(incremental = false): Promise<void> {
   const minId = incremental ? getMaxCacheId(artistCache) : 0;
-  await loadEntities('lastfm_artists', artistCache, (row) =>
-    row.name ? (row.name as string).toLowerCase() : null, minId);
+  await loadEntities(
+    'lastfm_artists',
+    artistCache,
+    (row) => (row.name ? (row.name as string).toLowerCase() : null),
+    minId
+  );
 }
 
 async function loadAllAlbums(incremental = false): Promise<void> {
   const minId = incremental ? getMaxCacheId(albumCache) : 0;
-  await loadEntities('lastfm_albums', albumCache, (row) =>
-    row.name ? `${(row.name as string).toLowerCase()}|${row.artist_id}` : null, minId);
+  await loadEntities(
+    'lastfm_albums',
+    albumCache,
+    (row) =>
+      row.name
+        ? `${(row.name as string).toLowerCase()}|${row.artist_id}`
+        : null,
+    minId
+  );
 }
 
 async function loadAllTracks(incremental = false): Promise<void> {
   const minId = incremental ? getMaxCacheId(trackCache) : 0;
-  await loadEntities('lastfm_tracks', trackCache, (row) =>
-    row.name ? `${(row.name as string).toLowerCase()}|${row.artist_id}` : null, minId);
+  await loadEntities(
+    'lastfm_tracks',
+    trackCache,
+    (row) =>
+      row.name
+        ? `${(row.name as string).toLowerCase()}|${row.artist_id}`
+        : null,
+    minId
+  );
 }
 
 async function preloadCaches(): Promise<void> {
@@ -284,10 +346,12 @@ async function fetchRecentTracks(
   }
 
   if (!response.ok) {
-    throw new Error(`Last.fm API error (${response.status}): ${await response.text()}`);
+    throw new Error(
+      `Last.fm API error (${response.status}): ${await response.text()}`
+    );
   }
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     recenttracks: {
       track: LastfmRecentTrack[];
       '@attr': { totalPages: string; total: string };
@@ -327,8 +391,12 @@ function parsePageTracks(tracks: LastfmRecentTrack[]): ParsedScrobble[] {
     if (!artistName || !trackName) continue;
 
     const albumName = track.album['#text'] || '';
-    const scrobbledAt = new Date(parseInt(track.date.uts, 10) * 1000).toISOString();
-    const artistUrl = track.url ? track.url.split('/').slice(0, -2).join('/') : '';
+    const scrobbledAt = new Date(
+      parseInt(track.date.uts, 10) * 1000
+    ).toISOString();
+    const artistUrl = track.url
+      ? track.url.split('/').slice(0, -2).join('/')
+      : '';
 
     parsed.push({
       artistName,
@@ -357,9 +425,12 @@ async function batchUpsertArtists(scrobbles: ParsedScrobble[]): Promise<void> {
   if (newArtists.size === 0) return;
 
   const now = new Date().toISOString();
-  const values = [...newArtists.values()].map(s =>
-    `(1, ${escapeSQL(s.artistName)}, ${escapeSQL(s.artistMbid)}, ${escapeSQL(s.artistUrl)}, 0, ${s.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
-  ).join(',\n');
+  const values = [...newArtists.values()]
+    .map(
+      (s) =>
+        `(1, ${escapeSQL(s.artistName)}, ${escapeSQL(s.artistMbid)}, ${escapeSQL(s.artistUrl)}, 0, ${s.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+    )
+    .join(',\n');
 
   try {
     await executeSQL(
@@ -387,9 +458,12 @@ async function batchUpsertAlbums(scrobbles: ParsedScrobble[]): Promise<void> {
   if (newAlbums.size === 0) return;
 
   const now = new Date().toISOString();
-  const values = [...newAlbums.values()].map(({ s, artistId }) =>
-    `(1, ${escapeSQL(s.albumName)}, ${escapeSQL(s.albumMbid)}, ${artistId}, '', 0, ${s.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
-  ).join(',\n');
+  const values = [...newAlbums.values()]
+    .map(
+      ({ s, artistId }) =>
+        `(1, ${escapeSQL(s.albumName)}, ${escapeSQL(s.albumMbid)}, ${artistId}, '', 0, ${s.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+    )
+    .join(',\n');
 
   try {
     await executeSQL(
@@ -404,7 +478,10 @@ async function batchUpsertAlbums(scrobbles: ParsedScrobble[]): Promise<void> {
 }
 
 async function batchUpsertTracks(scrobbles: ParsedScrobble[]): Promise<void> {
-  const newTracks = new Map<string, { s: ParsedScrobble; artistId: number; albumId: number | null }>();
+  const newTracks = new Map<
+    string,
+    { s: ParsedScrobble; artistId: number; albumId: number | null }
+  >();
   for (const s of scrobbles) {
     const artistId = artistCache.get(s.artistName.toLowerCase());
     if (!artistId) continue;
@@ -412,7 +489,7 @@ async function batchUpsertTracks(scrobbles: ParsedScrobble[]): Promise<void> {
     if (trackCache.has(key) || newTracks.has(key)) continue;
 
     const albumId = s.albumName
-      ? albumCache.get(`${s.albumName.toLowerCase()}|${artistId}`) ?? null
+      ? (albumCache.get(`${s.albumName.toLowerCase()}|${artistId}`) ?? null)
       : null;
 
     newTracks.set(key, { s, artistId, albumId });
@@ -420,9 +497,12 @@ async function batchUpsertTracks(scrobbles: ParsedScrobble[]): Promise<void> {
   if (newTracks.size === 0) return;
 
   const now = new Date().toISOString();
-  const values = [...newTracks.values()].map(({ s, artistId, albumId }) =>
-    `(1, ${escapeSQL(s.trackName)}, ${escapeSQL(s.trackMbid)}, ${artistId}, ${albumId ?? 'NULL'}, ${escapeSQL(s.trackUrl)}, ${s.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
-  ).join(',\n');
+  const values = [...newTracks.values()]
+    .map(
+      ({ s, artistId, albumId }) =>
+        `(1, ${escapeSQL(s.trackName)}, ${escapeSQL(s.trackMbid)}, ${artistId}, ${albumId ?? 'NULL'}, ${escapeSQL(s.trackUrl)}, ${s.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+    )
+    .join(',\n');
 
   try {
     await executeSQL(
@@ -436,7 +516,9 @@ async function batchUpsertTracks(scrobbles: ParsedScrobble[]): Promise<void> {
   await loadAllTracks(true);
 }
 
-async function batchInsertScrobbles(scrobbles: ParsedScrobble[]): Promise<number> {
+async function batchInsertScrobbles(
+  scrobbles: ParsedScrobble[]
+): Promise<number> {
   const now = new Date().toISOString();
   const values: string[] = [];
 

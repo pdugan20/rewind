@@ -211,7 +211,9 @@ const statsRoute = createRoute({
   responses: {
     200: {
       description: 'Lifetime stats',
-      content: { 'application/json': { schema: z.object({ data: LifetimeStatsSchema }) } },
+      content: {
+        'application/json': { schema: z.object({ data: LifetimeStatsSchema }) },
+      },
     },
     ...errorResponses(401),
   },
@@ -228,28 +230,32 @@ running.openapi(statsRoute, async (c) => {
     .limit(1);
 
   if (!stats) {
-    return c.json({ data: {
-      total_runs: 0,
-      total_distance_mi: 0,
-      total_elevation_ft: 0,
-      total_duration: '0:00:00',
-      avg_pace: '0:00/mi',
-      years_active: 0,
-      first_run: null,
-      eddington_number: 0,
-    } });
+    return c.json({
+      data: {
+        total_runs: 0,
+        total_distance_mi: 0,
+        total_elevation_ft: 0,
+        total_duration: '0:00:00',
+        avg_pace: '0:00/mi',
+        years_active: 0,
+        first_run: null,
+        eddington_number: 0,
+      },
+    });
   }
 
-  return c.json({ data: {
-    total_runs: stats.totalRuns,
-    total_distance_mi: stats.totalDistanceMiles,
-    total_elevation_ft: stats.totalElevationFeet,
-    total_duration: formatTotalDuration(stats.totalDurationSeconds),
-    avg_pace: stats.avgPaceFormatted,
-    years_active: stats.yearsActive,
-    first_run: stats.firstRun,
-    eddington_number: stats.eddingtonNumber,
-  } });
+  return c.json({
+    data: {
+      total_runs: stats.totalRuns,
+      total_distance_mi: stats.totalDistanceMiles,
+      total_elevation_ft: stats.totalElevationFeet,
+      total_duration: formatTotalDuration(stats.totalDurationSeconds),
+      avg_pace: stats.avgPaceFormatted,
+      years_active: stats.yearsActive,
+      first_run: stats.firstRun,
+      eddington_number: stats.eddingtonNumber,
+    },
+  });
 });
 
 // GET /v1/running/stats/years
@@ -262,7 +268,11 @@ const statsYearsRoute = createRoute({
   responses: {
     200: {
       description: 'Year summaries',
-      content: { 'application/json': { schema: z.object({ data: z.array(YearSummarySchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(YearSummarySchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -305,7 +315,9 @@ const statsYearRoute = createRoute({
   responses: {
     200: {
       description: 'Year summary',
-      content: { 'application/json': { schema: z.object({ data: YearSummarySchema }) } },
+      content: {
+        'application/json': { schema: z.object({ data: YearSummarySchema }) },
+      },
     },
     ...errorResponses(400, 401, 404),
   },
@@ -332,16 +344,18 @@ running.openapi(statsYearRoute, async (c) => {
     return notFound(c, `No data for year ${year}`) as any;
   }
 
-  return c.json({ data: {
-    year: summary.year,
-    total_runs: summary.totalRuns,
-    total_distance_mi: summary.totalDistanceMiles,
-    total_elevation_ft: summary.totalElevationFeet,
-    total_duration_s: summary.totalDurationSeconds,
-    avg_pace: summary.avgPaceFormatted,
-    longest_run_mi: summary.longestRunMiles,
-    race_count: summary.raceCount,
-  } });
+  return c.json({
+    data: {
+      year: summary.year,
+      total_runs: summary.totalRuns,
+      total_distance_mi: summary.totalDistanceMiles,
+      total_elevation_ft: summary.totalElevationFeet,
+      total_duration_s: summary.totalDurationSeconds,
+      avg_pace: summary.avgPaceFormatted,
+      longest_run_mi: summary.longestRunMiles,
+      race_count: summary.raceCount,
+    },
+  });
 });
 
 // GET /v1/running/prs
@@ -354,7 +368,11 @@ const prsRoute = createRoute({
   responses: {
     200: {
       description: 'Personal records',
-      content: { 'application/json': { schema: z.object({ data: z.array(PersonalRecordSchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(PersonalRecordSchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -398,7 +416,11 @@ const recentRoute = createRoute({
   responses: {
     200: {
       description: 'Recent activities',
-      content: { 'application/json': { schema: z.object({ data: z.array(ActivitySchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(ActivitySchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -615,7 +637,11 @@ const splitsRoute = createRoute({
   responses: {
     200: {
       description: 'Split list',
-      content: { 'application/json': { schema: z.object({ data: z.array(SplitSchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(SplitSchema) }),
+        },
+      },
     },
     ...errorResponses(400, 401, 404),
   },
@@ -663,7 +689,9 @@ const gearRoute = createRoute({
   responses: {
     200: {
       description: 'Gear list',
-      content: { 'application/json': { schema: z.object({ data: z.array(GearSchema) }) } },
+      content: {
+        'application/json': { schema: z.object({ data: z.array(GearSchema) }) },
+      },
     },
     ...errorResponses(401),
   },
@@ -968,7 +996,11 @@ const timeOfDayRoute = createRoute({
   responses: {
     200: {
       description: 'Time of day distribution',
-      content: { 'application/json': { schema: z.object({ data: z.array(TimeOfDaySchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(TimeOfDaySchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -1020,7 +1052,11 @@ const elevationRoute = createRoute({
   responses: {
     200: {
       description: 'Elevation data',
-      content: { 'application/json': { schema: z.object({ data: z.array(ElevationPointSchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(ElevationPointSchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -1074,7 +1110,9 @@ const citiesRoute = createRoute({
   responses: {
     200: {
       description: 'City list',
-      content: { 'application/json': { schema: z.object({ data: z.array(CitySchema) }) } },
+      content: {
+        'application/json': { schema: z.object({ data: z.array(CitySchema) }) },
+      },
     },
     ...errorResponses(401),
   },
@@ -1127,7 +1165,9 @@ const streaksRoute = createRoute({
   responses: {
     200: {
       description: 'Streak data',
-      content: { 'application/json': { schema: z.object({ data: StreaksSchema }) } },
+      content: {
+        'application/json': { schema: z.object({ data: StreaksSchema }) },
+      },
     },
     ...errorResponses(401),
   },
@@ -1144,24 +1184,28 @@ running.openapi(streaksRoute, async (c) => {
     .limit(1);
 
   if (!stats) {
-    return c.json({ data: {
-      current: { days: 0, start: null, end: null },
-      longest: { days: 0, start: null, end: null },
-    } });
+    return c.json({
+      data: {
+        current: { days: 0, start: null, end: null },
+        longest: { days: 0, start: null, end: null },
+      },
+    });
   }
 
-  return c.json({ data: {
-    current: {
-      days: stats.currentStreakDays,
-      start: stats.currentStreakStart,
-      end: stats.currentStreakEnd,
+  return c.json({
+    data: {
+      current: {
+        days: stats.currentStreakDays,
+        start: stats.currentStreakStart,
+        end: stats.currentStreakEnd,
+      },
+      longest: {
+        days: stats.longestStreakDays,
+        start: stats.longestStreakStart,
+        end: stats.longestStreakEnd,
+      },
     },
-    longest: {
-      days: stats.longestStreakDays,
-      start: stats.longestStreakStart,
-      end: stats.longestStreakEnd,
-    },
-  } });
+  });
 });
 
 // GET /v1/running/races
@@ -1170,7 +1214,8 @@ const racesRoute = createRoute({
   path: '/races',
   tags: ['Running'],
   summary: 'Race activities',
-  description: 'Returns all race activities, optionally filtered by distance category.',
+  description:
+    'Returns all race activities, optionally filtered by distance category.',
   request: {
     query: z.object({
       distance: z.string().optional(),
@@ -1179,7 +1224,11 @@ const racesRoute = createRoute({
   responses: {
     200: {
       description: 'Race list',
-      content: { 'application/json': { schema: z.object({ data: z.array(ActivitySchema) }) } },
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(ActivitySchema) }),
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -1226,7 +1275,8 @@ const eddingtonRoute = createRoute({
   path: '/eddington',
   tags: ['Running'],
   summary: 'Eddington number',
-  description: 'Returns the Eddington number and progress toward the next target.',
+  description:
+    'Returns the Eddington number and progress toward the next target.',
   responses: {
     200: {
       description: 'Eddington data',
@@ -1273,7 +1323,8 @@ const yearInReviewRoute = createRoute({
   path: '/year/{year}',
   tags: ['Running'],
   summary: 'Year in review',
-  description: 'Returns a year-in-review summary with monthly breakdown and top runs.',
+  description:
+    'Returns a year-in-review summary with monthly breakdown and top runs.',
   request: {
     params: YearParamSchema,
   },
@@ -1347,7 +1398,8 @@ running.openapi(yearInReviewRoute, async (c) => {
       elevation: 0,
     };
     existing.runs++;
-    existing.distance = Math.round((existing.distance + a.distance) * 100) / 100;
+    existing.distance =
+      Math.round((existing.distance + a.distance) * 100) / 100;
     existing.duration += a.duration;
     existing.elevation =
       Math.round((existing.elevation + a.elevation) * 100) / 100;

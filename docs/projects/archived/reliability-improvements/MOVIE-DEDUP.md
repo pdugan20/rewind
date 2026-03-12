@@ -4,12 +4,12 @@
 
 Three sources create `movies` rows using different lookup keys:
 
-| Source | Primary Key | TMDB ID? | Risk |
-|-------------|-----------------|----------|------|
-| Plex | `plexRatingKey` | Sometimes | May insert without tmdbId, creating a row that Letterboxd can't find |
-| Letterboxd | `tmdbId` | Always | Creates new row if Plex row exists without tmdbId |
-| Trakt | `tmdbId` | Always | Same risk as Letterboxd |
-| Manual | `tmdbId` | Always | Same risk |
+| Source     | Primary Key     | TMDB ID?  | Risk                                                                 |
+| ---------- | --------------- | --------- | -------------------------------------------------------------------- |
+| Plex       | `plexRatingKey` | Sometimes | May insert without tmdbId, creating a row that Letterboxd can't find |
+| Letterboxd | `tmdbId`        | Always    | Creates new row if Plex row exists without tmdbId                    |
+| Trakt      | `tmdbId`        | Always    | Same risk as Letterboxd                                              |
+| Manual     | `tmdbId`        | Always    | Same risk                                                            |
 
 ## Current Lookup Logic
 

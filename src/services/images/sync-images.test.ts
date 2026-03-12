@@ -62,8 +62,18 @@ describe('processItems', () => {
     });
 
     const items: SourceSearchParams[] = [
-      { domain: 'listening', entityType: 'albums', entityId: '1', albumName: 'Test' },
-      { domain: 'listening', entityType: 'albums', entityId: '2', albumName: 'Test2' },
+      {
+        domain: 'listening',
+        entityType: 'albums',
+        entityId: '1',
+        albumName: 'Test',
+      },
+      {
+        domain: 'listening',
+        entityType: 'albums',
+        entityId: '2',
+        albumName: 'Test2',
+      },
     ];
 
     const result = await processItems(
@@ -85,7 +95,12 @@ describe('processItems', () => {
     mockRunPipeline.mockResolvedValue(null);
 
     const items: SourceSearchParams[] = [
-      { domain: 'watching', entityType: 'movies', entityId: '10', tmdbId: '550' },
+      {
+        domain: 'watching',
+        entityType: 'movies',
+        entityId: '10',
+        tmdbId: '550',
+      },
     ];
 
     const result = await processItems(

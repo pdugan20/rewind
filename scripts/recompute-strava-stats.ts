@@ -152,8 +152,7 @@ function calculateStreaks(runDatesISO: string[]) {
   for (let i = 1; i < uniqueDates.length; i++) {
     const prev = new Date(uniqueDates[i - 1]);
     const curr = new Date(uniqueDates[i]);
-    const diffDays =
-      (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
+    const diffDays = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
 
     if (diffDays === 1) {
       currentStreak++;
