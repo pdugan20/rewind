@@ -34,73 +34,73 @@ Convert all route files to zod-openapi. Each sub-phase is one route file. Order 
 
 **2.1 -- keys.ts** (3 endpoints)
 
-- [ ] **2.1.1** Define Zod schemas for API key request/response shapes
-- [ ] **2.1.2** Convert all 3 endpoints to zod-openapi routes
-- [ ] **2.1.3** Verify existing tests pass
+- [x] **2.1.1** Define Zod schemas for API key request/response shapes
+- [x] **2.1.2** Convert all 3 endpoints to zod-openapi routes
+- [x] **2.1.3** Verify existing tests pass
 
 **2.2 -- search.ts** (1 endpoint)
 
-- [ ] **2.2.1** Define Zod schemas for search query params and response
-- [ ] **2.2.2** Convert endpoint to zod-openapi route
-- [ ] **2.2.3** Verify existing tests pass
+- [x] **2.2.1** Define Zod schemas for search query params and response
+- [x] **2.2.2** Convert endpoint to zod-openapi route
+- [x] **2.2.3** Verify existing tests pass
 
 **2.3 -- feed.ts** (2 endpoints)
 
-- [ ] **2.3.1** Define Zod schemas for feed response shapes
-- [ ] **2.3.2** Convert both endpoints to zod-openapi routes
-- [ ] **2.3.3** Verify existing tests pass
+- [x] **2.3.1** Define Zod schemas for feed response shapes
+- [x] **2.3.2** Convert both endpoints to zod-openapi routes
+- [x] **2.3.3** Verify existing tests pass
 
 **2.4 -- export.ts** (1 endpoint)
 
-- [ ] **2.4.1** Define Zod schemas for export response
-- [ ] **2.4.2** Convert endpoint to zod-openapi route
-- [ ] **2.4.3** Verify existing tests pass
+- [x] **2.4.1** Define Zod schemas for export response
+- [x] **2.4.2** Convert endpoint to zod-openapi route
+- [x] **2.4.3** Verify existing tests pass
 
 **2.5 -- images.ts** (5 endpoints)
 
-- [ ] **2.5.1** Define Zod schemas for image proxy, admin override, and reprocess request/response shapes
-- [ ] **2.5.2** Convert all 5 endpoints to zod-openapi routes
-- [ ] **2.5.3** Verify existing tests pass
+- [x] **2.5.1** Define Zod schemas for image proxy, admin override, and reprocess request/response shapes
+- [x] **2.5.2** Convert all 5 endpoints to zod-openapi routes
+- [x] **2.5.3** Verify existing tests pass
 
 **2.6 -- webhooks.ts** (3 endpoints)
 
-- [ ] **2.6.1** Define Zod schemas for webhook payloads
-- [ ] **2.6.2** Convert all 3 endpoints to zod-openapi routes
-- [ ] **2.6.3** Verify existing tests pass
-- [ ] **2.6.4** Decide: mark as `x-internal: true` or exclude from public spec entirely
+- [x] **2.6.1** Define Zod schemas for webhook payloads
+- [x] **2.6.2** Convert all 3 endpoints to zod-openapi routes
+- [x] **2.6.3** Verify existing tests pass
+- [x] **2.6.4** Decide: mark as `x-internal: true` or exclude from public spec entirely
 
 **2.7 -- admin-sync.ts** (7 endpoints)
 
-- [ ] **2.7.1** Define Zod schemas for sync trigger request/response shapes and admin operations (delete activity, recompute stats)
-- [ ] **2.7.2** Convert all 7 endpoints to zod-openapi routes
-- [ ] **2.7.3** Verify existing tests pass
+- [x] **2.7.1** Define Zod schemas for sync trigger request/response shapes and admin operations (delete activity, recompute stats)
+- [x] **2.7.2** Convert all 7 endpoints to zod-openapi routes
+- [x] **2.7.3** Verify existing tests pass
 
 **2.8 -- collecting.ts** (19 endpoints)
 
-- [ ] **2.8.1** Define Zod schemas for Discogs collection, Trakt media collection, wantlist, stats, and admin shapes
-- [ ] **2.8.2** Convert all public GET endpoints to zod-openapi routes
-- [ ] **2.8.3** Convert all admin POST endpoints to zod-openapi routes
-- [ ] **2.8.4** Verify existing tests pass
+- [x] **2.8.1** Define Zod schemas for Discogs collection, Trakt media collection, wantlist, stats, and admin shapes
+- [x] **2.8.2** Convert all public GET endpoints to zod-openapi routes
+- [x] **2.8.3** Convert all admin POST endpoints to zod-openapi routes
+- [x] **2.8.4** Verify existing tests pass
 
 **2.9 -- watching.ts** (19 endpoints)
 
-- [ ] **2.9.1** Define Zod schemas for movie, show, episode, watch history, ratings, reviews, year-in-review shapes
-- [ ] **2.9.2** Convert all public GET endpoints to zod-openapi routes
-- [ ] **2.9.3** Convert all admin POST/PUT/DELETE endpoints to zod-openapi routes
-- [ ] **2.9.4** Verify existing tests pass
+- [x] **2.9.1** Define Zod schemas for movie, show, episode, watch history, ratings, reviews, year-in-review shapes
+- [x] **2.9.2** Convert all public GET endpoints to zod-openapi routes
+- [x] **2.9.3** Convert all admin POST/PUT/DELETE endpoints to zod-openapi routes
+- [x] **2.9.4** Verify existing tests pass
 
 **2.10 -- running.ts** (19 endpoints)
 
-- [ ] **2.10.1** Define Zod schemas for activity, stats, year summary, streak, charts, races, eddington shapes
-- [ ] **2.10.2** Convert all public GET endpoints to zod-openapi routes
-- [ ] **2.10.3** Verify existing tests pass
+- [x] **2.10.1** Define Zod schemas for activity, stats, year summary, streak, charts, races, eddington shapes
+- [x] **2.10.2** Convert all public GET endpoints to zod-openapi routes
+- [x] **2.10.3** Verify existing tests pass
 
 **2.11 -- listening.ts** (19 endpoints)
 
-- [ ] **2.11.1** Define Zod schemas for scrobble, top list, stats, streak, calendar, browse, year-in-review shapes
-- [ ] **2.11.2** Convert all public GET endpoints to zod-openapi routes
-- [ ] **2.11.3** Convert all admin endpoints to zod-openapi routes
-- [ ] **2.11.4** Verify existing tests pass
+- [x] **2.11.1** Define Zod schemas for scrobble, top list, stats, streak, calendar, browse, year-in-review shapes
+- [x] **2.11.2** Convert all public GET endpoints to zod-openapi routes
+- [x] **2.11.3** Convert all admin endpoints to zod-openapi routes
+- [x] **2.11.4** Verify existing tests pass
 
 ## Phase 3: Scalar Docs Site
 
