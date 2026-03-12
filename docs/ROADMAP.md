@@ -558,7 +558,7 @@
 **6.5.4 -- Webhooks**
 
 - [x] **6.5.4.1** Register Strava webhook subscription (ID: 334423)
-- [ ] **6.5.4.2** Configure Plex webhook URL in Plex settings
+- [x] **6.5.4.2** Configure Plex webhook URL in Plex settings -- `https://api.rewind.rest/v1/webhooks/plex`, fixed body double-consumption bug (zod-openapi consumed formData before handler) and corrected PLEX_WEBHOOK_SECRET to match server machine identifier
 
 **6.5.5 -- Production Verification**
 
@@ -569,7 +569,7 @@
 - [x] **6.5.5.5** Verify cross-domain feed and search endpoints -- feed returns timeline across all domains, search returns FTS5 results (15,862 indexed entities)
 - [x] **6.5.5.6** Verify CDN delivery and image transforms -- cdn.rewind.rest returns images with width/height/fit/format params, 200 OK
 - [x] **6.5.5.7** Verify Strava webhook receives events -- webhook registered (ID: 334423), activities syncing via cron + webhook
-- [ ] **6.5.5.8** Verify Plex webhook receives scrobble events -- blocked on 6.5.4.2 (configure webhook URL in Plex)
+- [x] **6.5.5.8** Verify Plex webhook receives scrobble events -- simulated scrobble processed successfully (movie upserted, feed + search + stats updated, idempotency recorded)
 - [x] **6.5.5.9** Verify cron syncs are running on schedule -- all 4 domains completing: listening (15min), running (daily), watching (6hr), collecting (weekly)
 - [x] **6.5.5.10** Verify Discogs cross-reference matches against live data -- 262 matches, 29 unlistened, fixed cross-reference SQL to join through tracks for scrobble counts
 
