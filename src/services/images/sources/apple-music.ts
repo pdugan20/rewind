@@ -5,7 +5,7 @@
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
-import { cleanArtistName } from './utils.js';
+import { cleanArtistName, artistMatches, albumMatches } from './utils.js';
 
 const BASE_URL = 'https://api.music.apple.com/v1';
 
@@ -44,7 +44,7 @@ export class AppleMusicClient implements SourceClient {
     const url = new URL(`${BASE_URL}/catalog/us/search`);
     url.searchParams.set('types', 'artists');
     url.searchParams.set('term', name);
-    url.searchParams.set('limit', '3');
+    url.searchParams.set('limit', '5');
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -65,17 +65,25 @@ export class AppleMusicClient implements SourceClient {
 
     for (const artist of artists) {
       const artwork = artist.attributes?.artwork;
-      if (artwork?.url) {
-        const imageUrl = artwork.url
-          .replace('{w}', '1000')
-          .replace('{h}', '1000');
-        results.push({
-          source: this.name,
-          url: imageUrl,
-          width: 1000,
-          height: 1000,
-        });
+      if (!artwork?.url) continue;
+
+      // Validate artist name match
+      if (
+        artist.attributes?.name &&
+        !artistMatches(name, artist.attributes.name)
+      ) {
+        continue;
       }
+
+      const imageUrl = artwork.url
+        .replace('{w}', '1000')
+        .replace('{h}', '1000');
+      results.push({
+        source: this.name,
+        url: imageUrl,
+        width: 1000,
+        height: 1000,
+      });
     }
 
     return results;
@@ -93,7 +101,7 @@ export class AppleMusicClient implements SourceClient {
     const url = new URL(`${BASE_URL}/catalog/us/search`);
     url.searchParams.set('types', 'albums');
     url.searchParams.set('term', term);
-    url.searchParams.set('limit', '3');
+    url.searchParams.set('limit', '5');
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -115,17 +123,33 @@ export class AppleMusicClient implements SourceClient {
 
     for (const album of albums) {
       const artwork = album.attributes?.artwork;
-      if (artwork?.url) {
-        const imageUrl = artwork.url
-          .replace('{w}', '1200')
-          .replace('{h}', '1200');
-        results.push({
-          source: this.name,
-          url: imageUrl,
-          width: 1200,
-          height: 1200,
-        });
+      if (!artwork?.url) continue;
+
+      // Validate artist and album name match
+      if (
+        params.artistName &&
+        album.attributes?.artistName &&
+        !artistMatches(params.artistName, album.attributes.artistName)
+      ) {
+        continue;
       }
+      if (
+        params.albumName &&
+        album.attributes?.name &&
+        !albumMatches(params.albumName, album.attributes.name)
+      ) {
+        continue;
+      }
+
+      const imageUrl = artwork.url
+        .replace('{w}', '1200')
+        .replace('{h}', '1200');
+      results.push({
+        source: this.name,
+        url: imageUrl,
+        width: 1200,
+        height: 1200,
+      });
     }
 
     return results;
@@ -137,6 +161,7 @@ interface AppleMusicSearchResponse {
     artists?: {
       data: Array<{
         attributes?: {
+          name?: string;
           artwork?: {
             url: string;
             width: number;
@@ -148,6 +173,8 @@ interface AppleMusicSearchResponse {
     albums?: {
       data: Array<{
         attributes?: {
+          name?: string;
+          artistName?: string;
           artwork?: {
             url: string;
             width: number;

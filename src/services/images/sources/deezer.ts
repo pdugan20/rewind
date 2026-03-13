@@ -5,7 +5,7 @@
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
-import { cleanArtistName } from './utils.js';
+import { cleanArtistName, artistMatches, albumMatches } from './utils.js';
 
 const ALBUM_URL = 'https://api.deezer.com/search/album';
 const ARTIST_URL = 'https://api.deezer.com/search/artist';
@@ -38,7 +38,7 @@ export class DeezerClient implements SourceClient {
     const term = `${artist} ${params.albumName}`;
     const url = new URL(ALBUM_URL);
     url.searchParams.set('q', term);
-    url.searchParams.set('limit', '3');
+    url.searchParams.set('limit', '5');
 
     const response = await fetch(url.toString());
 
@@ -50,16 +50,27 @@ export class DeezerClient implements SourceClient {
     const results: ImageResult[] = [];
 
     for (const album of data.data ?? []) {
-      if (album.cover_xl) {
-        // cover_xl is 1000x1000 by default; swap to 1200x1200
-        const highRes = album.cover_xl.replace('1000x1000', '1200x1200');
-        results.push({
-          source: this.name,
-          url: highRes,
-          width: 1200,
-          height: 1200,
-        });
+      if (!album.cover_xl) continue;
+
+      // Validate artist and album name match
+      if (
+        album.artist?.name &&
+        !artistMatches(params.artistName, album.artist.name)
+      ) {
+        continue;
       }
+      if (album.title && !albumMatches(params.albumName, album.title)) {
+        continue;
+      }
+
+      // cover_xl is 1000x1000 by default; swap to 1200x1200
+      const highRes = album.cover_xl.replace('1000x1000', '1200x1200');
+      results.push({
+        source: this.name,
+        url: highRes,
+        width: 1200,
+        height: 1200,
+      });
     }
 
     return results;
@@ -75,7 +86,7 @@ export class DeezerClient implements SourceClient {
     const artist = cleanArtistName(params.artistName);
     const url = new URL(ARTIST_URL);
     url.searchParams.set('q', artist);
-    url.searchParams.set('limit', '3');
+    url.searchParams.set('limit', '5');
 
     const response = await fetch(url.toString());
 
@@ -87,14 +98,19 @@ export class DeezerClient implements SourceClient {
     const results: ImageResult[] = [];
 
     for (const item of data.data ?? []) {
-      if (item.picture_xl) {
-        results.push({
-          source: this.name,
-          url: item.picture_xl,
-          width: 1000,
-          height: 1000,
-        });
+      if (!item.picture_xl) continue;
+
+      // Validate artist name match
+      if (item.name && !artistMatches(params.artistName, item.name)) {
+        continue;
       }
+
+      results.push({
+        source: this.name,
+        url: item.picture_xl,
+        width: 1000,
+        height: 1000,
+      });
     }
 
     return results;

@@ -5,7 +5,7 @@
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
-import { cleanArtistName } from './utils.js';
+import { cleanArtistName, artistMatches, albumMatches } from './utils.js';
 
 const BASE_URL = 'https://itunes.apple.com/search';
 
@@ -24,7 +24,7 @@ export class ITunesClient implements SourceClient {
       url.searchParams.set('term', term);
       url.searchParams.set('media', 'music');
       url.searchParams.set('entity', 'album');
-      url.searchParams.set('limit', '3');
+      url.searchParams.set('limit', '5');
 
       const response = await fetch(url.toString());
 
@@ -36,19 +36,30 @@ export class ITunesClient implements SourceClient {
       const results: ImageResult[] = [];
 
       for (const result of data.results) {
-        if (result.artworkUrl100) {
-          // Replace 100x100 with high-res versions
-          const highRes = result.artworkUrl100.replace(
-            '100x100bb',
-            '600x600bb'
-          );
-          results.push({
-            source: this.name,
-            url: highRes,
-            width: 600,
-            height: 600,
-          });
+        if (!result.artworkUrl100) continue;
+
+        // Validate artist and album name match
+        if (
+          result.artistName &&
+          !artistMatches(params.artistName, result.artistName)
+        ) {
+          continue;
         }
+        if (
+          result.collectionName &&
+          !albumMatches(params.albumName, result.collectionName)
+        ) {
+          continue;
+        }
+
+        // Replace 100x100 with high-res versions
+        const highRes = result.artworkUrl100.replace('100x100bb', '600x600bb');
+        results.push({
+          source: this.name,
+          url: highRes,
+          width: 600,
+          height: 600,
+        });
       }
 
       return results;
