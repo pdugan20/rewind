@@ -15,7 +15,7 @@ export function cleanArtistName(name: string): string {
 }
 
 /**
- * Normalize a name for fuzzy comparison.
+ * Normalize a name for comparison.
  * Strips punctuation, extra whitespace, and lowercases.
  */
 function normalize(name: string): string {
@@ -28,26 +28,60 @@ function normalize(name: string): string {
 }
 
 /**
+ * Strip "the" prefix for comparison purposes.
+ */
+function stripThe(s: string): string {
+  return s.replace(/^the\s+/, '');
+}
+
+/**
  * Check if a returned artist name is a reasonable match for the requested one.
- * Uses normalized containment -- either name contains the other.
- * This catches "Gorillaz" matching "Gorillaz feat. IDLES" and
- * "The Black Keys" matching "Black Keys".
+ * The returned name must start with the requested name (after normalization
+ * and "the" stripping). This allows "The Animals Retrospective" to match
+ * "The Animals" but rejects "Glass Animals" because it doesn't start with
+ * "Animals". Also rejects "Buddy" for "Buddy Holly" because "Buddy" doesn't
+ * start with "Buddy Holly".
  */
 export function artistMatches(requested: string, returned: string): boolean {
-  const req = normalize(cleanArtistName(requested));
-  const ret = normalize(cleanArtistName(returned));
+  const req = stripThe(normalize(cleanArtistName(requested)));
+  const ret = stripThe(normalize(cleanArtistName(returned)));
   if (!req || !ret) return false;
-  return req === ret || ret.includes(req) || req.includes(ret);
+  if (req === ret) return true;
+  // Returned must start with requested at a word boundary
+  // Allows "The Animals Retrospective" for "The Animals" but not "Glass Animals"
+  if (
+    ret.startsWith(req) &&
+    (ret.length === req.length || ret[req.length] === ' ')
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /**
  * Check if a returned album/collection name is a reasonable match.
- * More lenient than artist matching -- allows subtitle differences
- * like "Album (Deluxe)" matching "Album".
+ * The returned name must start with the requested name (allowing
+ * suffixes like "(Deluxe Edition)"). Exact word boundary required.
+ * "GUTS" matches "GUTS (Deluxe)" but "Gold" does NOT match "Golden Greats".
  */
 export function albumMatches(requested: string, returned: string): boolean {
-  const req = normalize(requested);
-  const ret = normalize(returned);
+  const req = stripThe(normalize(requested));
+  const ret = stripThe(normalize(returned));
   if (!req || !ret) return false;
-  return req === ret || ret.includes(req) || req.includes(ret);
+  if (req === ret) return true;
+  // Returned must start with requested at a word boundary
+  if (
+    ret.startsWith(req) &&
+    (ret.length === req.length || ret[req.length] === ' ')
+  ) {
+    return true;
+  }
+  // Requested might have extra subtitle: "Garden State: Music from..." matches "Garden State"
+  if (
+    req.startsWith(ret) &&
+    (req.length === ret.length || req[ret.length] === ' ')
+  ) {
+    return true;
+  }
+  return false;
 }

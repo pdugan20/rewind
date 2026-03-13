@@ -32,11 +32,11 @@ describe('artistMatches', () => {
     expect(artistMatches('the black keys', 'The Black Keys')).toBe(true);
   });
 
-  it('matches when returned contains requested', () => {
+  it('matches when returned has extra words (feat)', () => {
     expect(artistMatches('Gorillaz', 'Gorillaz feat. IDLES')).toBe(true);
   });
 
-  it('matches when requested contains returned', () => {
+  it('matches when requested has extra "The" prefix', () => {
     expect(artistMatches('The Black Keys', 'Black Keys')).toBe(true);
   });
 
@@ -51,6 +51,15 @@ describe('artistMatches', () => {
   it('strips feat before comparing', () => {
     expect(artistMatches('Gorillaz feat. Popcaan', 'Gorillaz')).toBe(true);
   });
+
+  // Key regression: "The Animals" must NOT match "Glass Animals"
+  it('rejects Glass Animals for The Animals', () => {
+    expect(artistMatches('The Animals', 'Glass Animals')).toBe(false);
+  });
+
+  it('rejects Buddy for Buddy Holly', () => {
+    expect(artistMatches('Buddy Holly', 'Buddy')).toBe(false);
+  });
 });
 
 describe('albumMatches', () => {
@@ -62,7 +71,7 @@ describe('albumMatches', () => {
     expect(albumMatches('GUTS', 'GUTS (Deluxe)')).toBe(true);
   });
 
-  it('matches when returned is superset', () => {
+  it('matches when returned is superset with extra words', () => {
     expect(albumMatches('The Mountain', 'The Mountain (Deluxe Edition)')).toBe(
       true
     );
@@ -76,5 +85,24 @@ describe('albumMatches', () => {
 
   it('rejects wrong album same word', () => {
     expect(albumMatches('The Misfits', 'Famous Monsters')).toBe(false);
+  });
+
+  // Key regression: "Gold" must NOT match "20 Golden Greats"
+  it('rejects Gold matching Golden Greats', () => {
+    expect(albumMatches('Gold', '20 Golden Greats')).toBe(false);
+  });
+
+  it('rejects Gold matching Hollyhood', () => {
+    expect(albumMatches('Gold', 'Hollyhood (feat. Kent Jamz)')).toBe(false);
+  });
+
+  // Soundtrack edge case
+  it('matches exact soundtrack title', () => {
+    expect(
+      albumMatches(
+        'Garden State: Music from the Motion Picture',
+        'Garden State (Music from the Motion Picture)'
+      )
+    ).toBe(true);
   });
 });
