@@ -3,10 +3,13 @@
  */
 
 /**
- * Strip collaborator suffixes from artist names for cleaner search results.
+ * Strip featured artist suffixes from artist names for cleaner search results.
  * Last.fm creates separate entries like "Kendrick Lamar feat. DODY6" or
- * "Beyoncé & Willie Jones" which fail to match on iTunes/Apple Music.
+ * "Gorillaz feat. IDLES" which fail to match on iTunes/Apple Music.
+ *
+ * Only strips feat/ft/featuring -- NOT "&" or "and", which are part of
+ * legitimate artist names (e.g., "Simon & Garfunkel", "Tom Petty and The Heartbreakers").
  */
 export function cleanArtistName(name: string): string {
-  return name.split(/\s+(?:feat\.?|ft\.?|featuring|&|and)\s+/i)[0].trim();
+  return name.split(/\s+(?:feat\.?|ft\.?|featuring)\s+/i)[0].trim();
 }

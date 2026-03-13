@@ -17,13 +17,17 @@ import { normalizeScrobble } from './transforms.js';
 import { isFiltered, loadFilters } from './filters.js';
 import { afterSync } from '../../lib/after-sync.js';
 import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
+import { cleanArtistName } from '../images/sources/utils.js';
 
 async function upsertArtist(
   db: Database,
-  name: string,
+  rawName: string,
   mbid: string | null,
   url?: string
 ): Promise<{ id: number; isNew: boolean }> {
+  // Strip featured artist suffixes so "Gorillaz feat. IDLES" -> "Gorillaz"
+  const name = cleanArtistName(rawName);
+
   // Try to find existing artist
   const [existing] = await db
     .select({ id: lastfmArtists.id })
@@ -382,12 +386,32 @@ async function syncTopArtistsForPeriod(
   await db.delete(lastfmTopArtists).where(eq(lastfmTopArtists.period, period));
 
   let rank = 0;
+  const seenArtistIds = new Set<number>();
+
   for (const item of artists) {
     const { id: artistId } = await upsertArtist(
       db,
       item.name,
       item.mbid || null
     );
+
+    // After cleaning, multiple Last.fm entries may resolve to the same artist.
+    // Merge playcounts and skip duplicates.
+    if (seenArtistIds.has(artistId)) {
+      await db
+        .update(lastfmTopArtists)
+        .set({
+          playcount: sql`${lastfmTopArtists.playcount} + ${parseInt(item.playcount)}`,
+        })
+        .where(
+          and(
+            eq(lastfmTopArtists.period, period),
+            eq(lastfmTopArtists.artistId, artistId)
+          )
+        );
+      continue;
+    }
+    seenArtistIds.add(artistId);
 
     // Update playcount on artist
     await db
@@ -430,6 +454,8 @@ async function syncTopAlbumsForPeriod(
   await db.delete(lastfmTopAlbums).where(eq(lastfmTopAlbums.period, period));
 
   let rank = 0;
+  const seenAlbumIds = new Set<number>();
+
   for (const item of albums) {
     const { id: artistId } = await upsertArtist(
       db,
@@ -441,8 +467,25 @@ async function syncTopAlbumsForPeriod(
       item.name,
       artistId,
       item.mbid || null,
-      item.artist.name
+      cleanArtistName(item.artist.name)
     );
+
+    // After cleaning, multiple Last.fm entries may resolve to the same album.
+    if (seenAlbumIds.has(albumId)) {
+      await db
+        .update(lastfmTopAlbums)
+        .set({
+          playcount: sql`${lastfmTopAlbums.playcount} + ${parseInt(item.playcount)}`,
+        })
+        .where(
+          and(
+            eq(lastfmTopAlbums.period, period),
+            eq(lastfmTopAlbums.albumId, albumId)
+          )
+        );
+      continue;
+    }
+    seenAlbumIds.add(albumId);
 
     // Update playcount on album
     await db
@@ -484,6 +527,8 @@ async function syncTopTracksForPeriod(
   await db.delete(lastfmTopTracks).where(eq(lastfmTopTracks.period, period));
 
   let rank = 0;
+  const seenTrackIds = new Set<number>();
+
   for (const item of tracks) {
     const { id: artistId } = await upsertArtist(
       db,
@@ -496,10 +541,27 @@ async function syncTopTracksForPeriod(
       artistId,
       null,
       item.mbid || null,
-      item.artist.name,
+      cleanArtistName(item.artist.name),
       undefined,
       item.url
     );
+
+    // After cleaning, multiple Last.fm entries may resolve to the same track.
+    if (seenTrackIds.has(trackId)) {
+      await db
+        .update(lastfmTopTracks)
+        .set({
+          playcount: sql`${lastfmTopTracks.playcount} + ${parseInt(item.playcount)}`,
+        })
+        .where(
+          and(
+            eq(lastfmTopTracks.period, period),
+            eq(lastfmTopTracks.trackId, trackId)
+          )
+        );
+      continue;
+    }
+    seenTrackIds.add(trackId);
 
     const [track] = await db
       .select({ isFiltered: lastfmTracks.isFiltered })

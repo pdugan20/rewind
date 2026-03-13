@@ -87,6 +87,7 @@ export function isHolidayMusic(item: FilterableItem): boolean {
 
 export function isAudiobook(item: FilterableItem): boolean {
   const artistLower = item.artistName.toLowerCase();
+  const albumLower = (item.albumName ?? '').toLowerCase();
   const trackLower = (item.trackName ?? '').toLowerCase();
   const trackName = item.trackName ?? '';
 
@@ -94,6 +95,9 @@ export function isAudiobook(item: FilterableItem): boolean {
     if (rule.filterType !== 'audiobook') continue;
 
     if (rule.scope === 'artist' && artistLower === rule.pattern) {
+      return true;
+    }
+    if (rule.scope === 'album' && albumLower.includes(rule.pattern)) {
       return true;
     }
     if (rule.scope === 'track' && trackLower.includes(rule.pattern)) {
