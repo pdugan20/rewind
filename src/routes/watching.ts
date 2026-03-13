@@ -1002,6 +1002,9 @@ watching.openapi(movieDetailRoute, async (c) => {
     .where(eq(watchHistory.movieId, id))
     .orderBy(desc(watchHistory.watchedAt));
 
+  const firstWatchedAt =
+    history.length > 0 ? history[history.length - 1].watchedAt : null;
+
   return c.json({
     ...formatMovie(
       movie,
@@ -1009,6 +1012,7 @@ watching.openapi(movieDetailRoute, async (c) => {
       directorRows.map((d) => d.name),
       image
     ),
+    first_watched_at: firstWatchedAt,
     watch_history: history.map((h) => ({
       id: h.id,
       watched_at: h.watchedAt,
@@ -1489,6 +1493,9 @@ watching.openapi(showDetailRoute, async (c) => {
     });
   }
 
+  const firstWatchedAt =
+    episodesWatched.length > 0 ? episodesWatched[0].watchedAt : null;
+
   return c.json({
     id: show.id,
     title: show.title,
@@ -1498,6 +1505,7 @@ watching.openapi(showDetailRoute, async (c) => {
     content_rating: show.contentRating,
     summary: show.summary,
     image,
+    first_watched_at: firstWatchedAt,
     total_seasons: show.totalSeasons,
     total_episodes: show.totalEpisodes,
     episodes_watched: episodesWatched.length,

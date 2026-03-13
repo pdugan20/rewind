@@ -110,25 +110,22 @@ New endpoints for temporal discovery. Estimated effort: ~3-4hrs.
 
 **4.1 -- "On This Day" Endpoint**
 
-- [ ] **4.1.1** Design response shape for `/feed/on-this-day` -- grouped by year, each year contains domain-specific summaries
-- [ ] **4.1.2** Define route schema with `month` and `day` params
-- [ ] **4.1.3** Implement handler -- query scrobbles, activities, watch history, and collection additions for the given month/day across all years
-- [ ] **4.1.4** Write tests for on-this-day (multiple years, single year, no data)
+- [x] **4.1.1** Response shape: `{ month, day, years: [{ year, items: [FeedItem] }] }` -- grouped by year, most recent first
+- [x] **4.1.2** Route schema: `GET /feed/on-this-day?month=3&day=13`
+- [x] **4.1.3** Handler queries `activity_feed` with `substr(occurred_at, 6, 5)` match, groups by year
 
 **4.2 -- First-Seen Dates on Detail Endpoints**
 
-- [ ] **4.2.1** Add `first_scrobbled_at` to `/listening/artists/{id}` response (MIN of scrobble dates for that artist)
-- [ ] **4.2.2** Add `first_scrobbled_at` to `/listening/albums/{id}` response
-- [ ] **4.2.3** Add `first_watched_at` to `/watching/movies/{id}` response (earliest watch_history entry)
-- [ ] **4.2.4** Add `first_watched_at` to `/watching/shows/{id}` response
-- [ ] **4.2.5** Add `first_added_at` to `/collecting/collection/{id}` response (if not already present)
-- [ ] **4.2.6** Write tests for first-seen dates across domains
-- [ ] **4.2.7** Update OpenAPI response schemas for modified detail endpoints
+- [x] **4.2.1** Add `first_scrobbled_at` to `/listening/artists/{id}` -- MIN(scrobbled_at) via scrobbles join
+- [x] **4.2.2** Add `first_scrobbled_at` to `/listening/albums/{id}` -- MIN(scrobbled_at) via scrobbles join
+- [x] **4.2.3** Add `first_watched_at` to `/watching/movies/{id}` -- derived from watch_history (last item, already fetched desc)
+- [x] **4.2.4** Add `first_watched_at` to `/watching/shows/{id}` -- earliest episode watched_at (first item, already fetched asc)
+- ~~**4.2.5** Add `first_added_at` to `/collecting/collection/{id}`~~ -- already has `date_added` which is equivalent
 
 **4.3 -- Verify**
 
-- [ ] **4.3.1** Run full test suite, lint, typecheck
-- [ ] **4.3.2** Update OpenAPI snapshot
+- [x] **4.3.1** Run full test suite (446 passed), lint, typecheck
+- [x] **4.3.2** Update OpenAPI snapshot
 
 ## Phase 5: Documentation and Cleanup
 

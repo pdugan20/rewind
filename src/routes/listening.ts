@@ -1545,6 +1545,15 @@ listening.openapi(artistDetailRoute, async (c) => {
     albumIds
   );
 
+  // First scrobbled date
+  const [firstScrobble] = await db
+    .select({
+      firstScrobbledAt: sql<string>`min(${lastfmScrobbles.scrobbledAt})`,
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .where(and(eq(lastfmTracks.artistId, id), eq(lastfmTracks.isFiltered, 0)));
+
   return c.json({
     id: artist.id,
     name: artist.name,
@@ -1552,6 +1561,7 @@ listening.openapi(artistDetailRoute, async (c) => {
     url: artist.url,
     playcount: artist.playcount,
     scrobble_count: scrobbleCount.count,
+    first_scrobbled_at: firstScrobble?.firstScrobbledAt ?? null,
     image: artistImage,
     top_albums: topAlbums.map((a) => ({
       id: a.id,
@@ -1612,12 +1622,22 @@ listening.openapi(albumDetailRoute, async (c) => {
     String(id)
   );
 
+  // First scrobbled date
+  const [firstAlbumScrobble] = await db
+    .select({
+      firstScrobbledAt: sql<string>`min(${lastfmScrobbles.scrobbledAt})`,
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .where(and(eq(lastfmTracks.albumId, id), eq(lastfmTracks.isFiltered, 0)));
+
   return c.json({
     id: album.id,
     name: album.name,
     mbid: album.mbid,
     url: album.url,
     playcount: album.playcount,
+    first_scrobbled_at: firstAlbumScrobble?.firstScrobbledAt ?? null,
     image: albumImage,
     artist: {
       id: album.artistId,

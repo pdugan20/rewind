@@ -211,6 +211,106 @@ feed.openapi(getDomainFeedRoute, async (c) => {
   });
 });
 
+// --- On This Day ---
+
+const OnThisDayItemSchema = z.object({
+  id: z.number(),
+  domain: z.string(),
+  event_type: z.string(),
+  occurred_at: z.string(),
+  title: z.string(),
+  subtitle: z.string().nullable(),
+  image_key: z.string().nullable(),
+  source_id: z.string(),
+  metadata: z.any().nullable(),
+});
+
+const OnThisDayYearSchema = z.object({
+  year: z.number(),
+  items: z.array(OnThisDayItemSchema),
+});
+
+const onThisDayRoute = createRoute({
+  method: 'get',
+  path: '/on-this-day',
+  tags: ['Feed'],
+  summary: 'On this day',
+  description:
+    'Returns activity from a given calendar date across all years, grouped by year.',
+  request: {
+    query: z.object({
+      month: z.coerce.number().int().min(1).max(12).openapi({ example: 3 }),
+      day: z.coerce.number().int().min(1).max(31).openapi({ example: 13 }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Activity grouped by year for the given date',
+      content: {
+        'application/json': {
+          schema: z.object({
+            month: z.number(),
+            day: z.number(),
+            years: z.array(OnThisDayYearSchema),
+          }),
+        },
+      },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+feed.openapi(onThisDayRoute, async (c) => {
+  setCache(c, 'medium');
+  const month = parseInt(c.req.query('month') ?? '');
+  const day = parseInt(c.req.query('day') ?? '');
+
+  if (
+    isNaN(month) ||
+    isNaN(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return badRequest(
+      c,
+      'Valid month (1-12) and day (1-31) are required'
+    ) as any;
+  }
+
+  const db = drizzle(c.env.DB);
+  const monthStr = String(month).padStart(2, '0');
+  const dayStr = String(day).padStart(2, '0');
+  const items = await db
+    .select()
+    .from(activityFeed)
+    .where(
+      and(
+        eq(activityFeed.userId, 1),
+        sql`substr(${activityFeed.occurredAt}, 6, 5) = ${`${monthStr}-${dayStr}`}`
+      )
+    )
+    .orderBy(desc(activityFeed.occurredAt));
+
+  // Group by year
+  const yearMap = new Map<number, typeof items>();
+  for (const item of items) {
+    const year = new Date(item.occurredAt).getFullYear();
+    if (!yearMap.has(year)) yearMap.set(year, []);
+    yearMap.get(year)!.push(item);
+  }
+
+  const years = [...yearMap.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([year, yearItems]) => ({
+      year,
+      items: yearItems.map(formatFeedItem),
+    }));
+
+  return c.json({ month, day, years });
+});
+
 function formatFeedItem(item: typeof activityFeed.$inferSelect) {
   return {
     id: item.id,
