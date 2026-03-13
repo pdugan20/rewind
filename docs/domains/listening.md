@@ -123,14 +123,14 @@ All endpoints require `Authorization: Bearer rw_...` header.
 | Method | Path                      | Description                       | Cache                          | Query Params                         |
 | ------ | ------------------------- | --------------------------------- | ------------------------------ | ------------------------------------ |
 | GET    | /v1/listening/now-playing | Current or last played track      | no-store                       | none                                 |
-| GET    | /v1/listening/recent      | Recent scrobbles                  | 60s                            | limit (default 10, max 50)           |
+| GET    | /v1/listening/recent      | Recent scrobbles                  | 60s                            | limit, date, from, to                |
 | GET    | /v1/listening/top/artists | Top artists by period             | 3600s                          | period, limit (default 10), page     |
 | GET    | /v1/listening/top/albums  | Top albums by period with art     | 3600s                          | period, limit (default 10), page     |
 | GET    | /v1/listening/top/tracks  | Top tracks by period              | 3600s                          | period, limit (default 10), page     |
-| GET    | /v1/listening/stats       | Overall listening statistics      | 3600s                          | none                                 |
+| GET    | /v1/listening/stats       | Overall listening statistics      | 3600s                          | date, from, to                       |
 | GET    | /v1/listening/history     | Full scrobble history             | 3600s                          | from, to, artist, album, limit, page |
-| GET    | /v1/listening/artists/:id | Single artist detail              | 3600s                          | none                                 |
-| GET    | /v1/listening/albums/:id  | Single album detail               | 3600s                          | none                                 |
+| GET    | /v1/listening/artists/:id | Single artist detail              | 3600s                          | none (includes first_scrobbled_at)   |
+| GET    | /v1/listening/albums/:id  | Single album detail               | 3600s                          | none (includes first_scrobbled_at)   |
 | GET    | /v1/listening/calendar    | Daily scrobble counts             | 3600s (current), 86400s (past) | year (default current)               |
 | GET    | /v1/listening/trends      | Listening trends over time        | 86400s                         | metric, from, to                     |
 | GET    | /v1/listening/streaks     | Current/longest listening streaks | 3600s                          | none                                 |

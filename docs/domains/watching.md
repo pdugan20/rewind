@@ -241,17 +241,17 @@ All endpoints require `Authorization: Bearer rw_...` header.
 
 | Method | Path                                   | Description                       | Cache  | Query Params                                            |
 | ------ | -------------------------------------- | --------------------------------- | ------ | ------------------------------------------------------- |
-| GET    | /v1/watching/recent                    | Recently watched movies           | 60s    | limit (default 5, max 20)                               |
+| GET    | /v1/watching/recent                    | Recently watched movies           | 60s    | limit, date, from, to                                   |
 | GET    | /v1/watching/movies                    | All watched movies                | 3600s  | page, limit, genre, decade, director, year, sort, order |
-| GET    | /v1/watching/movies/:id                | Single movie detail               | 86400s | none                                                    |
-| GET    | /v1/watching/stats                     | Overall watch statistics          | 3600s  | none                                                    |
+| GET    | /v1/watching/movies/:id                | Single movie detail               | 86400s | none (includes first_watched_at)                        |
+| GET    | /v1/watching/stats                     | Overall watch statistics          | 3600s  | date, from, to                                          |
 | GET    | /v1/watching/stats/genres              | Genre breakdown                   | 3600s  | none                                                    |
 | GET    | /v1/watching/stats/decades             | Movies by decade                  | 3600s  | none                                                    |
 | GET    | /v1/watching/stats/directors           | Top directors                     | 3600s  | none                                                    |
 | GET    | /v1/watching/calendar                  | Watch activity heatmap            | 3600s  | year                                                    |
-| GET    | /v1/watching/trends                    | Watching trends over time         | 86400s | period                                                  |
+| GET    | /v1/watching/trends                    | Watching trends over time         | 86400s | period, date, from, to                                  |
 | GET    | /v1/watching/shows                     | All watched shows                 | 3600s  | page, limit, sort, order                                |
-| GET    | /v1/watching/shows/:id                 | Show detail with seasons          | 86400s | none                                                    |
+| GET    | /v1/watching/shows/:id                 | Show detail with seasons          | 86400s | none (includes first_watched_at)                        |
 | GET    | /v1/watching/shows/:id/seasons/:season | Season episodes with watch status | 3600s  | none                                                    |
 | POST   | /v1/admin/watching/movies              | Log a movie watch event (admin)   | --     | tmdb_id or title+year, watched_at, rating               |
 | PUT    | /v1/admin/watching/movies/:id          | Edit a watch event (admin)        | --     | watched_at, rating                                      |

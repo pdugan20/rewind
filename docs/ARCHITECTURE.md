@@ -81,6 +81,20 @@ Images can be manually overridden via admin endpoints. Overrides persist through
 | `feed`              | `public, max-age=300`                 | 5-minute freshness                  |
 | `health`, `admin`   | `no-store`                            | Diagnostic / mutations              |
 
+## Date Filtering
+
+Most list, recent, stats, trends, and feed endpoints support optional date filtering:
+
+| Param  | Type         | Description                                  |
+| ------ | ------------ | -------------------------------------------- |
+| `date` | `YYYY-MM-DD` | Single day shorthand. Overrides `from`/`to`. |
+| `from` | ISO 8601     | Range start (inclusive).                     |
+| `to`   | ISO 8601     | Range end (inclusive).                       |
+
+When `date` is provided, `from` and `to` are ignored. When no date params are provided, behavior is unchanged. On endpoints with an existing `year` param (running activities, calendars), `from`/`to` takes precedence over `year`.
+
+The `/feed/on-this-day` endpoint uses `month` and `day` params to return cross-domain activity for a calendar date across all years.
+
 ## Known Gotchas
 
 - **D1 is SQLite** -- no PostGIS, no `generate_series`. Polylines are stored encoded, decoded client-side. Calendar/streak queries use recursive CTEs.

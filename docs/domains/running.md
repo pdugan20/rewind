@@ -218,26 +218,26 @@ Handler logic:
 
 All endpoints require `Authorization: Bearer rw_...` header.
 
-| Method | Path                              | Description                   | Cache  | Query Params                                                           |
-| ------ | --------------------------------- | ----------------------------- | ------ | ---------------------------------------------------------------------- |
-| GET    | /v1/running/stats                 | Lifetime running statistics   | 3600s  | none                                                                   |
-| GET    | /v1/running/stats/years           | All year summaries            | 3600s  | none                                                                   |
-| GET    | /v1/running/stats/years/:year     | Single year detail            | 3600s  | none                                                                   |
-| GET    | /v1/running/prs                   | Personal records per distance | 86400s | none                                                                   |
-| GET    | /v1/running/recent                | Last N activities             | 60s    | limit (default 5, max 20)                                              |
-| GET    | /v1/running/activities            | Paginated activity list       | 3600s  | page, limit, year, type, city, min_distance, max_distance, sort, order |
-| GET    | /v1/running/activities/:id        | Single activity detail        | 86400s | none                                                                   |
-| GET    | /v1/running/activities/:id/splits | Per-mile splits               | 86400s | none                                                                   |
-| GET    | /v1/running/gear                  | Gear/shoe data                | 86400s | none                                                                   |
-| GET    | /v1/running/calendar              | Daily activity heatmap        | 3600s  | year                                                                   |
-| GET    | /v1/running/charts/cumulative     | Year-over-year distance       | 3600s  | years, unit (mi/km)                                                    |
-| GET    | /v1/running/charts/pace-trend     | Pace over time                | 3600s  | window (7/30/90), from, to                                             |
-| GET    | /v1/running/charts/time-of-day    | Run frequency by hour         | 86400s | year                                                                   |
-| GET    | /v1/running/charts/elevation      | Elevation data                | 86400s | year                                                                   |
-| GET    | /v1/running/cities                | Cities where runs occurred    | 86400s | none                                                                   |
-| GET    | /v1/running/streaks               | Current/longest streaks       | 3600s  | none                                                                   |
-| GET    | /v1/running/races                 | Race activities               | 86400s | distance                                                               |
-| GET    | /v1/running/eddington             | Eddington number              | 86400s | none                                                                   |
+| Method | Path                              | Description                   | Cache  | Query Params                                                          |
+| ------ | --------------------------------- | ----------------------------- | ------ | --------------------------------------------------------------------- |
+| GET    | /v1/running/stats                 | Lifetime running statistics   | 3600s  | none                                                                  |
+| GET    | /v1/running/stats/years           | All year summaries            | 3600s  | none                                                                  |
+| GET    | /v1/running/stats/years/:year     | Single year detail            | 3600s  | none                                                                  |
+| GET    | /v1/running/prs                   | Personal records per distance | 86400s | none                                                                  |
+| GET    | /v1/running/recent                | Last N activities             | 60s    | limit, date, from, to                                                 |
+| GET    | /v1/running/activities            | Paginated activity list       | 3600s  | page, limit, year, date, from, to, type, city, min/max_distance, sort |
+| GET    | /v1/running/activities/:id        | Single activity detail        | 86400s | none                                                                  |
+| GET    | /v1/running/activities/:id/splits | Per-mile splits               | 86400s | none                                                                  |
+| GET    | /v1/running/gear                  | Gear/shoe data                | 86400s | none                                                                  |
+| GET    | /v1/running/calendar              | Daily activity heatmap        | 3600s  | year                                                                  |
+| GET    | /v1/running/charts/cumulative     | Year-over-year distance       | 3600s  | years, unit (mi/km)                                                   |
+| GET    | /v1/running/charts/pace-trend     | Pace over time                | 3600s  | window (7/30/90), from, to                                            |
+| GET    | /v1/running/charts/time-of-day    | Run frequency by hour         | 86400s | year                                                                  |
+| GET    | /v1/running/charts/elevation      | Elevation data                | 86400s | year                                                                  |
+| GET    | /v1/running/cities                | Cities where runs occurred    | 86400s | none                                                                  |
+| GET    | /v1/running/streaks               | Current/longest streaks       | 3600s  | none                                                                  |
+| GET    | /v1/running/races                 | Race activities               | 86400s | distance                                                              |
+| GET    | /v1/running/eddington             | Eddington number              | 86400s | none                                                                  |
 
 All tables include `user_id` for multi-user support (default 1).
 

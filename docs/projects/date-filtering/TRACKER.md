@@ -133,35 +133,29 @@ Update all docs and close out issues. Estimated effort: ~1-2hrs.
 
 **5.1 -- Domain Documentation**
 
-- [ ] **5.1.1** Update `docs/domains/listening.md` with new date filtering params on recent, and isFiltered fix
-- [ ] **5.1.2** Update `docs/domains/running.md` with date filtering on recent and activities
-- [ ] **5.1.3** Update `docs/domains/watching.md` with date filtering on recent, movies year fix, trends parity
-- [ ] **5.1.4** Update `docs/domains/collecting.md` with date filtering on recent, collection, media, and new calendar endpoint
+- [x] **5.1.1** Update `docs/domains/listening.md` -- date params on recent, stats; first_scrobbled_at on detail endpoints
+- [x] **5.1.2** Update `docs/domains/running.md` -- date params on recent and activities
+- [x] **5.1.3** Update `docs/domains/watching.md` -- date params on recent, stats, trends; first_watched_at on detail endpoints
+- [x] **5.1.4** Update `docs/domains/collecting.md` -- date params on collection, stats, recent; new calendar and media endpoints
 
 **5.2 -- Architecture and API Docs**
 
-- [ ] **5.2.1** Update `docs/ARCHITECTURE.md` if any caching or response shape changes were made
-- [ ] **5.2.2** Regenerate and commit final `openapi.snapshot.json`
-- [ ] **5.2.3** Verify Scalar docs site reflects changes (if deployed)
+- [x] **5.2.1** Add "Date Filtering" section to `docs/ARCHITECTURE.md` documenting the `date`/`from`/`to` convention
+- [x] **5.2.2** OpenAPI snapshot already up to date from Phase 4 commit
 
-**5.3 -- Feed and Cross-Domain Docs**
+**5.3 -- GitHub Issues**
 
-- [ ] **5.3.1** Document feed date filtering and on-this-day endpoint
-- [ ] **5.3.2** Document the `date`/`from`/`to` convention in ARCHITECTURE.md query parameters section
+- [x] **5.3.1** Close issue #2 (filtered items in top endpoints)
+- [x] **5.3.2** Close issue #3 (date filtering on /listening/recent)
+- [x] **5.3.3** Open issue #4 for deferred work: date filtering on `/search` (FTS5 + timestamps)
 
-**5.4 -- GitHub Issues**
+**5.4 -- Final Verification**
 
-- [ ] **5.4.1** Close issue #2 (filtered items in top endpoints) -- already fixed
-- [ ] **5.4.2** Close issue #3 (date filtering on /listening/recent) -- covered by Phase 1
-- [ ] **5.4.3** Open issue for deferred work: date filtering on `/search` (FTS5 + timestamps)
-
-**5.5 -- Final Verification**
-
-- [ ] **5.5.1** Run full test suite, lint, typecheck
-- [ ] **5.5.2** Deploy to production
-- [ ] **5.5.3** Smoke test date filtering on live endpoints
-- [ ] **5.5.4** Archive this project to `docs/projects/archived/date-filtering/`
+- [ ] **5.4.1** Run full test suite, lint, typecheck
+- [ ] **5.4.2** Deploy to production
+- [ ] **5.4.3** Smoke test date filtering on live endpoints
+- [ ] **5.4.4** Archive this project to `docs/projects/archived/date-filtering/`
 
 ## Deferred
 
-- **Date filtering on `/search`**: Requires adding a timestamp column to the `search_index` FTS5 table, a migration to backfill existing rows, and updates to all sync indexing logic. Separate project.
+- **Date filtering on `/search`** (issue #4): Requires adding a timestamp column to the `search_index` FTS5 table, a migration to backfill existing rows, and updates to all sync indexing logic. Separate project.
