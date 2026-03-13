@@ -68,7 +68,7 @@ echo "$MISSING" | jq -c '.[0].results[]' | while IFS= read -r ROW; do
     echo "[INFO] Progress: $COUNT/$TOTAL (succeeded: $SUCCEEDED, skipped: $SKIPPED, failed: $FAILED)"
   fi
 
-  sleep 0.3
+  sleep 0.5
 done
 
 echo "[SUCCESS] Backfill complete"

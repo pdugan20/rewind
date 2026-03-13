@@ -8,6 +8,7 @@ import type { Database } from '../../db/client.js';
 import { images } from '../../db/schema/system.js';
 import { buildR2Key } from './presets.js';
 import { extractColors } from './colors.js';
+import { decodeImageForAnalysis } from './decode.js';
 import { generateThumbHash } from './thumbhash.js';
 import type {
   SourceClient,
@@ -396,12 +397,14 @@ export async function runPipeline(
     dimensions
   );
 
-  // Generate ThumbHash and extract colors via Cloudflare Images binding
+  // Generate ThumbHash and extract colors (binding with JS fallback)
   let thumbhash: string | null = null;
   let dominantColor: string | null = null;
   let accentColor: string | null = null;
 
-  const decoded = await decodeViaBinding(env.IMAGE_TRANSFORMS, fetched.bytes);
+  const decoded =
+    (await decodeViaBinding(env.IMAGE_TRANSFORMS, fetched.bytes)) ??
+    decodeImageForAnalysis(fetched.bytes);
   if (decoded) {
     try {
       const colors = extractColors(
