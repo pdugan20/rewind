@@ -1,5 +1,17 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { eq, and, sql, desc, asc, like, or, inArray } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  sql,
+  desc,
+  asc,
+  like,
+  or,
+  inArray,
+  gte,
+  lte,
+  count,
+} from 'drizzle-orm';
 import { createDb } from '../db/client.js';
 import {
   discogsReleases,
@@ -529,6 +541,45 @@ const crossRefRoute = createRoute({
         },
       },
       description: 'Cross-reference data with summary stats',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+// GET /collecting/calendar
+const calendarRoute = createRoute({
+  method: 'get',
+  path: '/collecting/calendar',
+  tags: ['Collecting'],
+  summary: 'Collection calendar',
+  description:
+    'Returns daily addition counts for a given year (vinyl and media combined).',
+  request: {
+    query: z.object({
+      year: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            year: z.number(),
+            days: z.array(
+              z.object({
+                date: z.string(),
+                count: z.number(),
+              })
+            ),
+            total: z.number(),
+            max_day: z.object({
+              date: z.string(),
+              count: z.number(),
+            }),
+          }),
+        },
+      },
+      description: 'Calendar data with daily counts',
     },
     ...errorResponses(401, 500),
   },
@@ -1576,6 +1627,89 @@ collecting.openapi(crossRefRoute, async (c) => {
     });
   } catch (err) {
     console.log(`[ERROR] GET /collecting/cross-reference: ${err}`);
+    return serverError(c) as any;
+  }
+});
+
+// GET /collecting/calendar
+collecting.openapi(calendarRoute, async (c) => {
+  try {
+    const db = createDb(c.env.DB);
+    const currentYear = new Date().getFullYear();
+    const yearParam = parseInt(c.req.query('year') ?? String(currentYear));
+
+    if (isNaN(yearParam) || yearParam < 2000 || yearParam > currentYear + 1) {
+      return badRequest(c, 'Invalid year') as any;
+    }
+
+    if (yearParam < currentYear) {
+      setCache(c, 'long');
+    } else {
+      setCache(c, 'medium');
+    }
+
+    const startDate = `${yearParam}-01-01T00:00:00.000Z`;
+    const endDate = `${yearParam + 1}-01-01T00:00:00.000Z`;
+
+    // Vinyl additions
+    const vinylDays = await db
+      .select({
+        date: sql<string>`substr(${discogsCollection.dateAdded}, 1, 10)`,
+        count: count(),
+      })
+      .from(discogsCollection)
+      .where(
+        and(
+          eq(discogsCollection.userId, 1),
+          gte(discogsCollection.dateAdded, startDate),
+          lte(discogsCollection.dateAdded, endDate)
+        )
+      )
+      .groupBy(sql`substr(${discogsCollection.dateAdded}, 1, 10)`);
+
+    // Media additions
+    const mediaDays = await db
+      .select({
+        date: sql<string>`substr(${traktCollection.collectedAt}, 1, 10)`,
+        count: count(),
+      })
+      .from(traktCollection)
+      .where(
+        and(
+          eq(traktCollection.userId, 1),
+          gte(traktCollection.collectedAt, startDate),
+          lte(traktCollection.collectedAt, endDate)
+        )
+      )
+      .groupBy(sql`substr(${traktCollection.collectedAt}, 1, 10)`);
+
+    // Merge vinyl + media by date
+    const dayMap = new Map<string, number>();
+    for (const row of vinylDays) {
+      dayMap.set(row.date, (dayMap.get(row.date) ?? 0) + row.count);
+    }
+    for (const row of mediaDays) {
+      dayMap.set(row.date, (dayMap.get(row.date) ?? 0) + row.count);
+    }
+
+    const days = [...dayMap.entries()]
+      .map(([date, cnt]) => ({ date, count: cnt }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const total = days.reduce((sum, d) => sum + d.count, 0);
+    const maxDay = days.reduce((max, d) => (d.count > max.count ? d : max), {
+      date: '',
+      count: 0,
+    });
+
+    return c.json({
+      year: yearParam,
+      days,
+      total,
+      max_day: { date: maxDay.date, count: maxDay.count },
+    });
+  } catch (err) {
+    console.log(`[ERROR] GET /collecting/calendar: ${err}`);
     return serverError(c) as any;
   }
 });

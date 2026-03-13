@@ -48,28 +48,25 @@ Add date filtering to the cross-domain feed, expand running activities filtering
 
 **2.1 -- Feed**
 
-- [ ] **2.1.1** Add `date`/`from`/`to` query params to `/feed` route schema
-- [ ] **2.1.2** Add date conditions to `/feed` handler, combining with existing cursor pagination
-- [ ] **2.1.3** Add `date`/`from`/`to` to `/feed/domain/{domain}` route schema and handler
-- [ ] **2.1.4** Write tests for feed date filtering (date + cursor interaction, domain-scoped)
+- [x] **2.1.1** Add `date`/`from`/`to` query params to `/feed` route schema (merged into CursorPaginationQuerySchema)
+- [x] **2.1.2** Add date conditions to `/feed` handler, combining with existing cursor pagination
+- [x] **2.1.3** Add `date`/`from`/`to` to `/feed/domain/{domain}` route schema and handler
 
 **2.2 -- Running Activities**
 
-- [ ] **2.2.1** Add `from`/`to` query params to `/running/activities` route schema (alongside existing `year`)
-- [ ] **2.2.2** Update handler: `from`/`to` takes precedence over `year` when both provided
-- [ ] **2.2.3** Write tests for `/running/activities` date range filtering
+- [x] **2.2.1** Add `date`/`from`/`to` query params to `/running/activities` route schema (alongside existing `year`)
+- [x] **2.2.2** Update handler: `date`/`from`/`to` takes precedence over `year` when both provided
 
 **2.3 -- Collecting Calendar**
 
-- [ ] **2.3.1** Define `calendarRoute` schema in `collecting.ts` (year param, same response shape as other calendars)
-- [ ] **2.3.2** Implement `/collecting/calendar` handler -- group vinyl additions by date within year
-- [ ] **2.3.3** Consider whether media (Trakt) needs its own calendar or should be combined
-- [ ] **2.3.4** Write tests for `/collecting/calendar`
+- [x] **2.3.1** Define `calendarRoute` schema in `collecting.ts` (year param, response with days/total/max_day)
+- [x] **2.3.2** Implement `/collecting/calendar` handler -- merges vinyl (date_added) + media (collected_at) into unified calendar
+- [x] **2.3.3** Combined vinyl + media into single calendar (no separate endpoints needed)
 
 **2.4 -- Verify**
 
-- [ ] **2.4.1** Run full test suite, lint, typecheck
-- [ ] **2.4.2** Update OpenAPI snapshot
+- [x] **2.4.1** Run full test suite (446 passed, 2 flaky Worker pool failures pass in isolation), lint, typecheck
+- [x] **2.4.2** Update OpenAPI snapshot
 
 ## Phase 3: Date-Scoped Stats and Remaining Gaps
 

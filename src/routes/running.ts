@@ -461,17 +461,19 @@ const activitiesRoute = createRoute({
   summary: 'List activities',
   description: 'Returns a paginated, filterable list of running activities.',
   request: {
-    query: z.object({
-      page: z.coerce.number().int().min(1).optional().default(1),
-      limit: z.coerce.number().int().min(1).max(100).optional().default(20),
-      year: z.string().optional(),
-      type: z.string().optional(),
-      city: z.string().optional(),
-      min_distance: z.string().optional(),
-      max_distance: z.string().optional(),
-      sort: z.string().optional().default('date'),
-      order: z.string().optional().default('desc'),
-    }),
+    query: z
+      .object({
+        page: z.coerce.number().int().min(1).optional().default(1),
+        limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+        year: z.string().optional(),
+        type: z.string().optional(),
+        city: z.string().optional(),
+        min_distance: z.string().optional(),
+        max_distance: z.string().optional(),
+        sort: z.string().optional().default('date'),
+        order: z.string().optional().default('desc'),
+      })
+      .merge(DateFilterQuery),
   },
   responses: {
     200: {
@@ -508,7 +510,16 @@ running.openapi(activitiesRoute, async (c) => {
 
   const conditions = [eq(stravaActivities.isDeleted, 0)];
 
-  if (year) {
+  // date/from/to takes precedence over year
+  const dateCondition = buildDateCondition(stravaActivities.startDateLocal, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
+  if (dateCondition) {
+    conditions.push(dateCondition);
+  } else if (year) {
     const yearNum = parseInt(year, 10);
     conditions.push(
       gte(stravaActivities.startDateLocal, `${yearNum}-01-01T00:00:00`),

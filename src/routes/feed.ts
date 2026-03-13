@@ -3,6 +3,7 @@ import { desc, eq, and, lt, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { activityFeed } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
+import { DateFilterQuery, buildDateCondition } from '../lib/date-filters.js';
 import { requireAuth } from '../lib/auth.js';
 import { badRequest } from '../lib/errors.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
@@ -16,16 +17,18 @@ feed.use('*', requireAuth('read'));
 
 // --- Schemas ---
 
-const CursorPaginationQuerySchema = z.object({
-  cursor: z.string().optional().openapi({
-    description: 'Cursor for pagination (feed item ID)',
-    example: '42',
-  }),
-  limit: z.string().optional().openapi({
-    description: 'Number of items per page (1-100, default 50)',
-    example: '50',
-  }),
-});
+const CursorPaginationQuerySchema = z
+  .object({
+    cursor: z.string().optional().openapi({
+      description: 'Cursor for pagination (feed item ID)',
+      example: '42',
+    }),
+    limit: z.string().optional().openapi({
+      description: 'Number of items per page (1-100, default 50)',
+      example: '50',
+    }),
+  })
+  .merge(DateFilterQuery);
 
 const FeedItemSchema = z.object({
   id: z.number(),
@@ -94,9 +97,18 @@ feed.openapi(getFeedRoute, async (c) => {
 
   const db = drizzle(c.env.DB);
 
+  const dateCondition = buildDateCondition(activityFeed.occurredAt, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
   const conditions = [eq(activityFeed.userId, 1)];
   if (cursor) {
     conditions.push(lt(activityFeed.id, parseInt(cursor, 10)));
+  }
+  if (dateCondition) {
+    conditions.push(dateCondition);
   }
 
   const items = await db
@@ -161,12 +173,21 @@ feed.openapi(getDomainFeedRoute, async (c) => {
 
   const db = drizzle(c.env.DB);
 
+  const dateCondition = buildDateCondition(activityFeed.occurredAt, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
   const conditions = [
     eq(activityFeed.userId, 1),
     eq(activityFeed.domain, domain),
   ];
   if (cursor) {
     conditions.push(lt(activityFeed.id, parseInt(cursor, 10)));
+  }
+  if (dateCondition) {
+    conditions.push(dateCondition);
   }
 
   const items = await db
