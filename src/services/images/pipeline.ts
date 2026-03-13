@@ -122,6 +122,7 @@ function getSourceClients(
 
     case 'listening/artists':
       return [
+        new DeezerClient(),
         ...(env.APPLE_MUSIC_DEVELOPER_TOKEN
           ? [new AppleMusicClient(env.APPLE_MUSIC_DEVELOPER_TOKEN)]
           : []),
@@ -535,7 +536,9 @@ export async function runOverridePipeline(
   let dominantColor: string | null = null;
   let accentColor: string | null = null;
 
-  const decoded = await decodeViaBinding(env.IMAGE_TRANSFORMS, imageBytes);
+  const decoded =
+    (await decodeViaBinding(env.IMAGE_TRANSFORMS, imageBytes)) ??
+    decodeImageForAnalysis(imageBytes);
   if (decoded) {
     try {
       const colors = extractColors(

@@ -1,65 +1,117 @@
 /**
  * Deezer API source client.
- * No authentication required. Returns album covers up to 1800x1800.
- * Used as primary fallback when Apple Music is unavailable.
+ * No authentication required. Returns album covers up to 1200x1200
+ * and artist images up to 1000x1000.
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
 import { cleanArtistName } from './utils.js';
 
-const BASE_URL = 'https://api.deezer.com/search/album';
+const ALBUM_URL = 'https://api.deezer.com/search/album';
+const ARTIST_URL = 'https://api.deezer.com/search/artist';
 
 export class DeezerClient implements SourceClient {
   name = 'deezer';
 
   async search(params: SourceSearchParams): Promise<ImageResult[]> {
-    if (!params.artistName || !params.albumName) {
-      return [];
-    }
-
     try {
-      const artist = cleanArtistName(params.artistName);
-      const term = `${artist} ${params.albumName}`;
-      const url = new URL(BASE_URL);
-      url.searchParams.set('q', term);
-      url.searchParams.set('limit', '3');
-
-      const response = await fetch(url.toString());
-
-      if (!response.ok) {
-        return [];
+      if (params.entityType === 'artists') {
+        return this.searchArtists(params);
       }
-
-      const data = (await response.json()) as DeezerResponse;
-      const results: ImageResult[] = [];
-
-      for (const album of data.data ?? []) {
-        if (album.cover_xl) {
-          // cover_xl is 1000x1000 by default; swap to 1200x1200
-          const highRes = album.cover_xl.replace('1000x1000', '1200x1200');
-          results.push({
-            source: this.name,
-            url: highRes,
-            width: 1200,
-            height: 1200,
-          });
-        }
-      }
-
-      return results;
+      return this.searchAlbums(params);
     } catch (error) {
       console.log(
-        `[ERROR] Deezer search failed for "${params.artistName} - ${params.albumName}": ${error instanceof Error ? error.message : String(error)}`
+        `[ERROR] Deezer search failed: ${error instanceof Error ? error.message : String(error)}`
       );
       return [];
     }
   }
+
+  private async searchAlbums(
+    params: SourceSearchParams
+  ): Promise<ImageResult[]> {
+    if (!params.artistName || !params.albumName) {
+      return [];
+    }
+
+    const artist = cleanArtistName(params.artistName);
+    const term = `${artist} ${params.albumName}`;
+    const url = new URL(ALBUM_URL);
+    url.searchParams.set('q', term);
+    url.searchParams.set('limit', '3');
+
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = (await response.json()) as DeezerAlbumResponse;
+    const results: ImageResult[] = [];
+
+    for (const album of data.data ?? []) {
+      if (album.cover_xl) {
+        // cover_xl is 1000x1000 by default; swap to 1200x1200
+        const highRes = album.cover_xl.replace('1000x1000', '1200x1200');
+        results.push({
+          source: this.name,
+          url: highRes,
+          width: 1200,
+          height: 1200,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  private async searchArtists(
+    params: SourceSearchParams
+  ): Promise<ImageResult[]> {
+    if (!params.artistName) {
+      return [];
+    }
+
+    const artist = cleanArtistName(params.artistName);
+    const url = new URL(ARTIST_URL);
+    url.searchParams.set('q', artist);
+    url.searchParams.set('limit', '3');
+
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = (await response.json()) as DeezerArtistResponse;
+    const results: ImageResult[] = [];
+
+    for (const item of data.data ?? []) {
+      if (item.picture_xl) {
+        results.push({
+          source: this.name,
+          url: item.picture_xl,
+          width: 1000,
+          height: 1000,
+        });
+      }
+    }
+
+    return results;
+  }
 }
 
-interface DeezerResponse {
+interface DeezerAlbumResponse {
   data?: Array<{
     title?: string;
     artist?: { name?: string };
     cover_xl?: string;
+  }>;
+}
+
+interface DeezerArtistResponse {
+  data?: Array<{
+    name?: string;
+    picture_xl?: string;
   }>;
 }
