@@ -893,6 +893,7 @@ listening.openapi(recentRoute, async (c) => {
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
     .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+    .where(eq(lastfmTracks.isFiltered, 0))
     .orderBy(desc(lastfmScrobbles.scrobbledAt))
     .limit(limit);
 
@@ -952,7 +953,10 @@ listening.openapi(topArtistsRoute, async (c) => {
   const [{ count: total }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(lastfmTopArtists)
-    .where(eq(lastfmTopArtists.period, period));
+    .innerJoin(lastfmArtists, eq(lastfmTopArtists.artistId, lastfmArtists.id))
+    .where(
+      and(eq(lastfmTopArtists.period, period), eq(lastfmArtists.isFiltered, 0))
+    );
 
   const items = await db
     .select({
@@ -964,7 +968,9 @@ listening.openapi(topArtistsRoute, async (c) => {
     })
     .from(lastfmTopArtists)
     .innerJoin(lastfmArtists, eq(lastfmTopArtists.artistId, lastfmArtists.id))
-    .where(eq(lastfmTopArtists.period, period))
+    .where(
+      and(eq(lastfmTopArtists.period, period), eq(lastfmArtists.isFiltered, 0))
+    )
     .orderBy(asc(lastfmTopArtists.rank))
     .limit(limit)
     .offset(offset);
@@ -1015,7 +1021,10 @@ listening.openapi(topAlbumsRoute, async (c) => {
   const [{ count: total }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(lastfmTopAlbums)
-    .where(eq(lastfmTopAlbums.period, period));
+    .innerJoin(lastfmAlbums, eq(lastfmTopAlbums.albumId, lastfmAlbums.id))
+    .where(
+      and(eq(lastfmTopAlbums.period, period), eq(lastfmAlbums.isFiltered, 0))
+    );
 
   const items = await db
     .select({
@@ -1029,7 +1038,9 @@ listening.openapi(topAlbumsRoute, async (c) => {
     .from(lastfmTopAlbums)
     .innerJoin(lastfmAlbums, eq(lastfmTopAlbums.albumId, lastfmAlbums.id))
     .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
-    .where(eq(lastfmTopAlbums.period, period))
+    .where(
+      and(eq(lastfmTopAlbums.period, period), eq(lastfmAlbums.isFiltered, 0))
+    )
     .orderBy(asc(lastfmTopAlbums.rank))
     .limit(limit)
     .offset(offset);
@@ -1080,7 +1091,10 @@ listening.openapi(topTracksRoute, async (c) => {
   const [{ count: total }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(lastfmTopTracks)
-    .where(eq(lastfmTopTracks.period, period));
+    .innerJoin(lastfmTracks, eq(lastfmTopTracks.trackId, lastfmTracks.id))
+    .where(
+      and(eq(lastfmTopTracks.period, period), eq(lastfmTracks.isFiltered, 0))
+    );
 
   const items = await db
     .select({
@@ -1094,7 +1108,9 @@ listening.openapi(topTracksRoute, async (c) => {
     .from(lastfmTopTracks)
     .innerJoin(lastfmTracks, eq(lastfmTopTracks.trackId, lastfmTracks.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-    .where(eq(lastfmTopTracks.period, period))
+    .where(
+      and(eq(lastfmTopTracks.period, period), eq(lastfmTracks.isFiltered, 0))
+    )
     .orderBy(asc(lastfmTopTracks.rank))
     .limit(limit)
     .offset(offset);
@@ -1182,15 +1198,15 @@ listening.openapi(historyRoute, async (c) => {
   const artistFilter = c.req.query('artist');
   const albumFilter = c.req.query('album');
 
-  // Build conditions
-  const conditions = [];
+  // Build conditions — always exclude filtered tracks
+  const conditions = [eq(lastfmTracks.isFiltered, 0)];
   if (from) conditions.push(gte(lastfmScrobbles.scrobbledAt, from));
   if (to) conditions.push(lte(lastfmScrobbles.scrobbledAt, to));
   if (artistFilter)
     conditions.push(like(lastfmArtists.name, `%${artistFilter}%`));
   if (albumFilter) conditions.push(like(lastfmAlbums.name, `%${albumFilter}%`));
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   // Count total
   const baseQuery = db
@@ -1200,12 +1216,10 @@ listening.openapi(historyRoute, async (c) => {
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
     .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id));
 
-  const [{ count: total }] = whereClause
-    ? await baseQuery.where(whereClause)
-    : await baseQuery;
+  const [{ count: total }] = await baseQuery.where(whereClause);
 
   // Fetch page
-  const dataQuery = db
+  const scrobbles = await db
     .select({
       scrobbledAt: lastfmScrobbles.scrobbledAt,
       trackName: lastfmTracks.name,
@@ -1220,13 +1234,10 @@ listening.openapi(historyRoute, async (c) => {
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
     .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+    .where(whereClause)
     .orderBy(desc(lastfmScrobbles.scrobbledAt))
     .limit(limit)
     .offset(offset);
-
-  const scrobbles = whereClause
-    ? await dataQuery.where(whereClause)
-    : await dataQuery;
 
   const albumIds = [
     ...new Set(
@@ -1421,14 +1432,14 @@ listening.openapi(artistDetailRoute, async (c) => {
 
   if (!artist) return notFound(c, 'Artist not found') as any;
 
-  // Get scrobble count
+  // Get scrobble count (exclude filtered tracks)
   const [scrobbleCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(eq(lastfmTracks.artistId, id));
+    .where(and(eq(lastfmTracks.artistId, id), eq(lastfmTracks.isFiltered, 0)));
 
-  // Get top albums
+  // Get top albums (exclude filtered)
   const topAlbums = await db
     .select({
       id: lastfmAlbums.id,
@@ -1436,11 +1447,11 @@ listening.openapi(artistDetailRoute, async (c) => {
       playcount: lastfmAlbums.playcount,
     })
     .from(lastfmAlbums)
-    .where(eq(lastfmAlbums.artistId, id))
+    .where(and(eq(lastfmAlbums.artistId, id), eq(lastfmAlbums.isFiltered, 0)))
     .orderBy(desc(lastfmAlbums.playcount))
     .limit(10);
 
-  // Get top tracks
+  // Get top tracks (exclude filtered)
   const topTracks = await db
     .select({
       id: lastfmTracks.id,
@@ -1449,7 +1460,7 @@ listening.openapi(artistDetailRoute, async (c) => {
     })
     .from(lastfmTracks)
     .leftJoin(lastfmScrobbles, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(eq(lastfmTracks.artistId, id))
+    .where(and(eq(lastfmTracks.artistId, id), eq(lastfmTracks.isFiltered, 0)))
     .groupBy(lastfmTracks.id)
     .orderBy(desc(sql`count(${lastfmScrobbles.id})`))
     .limit(10);
@@ -1515,7 +1526,7 @@ listening.openapi(albumDetailRoute, async (c) => {
 
   if (!album) return notFound(c, 'Album not found') as any;
 
-  // Get tracks on this album with scrobble counts
+  // Get tracks on this album with scrobble counts (exclude filtered)
   const tracks = await db
     .select({
       id: lastfmTracks.id,
@@ -1524,7 +1535,7 @@ listening.openapi(albumDetailRoute, async (c) => {
     })
     .from(lastfmTracks)
     .leftJoin(lastfmScrobbles, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(eq(lastfmTracks.albumId, id))
+    .where(and(eq(lastfmTracks.albumId, id), eq(lastfmTracks.isFiltered, 0)))
     .groupBy(lastfmTracks.id)
     .orderBy(desc(sql`count(${lastfmScrobbles.id})`));
 
@@ -1580,10 +1591,12 @@ listening.openapi(calendarRoute, async (c) => {
       count: sql<number>`count(*)`,
     })
     .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .where(
       and(
         gte(lastfmScrobbles.scrobbledAt, startDate),
-        lte(lastfmScrobbles.scrobbledAt, endDate)
+        lte(lastfmScrobbles.scrobbledAt, endDate),
+        eq(lastfmTracks.isFiltered, 0)
       )
     )
     .groupBy(sql`date(${lastfmScrobbles.scrobbledAt})`)
@@ -1619,25 +1632,24 @@ listening.openapi(trendsRoute, async (c) => {
     ) as any;
   }
 
-  const conditions = [];
+  // Always exclude filtered tracks
+  const conditions = [eq(lastfmTracks.isFiltered, 0)];
   if (from) conditions.push(gte(lastfmScrobbles.scrobbledAt, from));
   if (to) conditions.push(lte(lastfmScrobbles.scrobbledAt, to));
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   if (metric === 'scrobbles') {
-    const baseQuery = db
+    const data = await db
       .select({
         month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
         count: sql<number>`count(*)`,
       })
       .from(lastfmScrobbles)
+      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .where(whereClause)
       .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
       .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
-
-    const data = whereClause
-      ? await baseQuery.where(whereClause)
-      : await baseQuery;
 
     return c.json({
       metric,
@@ -1646,19 +1658,16 @@ listening.openapi(trendsRoute, async (c) => {
   }
 
   if (metric === 'artists') {
-    const baseQuery = db
+    const data = await db
       .select({
         month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
         count: sql<number>`count(distinct ${lastfmTracks.artistId})`,
       })
       .from(lastfmScrobbles)
       .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .where(whereClause)
       .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
       .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
-
-    const data = whereClause
-      ? await baseQuery.where(whereClause)
-      : await baseQuery;
 
     return c.json({
       metric,
@@ -1667,19 +1676,16 @@ listening.openapi(trendsRoute, async (c) => {
   }
 
   if (metric === 'albums') {
-    const baseQuery = db
+    const data = await db
       .select({
         month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
         count: sql<number>`count(distinct ${lastfmTracks.albumId})`,
       })
       .from(lastfmScrobbles)
       .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .where(whereClause)
       .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
       .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
-
-    const data = whereClause
-      ? await baseQuery.where(whereClause)
-      : await baseQuery;
 
     return c.json({
       metric,
@@ -1688,18 +1694,16 @@ listening.openapi(trendsRoute, async (c) => {
   }
 
   // tracks
-  const baseQuery = db
+  const data = await db
     .select({
       month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
       count: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
     })
     .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .where(whereClause)
     .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
     .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
-
-  const data = whereClause
-    ? await baseQuery.where(whereClause)
-    : await baseQuery;
 
   return c.json({
     metric,
@@ -1712,13 +1716,15 @@ listening.openapi(streaksRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
-  // Get all unique scrobble dates ordered
+  // Get all unique scrobble dates ordered (exclude filtered)
   const dates = await db
     .select({
       date: sql<string>`date(${lastfmScrobbles.scrobbledAt})`,
       count: sql<number>`count(*)`,
     })
     .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .where(eq(lastfmTracks.isFiltered, 0))
     .groupBy(sql`date(${lastfmScrobbles.scrobbledAt})`)
     .orderBy(asc(sql`date(${lastfmScrobbles.scrobbledAt})`));
 
@@ -1821,11 +1827,15 @@ listening.openapi(yearRoute, async (c) => {
     lte(lastfmScrobbles.scrobbledAt, endDate)
   );
 
+  // Filtered date range — excludes audiobooks/holiday music
+  const filteredDateRange = and(dateRange, eq(lastfmTracks.isFiltered, 0));
+
   // Total scrobbles
   const [{ count: totalScrobbles }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(lastfmScrobbles)
-    .where(dateRange);
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .where(filteredDateRange);
 
   // Unique counts
   const [uniqueCounts] = await db
@@ -1836,7 +1846,7 @@ listening.openapi(yearRoute, async (c) => {
     })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(dateRange);
+    .where(filteredDateRange);
 
   // Top artists
   const topArtists = await db
@@ -1848,7 +1858,7 @@ listening.openapi(yearRoute, async (c) => {
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-    .where(dateRange)
+    .where(filteredDateRange)
     .groupBy(lastfmArtists.id)
     .orderBy(desc(sql`count(*)`))
     .limit(10);
@@ -1865,7 +1875,7 @@ listening.openapi(yearRoute, async (c) => {
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .innerJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-    .where(dateRange)
+    .where(filteredDateRange)
     .groupBy(lastfmAlbums.id)
     .orderBy(desc(sql`count(*)`))
     .limit(10);
@@ -1881,7 +1891,7 @@ listening.openapi(yearRoute, async (c) => {
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-    .where(dateRange)
+    .where(filteredDateRange)
     .groupBy(lastfmTracks.id)
     .orderBy(desc(sql`count(*)`))
     .limit(10);
@@ -1896,7 +1906,7 @@ listening.openapi(yearRoute, async (c) => {
     })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(dateRange)
+    .where(filteredDateRange)
     .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
     .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
 
