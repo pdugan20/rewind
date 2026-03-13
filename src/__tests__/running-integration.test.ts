@@ -44,7 +44,7 @@ describe('Running domain integration', () => {
     average_cadence: 84,
     calories: 450,
     suffer_score: 65,
-    map: { summary_polyline: 'encoded_polyline_data' },
+    map: { summary_polyline: 'encoded_polyline_data', polyline: null },
     gear_id: 'g12345',
     achievement_count: 3,
     pr_count: 1,

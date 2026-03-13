@@ -36,7 +36,7 @@ export interface StravaActivity {
   average_cadence: number | null;
   calories: number | null;
   suffer_score: number | null;
-  map: { summary_polyline: string | null } | null;
+  map: { summary_polyline: string | null; polyline: string | null } | null;
   gear_id: string | null;
   achievement_count: number;
   pr_count: number;

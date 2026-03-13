@@ -112,7 +112,8 @@ export function transformActivity(activity: StravaActivity) {
     averageCadence: activity.average_cadence ?? null,
     calories: activity.calories ?? null,
     sufferScore: activity.suffer_score ?? null,
-    mapPolyline: activity.map?.summary_polyline ?? null,
+    mapPolyline:
+      activity.map?.summary_polyline || activity.map?.polyline || null,
     gearId: activity.gear_id ?? null,
     achievementCount: activity.achievement_count ?? 0,
     prCount: activity.pr_count ?? 0,

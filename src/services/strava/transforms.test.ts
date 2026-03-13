@@ -115,7 +115,7 @@ describe('transformActivity', () => {
       average_cadence: 85,
       calories: 300,
       suffer_score: 50,
-      map: { summary_polyline: 'abc123' },
+      map: { summary_polyline: 'abc123', polyline: 'full_polyline_data' },
       gear_id: 'g12345',
       achievement_count: 2,
       pr_count: 1,
@@ -167,6 +167,42 @@ describe('transformActivity', () => {
 
     const result = transformActivity(activity);
     expect(result.isRace).toBe(1);
+  });
+
+  it('falls back to full polyline when summary_polyline is empty', () => {
+    const activity = {
+      id: 99,
+      name: 'Private NRC Run',
+      type: 'Run',
+      sport_type: 'Run',
+      workout_type: 0,
+      distance: 5000,
+      moving_time: 1800,
+      elapsed_time: 1800,
+      total_elevation_gain: 0,
+      start_date: '2024-01-15T12:00:00Z',
+      start_date_local: '2024-01-15T07:00:00Z',
+      timezone: '',
+      start_latlng: null,
+      end_latlng: null,
+      location_city: null,
+      location_state: null,
+      location_country: null,
+      average_speed: 2.78,
+      max_speed: 3.5,
+      average_heartrate: null,
+      max_heartrate: null,
+      average_cadence: null,
+      calories: null,
+      suffer_score: null,
+      map: { summary_polyline: '', polyline: 'full_route_data_here' },
+      gear_id: null,
+      achievement_count: 0,
+      pr_count: 0,
+    };
+
+    const result = transformActivity(activity);
+    expect(result.mapPolyline).toBe('full_route_data_here');
   });
 });
 
