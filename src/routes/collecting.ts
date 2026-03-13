@@ -285,16 +285,18 @@ const IdParamSchema = z.object({
 });
 
 // Query schemas
-const CollectionQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).optional().default(1),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
-  format: z.string().optional(),
-  genre: z.string().optional(),
-  artist: z.string().optional(),
-  sort: z.string().optional().default('date_added'),
-  order: z.string().optional().default('desc'),
-  q: z.string().optional(),
-});
+const CollectionQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).optional().default(1),
+    limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+    format: z.string().optional(),
+    genre: z.string().optional(),
+    artist: z.string().optional(),
+    sort: z.string().optional().default('date_added'),
+    order: z.string().optional().default('desc'),
+    q: z.string().optional(),
+  })
+  .merge(DateFilterQuery);
 
 const WantlistQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
@@ -318,15 +320,17 @@ const CrossRefQuerySchema = z.object({
   filter: z.string().optional().default('all'),
 });
 
-const MediaQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).optional().default(1),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
-  format: z.string().optional(),
-  genre: z.string().optional(),
-  sort: z.string().optional().default('collected_at'),
-  order: z.string().optional().default('desc'),
-  q: z.string().optional(),
-});
+const MediaQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).optional().default(1),
+    limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+    format: z.string().optional(),
+    genre: z.string().optional(),
+    sort: z.string().optional().default('collected_at'),
+    order: z.string().optional().default('desc'),
+    q: z.string().optional(),
+  })
+  .merge(DateFilterQuery);
 
 const MediaCrossRefQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
@@ -370,7 +374,10 @@ const collectionStatsRoute = createRoute({
   tags: ['Collecting'],
   summary: 'Collection statistics',
   description:
-    'Aggregate statistics for the vinyl collection including format breakdown, top genre, and artist counts.',
+    'Aggregate statistics for the vinyl collection. Supports optional date filtering to scope stats to items added within a time period.',
+  request: {
+    query: DateFilterQuery,
+  },
   responses: {
     200: {
       content: {
@@ -884,6 +891,15 @@ collecting.openapi(collectionListRoute, async (c) => {
 
     const conditions = [eq(discogsCollection.userId, 1)];
 
+    const dateConditionList = buildDateCondition(discogsCollection.dateAdded, {
+      date: c.req.query('date'),
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+    });
+    if (dateConditionList) {
+      conditions.push(dateConditionList);
+    }
+
     if (format) {
       conditions.push(
         sql`json_extract(${discogsReleases.formats}, '$[0]') = ${format}`
@@ -1038,6 +1054,66 @@ collecting.openapi(collectionStatsRoute, async (c) => {
   try {
     const db = createDb(c.env.DB);
 
+    const dateCondition = buildDateCondition(discogsCollection.dateAdded, {
+      date: c.req.query('date'),
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+    });
+
+    // Date-scoped: compute live from collection data
+    if (dateCondition) {
+      const scopedCondition = and(
+        eq(discogsCollection.userId, 1),
+        dateCondition
+      );
+
+      const [totals] = await db
+        .select({
+          totalItems: count(),
+          uniqueArtists: sql<number>`count(distinct ${discogsReleases.id})`,
+        })
+        .from(discogsCollection)
+        .innerJoin(
+          discogsReleases,
+          eq(discogsCollection.releaseId, discogsReleases.id)
+        )
+        .where(scopedCondition);
+
+      // Top genre within range
+      const [topGenre] = await db
+        .select({
+          genre: sql<string>`json_each.value`,
+          total: count(),
+        })
+        .from(discogsCollection)
+        .innerJoin(
+          discogsReleases,
+          eq(discogsCollection.releaseId, discogsReleases.id)
+        )
+        .where(and(scopedCondition, sql`${discogsReleases.genres} IS NOT NULL`))
+        .innerJoin(sql`json_each(${discogsReleases.genres})`, sql`1=1`)
+        .groupBy(sql`json_each.value`)
+        .orderBy(desc(count()))
+        .limit(1);
+
+      setCache(c, 'medium');
+      return c.json({
+        data: {
+          total_items: totals.totalItems,
+          by_format: { vinyl: 0, cd: 0, cassette: 0, other: 0 },
+          wantlist_count: 0,
+          unique_artists: totals.uniqueArtists,
+          estimated_value: null,
+          top_genre: topGenre?.genre || null,
+          oldest_release_year: null,
+          newest_release_year: null,
+          most_collected_artist: null,
+          added_this_year: 0,
+        },
+      });
+    }
+
+    // Lifetime: use pre-computed stats table
     const [stats] = await db
       .select()
       .from(discogsCollectionStats)
@@ -1812,6 +1888,15 @@ collecting.openapi(mediaListRoute, async (c) => {
     const offset = (page - 1) * limit;
 
     const conditions = [eq(traktCollection.userId, 1)];
+
+    const dateConditionMedia = buildDateCondition(traktCollection.collectedAt, {
+      date: c.req.query('date'),
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+    });
+    if (dateConditionMedia) {
+      conditions.push(dateConditionMedia);
+    }
 
     if (format) {
       conditions.push(sql`${traktCollection.mediaType} = ${format}`);

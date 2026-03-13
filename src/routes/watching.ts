@@ -344,7 +344,11 @@ const statsRoute = createRoute({
   path: '/stats',
   tags: ['Watching'],
   summary: 'Watch stats',
-  description: 'Returns aggregate watching statistics.',
+  description:
+    'Returns aggregate watching statistics. Supports optional date filtering to scope stats to a time period.',
+  request: {
+    query: DateFilterQuery,
+  },
   responses: {
     200: {
       description: 'Watch stats',
@@ -450,11 +454,14 @@ const trendsRoute = createRoute({
   path: '/trends',
   tags: ['Watching'],
   summary: 'Watch trends',
-  description: 'Returns weekly or monthly watch counts.',
+  description:
+    'Returns weekly or monthly watch counts. Supports date filtering via from/to params.',
   request: {
-    query: z.object({
-      period: z.string().optional().default('monthly'),
-    }),
+    query: z
+      .object({
+        period: z.string().optional().default('monthly'),
+      })
+      .merge(DateFilterQuery),
   },
   responses: {
     200: {
@@ -1019,6 +1026,100 @@ watching.openapi(statsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
+  const dateCondition = buildDateCondition(watchHistory.watchedAt, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
+  // Date-scoped: compute live from watch_history
+  if (dateCondition) {
+    const [totals] = await db
+      .select({
+        totalMovies: sql<number>`count(distinct ${watchHistory.movieId})`,
+        totalWatches: count(),
+        totalRuntimeMin: sql<number>`coalesce(sum(${movies.runtime}), 0)`,
+        minDate: sql<string>`min(${watchHistory.watchedAt})`,
+        maxDate: sql<string>`max(${watchHistory.watchedAt})`,
+      })
+      .from(watchHistory)
+      .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+      .where(dateCondition);
+
+    // Top genre within date range
+    const [topGenre] = await db
+      .select({
+        name: genres.name,
+        total: count(),
+      })
+      .from(watchHistory)
+      .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+      .innerJoin(movieGenres, eq(movies.id, movieGenres.movieId))
+      .innerJoin(genres, eq(movieGenres.genreId, genres.id))
+      .where(dateCondition)
+      .groupBy(genres.name)
+      .orderBy(desc(count()))
+      .limit(1);
+
+    // Top decade within date range
+    const [topDecade] = await db
+      .select({
+        decade: sql<number>`(${movies.year} / 10) * 10`,
+        total: count(),
+      })
+      .from(watchHistory)
+      .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+      .where(and(dateCondition, sql`${movies.year} IS NOT NULL`))
+      .groupBy(sql`(${movies.year} / 10) * 10`)
+      .orderBy(desc(count()))
+      .limit(1);
+
+    // Top director within date range
+    const [topDirector] = await db
+      .select({
+        name: directors.name,
+        total: count(),
+      })
+      .from(watchHistory)
+      .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+      .innerJoin(movieDirectors, eq(movies.id, movieDirectors.movieId))
+      .innerJoin(directors, eq(movieDirectors.directorId, directors.id))
+      .where(dateCondition)
+      .groupBy(directors.name)
+      .orderBy(desc(count()))
+      .limit(1);
+
+    const monthsInRange =
+      totals.minDate && totals.maxDate
+        ? Math.max(
+            1,
+            (new Date(totals.maxDate).getFullYear() -
+              new Date(totals.minDate).getFullYear()) *
+              12 +
+              (new Date(totals.maxDate).getMonth() -
+                new Date(totals.minDate).getMonth()) +
+              1
+          )
+        : 1;
+
+    return c.json({
+      data: {
+        total_movies: totals.totalMovies,
+        total_watch_time_hours: Math.round(totals.totalRuntimeMin / 60),
+        movies_this_year: 0,
+        avg_per_month:
+          Math.round((totals.totalMovies / monthsInRange) * 10) / 10,
+        top_genre: topGenre?.name || null,
+        top_decade: topDecade?.decade || null,
+        top_director: topDirector?.name || null,
+        total_shows: 0,
+        total_episodes_watched: 0,
+        episodes_this_year: 0,
+      },
+    }) as any;
+  }
+
+  // Lifetime: use pre-computed stats table
   const [stats] = await db
     .select()
     .from(watchStats)
@@ -1224,6 +1325,12 @@ watching.openapi(trendsRoute, async (c) => {
   const db = createDb(c.env.DB);
   const period = c.req.query('period') || 'monthly';
 
+  const dateCondition = buildDateCondition(watchHistory.watchedAt, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
   let groupExpr;
   if (period === 'weekly') {
     groupExpr = sql`substr(${watchHistory.watchedAt}, 1, 4) || '-W' || printf('%02d', cast((julianday(${watchHistory.watchedAt}) - julianday(substr(${watchHistory.watchedAt}, 1, 4) || '-01-01')) / 7 as integer) + 1)`;
@@ -1232,7 +1339,7 @@ watching.openapi(trendsRoute, async (c) => {
     groupExpr = sql`substr(${watchHistory.watchedAt}, 1, 7)`;
   }
 
-  const trendData = await db
+  const baseQuery = db
     .select({
       period: groupExpr,
       total: count(),
@@ -1240,6 +1347,10 @@ watching.openapi(trendsRoute, async (c) => {
     .from(watchHistory)
     .groupBy(groupExpr)
     .orderBy(asc(groupExpr));
+
+  const trendData = dateCondition
+    ? await baseQuery.where(dateCondition)
+    : await baseQuery;
 
   return c.json({
     period,

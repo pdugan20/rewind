@@ -1181,7 +1181,43 @@
           "Listening"
         ],
         "summary": "Listening stats",
-        "description": "Returns overall listening statistics.",
+        "description": "Returns listening statistics. Supports optional date filtering to scope stats to a time period.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Listening statistics",
@@ -5662,7 +5698,43 @@
           "Watching"
         ],
         "summary": "Watch stats",
-        "description": "Returns aggregate watching statistics.",
+        "description": "Returns aggregate watching statistics. Supports optional date filtering to scope stats to a time period.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Watch stats",
@@ -6001,7 +6073,7 @@
           "Watching"
         ],
         "summary": "Watch trends",
-        "description": "Returns weekly or monthly watch counts.",
+        "description": "Returns weekly or monthly watch counts. Supports date filtering via from/to params.",
         "parameters": [
           {
             "schema": {
@@ -6010,6 +6082,40 @@
             },
             "required": false,
             "name": "period",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
             "in": "query"
           }
         ],
@@ -8133,6 +8239,40 @@
             "required": false,
             "name": "q",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
           }
         ],
         "responses": {
@@ -8271,7 +8411,43 @@
           "Collecting"
         ],
         "summary": "Collection statistics",
-        "description": "Aggregate statistics for the vinyl collection including format breakdown, top genre, and artist counts.",
+        "description": "Aggregate statistics for the vinyl collection. Supports optional date filtering to scope stats to items added within a time period.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Collection statistics",
@@ -9648,6 +9824,40 @@
             },
             "required": false,
             "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
             "in": "query"
           }
         ],

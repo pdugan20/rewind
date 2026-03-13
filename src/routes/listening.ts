@@ -392,7 +392,11 @@ const statsRoute = createRoute({
   path: '/stats',
   tags: ['Listening'],
   summary: 'Listening stats',
-  description: 'Returns overall listening statistics.',
+  description:
+    'Returns listening statistics. Supports optional date filtering to scope stats to a time period.',
+  request: {
+    query: DateFilterQuery,
+  },
   responses: {
     200: {
       description: 'Listening statistics',
@@ -1145,6 +1149,58 @@ listening.openapi(statsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
 
+  const dateCondition = buildDateCondition(lastfmScrobbles.scrobbledAt, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
+  // Date-scoped: compute live from scrobbles
+  if (dateCondition) {
+    const scopedCondition = and(dateCondition, eq(lastfmTracks.isFiltered, 0));
+
+    const [totals] = await db
+      .select({
+        totalScrobbles: sql<number>`count(*)`,
+        uniqueArtists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
+        uniqueAlbums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+        uniqueTracks: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
+        minDate: sql<string>`min(${lastfmScrobbles.scrobbledAt})`,
+        maxDate: sql<string>`max(${lastfmScrobbles.scrobbledAt})`,
+      })
+      .from(lastfmScrobbles)
+      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .where(scopedCondition);
+
+    const daysInRange =
+      totals.minDate && totals.maxDate
+        ? Math.max(
+            1,
+            Math.ceil(
+              (new Date(totals.maxDate).getTime() -
+                new Date(totals.minDate).getTime()) /
+                86400000
+            ) + 1
+          )
+        : 1;
+
+    const scrobblesPerDay =
+      daysInRange > 0
+        ? Math.round((totals.totalScrobbles / daysInRange) * 10) / 10
+        : 0;
+
+    return c.json({
+      total_scrobbles: totals.totalScrobbles,
+      unique_artists: totals.uniqueArtists,
+      unique_albums: totals.uniqueAlbums,
+      unique_tracks: totals.uniqueTracks,
+      registered_date: null,
+      years_tracking: 0,
+      scrobbles_per_day: scrobblesPerDay,
+    });
+  }
+
+  // Lifetime: use pre-computed stats table
   const [stats] = await db
     .select()
     .from(lastfmUserStats)

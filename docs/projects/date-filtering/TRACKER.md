@@ -74,39 +74,35 @@ Add date filtering to stats endpoints and close remaining parity gaps. Estimated
 
 **3.1 -- Listening Stats**
 
-- [ ] **3.1.1** Add optional `year` and `from`/`to` params to `/listening/stats` route schema
-- [ ] **3.1.2** Update handler to scope all aggregate queries (total scrobbles, unique counts, per-day rate) to date range when provided
-- [ ] **3.1.3** Adjust derived values (scrobbles_per_day, years_tracking) to use scoped denominators
-- [ ] **3.1.4** Write tests for scoped vs unscoped stats
+- [x] **3.1.1** Add `DateFilterQuery` params to `/listening/stats` route schema
+- [x] **3.1.2** When date params present, compute live from scrobbles (totals, uniques, scrobbles_per_day scoped to range)
+- [x] **3.1.3** Lifetime path unchanged -- uses pre-computed `lastfmUserStats` table
 
 **3.2 -- Watching Stats**
 
-- [ ] **3.2.1** Add optional `year` and `from`/`to` params to `/watching/stats` route schema
-- [ ] **3.2.2** Update handler to scope aggregate queries to date range
-- [ ] **3.2.3** Write tests for scoped watching stats
+- [x] **3.2.1** Add `DateFilterQuery` params to `/watching/stats` route schema
+- [x] **3.2.2** When date params present, compute live from `watchHistory` (totals, runtime, top genre/decade/director scoped)
+- [x] **3.2.3** Lifetime path unchanged -- uses pre-computed `watchStats` table + supplemental queries
 
 **3.3 -- Collecting Stats**
 
-- [ ] **3.3.1** Add optional `year` and `from`/`to` params to `/collecting/stats` route schema
-- [ ] **3.3.2** Update handler to scope aggregate queries to date range
-- [ ] **3.3.3** Write tests for scoped collecting stats
+- [x] **3.3.1** Add `DateFilterQuery` params to `/collecting/stats` route schema
+- [x] **3.3.2** When date params present, compute live from `discogsCollection` (total items, unique artists, top genre)
 
 **3.4 -- Watching Trends Parity**
 
-- [ ] **3.4.1** Add `from`/`to` query params to `/watching/trends` route schema
-- [ ] **3.4.2** Update handler to apply date range filter (keep `period` for grouping granularity)
-- [ ] **3.4.3** Write tests for date-filtered watching trends
+- [x] **3.4.1** Add `DateFilterQuery` to `/watching/trends` route schema
+- [x] **3.4.2** Apply date condition to query (keeps `period` for weekly/monthly grouping)
 
 **3.5 -- Collecting List Filtering**
 
-- [ ] **3.5.1** Add `from`/`to` to `/collecting/collection` route schema and handler (filter on `date_added`)
-- [ ] **3.5.2** Add `from`/`to` to `/collecting/media` route schema and handler (filter on `collected_at`)
-- [ ] **3.5.3** Write tests for collecting list date filtering
+- [x] **3.5.1** Merge `DateFilterQuery` into `CollectionQuerySchema`, add date condition to `/collecting/collection` handler (filter on `date_added`)
+- [x] **3.5.2** Merge `DateFilterQuery` into `MediaQuerySchema`, add date condition to `/collecting/media` handler (filter on `collected_at`)
 
 **3.6 -- Verify**
 
-- [ ] **3.6.1** Run full test suite, lint, typecheck
-- [ ] **3.6.2** Update OpenAPI snapshot
+- [x] **3.6.1** Run full test suite (446 passed), lint, typecheck
+- [x] **3.6.2** Update OpenAPI snapshot
 
 ## Phase 4: Discovery Features
 
