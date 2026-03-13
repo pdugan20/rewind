@@ -17,20 +17,14 @@ export const DateFilterQuery = z.object({
       description: 'Single day (YYYY-MM-DD). Overrides from/to.',
       example: '2025-02-17',
     }),
-  from: z
-    .string()
-    .optional()
-    .openapi({
-      description: 'Range start, inclusive (ISO 8601)',
-      example: '2025-02-01T00:00:00Z',
-    }),
-  to: z
-    .string()
-    .optional()
-    .openapi({
-      description: 'Range end, inclusive (ISO 8601)',
-      example: '2025-02-28T23:59:59Z',
-    }),
+  from: z.string().optional().openapi({
+    description: 'Range start, inclusive (ISO 8601)',
+    example: '2025-02-01T00:00:00Z',
+  }),
+  to: z.string().optional().openapi({
+    description: 'Range end, inclusive (ISO 8601)',
+    example: '2025-02-28T23:59:59Z',
+  }),
 });
 
 // Builds a Drizzle condition from date query params

@@ -30,11 +30,11 @@ src/
   index.ts                 -- Hono app entry, route registration, cron handler
   routes/
     system.ts              -- GET /v1/health, GET /v1/health/sync, POST /v1/admin/sync, key management
-    listening.ts           -- 15 listening endpoints (includes streaks, browse, year-in-review)
-    running.ts             -- 19 running endpoints (includes year-in-review)
-    watching.ts            -- 18 watching endpoints (movies + TV shows + manual entry + ratings/reviews + year-in-review)
-    collecting.ts          -- 9 collection endpoints
-    feed.ts                -- 2 cross-domain feed endpoints
+    listening.ts           -- Listening endpoints (streaks, browse, year-in-review, top lists)
+    running.ts             -- Running endpoints (activities, stats, charts, year-in-review)
+    watching.ts            -- Watching endpoints (movies, TV shows, manual entry, ratings/reviews, year-in-review)
+    collecting.ts          -- Collection endpoints (vinyl, media, calendar, cross-reference)
+    feed.ts                -- Cross-domain feed endpoints (feed, on-this-day)
     images.ts              -- 4 image endpoints (proxy + admin overrides)
     webhooks.ts            -- Strava + Plex webhook receivers
     search.ts              -- 1 cross-domain search endpoint
@@ -62,6 +62,7 @@ src/
     cache.ts               -- Cache-Control header helpers
     rate-limit.ts          -- Sliding window rate limiter (per-key, 60s window)
     sync-retry.ts          -- Sync retry logic (max 2 retries on consecutive failures)
+    date-filters.ts        -- Shared DateFilterQuery schema and buildDateCondition() helper
   types/
     env.ts                 -- Cloudflare bindings (Env interface)
 migrations/                -- D1 SQL migration files
@@ -79,6 +80,7 @@ docs/                      -- Project documentation
 - No emojis in logging -- use `[INFO]`, `[ERROR]`, `[SYNC]` prefixes
 - All dates stored and returned as ISO 8601 strings
 - Pagination: `{ data: [...], pagination: { page, limit, total, total_pages } }`
+- Date filtering: most list/recent/stats/feed endpoints accept optional `date` (YYYY-MM-DD), `from`, `to` (ISO 8601) query params via shared `DateFilterQuery` schema
 
 ## Environment Variables
 

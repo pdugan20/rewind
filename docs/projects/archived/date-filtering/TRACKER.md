@@ -151,10 +151,11 @@ Update all docs and close out issues. Estimated effort: ~1-2hrs.
 
 **5.4 -- Final Verification**
 
-- [ ] **5.4.1** Run full test suite, lint, typecheck
-- [ ] **5.4.2** Deploy to production
-- [ ] **5.4.3** Smoke test date filtering on live endpoints
-- [ ] **5.4.4** Archive this project to `docs/projects/archived/date-filtering/`
+- [x] **5.4.1** Run full test suite (446 passed), lint, typecheck
+- [x] **5.4.2** Deploy to production (Cloudflare Workers, version 03c1e2cd)
+- [x] **5.4.3** Smoke test: listening/recent?date, running/activities?from/to, feed/on-this-day, listening/stats?from/to, collecting/calendar, artists/:id first_scrobbled_at -- all passing
+- [x] **5.4.4** Archive project to `docs/projects/archived/date-filtering/`
+- [x] **5.4.5** Update CLAUDE.md with date-filters.ts, date filtering convention, remove hardcoded endpoint counts
 
 ## Deferred
 

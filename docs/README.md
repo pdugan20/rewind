@@ -11,15 +11,10 @@
 | [domains/collecting.md](domains/collecting.md) | Discogs integration (cross-reference with Last.fm)          |
 | [domains/images.md](domains/images.md)         | Image pipeline (sources, R2, ThumbHash, CDN)                |
 
-## Active Projects
-
-| Project                                    | Description                                                |
-| ------------------------------------------ | ---------------------------------------------------------- |
-| [date-filtering](projects/date-filtering/) | Consistent `date`/`from`/`to` filtering across all domains |
-
 ## Archived Projects
 
-| Project                                                                 | Description                                         |
-| ----------------------------------------------------------------------- | --------------------------------------------------- |
-| [reliability-improvements](projects/archived/reliability-improvements/) | Data integrity, sync reliability, admin consistency |
-| [public-api-docs](projects/archived/public-api-docs/)                   | OpenAPI spec + Scalar docs site                     |
+| Project                                                                 | Description                                                |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [date-filtering](projects/archived/date-filtering/)                     | Consistent `date`/`from`/`to` filtering across all domains |
+| [reliability-improvements](projects/archived/reliability-improvements/) | Data integrity, sync reliability, admin consistency        |
+| [public-api-docs](projects/archived/public-api-docs/)                   | OpenAPI spec + Scalar docs site                            |
