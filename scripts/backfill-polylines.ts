@@ -1,27 +1,29 @@
 /**
- * Backfill Strava Polylines from GPX Files
+ * Backfill Strava Polylines from Export Files
  *
- * Reads GPX files from a Strava data export and encodes the GPS tracks
- * as Google-encoded polylines, then updates the remote D1 database.
+ * Reads GPX, FIT.gz, and TCX.gz files from a Strava data export and
+ * encodes the GPS tracks as Google-encoded polylines, then updates
+ * the remote D1 database.
  *
- * Only processes activities that are missing polyline data in the DB.
- * GPX filenames must match Strava activity IDs (e.g., 10061641666.gpx).
+ * Uses activities.csv to map Strava activity IDs to filenames (they
+ * don't always match).
  *
  * Usage:
- *   npx tsx scripts/backfill-polylines.ts <path-to-activities-dir>
+ *   npx tsx scripts/backfill-polylines.ts <path-to-strava-export>
  *
  * Example:
- *   npx tsx scripts/backfill-polylines.ts ~/Downloads/strava/activities
+ *   npx tsx scripts/backfill-polylines.ts ~/Downloads/strava
  */
 
 import { execSync } from 'node:child_process';
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { gunzipSync } from 'node:zlib';
+import FitParser from 'fit-file-parser';
 
 const DB_NAME = 'rewind-db';
 
 // --- Google Encoded Polyline Algorithm ---
-// https://developers.google.com/maps/documentation/utilities/polylinealgorithm
 
 function encodePolyline(points: Array<[number, number]>): string {
   let encoded = '';
@@ -55,7 +57,7 @@ function encodeSignedValue(value: number): string {
   return encoded;
 }
 
-// --- GPX Parser ---
+// --- File Parsers ---
 
 function parseGPXPoints(content: string): Array<[number, number]> {
   const points: Array<[number, number]> = [];
@@ -73,17 +75,65 @@ function parseGPXPoints(content: string): Array<[number, number]> {
   return points;
 }
 
-/**
- * Simplify points using the Douglas-Peucker algorithm.
- * Strava's summary_polyline is typically simplified to ~500-1000 points.
- */
+function parseTCXPoints(content: string): Array<[number, number]> {
+  const points: Array<[number, number]> = [];
+  const latRegex =
+    /<LatitudeDegrees>([^<]+)<\/LatitudeDegrees>\s*<LongitudeDegrees>([^<]+)<\/LongitudeDegrees>/g;
+  let match;
+
+  while ((match = latRegex.exec(content)) !== null) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      points.push([lat, lng]);
+    }
+  }
+
+  return points;
+}
+
+function parseFITPoints(buffer: Buffer): Promise<Array<[number, number]>> {
+  return new Promise((resolve, reject) => {
+    const parser = new FitParser({
+      force: true,
+      speedUnit: 'km/h',
+      lengthUnit: 'km',
+    });
+    parser.parse(
+      buffer,
+      (
+        err: unknown,
+        data: {
+          records: Array<{
+            position_lat?: number;
+            position_long?: number;
+          }>;
+        }
+      ) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        const points: Array<[number, number]> = [];
+        for (const r of data.records || []) {
+          if (r.position_lat !== undefined && r.position_long !== undefined) {
+            points.push([r.position_lat, r.position_long]);
+          }
+        }
+        resolve(points);
+      }
+    );
+  });
+}
+
+// --- Douglas-Peucker Simplification ---
+
 function simplifyPoints(
   points: Array<[number, number]>,
   epsilon: number
 ): Array<[number, number]> {
   if (points.length <= 2) return points;
 
-  // Find the point with the maximum distance from the line
   let maxDist = 0;
   let maxIdx = 0;
   const start = points[0];
@@ -131,6 +181,79 @@ function perpendicularDistance(
   return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
 }
 
+// --- CSV Parser ---
+
+function parseCSVMapping(csvPath: string): Map<number, string> {
+  const content = readFileSync(csvPath, 'utf-8');
+  const map = new Map<number, string>();
+
+  const lines: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    if (char === '"') {
+      current += char;
+      inQuotes = !inQuotes;
+    } else if (char === '\n' && !inQuotes) {
+      if (current.trim()) lines.push(current);
+      current = '';
+    } else if (char === '\r' && !inQuotes) {
+      // skip
+    } else {
+      current += char;
+    }
+  }
+  if (current.trim()) lines.push(current);
+
+  if (lines.length === 0) return map;
+
+  const parseRow = (line: string): string[] => {
+    const fields: string[] = [];
+    let field = '';
+    let quoted = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (quoted && line[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (ch === ',' && !quoted) {
+        fields.push(field);
+        field = '';
+      } else {
+        field += ch;
+      }
+    }
+    fields.push(field);
+    return fields;
+  };
+
+  const headers = parseRow(lines[0]);
+  const idIdx = headers.indexOf('Activity ID');
+  const fileIdx = headers.indexOf('Filename');
+
+  if (idIdx === -1 || fileIdx === -1) {
+    throw new Error('CSV missing Activity ID or Filename columns');
+  }
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseRow(lines[i]);
+    const id = parseInt(values[idIdx], 10);
+    const filename = values[fileIdx]?.trim();
+    if (id && filename) {
+      map.set(id, filename);
+    }
+  }
+
+  return map;
+}
+
 // --- SQL helpers ---
 
 function escapeSQL(value: string): string {
@@ -166,66 +289,105 @@ function executeRemoteSQLJson(sql: string): unknown[] {
   return parsed[0]?.results ?? [];
 }
 
+// --- Extract points from any supported file ---
+
+async function extractPoints(
+  filePath: string
+): Promise<Array<[number, number]>> {
+  if (filePath.endsWith('.gpx')) {
+    const content = readFileSync(filePath, 'utf-8');
+    return parseGPXPoints(content);
+  }
+
+  if (filePath.endsWith('.gpx.gz')) {
+    const content = gunzipSync(readFileSync(filePath)).toString('utf-8');
+    return parseGPXPoints(content);
+  }
+
+  if (filePath.endsWith('.tcx.gz')) {
+    const content = gunzipSync(readFileSync(filePath)).toString('utf-8');
+    return parseTCXPoints(content);
+  }
+
+  if (filePath.endsWith('.fit.gz')) {
+    const buffer = gunzipSync(readFileSync(filePath));
+    return parseFITPoints(buffer);
+  }
+
+  return [];
+}
+
 // --- Main ---
 
 async function main() {
-  const activitiesDir = process.argv[2];
-  if (!activitiesDir) {
+  const exportDir = process.argv[2];
+  if (!exportDir) {
     console.error(
-      '[ERROR] Usage: npx tsx scripts/backfill-polylines.ts <path-to-activities-dir>'
+      '[ERROR] Usage: npx tsx scripts/backfill-polylines.ts <path-to-strava-export>'
     );
     process.exit(1);
   }
 
-  const resolvedDir = resolve(activitiesDir);
-  console.log(`[INFO] Reading GPX files from ${resolvedDir}`);
+  const resolvedDir = resolve(exportDir);
+  const csvPath = join(resolvedDir, 'activities.csv');
+  const activitiesDir = join(resolvedDir, 'activities');
+
+  if (!existsSync(csvPath)) {
+    console.error(`[ERROR] activities.csv not found at ${csvPath}`);
+    process.exit(1);
+  }
+
+  // Build CSV mapping: strava_id -> filename
+  console.log('[INFO] Parsing activities.csv for file mapping...');
+  const csvMap = parseCSVMapping(csvPath);
+  console.log(`[INFO] ${csvMap.size} activities mapped in CSV`);
 
   // Get activity IDs missing polylines
   console.log('[INFO] Fetching activities missing polylines from remote DB...');
   const missing = executeRemoteSQLJson(
     "SELECT strava_id FROM strava_activities WHERE map_polyline IS NULL OR map_polyline = ''"
   ) as Array<{ strava_id: number }>;
-  const missingIds = new Set(missing.map((r) => r.strava_id));
-  console.log(`[INFO] ${missingIds.size} activities missing polylines`);
+  const missingIds = missing.map((r) => r.strava_id);
+  console.log(`[INFO] ${missingIds.length} activities missing polylines`);
 
-  // Find matching GPX files
-  const files = readdirSync(resolvedDir);
-  const gpxFiles = files.filter((f) => {
-    if (!f.endsWith('.gpx')) return false;
-    const id = parseInt(f.split('.')[0], 10);
-    return missingIds.has(id);
-  });
-  console.log(`[INFO] ${gpxFiles.length} matching GPX files found`);
+  // Match to files
+  const toProcess: Array<{ stravaId: number; filePath: string }> = [];
+  for (const id of missingIds) {
+    const filename = csvMap.get(id);
+    if (filename) {
+      const filePath = join(resolvedDir, filename);
+      if (existsSync(filePath)) {
+        toProcess.push({ stravaId: id, filePath });
+      }
+    }
+  }
+  console.log(`[INFO] ${toProcess.length} activities have matching files`);
 
-  if (gpxFiles.length === 0) {
+  if (toProcess.length === 0) {
     console.log('[INFO] Nothing to backfill');
     return;
   }
 
   // Process in batches
   const BATCH_SIZE = 25;
-  // Epsilon for Douglas-Peucker simplification (in degrees, ~0.00001 = ~1m)
   const EPSILON = 0.00005;
   let updated = 0;
   let skipped = 0;
   let errors = 0;
 
-  for (let i = 0; i < gpxFiles.length; i += BATCH_SIZE) {
-    const batch = gpxFiles.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
+    const batch = toProcess.slice(i, i + BATCH_SIZE);
     const statements: string[] = [];
 
-    for (const file of batch) {
+    for (const { stravaId, filePath } of batch) {
       try {
-        const stravaId = parseInt(file.split('.')[0], 10);
-        const content = readFileSync(join(resolvedDir, file), 'utf-8');
-        const rawPoints = parseGPXPoints(content);
+        const rawPoints = await extractPoints(filePath);
 
         if (rawPoints.length < 2) {
           skipped++;
           continue;
         }
 
-        // Simplify to reduce encoded size (match Strava's summary_polyline density)
         const simplified = simplifyPoints(rawPoints, EPSILON);
         const polyline = encodePolyline(simplified);
 
@@ -234,7 +396,7 @@ async function main() {
         );
       } catch (error) {
         errors++;
-        console.error(`[ERROR] Failed to process ${file}: ${error}`);
+        console.error(`[ERROR] Failed to process ${filePath}: ${error}`);
       }
     }
 
@@ -243,11 +405,10 @@ async function main() {
         executeRemoteSQL(statements.join('\n'));
         updated += statements.length;
         console.log(
-          `[INFO] Progress: ${updated}/${gpxFiles.length} updated (batch ${Math.floor(i / BATCH_SIZE) + 1})`
+          `[INFO] Progress: ${updated}/${toProcess.length} updated (batch ${Math.floor(i / BATCH_SIZE) + 1})`
         );
       } catch (error) {
         console.error(`[ERROR] Batch update failed: ${error}`);
-        // Fallback to individual updates
         for (const stmt of statements) {
           try {
             executeRemoteSQL(stmt);

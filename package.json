@@ -78,6 +78,7 @@
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-drizzle": "^0.2.3",
+    "fit-file-parser": "^2.3.3",
     "husky": "^9.1.7",
     "knip": "^5.86.0",
     "lint-staged": "^16.3.3",
