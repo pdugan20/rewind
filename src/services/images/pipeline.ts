@@ -16,6 +16,7 @@ import type {
 } from './sources/types.js';
 import {
   CoverArtArchiveClient,
+  DeezerClient,
   ITunesClient,
   AppleMusicClient,
   FanartTvClient,
@@ -111,11 +112,11 @@ function getSourceClients(
   switch (`${domain}/${entityType}`) {
     case 'listening/albums':
       return [
-        new CoverArtArchiveClient(),
-        new ITunesClient(),
         ...(env.APPLE_MUSIC_DEVELOPER_TOKEN
           ? [new AppleMusicClient(env.APPLE_MUSIC_DEVELOPER_TOKEN)]
           : []),
+        new DeezerClient(),
+        new ITunesClient(),
       ];
 
     case 'listening/artists':

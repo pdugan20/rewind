@@ -20,21 +20,29 @@ describe('pipeline', () => {
 
   describe('resolveImage', () => {
     it('returns first successful result from waterfall', async () => {
-      const mockResponse = {
-        images: [
-          {
-            front: true,
-            image: 'https://coverartarchive.org/release/abc123/front.jpg',
-            thumbnails: {},
+      const appleMusicResponse = {
+        results: {
+          albums: {
+            data: [
+              {
+                attributes: {
+                  artwork: {
+                    url: 'https://is1-ssl.mzstatic.com/image/thumb/Music/{w}x{h}bb.jpg',
+                    width: 3000,
+                    height: 3000,
+                  },
+                },
+              },
+            ],
           },
-        ],
+        },
       };
 
       vi.stubGlobal(
         'fetch',
         vi.fn().mockResolvedValue({
           ok: true,
-          json: () => Promise.resolve(mockResponse),
+          json: () => Promise.resolve(appleMusicResponse),
         })
       );
 
@@ -43,13 +51,14 @@ describe('pipeline', () => {
           domain: 'listening',
           entityType: 'albums',
           entityId: 'test-id',
-          mbid: 'abc123',
+          artistName: 'Test Artist',
+          albumName: 'Test Album',
         },
         env
       );
 
       expect(result.length).toBeGreaterThan(0);
-      expect(result[0].source).toBe('cover-art-archive');
+      expect(result[0].source).toBe('apple-music');
     });
 
     it('falls through to next source when first fails', async () => {
@@ -66,8 +75,13 @@ describe('pipeline', () => {
         'fetch',
         vi
           .fn()
-          // CoverArtArchive returns 404
-          .mockResolvedValueOnce({ ok: false, status: 404 })
+          // Apple Music fails
+          .mockResolvedValueOnce({ ok: false, status: 500 })
+          // Deezer fails
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ data: [] }),
+          })
           // iTunes succeeds
           .mockResolvedValueOnce({
             ok: true,
@@ -80,7 +94,6 @@ describe('pipeline', () => {
           domain: 'listening',
           entityType: 'albums',
           entityId: 'test-id',
-          mbid: 'bad-mbid',
           artistName: 'Test Artist',
           albumName: 'Test Album',
         },
@@ -141,62 +154,62 @@ describe('pipeline', () => {
   describe('resolveAlternatives', () => {
     it('collects results from all sources', async () => {
       // Mock all sources returning results
+      // Order: Apple Music, Deezer, iTunes
       let callCount = 0;
       vi.stubGlobal(
         'fetch',
         vi.fn().mockImplementation(() => {
           callCount++;
           if (callCount === 1) {
-            // CoverArtArchive
+            // Apple Music
             return Promise.resolve({
               ok: true,
               json: () =>
                 Promise.resolve({
-                  images: [
-                    {
-                      front: true,
-                      image: 'https://caa.org/front.jpg',
-                      thumbnails: {},
+                  results: {
+                    albums: {
+                      data: [
+                        {
+                          attributes: {
+                            artwork: {
+                              url: 'https://apple.com/{w}x{h}bb.jpg',
+                              width: 3000,
+                              height: 3000,
+                            },
+                          },
+                        },
+                      ],
                     },
-                  ],
+                  },
                 }),
             });
           }
           if (callCount === 2) {
-            // iTunes
+            // Deezer
             return Promise.resolve({
               ok: true,
               json: () =>
                 Promise.resolve({
-                  resultCount: 1,
-                  results: [
+                  data: [
                     {
-                      artworkUrl100: 'https://itunes.com/100x100bb.jpg',
+                      cover_xl:
+                        'https://cdn-images.dzcdn.net/images/cover/abc/1000x1000-000000-80-0-0.jpg',
                     },
                   ],
                 }),
             });
           }
-          // Apple Music
+          // iTunes
           return Promise.resolve({
             ok: true,
             json: () =>
               Promise.resolve({
-                results: {
-                  albums: {
-                    data: [
-                      {
-                        attributes: {
-                          artwork: {
-                            url: 'https://apple.com/{w}x{h}bb.jpg',
-                            width: 3000,
-                            height: 3000,
-                          },
-                        },
-                      },
-                    ],
+                resultCount: 1,
+                results: [
+                  {
+                    artworkUrl100: 'https://itunes.com/100x100bb.jpg',
                   },
-                },
+                ],
               }),
           });
         })
@@ -207,7 +220,6 @@ describe('pipeline', () => {
           domain: 'listening',
           entityType: 'albums',
           entityId: 'test-id',
-          mbid: 'abc123',
           artistName: 'Test Artist',
           albumName: 'Test Album',
         },

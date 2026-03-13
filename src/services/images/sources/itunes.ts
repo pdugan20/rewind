@@ -5,6 +5,7 @@
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
+import { cleanArtistName } from './utils.js';
 
 const BASE_URL = 'https://itunes.apple.com/search';
 
@@ -17,7 +18,8 @@ export class ITunesClient implements SourceClient {
     }
 
     try {
-      const term = `${params.artistName} ${params.albumName}`;
+      const artist = cleanArtistName(params.artistName);
+      const term = `${artist} ${params.albumName}`;
       const url = new URL(BASE_URL);
       url.searchParams.set('term', term);
       url.searchParams.set('media', 'music');

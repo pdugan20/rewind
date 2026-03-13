@@ -5,6 +5,7 @@
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
+import { cleanArtistName } from './utils.js';
 
 const BASE_URL = 'https://api.music.apple.com/v1';
 
@@ -52,6 +53,9 @@ export class AppleMusicClient implements SourceClient {
     });
 
     if (!response.ok) {
+      console.log(
+        `[ERROR] Apple Music artist search failed: ${response.status} ${response.statusText}`
+      );
       return [];
     }
 
@@ -80,9 +84,10 @@ export class AppleMusicClient implements SourceClient {
   private async searchAlbums(
     params: SourceSearchParams
   ): Promise<ImageResult[]> {
-    const term = params.artistName
-      ? `${params.artistName} ${params.albumName}`
-      : params.albumName;
+    const artist = params.artistName
+      ? cleanArtistName(params.artistName)
+      : undefined;
+    const term = artist ? `${artist} ${params.albumName}` : params.albumName;
     if (!term) return [];
 
     const url = new URL(`${BASE_URL}/catalog/us/search`);
@@ -97,6 +102,10 @@ export class AppleMusicClient implements SourceClient {
     });
 
     if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      console.log(
+        `[ERROR] Apple Music album search failed: ${response.status} ${response.statusText} - ${body.slice(0, 500)}`
+      );
       return [];
     }
 

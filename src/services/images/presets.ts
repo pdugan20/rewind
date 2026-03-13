@@ -39,6 +39,7 @@ export type EntityType = 'albums' | 'artists' | 'movies' | 'shows' | 'releases';
 
 export type ImageSource =
   | 'cover-art-archive'
+  | 'deezer'
   | 'itunes'
   | 'apple-music'
   | 'fanart-tv'
