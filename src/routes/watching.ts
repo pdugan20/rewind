@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { eq, sql, desc, asc, and, count } from 'drizzle-orm';
 import { createDb } from '../db/client.js';
 import { setCache } from '../lib/cache.js';
+import { DateFilterQuery, buildDateCondition } from '../lib/date-filters.js';
 import { notFound, badRequest } from '../lib/errors.js';
 import {
   movies,
@@ -263,11 +264,14 @@ const recentRoute = createRoute({
   path: '/recent',
   tags: ['Watching'],
   summary: 'Recent watches',
-  description: 'Returns most recently watched movies.',
+  description:
+    'Returns most recently watched movies. Supports date filtering via date, from, and to params.',
   request: {
-    query: z.object({
-      limit: z.coerce.number().int().min(1).max(20).optional().default(5),
-    }),
+    query: z
+      .object({
+        limit: z.coerce.number().int().min(1).max(20).optional().default(5),
+      })
+      .merge(DateFilterQuery),
   },
   responses: {
     200: {
@@ -777,6 +781,12 @@ watching.openapi(recentRoute, async (c) => {
   const db = createDb(c.env.DB);
   const limit = Math.min(parseInt(c.req.query('limit') || '5'), 20);
 
+  const dateCondition = buildDateCondition(watchHistory.watchedAt, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
   const recentWatches = await db
     .select({
       watchId: watchHistory.id,
@@ -798,6 +808,7 @@ watching.openapi(recentRoute, async (c) => {
     })
     .from(watchHistory)
     .innerJoin(movies, eq(watchHistory.movieId, movies.id))
+    .where(dateCondition)
     .orderBy(desc(watchHistory.watchedAt))
     .limit(limit);
 

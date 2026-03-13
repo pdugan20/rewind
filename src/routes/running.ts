@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { eq, desc, asc, and, sql, gte, lte } from 'drizzle-orm';
 import { createDb } from '../db/client.js';
 import { setCache } from '../lib/cache.js';
+import { DateFilterQuery, buildDateCondition } from '../lib/date-filters.js';
 import { notFound, badRequest } from '../lib/errors.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses } from '../lib/schemas/common.js';
@@ -407,11 +408,14 @@ const recentRoute = createRoute({
   path: '/recent',
   tags: ['Running'],
   summary: 'Recent activities',
-  description: 'Returns the last N activities (default 5, max 20).',
+  description:
+    'Returns the last N activities (default 5, max 20). Supports date filtering via date, from, and to params.',
   request: {
-    query: z.object({
-      limit: z.coerce.number().int().min(1).max(20).optional().default(5),
-    }),
+    query: z
+      .object({
+        limit: z.coerce.number().int().min(1).max(20).optional().default(5),
+      })
+      .merge(DateFilterQuery),
   },
   responses: {
     200: {
@@ -431,10 +435,16 @@ running.openapi(recentRoute, async (c) => {
   const db = createDb(c.env.DB);
   const limit = Math.min(parseInt(c.req.query('limit') ?? '5', 10), 20);
 
+  const dateCondition = buildDateCondition(stravaActivities.startDate, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
   const activities = await db
     .select()
     .from(stravaActivities)
-    .where(eq(stravaActivities.isDeleted, 0))
+    .where(and(eq(stravaActivities.isDeleted, 0), dateCondition))
     .orderBy(desc(stravaActivities.startDate))
     .limit(limit);
 

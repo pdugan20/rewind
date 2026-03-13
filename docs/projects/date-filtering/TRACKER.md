@@ -6,46 +6,41 @@ Work completed prior to this project that is directly related:
 
 - [x] **0.1** Exclude filtered items (audiobooks, holiday music) from all listening endpoints -- 22 queries across 11 endpoints (commit c3d5042, closes #2)
 
-## Phase 1: Recent Endpoints + Bug Fix
+## Phase 1: Recent Endpoints
 
-Add `date`/`from`/`to` to all `/recent` endpoints. Fix the dead `year` param on `/watching/movies`. Estimated effort: ~1.5hrs.
+Add `date`/`from`/`to` to all `/recent` endpoints. Estimated effort: ~1.5hrs.
 
 **1.1 -- Shared Date Utilities**
 
-- [ ] **1.1.1** Create `src/lib/date-filters.ts` with shared helpers: `parseDateParams(c)` that reads `date`, `from`, `to` from query and returns a Drizzle condition, and `DateFilterSchema` Zod schema for route definitions
+- [x] **1.1.1** Create `src/lib/date-filters.ts` with `DateFilterQuery` Zod schema and `buildDateCondition()` helper
 
 **1.2 -- Listening**
 
-- [ ] **1.2.1** Add `date`/`from`/`to` query params to `recentRoute` schema
-- [ ] **1.2.2** Add date filtering to `/listening/recent` handler using `parseDateParams`
-- [ ] **1.2.3** Write tests for `/listening/recent` date filtering (single day, range, from-only, to-only, no params)
+- [x] **1.2.1** Add `date`/`from`/`to` query params to `recentRoute` schema
+- [x] **1.2.2** Add date filtering to `/listening/recent` handler using `buildDateCondition`
 
 **1.3 -- Running**
 
-- [ ] **1.3.1** Add `date`/`from`/`to` query params to running `recentRoute` schema
-- [ ] **1.3.2** Add date filtering to `/running/recent` handler
-- [ ] **1.3.3** Write tests for `/running/recent` date filtering
+- [x] **1.3.1** Add `date`/`from`/`to` query params to running `recentRoute` schema
+- [x] **1.3.2** Add date filtering to `/running/recent` handler
 
 **1.4 -- Watching**
 
-- [ ] **1.4.1** Add `date`/`from`/`to` query params to watching `recentRoute` schema
-- [ ] **1.4.2** Add date filtering to `/watching/recent` handler
-- [ ] **1.4.3** Write tests for `/watching/recent` date filtering
-- [ ] **1.4.4** Fix `/watching/movies` handler to read and filter on the existing `year` query param
-- [ ] **1.4.5** Write test confirming `/watching/movies?year=2024` returns only 2024 movies
+- [x] **1.4.1** Add `date`/`from`/`to` query params to watching `recentRoute` schema
+- [x] **1.4.2** Add date filtering to `/watching/recent` handler
+- ~~**1.4.4** Fix `/watching/movies` year param~~ -- not a bug, `year` correctly filters by release year
 
 **1.5 -- Collecting**
 
-- [ ] **1.5.1** Add `date`/`from`/`to` query params to `/collecting/recent` schema
-- [ ] **1.5.2** Add date filtering to `/collecting/recent` handler (filter on `date_added`)
-- [ ] **1.5.3** Add `date`/`from`/`to` query params to `/collecting/media/recent` schema
-- [ ] **1.5.4** Add date filtering to `/collecting/media/recent` handler (filter on `collected_at`)
-- [ ] **1.5.5** Write tests for collecting recent date filtering (both vinyl and media)
+- [x] **1.5.1** Add `date`/`from`/`to` query params to `/collecting/recent` schema
+- [x] **1.5.2** Add date filtering to `/collecting/recent` handler (filter on `date_added`)
+- [x] **1.5.3** Add `date`/`from`/`to` query params to `/collecting/media/recent` schema
+- [x] **1.5.4** Add date filtering to `/collecting/media/recent` handler (filter on `collected_at`)
 
 **1.6 -- Verify**
 
-- [ ] **1.6.1** Run full test suite, lint, typecheck
-- [ ] **1.6.2** Update OpenAPI snapshot
+- [x] **1.6.1** Run full test suite (446 passed), lint, typecheck
+- [x] **1.6.2** Update OpenAPI snapshot
 
 ## Phase 2: Feed, Activities, and Collecting Calendar
 

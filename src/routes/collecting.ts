@@ -15,6 +15,7 @@ import { movies } from '../db/schema/watching.js';
 import { watchHistory } from '../db/schema/watching.js';
 import { images } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
+import { DateFilterQuery, buildDateCondition } from '../lib/date-filters.js';
 import { notFound, badRequest, serverError } from '../lib/errors.js';
 import { syncCollecting } from '../services/discogs/sync.js';
 import { syncTraktCollection } from '../services/trakt/sync.js';
@@ -375,9 +376,10 @@ const collectionRecentRoute = createRoute({
   path: '/collecting/recent',
   tags: ['Collecting'],
   summary: 'Recent additions',
-  description: 'Most recently added items to the vinyl collection.',
+  description:
+    'Most recently added items to the vinyl collection. Supports date filtering via date, from, and to params.',
   request: {
-    query: LimitQuerySchema,
+    query: LimitQuerySchema.merge(DateFilterQuery),
   },
   responses: {
     200: {
@@ -628,9 +630,10 @@ const mediaRecentRoute = createRoute({
   path: '/collecting/media/recent',
   tags: ['Collecting'],
   summary: 'Recently added physical media',
-  description: 'Most recently added items to the physical media collection.',
+  description:
+    'Most recently added items to the physical media collection. Supports date filtering via date, from, and to params.',
   request: {
-    query: LimitQuerySchema,
+    query: LimitQuerySchema.merge(DateFilterQuery),
   },
   responses: {
     200: {
@@ -1041,6 +1044,12 @@ collecting.openapi(collectionRecentRoute, async (c) => {
 
     const db = createDb(c.env.DB);
 
+    const dateCondition = buildDateCondition(discogsCollection.dateAdded, {
+      date: c.req.query('date'),
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+    });
+
     const rows = await db
       .select({
         id: discogsCollection.id,
@@ -1062,7 +1071,7 @@ collecting.openapi(collectionRecentRoute, async (c) => {
         discogsReleases,
         eq(discogsCollection.releaseId, discogsReleases.id)
       )
-      .where(eq(discogsCollection.userId, 1))
+      .where(and(eq(discogsCollection.userId, 1), dateCondition))
       .orderBy(desc(discogsCollection.dateAdded))
       .limit(limit);
 
@@ -1828,6 +1837,12 @@ collecting.openapi(mediaRecentRoute, async (c) => {
     );
     const db = createDb(c.env.DB);
 
+    const dateCondition = buildDateCondition(traktCollection.collectedAt, {
+      date: c.req.query('date'),
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+    });
+
     const rows = await db
       .select({
         id: traktCollection.id,
@@ -1846,7 +1861,7 @@ collecting.openapi(mediaRecentRoute, async (c) => {
       })
       .from(traktCollection)
       .innerJoin(movies, eq(traktCollection.movieId, movies.id))
-      .where(eq(traktCollection.userId, 1))
+      .where(and(eq(traktCollection.userId, 1), dateCondition))
       .orderBy(desc(traktCollection.collectedAt))
       .limit(limit);
 

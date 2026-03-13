@@ -13,6 +13,7 @@ import {
   lastfmFilters,
 } from '../db/schema/lastfm.js';
 import { setCache } from '../lib/cache.js';
+import { DateFilterQuery, buildDateCondition } from '../lib/date-filters.js';
 import { notFound, badRequest, serverError } from '../lib/errors.js';
 import { getImageAttachment, getImageAttachmentBatch } from '../lib/images.js';
 import { images } from '../db/schema/system.js';
@@ -285,18 +286,21 @@ const recentRoute = createRoute({
   path: '/recent',
   tags: ['Listening'],
   summary: 'Recent scrobbles',
-  description: 'Returns the most recent scrobbles.',
+  description:
+    'Returns the most recent scrobbles. Supports date filtering via date, from, and to params.',
   request: {
-    query: z.object({
-      limit: z.coerce
-        .number()
-        .int()
-        .min(1)
-        .max(50)
-        .optional()
-        .default(10)
-        .openapi({ example: 10 }),
-    }),
+    query: z
+      .object({
+        limit: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .default(10)
+          .openapi({ example: 10 }),
+      })
+      .merge(DateFilterQuery),
   },
   responses: {
     200: {
@@ -878,6 +882,12 @@ listening.openapi(recentRoute, async (c) => {
   const limitParam = parseInt(c.req.query('limit') ?? '10');
   const limit = Math.min(Math.max(1, limitParam), 50);
 
+  const dateCondition = buildDateCondition(lastfmScrobbles.scrobbledAt, {
+    date: c.req.query('date'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+  });
+
   const scrobbles = await db
     .select({
       scrobbledAt: lastfmScrobbles.scrobbledAt,
@@ -893,7 +903,7 @@ listening.openapi(recentRoute, async (c) => {
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
     .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
-    .where(eq(lastfmTracks.isFiltered, 0))
+    .where(and(eq(lastfmTracks.isFiltered, 0), dateCondition))
     .orderBy(desc(lastfmScrobbles.scrobbledAt))
     .limit(limit);
 
