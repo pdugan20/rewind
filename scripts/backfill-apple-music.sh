@@ -14,7 +14,7 @@ set -euo pipefail
 API_KEY="rw_admin_4a70c8d41d5f0688e1a26d07b8425bbf"
 API_BASE="https://api.rewind.rest"
 DB_NAME="rewind-db"
-BATCH_SIZE=50
+BATCH_SIZE=30
 SKIPS_FILE="scripts/backfill-apple-music-skips.csv"
 
 SUCCEEDED=0
@@ -22,11 +22,11 @@ SKIPPED=0
 FAILED=0
 BATCH=0
 
-# Get total unenriched count
+# Get total unenriched count (best-effort, don't fail if query errors)
 REMAINING=$(npx wrangler d1 execute "$DB_NAME" --remote --json --command="
   SELECT COUNT(*) as cnt FROM lastfm_tracks
   WHERE itunes_enriched_at IS NULL AND is_filtered = 0
-" 2>/dev/null | jq '.[0].results[0].cnt')
+" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['results'][0]['cnt'])" 2>/dev/null || echo "unknown")
 
 echo "[INFO] Starting Apple Music enrichment"
 echo "[INFO] $REMAINING tracks to enrich (batch size: $BATCH_SIZE)"
@@ -38,11 +38,11 @@ while true; do
   RESULT=$(curl -s -X POST \
     -H "Authorization: Bearer ${API_KEY}" \
     "${API_BASE}/v1/listening/admin/listening/enrich-apple-music?limit=${BATCH_SIZE}" \
-    --max-time 120 2>/dev/null)
+    --max-time 180 2>/dev/null || true)
 
-  if [ -z "$RESULT" ]; then
-    echo "[ERROR] Empty response on batch $BATCH, retrying in 10s..."
-    sleep 10
+  if [ -z "$RESULT" ] || [[ "$RESULT" == *"error"* && "$RESULT" != *"success"* ]]; then
+    echo "[WARN] Bad response on batch $BATCH, retrying in 15s..."
+    sleep 15
     continue
   fi
 
@@ -57,9 +57,9 @@ except Exception as e:
 " 2>/dev/null)
 
   if [[ "$PARSED" == ERROR* ]]; then
-    echo "[ERROR] Parse failed on batch $BATCH: $PARSED"
-    echo "[ERROR] Raw: $(echo "$RESULT" | head -c 200)"
-    break
+    echo "[WARN] Parse failed on batch $BATCH (retrying in 15s): $(echo "$RESULT" | head -c 100)"
+    sleep 15
+    continue
   fi
 
   IFS='|' read -r BS BK BF BT <<< "$PARSED"
@@ -97,22 +97,21 @@ echo "========================================="
 echo ""
 echo "[INFO] Checking enrichment coverage..."
 
-npx wrangler d1 execute "$DB_NAME" --remote --json --command="
+npx wrangler d1 execute "$DB_NAME" --remote --command="
   SELECT
-    (SELECT COUNT(*) FROM lastfm_tracks WHERE itunes_enriched_at IS NOT NULL AND apple_music_url IS NOT NULL AND is_filtered = 0) as tracks_enriched,
-    (SELECT COUNT(*) FROM lastfm_tracks WHERE itunes_enriched_at IS NOT NULL AND apple_music_url IS NULL AND is_filtered = 0) as tracks_no_match,
-    (SELECT COUNT(*) FROM lastfm_tracks WHERE itunes_enriched_at IS NULL AND is_filtered = 0) as tracks_remaining,
-    (SELECT COUNT(*) FROM lastfm_artists WHERE apple_music_url IS NOT NULL) as artists_enriched,
-    (SELECT COUNT(*) FROM lastfm_albums WHERE apple_music_url IS NOT NULL) as albums_enriched
-" 2>/dev/null | python3 -c "
-import sys, json
-r = json.load(sys.stdin)[0]['results'][0]
-print(f'Tracks with Apple Music URL: {r[\"tracks_enriched\"]}')
-print(f'Tracks with no match:        {r[\"tracks_no_match\"]}')
-print(f'Tracks not yet processed:    {r[\"tracks_remaining\"]}')
-print(f'Artists enriched:            {r[\"artists_enriched\"]}')
-print(f'Albums enriched:             {r[\"albums_enriched\"]}')
-"
+    SUM(CASE WHEN itunes_enriched_at IS NOT NULL AND apple_music_url IS NOT NULL THEN 1 ELSE 0 END) as enriched,
+    SUM(CASE WHEN itunes_enriched_at IS NOT NULL AND apple_music_url IS NULL THEN 1 ELSE 0 END) as no_match,
+    SUM(CASE WHEN itunes_enriched_at IS NULL THEN 1 ELSE 0 END) as remaining
+  FROM lastfm_tracks WHERE is_filtered = 0
+" 2>&1 | grep -E "enriched|no_match|remaining" || echo "[WARN] Coverage query failed"
+
+npx wrangler d1 execute "$DB_NAME" --remote --command="
+  SELECT COUNT(*) as cnt FROM lastfm_artists WHERE apple_music_url IS NOT NULL
+" 2>&1 | grep "cnt" || true
+
+npx wrangler d1 execute "$DB_NAME" --remote --command="
+  SELECT COUNT(*) as cnt FROM lastfm_albums WHERE apple_music_url IS NOT NULL
+" 2>&1 | grep "cnt" || true
 
 # Write skipped tracks to CSV
 echo ""
@@ -129,11 +128,14 @@ npx wrangler d1 execute "$DB_NAME" --remote --json --command="
   ORDER BY ar.name, t.name
 " 2>/dev/null | python3 -c "
 import sys, json
-data = json.load(sys.stdin)
-rows = data[0]['results']
-with open('$SKIPS_FILE', 'w') as f:
-    f.write('id|artist|track|album\n')
-    for r in rows:
-        f.write(f\"{r['id']}|{r['artist']}|{r['track']}|{r.get('album') or ''}\n\")
-print(f'[INFO] {len(rows)} unenriched tracks written to $SKIPS_FILE')
+try:
+    data = json.load(sys.stdin)
+    rows = data[0]['results']
+    with open('scripts/backfill-apple-music-skips.csv', 'w') as f:
+        f.write('id|artist|track|album\n')
+        for r in rows:
+            f.write(f\"{r['id']}|{r['artist']}|{r['track']}|{r.get('album') or ''}\n\")
+    print(f'[INFO] {len(rows)} unenriched tracks written to scripts/backfill-apple-music-skips.csv')
+except Exception as e:
+    print(f'[WARN] Failed to write skips CSV: {e}')
 "
