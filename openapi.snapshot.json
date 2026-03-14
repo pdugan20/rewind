@@ -7652,6 +7652,15 @@
                   },
                   "limit": {
                     "type": "number"
+                  },
+                  "offset": {
+                    "type": "number"
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "force": {
+                    "type": "boolean"
                   }
                 }
               }

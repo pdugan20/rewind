@@ -20,6 +20,7 @@ import { TmdbClient } from '../services/watching/tmdb.js';
 import { resolveMovie } from '../services/watching/resolve-movie.js';
 import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
+import { resolveImage } from '../services/images/pipeline.js';
 import { getImageAttachment, getImageAttachmentBatch } from '../lib/images.js';
 import type { ImageAttachment } from '../lib/images.js';
 import { images } from '../db/schema/system.js';
@@ -758,6 +759,9 @@ const adminBackfillImagesRoute = createRoute({
           schema: z.object({
             type: z.string().optional(),
             limit: z.number().optional(),
+            offset: z.number().optional(),
+            dry_run: z.boolean().optional(),
+            force: z.boolean().optional(),
           }),
         },
       },
@@ -1986,82 +1990,158 @@ watching.openapi(adminDeleteMovieRoute, async (c) => {
 watching.openapi(adminBackfillImagesRoute, async (c) => {
   const db = createDb(c.env.DB);
   const body = await c.req
-    .json<{ type?: string; limit?: number }>()
-    .catch(() => ({ type: undefined, limit: undefined }));
+    .json<{
+      type?: string;
+      limit?: number;
+      offset?: number;
+      dry_run?: boolean;
+      force?: boolean;
+    }>()
+    .catch(() => ({
+      type: undefined,
+      limit: undefined,
+      offset: undefined,
+      dry_run: undefined,
+      force: undefined,
+    }));
 
   const entityType = body.type || 'movies';
   if (!['movies', 'shows', 'all'].includes(entityType)) {
     return badRequest(c, 'Invalid type. Valid: movies, shows, all') as any;
   }
   const maxItems = Math.min(body.limit || 50, 200);
+  const itemOffset = Math.max(body.offset || 0, 0);
+  const dryRun = body.dry_run === true;
+  const force = body.force === true;
 
   const results: Record<string, unknown> = {};
 
   if (entityType === 'movies' || entityType === 'all') {
-    // Get movies with tmdb_id that don't have images yet
+    // Get movies with tmdb_id; force mode includes movies that already have images
     const movieRows = await db
       .select({
         id: movies.id,
+        title: movies.title,
         tmdbId: movies.tmdbId,
       })
       .from(movies)
       .where(
-        sql`${movies.tmdbId} IS NOT NULL AND ${movies.id} NOT IN (
-        SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
-        WHERE ${images.domain} = 'watching' AND ${images.entityType} = 'movies'
-      )`
+        force
+          ? sql`${movies.tmdbId} IS NOT NULL`
+          : sql`${movies.tmdbId} IS NOT NULL AND ${movies.id} NOT IN (
+            SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+            WHERE ${images.domain} = 'watching' AND ${images.entityType} = 'movies'
+          )`
       )
+      .orderBy(asc(movies.id))
+      .offset(itemOffset)
       .limit(maxItems);
 
-    const movieItems: BackfillItem[] = movieRows.map((m) => ({
-      entityId: String(m.id),
-      tmdbId: String(m.tmdbId),
-    }));
+    if (dryRun) {
+      // Resolve images from TMDB without fetching/uploading — return URLs for review
+      const preview = [];
+      for (const m of movieRows) {
+        const candidates = await resolveImage(
+          {
+            domain: 'watching',
+            entityType: 'movies',
+            entityId: String(m.id),
+            tmdbId: String(m.tmdbId),
+          },
+          c.env
+        );
+        preview.push({
+          id: m.id,
+          title: m.title,
+          tmdb_id: m.tmdbId,
+          candidates: candidates.map((img) => ({
+            source: img.source,
+            url: img.url,
+          })),
+        });
+      }
+      results.movies = { total: movieRows.length, preview };
+    } else {
+      const movieItems: BackfillItem[] = movieRows.map((m) => ({
+        entityId: String(m.id),
+        tmdbId: String(m.tmdbId),
+      }));
 
-    const movieResult = await backfillImages(
-      db,
-      c.env,
-      'watching',
-      'movies',
-      movieItems,
-      { batchSize: 5, delayMs: 500 }
-    );
-    results.movies = movieResult;
+      const movieResult = await backfillImages(
+        db,
+        c.env,
+        'watching',
+        'movies',
+        movieItems,
+        { batchSize: 5, delayMs: 500 }
+      );
+      results.movies = movieResult;
+    }
   }
 
   if (entityType === 'shows' || entityType === 'all') {
-    // Get shows with tmdb_id that don't have images yet
+    // Get shows with tmdb_id; force mode includes shows that already have images
     const showRows = await db
       .select({
         id: plexShows.id,
+        title: plexShows.title,
         tmdbId: plexShows.tmdbId,
       })
       .from(plexShows)
       .where(
-        sql`${plexShows.tmdbId} IS NOT NULL AND ${plexShows.id} NOT IN (
-        SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
-        WHERE ${images.domain} = 'watching' AND ${images.entityType} = 'shows'
-      )`
+        force
+          ? sql`${plexShows.tmdbId} IS NOT NULL`
+          : sql`${plexShows.tmdbId} IS NOT NULL AND ${plexShows.id} NOT IN (
+            SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+            WHERE ${images.domain} = 'watching' AND ${images.entityType} = 'shows'
+          )`
       )
+      .orderBy(asc(plexShows.id))
+      .offset(itemOffset)
       .limit(maxItems);
 
-    const showItems: BackfillItem[] = showRows.map((s) => ({
-      entityId: String(s.id),
-      tmdbId: String(s.tmdbId),
-    }));
+    if (dryRun) {
+      const preview = [];
+      for (const s of showRows) {
+        const candidates = await resolveImage(
+          {
+            domain: 'watching',
+            entityType: 'shows',
+            entityId: String(s.id),
+            tmdbId: String(s.tmdbId),
+          },
+          c.env
+        );
+        preview.push({
+          id: s.id,
+          title: s.title,
+          tmdb_id: s.tmdbId,
+          candidates: candidates.map((img) => ({
+            source: img.source,
+            url: img.url,
+          })),
+        });
+      }
+      results.shows = { total: showRows.length, preview };
+    } else {
+      const showItems: BackfillItem[] = showRows.map((s) => ({
+        entityId: String(s.id),
+        tmdbId: String(s.tmdbId),
+      }));
 
-    const showResult = await backfillImages(
-      db,
-      c.env,
-      'watching',
-      'shows',
-      showItems,
-      { batchSize: 5, delayMs: 500 }
-    );
-    results.shows = showResult;
+      const showResult = await backfillImages(
+        db,
+        c.env,
+        'watching',
+        'shows',
+        showItems,
+        { batchSize: 5, delayMs: 500 }
+      );
+      results.shows = showResult;
+    }
   }
 
-  return c.json({ success: true, results }) as any;
+  return c.json({ success: true, dry_run: dryRun, results }) as any;
 });
 
 export default watching;

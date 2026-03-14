@@ -27,26 +27,36 @@ async function resolveMovieFromLetterboxd(
 }
 
 /**
- * Check for duplicate watch (same movie + same calendar date).
+ * Find an existing watch for the same movie within 48 hours.
+ * Returns the existing entry ID if found, null otherwise.
  */
-async function isDuplicateWatch(
+async function findNearbyWatch(
   db: Database,
   movieId: number,
   watchDate: string
-): Promise<boolean> {
-  const dateStr = watchDate.substring(0, 10);
+): Promise<{
+  id: number;
+  source: string;
+  userRating: number | null;
+  review: string | null;
+} | null> {
   const existing = await db
-    .select({ id: watchHistory.id })
+    .select({
+      id: watchHistory.id,
+      source: watchHistory.source,
+      userRating: watchHistory.userRating,
+      review: watchHistory.review,
+    })
     .from(watchHistory)
     .where(
       and(
         eq(watchHistory.movieId, movieId),
-        sql`substr(${watchHistory.watchedAt}, 1, 10) = ${dateStr}`
+        sql`abs(julianday(${watchHistory.watchedAt}) - julianday(${watchDate})) <= 2`
       )
     )
     .limit(1);
 
-  return existing.length > 0;
+  return existing[0] ?? null;
 }
 
 /**
@@ -98,20 +108,58 @@ export async function syncLetterboxd(
         ? `${entry.watchedDate}T12:00:00.000Z`
         : new Date().toISOString();
 
-      // Dedup check
-      const isDuplicate = await isDuplicateWatch(db, movieId, watchedAt);
-      if (isDuplicate) {
+      // Dedup 1: GUID check — same diary entry already imported
+      if (entry.guid) {
+        const guidExists = await db
+          .select({ id: watchHistory.id })
+          .from(watchHistory)
+          .where(eq(watchHistory.letterboxdGuid, entry.guid))
+          .limit(1);
+        if (guidExists.length > 0) {
+          skipped++;
+          continue;
+        }
+      }
+
+      // Dedup 2: 48-hour window — merge Letterboxd metadata onto existing entry (e.g. from Plex)
+      const nearby = await findNearbyWatch(db, movieId, watchedAt);
+      if (nearby) {
+        const updates: Record<string, unknown> = {};
+        if (entry.memberRating && !nearby.userRating) {
+          updates.userRating = entry.memberRating;
+        }
+        if (entry.review && !nearby.review) {
+          updates.review = entry.review;
+        }
+        if (entry.link) {
+          updates.reviewUrl = entry.link;
+        }
+        if (entry.guid) {
+          updates.letterboxdGuid = entry.guid;
+        }
+        if (entry.rewatch) {
+          updates.rewatch = 1;
+        }
+        if (Object.keys(updates).length > 0) {
+          await db
+            .update(watchHistory)
+            .set(updates)
+            .where(eq(watchHistory.id, nearby.id));
+        }
         skipped++;
         continue;
       }
 
-      // Insert watch event
+      // Insert new watch event
       await db.insert(watchHistory).values({
         movieId,
         watchedAt,
         source: 'letterboxd',
         userRating: entry.memberRating ?? undefined,
         rewatch: entry.rewatch ? 1 : 0,
+        review: entry.review ?? undefined,
+        reviewUrl: entry.link || undefined,
+        letterboxdGuid: entry.guid || undefined,
       });
 
       newWatches.push({

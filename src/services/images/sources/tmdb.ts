@@ -44,7 +44,7 @@ export class TmdbClient implements SourceClient {
   }
 
   private async searchMovieImages(tmdbId: string): Promise<ImageResult[]> {
-    const url = `${API_BASE_URL}/movie/${tmdbId}/images`;
+    const url = `${API_BASE_URL}/movie/${tmdbId}/images?include_image_language=en,null`;
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -59,8 +59,9 @@ export class TmdbClient implements SourceClient {
     const data = (await response.json()) as TmdbImagesResponse;
     const results: ImageResult[] = [];
 
-    // Add posters
-    for (const poster of (data.posters ?? []).slice(0, 3)) {
+    // Posters: English first (has movie title text), then null as fallback
+    const sortedPosters = sortByLanguage(data.posters ?? [], 'poster');
+    for (const poster of sortedPosters.slice(0, 3)) {
       results.push({
         source: this.name,
         url: `${IMAGE_BASE_URL}/w780${poster.file_path}`,
@@ -69,8 +70,9 @@ export class TmdbClient implements SourceClient {
       });
     }
 
-    // Add backdrops
-    for (const backdrop of (data.backdrops ?? []).slice(0, 2)) {
+    // Backdrops: textless (null) first, then English
+    const sortedBackdrops = sortByLanguage(data.backdrops ?? [], 'backdrop');
+    for (const backdrop of sortedBackdrops.slice(0, 2)) {
       results.push({
         source: this.name,
         url: `${IMAGE_BASE_URL}/w780${backdrop.file_path}`,
@@ -119,7 +121,7 @@ export class TmdbClient implements SourceClient {
   }
 
   private async searchTvImages(tmdbId: string): Promise<ImageResult[]> {
-    const url = `${API_BASE_URL}/tv/${tmdbId}/images`;
+    const url = `${API_BASE_URL}/tv/${tmdbId}/images?include_image_language=en,null`;
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -133,7 +135,8 @@ export class TmdbClient implements SourceClient {
     const data = (await response.json()) as TmdbImagesResponse;
     const results: ImageResult[] = [];
 
-    for (const poster of (data.posters ?? []).slice(0, 3)) {
+    const sortedPosters = sortByLanguage(data.posters ?? [], 'poster');
+    for (const poster of sortedPosters.slice(0, 3)) {
       results.push({
         source: this.name,
         url: `${IMAGE_BASE_URL}/w780${poster.file_path}`,
@@ -150,6 +153,7 @@ interface TmdbImageEntry {
   file_path: string;
   width: number;
   height: number;
+  iso_639_1: string | null;
 }
 
 interface TmdbImagesResponse {
@@ -160,4 +164,24 @@ interface TmdbImagesResponse {
 interface TmdbMovieDetail {
   poster_path: string | null;
   backdrop_path: string | null;
+}
+
+/**
+ * Sort images by language preference.
+ * Posters: English first (has title text), then null (textless), then others.
+ * Backdrops: null first (textless preferred), then English, then others.
+ */
+function sortByLanguage(
+  images: TmdbImageEntry[],
+  type: 'poster' | 'backdrop'
+): TmdbImageEntry[] {
+  return [...images].sort((a, b) => {
+    const rank = (lang: string | null) => {
+      if (type === 'poster') {
+        return lang === 'en' ? 0 : lang === null ? 1 : 2;
+      }
+      return lang === null ? 0 : lang === 'en' ? 1 : 2;
+    };
+    return rank(a.iso_639_1) - rank(b.iso_639_1);
+  });
 }

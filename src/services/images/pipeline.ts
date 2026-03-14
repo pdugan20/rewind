@@ -733,10 +733,7 @@ export async function regenerateThumbhashes(
     })
     .from(images)
     .where(
-      and(
-        sql`length(${images.r2Key}) > 0`,
-        sql`${images.thumbhash} LIKE '%//%'`
-      )
+      and(sql`length(${images.r2Key}) > 0`, sql`${images.thumbhash} IS NULL`)
     )
     .limit(batchSize);
 
@@ -803,10 +800,7 @@ export async function regenerateThumbhashes(
     .select({ count: sql<number>`count(*)` })
     .from(images)
     .where(
-      and(
-        sql`length(${images.r2Key}) > 0`,
-        sql`${images.thumbhash} LIKE '%//%'`
-      )
+      and(sql`length(${images.r2Key}) > 0`, sql`${images.thumbhash} IS NULL`)
     );
 
   return { updated, failed, remaining: remainingRow.count };

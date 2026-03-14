@@ -256,21 +256,20 @@ export async function upsertDirectors(
 }
 
 /**
- * Check for duplicate watch event (same movie + same calendar date).
+ * Check for duplicate watch event (same movie within 48 hours).
  */
 async function isDuplicateWatch(
   db: Database,
   movieId: number,
   watchedAt: string
 ): Promise<boolean> {
-  const watchDate = watchedAt.substring(0, 10); // YYYY-MM-DD
   const existing = await db
     .select({ id: watchHistory.id })
     .from(watchHistory)
     .where(
       and(
         eq(watchHistory.movieId, movieId),
-        sql`substr(${watchHistory.watchedAt}, 1, 10) = ${watchDate}`
+        sql`abs(julianday(${watchHistory.watchedAt}) - julianday(${watchedAt})) <= 2`
       )
     )
     .limit(1);

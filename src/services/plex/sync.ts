@@ -209,15 +209,14 @@ async function syncMovies(
       ? new Date(detail.lastViewedAt * 1000).toISOString()
       : new Date().toISOString();
 
-    // Check for duplicate watch on same date
-    const watchDate = watchedAt.substring(0, 10);
+    // Check for duplicate watch within 48 hours
     const dupCheck = await db
       .select({ id: watchHistory.id })
       .from(watchHistory)
       .where(
         and(
           eq(watchHistory.movieId, movieId),
-          sql`substr(${watchHistory.watchedAt}, 1, 10) = ${watchDate}`
+          sql`abs(julianday(${watchHistory.watchedAt}) - julianday(${watchedAt})) <= 2`
         )
       )
       .limit(1);

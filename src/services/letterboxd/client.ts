@@ -13,6 +13,7 @@ export interface LetterboxdEntry {
   watchedDate: string | null;
   memberRating: number | null;
   rewatch: boolean;
+  review: string | null;
   tmdbMovieId: number | null;
 }
 
@@ -72,6 +73,10 @@ export function parseLetterboxdRss(xml: string): LetterboxdEntry[] {
     // Items without watchedDate are reviews or list entries
     if (!watchedDate) continue;
 
+    // Extract review text from <description> CDATA
+    // Format: <p><img src="...poster..."/></p> <p>Review text here.</p>
+    const review = extractReviewText(itemXml);
+
     entries.push({
       guid,
       title,
@@ -82,11 +87,36 @@ export function parseLetterboxdRss(xml: string): LetterboxdEntry[] {
       watchedDate: watchedDate || null,
       memberRating: memberRatingStr ? parseFloat(memberRatingStr) : null,
       rewatch: rewatchStr === 'Yes',
+      review,
       tmdbMovieId: tmdbMovieIdStr ? parseInt(tmdbMovieIdStr, 10) : null,
     });
   }
 
   return entries;
+}
+
+/**
+ * Extract review text from the RSS <description> CDATA block.
+ * The description contains an optional poster image followed by review paragraphs.
+ * Returns null if only a poster image is present (no actual review text).
+ */
+function extractReviewText(itemXml: string): string | null {
+  const description = extractTag(itemXml, 'description');
+  if (!description) return null;
+
+  // Remove all HTML tags
+  const text = description
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // If empty after stripping tags (poster-only entries), return null
+  return text.length > 0 ? text : null;
 }
 
 /**

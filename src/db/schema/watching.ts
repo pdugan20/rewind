@@ -95,6 +95,8 @@ export const watchHistory = sqliteTable(
     percentComplete: real('percent_complete'),
     rewatch: integer('rewatch').notNull().default(0),
     review: text('review'),
+    reviewUrl: text('review_url'),
+    letterboxdGuid: text('letterboxd_guid'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -105,6 +107,7 @@ export const watchHistory = sqliteTable(
     index('idx_watch_history_user_id').on(table.userId),
     index('idx_watch_history_source').on(table.source),
     index('idx_watch_history_movie_watched').on(table.movieId, table.watchedAt),
+    uniqueIndex('idx_watch_history_letterboxd_guid').on(table.letterboxdGuid),
   ]
 );
 
