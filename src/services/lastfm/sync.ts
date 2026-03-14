@@ -68,6 +68,7 @@ async function upsertAlbum(
   artistName: string,
   url?: string
 ): Promise<{ id: number; isNew: boolean }> {
+  // 1. Exact match: same album name + same artist
   const [existing] = await db
     .select({ id: lastfmAlbums.id })
     .from(lastfmAlbums)
@@ -86,6 +87,18 @@ async function upsertAlbum(
     return { id: existing.id, isNew: false };
   }
 
+  // 2. Compilation fallback: reuse existing compilation album row
+  const [compilation] = await db
+    .select({ id: lastfmAlbums.id })
+    .from(lastfmAlbums)
+    .where(and(eq(lastfmAlbums.name, name), eq(lastfmAlbums.isCompilation, 1)))
+    .limit(1);
+
+  if (compilation) {
+    return { id: compilation.id, isNew: false };
+  }
+
+  // 3. No match — create new album row
   const filtered = isFiltered({ artistName, albumName: name }) ? 1 : 0;
   const result = await db
     .insert(lastfmAlbums)

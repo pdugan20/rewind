@@ -48,6 +48,7 @@ export const lastfmAlbums = sqliteTable(
     playcount: integer('playcount').default(0),
     isFiltered: integer('is_filtered').default(0),
     imageKey: text('image_key'),
+    isCompilation: integer('is_compilation').default(0),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -60,6 +61,7 @@ export const lastfmAlbums = sqliteTable(
     index('idx_lastfm_albums_artist_id').on(table.artistId),
     index('idx_lastfm_albums_user_id').on(table.userId),
     index('idx_lastfm_albums_filtered').on(table.isFiltered),
+    index('idx_lastfm_albums_compilation').on(table.isCompilation, table.name),
   ]
 );
 
