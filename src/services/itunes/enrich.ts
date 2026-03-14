@@ -14,7 +14,7 @@ import {
 import { artistMatches, cleanArtistName } from '../images/sources/utils.js';
 
 const ITUNES_SEARCH_URL = 'https://itunes.apple.com/search';
-const CONCURRENCY = 5;
+const CONCURRENCY = 3;
 const DELAY_BETWEEN_BATCHES_MS = 500;
 const BACKOFF_DELAY_MS = 3000;
 
