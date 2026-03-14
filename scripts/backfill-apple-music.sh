@@ -14,7 +14,9 @@ set -euo pipefail
 API_KEY="rw_admin_4a70c8d41d5f0688e1a26d07b8425bbf"
 API_BASE="https://api.rewind.rest"
 DB_NAME="rewind-db"
-BATCH_SIZE=30
+BATCH_SIZE=10
+DELAY_BETWEEN=4  # seconds — keeps us at ~15 req/min (under 20 limit)
+RATE_LIMIT_PAUSE=60  # seconds to wait if we get rate limited
 SKIPS_FILE="scripts/backfill-apple-music-skips.csv"
 
 SUCCEEDED=0
@@ -76,12 +78,12 @@ except Exception as e:
     break
   fi
 
-  # If we're getting rate limited (failures), slow down
+  # If we got rate limited, pause longer
   if [ "$BF" -gt 0 ]; then
-    echo "[WARN] Failures detected, slowing down..."
-    sleep 10
+    echo "[WARN] Rate limited, pausing ${RATE_LIMIT_PAUSE}s..."
+    sleep "$RATE_LIMIT_PAUSE"
   else
-    sleep 2
+    sleep "$DELAY_BETWEEN"
   fi
 done
 
