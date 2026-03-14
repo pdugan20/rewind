@@ -672,16 +672,10 @@ const streaksRoute = createRoute({
 });
 
 const YearQuerySchema = z.object({
-  month: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(12)
-    .optional()
-    .openapi({
-      example: 3,
-      description: 'Optional month (1-12) to scope results to a single month',
-    }),
+  month: z.coerce.number().int().min(1).max(12).optional().openapi({
+    example: 3,
+    description: 'Optional month (1-12) to scope results to a single month',
+  }),
 });
 
 const yearRoute = createRoute({
@@ -2009,14 +2003,19 @@ listening.openapi(yearRoute, async (c) => {
     lte(lastfmScrobbles.scrobbledAt, endDate)
   );
 
-  // Filtered date range — excludes audiobooks/holiday music
-  const filteredDateRange = and(dateRange, eq(lastfmTracks.isFiltered, 0));
+  // Filtered date range — excludes audiobooks/holiday music (both track and artist level)
+  const filteredDateRange = and(
+    dateRange,
+    eq(lastfmTracks.isFiltered, 0),
+    eq(lastfmArtists.isFiltered, 0)
+  );
 
   // Total scrobbles
   const [{ count: totalScrobbles }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
     .where(filteredDateRange);
 
   // Unique counts
@@ -2028,6 +2027,7 @@ listening.openapi(yearRoute, async (c) => {
     })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
     .where(filteredDateRange);
 
   // Top artists
@@ -2090,6 +2090,7 @@ listening.openapi(yearRoute, async (c) => {
         })
         .from(lastfmScrobbles)
         .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+        .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
         .where(filteredDateRange)
         .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
         .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
