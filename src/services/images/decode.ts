@@ -83,7 +83,7 @@ export function decodeImageForAnalysis(bytes: ArrayBuffer): {
       const decoded = jpeg.decode(data, {
         useTArray: true,
         formatAsRGBA: true,
-        maxMemoryUsageInMB: 64,
+        maxMemoryUsageInMB: 128,
       });
       rawPixels = decoded.data;
       width = decoded.width;

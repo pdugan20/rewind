@@ -747,16 +747,24 @@ export async function regenerateThumbhashes(
     try {
       const obj = await env.IMAGES.get(row.r2Key);
       if (!obj) {
+        console.log(`[ERROR] R2 object not found: ${row.r2Key}`);
         failed++;
         continue;
       }
 
       const bytes = await obj.arrayBuffer();
-      const decoded =
-        (await decodeViaBindingPublic(env.IMAGE_TRANSFORMS, bytes)) ??
-        decodeImageForAnalysis(bytes);
+      console.log(`[INFO] Decoding ${row.r2Key} (${bytes.byteLength} bytes)`);
+
+      let decoded = await decodeViaBindingPublic(env.IMAGE_TRANSFORMS, bytes);
+      if (!decoded) {
+        console.log(
+          `[INFO] Binding decode failed, trying JS fallback for ${row.r2Key}`
+        );
+        decoded = decodeImageForAnalysis(bytes);
+      }
 
       if (!decoded) {
+        console.log(`[ERROR] All decode methods failed for ${row.r2Key}`);
         failed++;
         continue;
       }
