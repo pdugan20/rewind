@@ -2,6 +2,10 @@
  * iTunes Search API enrichment service.
  * Searches for tracks by artist+name, validates results, and updates
  * artist/album/track records with Apple Music URLs and preview audio.
+ *
+ * Rate limited to 18 requests per 60-second sliding window to stay
+ * under iTunes' ~20 req/min soft limit. No concurrency — sequential
+ * requests with the rate limiter handling pacing automatically.
  */
 
 import { eq, and, isNull, desc } from 'drizzle-orm';
@@ -14,9 +18,8 @@ import {
 import { artistMatches, cleanArtistName } from '../images/sources/utils.js';
 
 const ITUNES_SEARCH_URL = 'https://itunes.apple.com/search';
-const CONCURRENCY = 3;
-const DELAY_BETWEEN_BATCHES_MS = 500;
-const BACKOFF_DELAY_MS = 3000;
+const RATE_LIMIT = 18; // requests per window
+const RATE_WINDOW_MS = 60_000; // 60 seconds
 
 interface ITunesSongResult {
   trackId?: number;
@@ -36,12 +39,6 @@ interface ITunesSearchResponse {
   results: ITunesSongResult[];
 }
 
-export interface EnrichResult {
-  trackId: number;
-  status: 'enriched' | 'no_match' | 'error';
-  source?: string;
-}
-
 export interface BatchEnrichResult {
   total: number;
   succeeded: number;
@@ -54,6 +51,41 @@ type SearchResult =
   | { status: 'no_match' }
   | { status: 'rate_limited' }
   | { status: 'error' };
+
+/**
+ * Sliding window rate limiter.
+ * Tracks timestamps of recent requests and waits when approaching the limit.
+ */
+class RateLimiter {
+  private timestamps: number[] = [];
+
+  async waitForSlot(): Promise<void> {
+    const now = Date.now();
+
+    // Remove timestamps outside the window
+    this.timestamps = this.timestamps.filter((t) => now - t < RATE_WINDOW_MS);
+
+    if (this.timestamps.length >= RATE_LIMIT) {
+      // Wait until the oldest request in the window expires
+      const oldestInWindow = this.timestamps[0];
+      const waitMs = RATE_WINDOW_MS - (now - oldestInWindow) + 100; // +100ms buffer
+      console.log(
+        `[INFO] Rate limit: ${this.timestamps.length}/${RATE_LIMIT} in window, waiting ${Math.round(waitMs / 1000)}s`
+      );
+      await sleep(waitMs);
+      // Clean up again after waiting
+      this.timestamps = this.timestamps.filter(
+        (t) => Date.now() - t < RATE_WINDOW_MS
+      );
+    }
+
+    this.timestamps.push(Date.now());
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Search iTunes for a song and return the first validated match.
@@ -73,7 +105,6 @@ async function searchItunes(
   const response = await fetch(url.toString());
 
   if (response.status === 403) {
-    console.log('[WARN] iTunes rate limited, backing off');
     return { status: 'rate_limited' };
   }
 
@@ -86,7 +117,6 @@ async function searchItunes(
   for (const result of data.results) {
     if (!result.trackViewUrl) continue;
 
-    // Validate artist name matches
     if (result.artistName && !artistMatches(artistName, result.artistName)) {
       continue;
     }
@@ -109,25 +139,25 @@ async function enrichTrack(
     artistName: string;
     albumId: number | null;
   }
-): Promise<EnrichResult> {
+): Promise<'enriched' | 'no_match' | 'rate_limited' | 'error'> {
   try {
     const searchResult = await searchItunes(track.artistName, track.name);
 
     if (searchResult.status === 'rate_limited') {
-      return { trackId: track.id, status: 'error' };
+      // Don't mark as enriched — but signal caller to pause
+      return 'rate_limited';
     }
 
     if (searchResult.status === 'error') {
-      return { trackId: track.id, status: 'error' };
+      return 'error';
     }
 
     if (searchResult.status === 'no_match') {
-      // Mark enriched with null URLs so we don't retry
       await db
         .update(lastfmTracks)
         .set({ itunesEnrichedAt: new Date().toISOString() })
         .where(eq(lastfmTracks.id, track.id));
-      return { trackId: track.id, status: 'no_match' };
+      return 'no_match';
     }
 
     const { result } = searchResult;
@@ -144,7 +174,7 @@ async function enrichTrack(
       })
       .where(eq(lastfmTracks.id, track.id));
 
-    // Update artist (only if not already enriched — first match wins)
+    // Update artist (only if not already enriched)
     if (result.artistId && result.artistViewUrl) {
       await db
         .update(lastfmArtists)
@@ -161,7 +191,7 @@ async function enrichTrack(
         );
     }
 
-    // Update album (only if not already enriched and album exists)
+    // Update album (only if not already enriched)
     if (track.albumId && result.collectionId && result.collectionViewUrl) {
       await db
         .update(lastfmAlbums)
@@ -178,31 +208,24 @@ async function enrichTrack(
         );
     }
 
-    return { trackId: track.id, status: 'enriched' };
+    return 'enriched';
   } catch (error) {
     console.log(
       `[ERROR] Enrichment failed for track ${track.id}: ${error instanceof Error ? error.message : String(error)}`
     );
-    return { trackId: track.id, status: 'error' };
+    return 'error';
   }
 }
 
 /**
- * Sleep for a given number of milliseconds.
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
  * Enrich a batch of tracks with Apple Music URLs.
- * Processes in groups of CONCURRENCY with delays between groups.
+ * Sequential processing with sliding window rate limiter.
+ * Zero 403s by design — we wait before hitting the limit, not after.
  */
 export async function enrichBatch(
   db: Database,
   limit: number
 ): Promise<BatchEnrichResult> {
-  // Fetch unenriched tracks ordered by playcount (via scrobble count)
   const tracks = await db
     .select({
       id: lastfmTracks.id,
@@ -223,51 +246,38 @@ export async function enrichBatch(
     return { total: 0, succeeded: 0, skipped: 0, failed: 0 };
   }
 
+  const rateLimiter = new RateLimiter();
   let succeeded = 0;
   let skipped = 0;
   let failed = 0;
-  let useBackoff = false;
 
-  // Process in groups of CONCURRENCY
-  for (let i = 0; i < tracks.length; i += CONCURRENCY) {
-    const group = tracks.slice(i, i + CONCURRENCY);
+  for (const track of tracks) {
+    await rateLimiter.waitForSlot();
 
-    if (useBackoff) {
-      // Fall back to sequential on rate limit
-      for (const track of group) {
-        const result = await enrichTrack(db, track);
-        if (result.status === 'enriched') succeeded++;
-        else if (result.status === 'no_match') skipped++;
+    const result = await enrichTrack(db, track);
+
+    switch (result) {
+      case 'enriched':
+        succeeded++;
+        break;
+      case 'no_match':
+        skipped++;
+        break;
+      case 'rate_limited': {
+        // Shouldn't happen with rate limiter, but if it does wait and retry once
+        console.log('[WARN] Got 403 despite rate limiter, waiting 30s');
+        await sleep(30_000);
+        const retry = await enrichTrack(db, track);
+        if (retry === 'enriched') succeeded++;
+        else if (retry === 'no_match') skipped++;
         else failed++;
-        await sleep(BACKOFF_DELAY_MS);
+        break;
       }
-      useBackoff = false;
-    } else {
-      // Concurrent requests
-      const results = await Promise.all(
-        group.map((track) => enrichTrack(db, track))
-      );
-
-      for (const result of results) {
-        if (result.status === 'enriched') succeeded++;
-        else if (result.status === 'no_match') skipped++;
-        else {
-          failed++;
-          useBackoff = true;
-        }
-      }
-    }
-
-    // Delay between groups (skip after last group)
-    if (i + CONCURRENCY < tracks.length) {
-      await sleep(useBackoff ? BACKOFF_DELAY_MS : DELAY_BETWEEN_BATCHES_MS);
+      case 'error':
+        failed++;
+        break;
     }
   }
 
-  return {
-    total: tracks.length,
-    succeeded,
-    skipped,
-    failed,
-  };
+  return { total: tracks.length, succeeded, skipped, failed };
 }
