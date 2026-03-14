@@ -5,7 +5,7 @@
 # thumbhash generation, and color extraction.
 #
 # Usage:
-#   ./scripts/backfill-artist-images.sh
+#   ./scripts/backfills/backfill-artist-images.sh
 
 set -euo pipefail
 

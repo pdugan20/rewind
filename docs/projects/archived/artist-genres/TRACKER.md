@@ -36,13 +36,13 @@ Populate tags and genre for all existing artists.
 
 **2.2 -- Backfill Script**
 
-- [x] **2.2.1** Create `scripts/backfill-artist-tags.sh` that calls admin endpoint in a loop until `remaining: 0`
+- [x] **2.2.1** Create `scripts/backfills/backfill-artist-tags.sh` that calls admin endpoint in a loop until `remaining: 0`
 - [x] **2.2.2** Progress logging every batch
 
 **2.3 -- Run Backfill**
 
 - [x] **2.3.1** Deploy with backfill function
-- [x] **2.3.2** Run `scripts/backfill-artist-tags.sh` against production -- 9 batches, ~4,382 artists processed
+- [x] **2.3.2** Run `scripts/backfills/backfill-artist-tags.sh` against production -- 9 batches, ~4,382 artists processed
 - [x] **2.3.3** Spot-checked: Beatles -> Classic Rock, Nirvana -> Grunge, A Tribe Called Quest -> Hip-Hop, Wilco -> Alt-Country, Taylor Swift -> Country
 - [x] **2.3.4** Coverage: 4,076/4,382 (93%) artists have a genre. 306 artists had no usable tags from Last.fm (empty or all junk). 1 artist (+44) had URL encoding issue, set to empty tags.
 

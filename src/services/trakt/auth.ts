@@ -31,7 +31,7 @@ export async function getAccessToken(env: Env, db: Database): Promise<string> {
   const refreshToken = stored?.refreshToken;
   if (!refreshToken) {
     throw new Error(
-      '[ERROR] No refresh token available. Run scripts/setup-trakt.ts to seed trakt_tokens.'
+      '[ERROR] No refresh token available. Run scripts/tools/setup-trakt.ts to seed trakt_tokens.'
     );
   }
 

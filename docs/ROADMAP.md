@@ -406,7 +406,7 @@
 - [x] **4.8.5** Implement TMDB enrichment for new movies from Letterboxd (reuse watching/tmdb.ts)
 - [x] **4.8.6** Map Letterboxd rating (0.5-5.0) to user_rating field
 - [x] **4.8.7** Wire cron handler: every 6 hours Letterboxd RSS sync
-- [x] **4.8.8** Create scripts/import-letterboxd.ts (full export import: diary + ratings + reviews)
+- [x] **4.8.8** Create scripts/imports/import-letterboxd.ts (full export import: diary + ratings + reviews)
 - [x] **4.8.9** Write tests for Letterboxd sync
 
 **4.9 -- Manual Movie Entry**
@@ -540,10 +540,10 @@
 
 **6.5.2 -- Import Scripts**
 
-- [x] **6.5.2.1** Create scripts/import-strava.ts (paginated fetch, detail + laps per activity, rate limit monitoring, checkpoint/resume, D1 batch insert)
-- [x] **6.5.2.2** Create scripts/import-letterboxd.ts (one-time CSV import for full diary history)
-- [x] **6.5.2.3** Create scripts/import-lastfm.ts (batched SQL, checkpoint/resume, filter application)
-- [x] **6.5.2.4** Create scripts/import-apple-music.ts (Apple privacy export CSV, Apple-specific filters, dedup against existing Last.fm scrobbles, checkpoint/resume)
+- [x] **6.5.2.1** Create scripts/imports/import-strava.ts (paginated fetch, detail + laps per activity, rate limit monitoring, checkpoint/resume, D1 batch insert)
+- [x] **6.5.2.2** Create scripts/imports/import-letterboxd.ts (one-time CSV import for full diary history)
+- [x] **6.5.2.3** Create scripts/imports/import-lastfm.ts (batched SQL, checkpoint/resume, filter application)
+- [x] **6.5.2.4** Create scripts/imports/import-apple-music.ts (Apple privacy export CSV, Apple-specific filters, dedup against existing Last.fm scrobbles, checkpoint/resume)
 
 **6.5.3 -- Initial Data Imports**
 
@@ -552,7 +552,7 @@
 - [x] **6.5.3.3** Run Plex library import (368 movies, 1582 TV episodes) -- 400 movies, 98 shows, 1569 episodes imported. All images backfilled to R2.
 - [x] **6.5.3.4** Run Letterboxd CSV import -- 524 movies imported (424 synced, 77 skipped as existing, 3 retried). Diary watches, ratings (442), and reviews (82) merged from full Letterboxd export. Added `review` column to watch_history.
 - [ ] **6.5.3.6** Run Apple Music listening history import -- requires CSV from Apple privacy export (https://privacy.apple.com)
-- [x] **6.5.3.5a** Update Discogs collection -- bulk added 139 items (33 CDs + 106 vinyl) via scripts/add-discogs-collection.ts, collection now ~284 items
+- [x] **6.5.3.5a** Update Discogs collection -- bulk added 139 items (33 CDs + 106 vinyl) via scripts/tools/add-discogs-collection.ts, collection now ~284 items
 - [x] **6.5.3.5b** Run Discogs collection import -- 284 items synced to D1, cross-reference with Last.fm completed
 
 **6.5.4 -- Webhooks**
@@ -744,7 +744,7 @@ Activity feed, search index, and revalidation hooks have full infrastructure (sc
 - [x] **8.2.1** Create src/services/trakt/auth.ts (token management, mirroring Strava pattern)
 - [x] **8.2.2** Implement getAccessToken with expiry buffer and refresh
 - [x] **8.2.3** Implement refreshAccessToken with token persistence to trakt_tokens
-- [x] **8.2.4** Create scripts/setup-trakt.ts (device code OAuth flow for initial token seeding)
+- [x] **8.2.4** Create scripts/tools/setup-trakt.ts (device code OAuth flow for initial token seeding)
 - [x] **8.2.5** Run setup script to authenticate and seed trakt_tokens
 
 **8.3 -- Trakt API Client**

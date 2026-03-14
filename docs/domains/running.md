@@ -136,7 +136,7 @@ Runtime token storage. The initial refresh token comes from the env var, but onc
 
 ## Bulk Import Strategy
 
-Script: `scripts/import-strava.ts` (runs locally via Node.js, not on Workers)
+Script: `scripts/imports/import-strava.ts` (runs locally via Node.js, not on Workers)
 
 Process:
 

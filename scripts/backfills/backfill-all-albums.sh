@@ -1,12 +1,12 @@
 #!/bin/bash
 # Backfill all listening album images in batches of 100.
-# Stops when no items remain. Logs results to scripts/backfill-albums.log.
+# Stops when no items remain. Logs results to scripts/backfills/backfill-albums.log.
 
 set -euo pipefail
 
 API_KEY=$(grep REWIND_ADMIN_KEY .dev.vars | cut -d= -f2)
 URL="https://api.rewind.rest/v1/listening/admin/listening/backfill-images"
-LOG="scripts/backfill-albums.log"
+LOG="scripts/backfills/backfill-albums.log"
 BATCH=0
 TOTAL_SUCCEEDED=0
 TOTAL_SKIPPED=0

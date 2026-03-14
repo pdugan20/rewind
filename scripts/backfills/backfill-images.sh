@@ -1,10 +1,10 @@
 #!/bin/bash
 # Backfill images for a given domain/type in batches.
-# Usage: ./scripts/backfill-images.sh <domain> [type] [limit]
+# Usage: ./scripts/backfills/backfill-images.sh <domain> [type] [limit]
 # Examples:
-#   ./scripts/backfill-images.sh listening albums
-#   ./scripts/backfill-images.sh watching
-#   ./scripts/backfill-images.sh collecting
+#   ./scripts/backfills/backfill-images.sh listening albums
+#   ./scripts/backfills/backfill-images.sh watching
+#   ./scripts/backfills/backfill-images.sh collecting
 
 set -euo pipefail
 
@@ -20,7 +20,7 @@ if [ "$DOMAIN" = "collecting" ]; then
 else
   URL="https://api.rewind.rest/v1/${DOMAIN}/admin/${DOMAIN}/backfill-images"
 fi
-LOG="scripts/backfill-${DOMAIN}.log"
+LOG="scripts/backfills/backfill-${DOMAIN}.log"
 BATCH=0
 TOTAL_SUCCEEDED=0
 TOTAL_SKIPPED=0

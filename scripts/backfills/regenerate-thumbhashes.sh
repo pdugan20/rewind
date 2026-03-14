@@ -4,7 +4,7 @@
 # Calls the admin endpoint in batches until remaining = 0.
 #
 # Usage:
-#   ./scripts/regenerate-thumbhashes.sh
+#   ./scripts/backfills/regenerate-thumbhashes.sh
 
 set -euo pipefail
 

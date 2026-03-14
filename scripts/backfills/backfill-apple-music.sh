@@ -4,14 +4,14 @@
 # No Worker involved — curls iTunes from this machine, writes to D1 via wrangler.
 #
 # Usage:
-#   ./scripts/backfill-apple-music.sh
+#   ./scripts/backfills/backfill-apple-music.sh
 
 set -euo pipefail
 
 DB_NAME="rewind-db"
 DELAY=3  # seconds between iTunes requests
 WRITE_EVERY=50  # batch DB writes every N tracks
-SKIPS_FILE="scripts/backfill-apple-music-skips.csv"
+SKIPS_FILE="scripts/backfills/backfill-apple-music-skips.csv"
 
 echo "[INFO] Fetching unenriched tracks..."
 

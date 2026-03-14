@@ -5,7 +5,7 @@
 # processing 500 artists per batch until all are tagged.
 #
 # Usage:
-#   ./scripts/backfill-artist-tags.sh
+#   ./scripts/backfills/backfill-artist-tags.sh
 
 set -euo pipefail
 

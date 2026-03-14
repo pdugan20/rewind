@@ -167,7 +167,7 @@ Endpoints to update:
 
 - [ ] **2.1** Create `backfillAppleMusicLinks()` — queries unenriched tracks by playcount DESC, processes in batches of 50 with 3 concurrent lookups per batch
 - [ ] **2.2** Add admin endpoint: `POST /v1/admin/listening/enrich-apple-music` with `limit` param, returns succeeded/skipped/failed counts
-- [ ] **2.3** Create `scripts/backfill-apple-music.sh` — loops the admin endpoint, logs progress every batch, writes skipped tracks to CSV for review (same pattern as `backfill-album-images.sh`)
+- [ ] **2.3** Create `scripts/backfills/backfill-apple-music.sh` — loops the admin endpoint, logs progress every batch, writes skipped tracks to CSV for review (same pattern as `backfill-album-images.sh`)
 - [ ] **2.4** Run initial backfill (~5 hours at 3 concurrent), monitor hit rate and 403 frequency
 - [ ] **2.5** Verify enrichment coverage — check percentage of top artists/albums/tracks with Apple Music URLs
 

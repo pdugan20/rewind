@@ -377,7 +377,7 @@ All watching routes return `thumbhash`, `dominant_color`, and `accent_color` fro
 - Plex server must be accessible from cloud for library scan -- use plex.direct HTTPS URL with public IP (e.g., `https://1-2-3-4.{cert_hash}.plex.direct:port`)
 - Plex webhook URL must be publicly accessible (Plex cloud relay sends the webhook)
 - Letterboxd RSS feed only returns last 50 diary entries -- use CSV import for full history
-- Letterboxd RSS feed does not include reviews or ratings-only entries (movies rated but not logged to diary). To sync these, re-run the CSV import script (`scripts/import-letterboxd.ts`) with a fresh export from `https://letterboxd.com/settings/data/`. The script uses checkpoints and dedup so re-runs are safe.
+- Letterboxd RSS feed does not include reviews or ratings-only entries (movies rated but not logged to diary). To sync these, re-run the CSV import script (`scripts/imports/import-letterboxd.ts`) with a fresh export from `https://letterboxd.com/settings/data/`. The script uses checkpoints and dedup so re-runs are safe.
 - Letterboxd official API is invite-only and does not approve personal projects
 - Letterboxd ratings are 0.5-5.0 scale (half stars) vs TMDB 0-10 scale
 - Dedup relies on TMDB ID matching -- movies without TMDB IDs may create duplicates

@@ -225,14 +225,14 @@ Physical media items are cross-referenced with the watching domain using `tmdb_i
 
 ### Setup
 
-Initial Trakt authentication uses the OAuth2 device code flow via `scripts/setup-trakt.ts`. The script:
+Initial Trakt authentication uses the OAuth2 device code flow via `scripts/tools/setup-trakt.ts`. The script:
 
 1. Requests a device code from `POST /oauth/device/code`
 2. Displays the user code and verification URL (`https://trakt.tv/activate`)
 3. Polls `POST /oauth/device/token` until the user authorizes the app
 4. Stores the access and refresh tokens in the `trakt_tokens` table
 
-Run: `npx tsx scripts/setup-trakt.ts`
+Run: `npx tsx scripts/tools/setup-trakt.ts`
 
 Tokens are automatically refreshed during sync when the access token expires.
 

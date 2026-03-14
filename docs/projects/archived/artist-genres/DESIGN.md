@@ -171,7 +171,7 @@ Note: `artist.getTopTags` does not use the `user` param, but the base `request()
 
 ## Backfill Script
 
-`scripts/backfill-artist-tags.sh` -- follows the pattern of existing backfill scripts:
+`scripts/backfills/backfill-artist-tags.sh` -- follows the pattern of existing backfill scripts:
 
 1. Query remote D1 for all non-filtered artists where `tags IS NULL`
 2. For each artist, call the deployed API (a new admin endpoint `POST /v1/admin/sync` with `type: 'artist_tags'`, or a dedicated backfill endpoint)

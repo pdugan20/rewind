@@ -10,9 +10,9 @@ dist/
 coverage/
 .claudelint-cache/
 .claude/
-scripts/.strava-checkpoint.json
-scripts/.tmp-sql.sql
-scripts/.letterboxd-checkpoint.json
-scripts/.lastfm-checkpoint.json
+scripts/**/.*.json
+scripts/**/.tmp-sql.sql
+scripts/**/*.csv
+scripts/**/*.log
 docs-site/dist/
 docs-site/.astro/
