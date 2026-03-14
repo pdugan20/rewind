@@ -8349,6 +8349,82 @@
         }
       }
     },
+    "/v1/admin/images/regenerate-thumbhashes": {
+      "post": {
+        "tags": [
+          "Admin",
+          "Images"
+        ],
+        "summary": "Regenerate thumbhashes",
+        "description": "Re-read images from R2 and regenerate thumbhash placeholders using the corrected encoder. Processes in batches.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "batch_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "default": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch complete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "updated": {
+                      "type": "number"
+                    },
+                    "failed": {
+                      "type": "number"
+                    },
+                    "remaining": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "updated",
+                    "failed",
+                    "remaining"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/collecting/collection": {
       "get": {
         "tags": [

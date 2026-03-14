@@ -3,7 +3,7 @@
  * Orchestrates source priority, ThumbHash generation, color extraction, and DB persistence.
  */
 
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { images } from '../../db/schema/system.js';
 import { buildR2Key } from './presets.js';
@@ -711,4 +711,105 @@ export async function getImageRecord(
   if (results.length === 0) return null;
 
   return results[0] as ImageRecord;
+}
+
+/**
+ * Regenerate thumbhashes for existing images by reading from R2.
+ * Processes a batch of images that have an r2_key but need new thumbhashes.
+ */
+export async function regenerateThumbhashes(
+  db: Database,
+  env: PipelineEnv,
+  batchSize = 50
+): Promise<{ updated: number; failed: number; remaining: number }> {
+  // Get images with r2_keys (all of them, since all existing hashes are bad)
+  const rows = await db
+    .select({
+      id: images.id,
+      r2Key: images.r2Key,
+      domain: images.domain,
+      entityType: images.entityType,
+      entityId: images.entityId,
+    })
+    .from(images)
+    .where(
+      and(
+        sql`length(${images.r2Key}) > 0`,
+        sql`${images.thumbhash} LIKE '%//%'`
+      )
+    )
+    .limit(batchSize);
+
+  let updated = 0;
+  let failed = 0;
+
+  for (const row of rows) {
+    try {
+      const obj = await env.IMAGES.get(row.r2Key);
+      if (!obj) {
+        failed++;
+        continue;
+      }
+
+      const bytes = await obj.arrayBuffer();
+      const decoded =
+        (await decodeViaBindingPublic(env.IMAGE_TRANSFORMS, bytes)) ??
+        decodeImageForAnalysis(bytes);
+
+      if (!decoded) {
+        failed++;
+        continue;
+      }
+
+      const thumbhash = generateThumbHash(
+        decoded.width,
+        decoded.height,
+        decoded.pixels
+      );
+      const colors = extractColors(
+        decoded.pixels,
+        decoded.width,
+        decoded.height
+      );
+
+      await db
+        .update(images)
+        .set({
+          thumbhash,
+          dominantColor: colors.dominantColor,
+          accentColor: colors.accentColor,
+        })
+        .where(eq(images.id, row.id));
+
+      updated++;
+    } catch (err) {
+      console.log(
+        `[ERROR] Thumbhash regen failed for ${row.domain}/${row.entityType}/${row.entityId}: ${err}`
+      );
+      failed++;
+    }
+  }
+
+  // Count remaining
+  const [remainingRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(images)
+    .where(
+      and(
+        sql`length(${images.r2Key}) > 0`,
+        sql`${images.thumbhash} LIKE '%//%'`
+      )
+    );
+
+  return { updated, failed, remaining: remainingRow.count };
+}
+
+/**
+ * Public wrapper around decodeViaBinding for use outside the pipeline.
+ */
+async function decodeViaBindingPublic(
+  binding: ImagesBinding,
+  bytes: ArrayBuffer
+): Promise<{ pixels: Uint8Array; width: number; height: number } | null> {
+  return decodeViaBinding(binding, bytes);
 }

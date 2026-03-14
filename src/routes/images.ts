@@ -24,6 +24,7 @@ import {
   revertOverride,
   resolveAlternatives,
   deserializeSearchHints,
+  regenerateThumbhashes,
 } from '../services/images/pipeline.js';
 import type { SourceSearchParams } from '../services/images/sources/types.js';
 
@@ -500,6 +501,60 @@ imagesRoute.openapi(deleteOverrideRoute, async (c) => {
     dominant_color: result.dominantColor,
     accent_color: result.accentColor,
   });
+});
+
+// POST /v1/admin/images/regenerate-thumbhashes
+const regenThumbhashRoute = createRoute({
+  method: 'post',
+  path: '/admin/images/regenerate-thumbhashes',
+  tags: ['Admin', 'Images'],
+  summary: 'Regenerate thumbhashes',
+  description:
+    'Re-read images from R2 and regenerate thumbhash placeholders using the corrected encoder. Processes in batches.',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            batch_size: z.number().int().min(1).max(200).optional().default(50),
+          }),
+        },
+      },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Batch complete',
+      content: {
+        'application/json': {
+          schema: z.object({
+            updated: z.number(),
+            failed: z.number(),
+            remaining: z.number(),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+imagesRoute.openapi(regenThumbhashRoute, async (c) => {
+  const db = createDb(c.env.DB);
+
+  const body = await c.req
+    .json<{ batch_size?: number }>()
+    .catch(() => ({ batch_size: undefined }));
+  const batchSize = body.batch_size ?? 50;
+
+  try {
+    const result = await regenerateThumbhashes(db, c.env, batchSize);
+    return c.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
 });
 
 export default imagesRoute;
