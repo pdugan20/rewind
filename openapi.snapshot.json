@@ -1548,6 +1548,12 @@
                               "null"
                             ]
                           },
+                          "genre": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "url": {
                             "type": "string"
                           },
@@ -1557,6 +1563,7 @@
                           "id",
                           "name",
                           "playcount",
+                          "genre",
                           "url"
                         ]
                       }
@@ -1794,6 +1801,35 @@
                     "scrobble_count": {
                       "type": "number"
                     },
+                    "genre": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tags": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "example": "Rock"
+                          },
+                          "count": {
+                            "type": "number",
+                            "example": 100
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "count"
+                        ]
+                      }
+                    },
                     "image": {},
                     "top_albums": {
                       "type": "array",
@@ -1848,6 +1884,8 @@
                     "url",
                     "playcount",
                     "scrobble_count",
+                    "genre",
+                    "tags",
                     "top_albums",
                     "top_tracks"
                   ]
@@ -2320,7 +2358,7 @@
           "Listening"
         ],
         "summary": "Year in review",
-        "description": "Returns year-in-review listening data.",
+        "description": "Returns year-in-review listening data. Optionally pass ?month=N to scope to a single month.",
         "parameters": [
           {
             "schema": {
@@ -2330,6 +2368,19 @@
             "required": true,
             "name": "year",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "example": 3,
+              "description": "Optional month (1-12) to scope results to a single month"
+            },
+            "required": false,
+            "description": "Optional month (1-12) to scope results to a single month",
+            "name": "month",
+            "in": "query"
           }
         ],
         "responses": {
@@ -2341,6 +2392,9 @@
                   "type": "object",
                   "properties": {
                     "year": {
+                      "type": "number"
+                    },
+                    "month": {
                       "type": "number"
                     },
                     "total_scrobbles": {
@@ -2479,6 +2533,140 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listening/genres": {
+      "get": {
+        "tags": [
+          "Listening"
+        ],
+        "summary": "Genre breakdown",
+        "description": "Returns genre breakdown over time, grouped by period. Designed for stacked bar charts.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "week",
+                "month",
+                "year"
+              ],
+              "default": "month",
+              "example": "month"
+            },
+            "required": false,
+            "name": "group_by",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10,
+              "example": 10,
+              "description": "Max genres to return (rest grouped as \"Other\")"
+            },
+            "required": false,
+            "description": "Max genres to return (rest grouped as \"Other\")",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Genre breakdown by period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "period": {
+                            "type": "string",
+                            "example": "2025-01"
+                          },
+                          "genres": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "number"
+                            },
+                            "example": {
+                              "Rock": 245,
+                              "Hip-Hop": 112,
+                              "Electronic": 87,
+                              "Other": 89
+                            }
+                          },
+                          "total": {
+                            "type": "number",
+                            "example": 637
+                          }
+                        },
+                        "required": [
+                          "period",
+                          "genres",
+                          "total"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
                 }
               }
             }
@@ -12046,7 +12234,8 @@
                       "top_lists",
                       "stats",
                       "full",
-                      "backfill"
+                      "backfill",
+                      "artist_tags"
                     ],
                     "default": "scrobbles",
                     "example": "scrobbles"

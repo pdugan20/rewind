@@ -27,6 +27,7 @@ Last.fm scrobble data (123,769+ scrobbles since 2012), top artists/albums/tracks
 | user.getTopAlbums    | Top albums by period                       | user, period, limit, page   |
 | user.getTopTracks    | Top tracks by period                       | user, period, limit, page   |
 | user.getInfo         | Total scrobbles, registration date         | user                        |
+| artist.getTopTags    | Community tags for an artist               | artist                      |
 | artist.getInfo       | Artist details, tags, bio                  | artist, mbid                |
 | album.getInfo        | Album details, tracks                      | artist, album, mbid         |
 
@@ -56,7 +57,7 @@ Note: Artist images deprecated since ~2020. All artist image URLs return placeho
 
 ## Sync Strategy
 
-- **Recent scrobbles**: every 15 minutes via cron. Fetch `user.getRecentTracks` with `from={last_scrobble_timestamp}`. Insert new scrobbles, upsert artists/albums/tracks.
+- **Recent scrobbles**: every 15 minutes via cron. Fetch `user.getRecentTracks` with `from={last_scrobble_timestamp}`. Insert new scrobbles, upsert artists/albums/tracks. New artists are automatically tagged with genres via `artist.getTopTags`.
 - **Top lists**: daily at 3 AM. Fetch all 6 periods for artists, albums, tracks. Delete old rankings, insert new.
 - **User stats**: daily at 3 AM alongside top lists. Call `user.getInfo` for total scrobbles. Compute unique counts from local DB.
 - **Full historical backfill**: one-time. Paginate through all `user.getRecentTracks` from oldest to newest. ~124K scrobbles / 200 per page / 5 per second = ~2 minutes.
@@ -129,11 +130,25 @@ All endpoints require `Authorization: Bearer rw_...` header.
 | GET    | /v1/listening/top/tracks  | Top tracks by period              | 3600s                          | period, limit (default 10), page     |
 | GET    | /v1/listening/stats       | Overall listening statistics      | 3600s                          | date, from, to                       |
 | GET    | /v1/listening/history     | Full scrobble history             | 3600s                          | from, to, artist, album, limit, page |
-| GET    | /v1/listening/artists/:id | Single artist detail              | 3600s                          | none (includes first_scrobbled_at)   |
+| GET    | /v1/listening/artists/:id | Single artist detail (genre/tags) | 3600s                          | none (includes first_scrobbled_at)   |
 | GET    | /v1/listening/albums/:id  | Single album detail               | 3600s                          | none (includes first_scrobbled_at)   |
+| GET    | /v1/listening/genres      | Genre breakdown over time         | 3600s                          | from, to, date, group_by, limit      |
 | GET    | /v1/listening/calendar    | Daily scrobble counts             | 3600s (current), 86400s (past) | year (default current)               |
 | GET    | /v1/listening/trends      | Listening trends over time        | 86400s                         | metric, from, to                     |
 | GET    | /v1/listening/streaks     | Current/longest listening streaks | 3600s                          | none                                 |
+
+## Genre Tags
+
+Artist genre data is sourced from Last.fm's `artist.getTopTags` API (community-submitted tags). Raw tags are filtered through a curated allowlist in `src/services/lastfm/genres.ts` that normalizes synonyms (e.g., "hip hop", "Hip-Hop", "rap" all map to "Hip-Hop") and discards non-genre tags ("seen live", "female vocalists", etc.).
+
+Each artist stores:
+
+- `tags` (JSON) -- normalized tags with weights: `[{"name":"Rock","count":100},{"name":"Pop","count":14}]`
+- `genre` (text) -- primary genre (highest-weighted allowlisted tag), indexed for fast queries
+
+Genre data is populated automatically when new artists are discovered during scrobble sync. Coverage: ~93% of non-filtered artists have a genre assigned.
+
+The `/listening/genres` endpoint joins scrobbles through tracks to artists, grouping by time period and genre. The `limit` param controls how many genres are shown before the rest are rolled up as "Other" -- ideal for stacked bar charts.
 
 ## Streaks
 
@@ -216,6 +231,16 @@ interface ListeningStreaks {
     end_date: string;
     total_scrobbles: number;
   };
+}
+
+interface GenrePeriod {
+  period: string; // "2025-01", "2025-W03", "2025"
+  genres: Record<string, number>; // { "Rock": 245, "Hip-Hop": 112, "Other": 89 }
+  total: number;
+}
+
+interface GenreBreakdownResponse {
+  data: GenrePeriod[];
 }
 ```
 

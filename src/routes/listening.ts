@@ -150,6 +150,7 @@ const ArtistBrowseSchema = z.object({
   id: z.number(),
   name: z.string(),
   playcount: z.number().nullable(),
+  genre: z.string().nullable(),
   url: z.string(),
   image: z.any().nullable(),
 });
@@ -163,6 +164,11 @@ const AlbumBrowseSchema = z.object({
   image: z.any().nullable(),
 });
 
+const NormalizedTagSchema = z.object({
+  name: z.string().openapi({ example: 'Rock' }),
+  count: z.number().openapi({ example: 100 }),
+});
+
 const ArtistDetailSchema = z.object({
   id: z.number(),
   name: z.string(),
@@ -170,6 +176,8 @@ const ArtistDetailSchema = z.object({
   url: z.string().nullable(),
   playcount: z.number(),
   scrobble_count: z.number(),
+  genre: z.string().nullable(),
+  tags: z.array(NormalizedTagSchema).nullable(),
   image: z.any().nullable(),
   top_albums: z.array(
     z.object({
@@ -216,6 +224,7 @@ const FilterSchema = z.object({
 
 const YearSchema = z.object({
   year: z.number(),
+  month: z.number().optional(),
   total_scrobbles: z.number(),
   unique_artists: z.number(),
   unique_albums: z.number(),
@@ -662,19 +671,81 @@ const streaksRoute = createRoute({
   },
 });
 
+const YearQuerySchema = z.object({
+  month: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(12)
+    .optional()
+    .openapi({
+      example: 3,
+      description: 'Optional month (1-12) to scope results to a single month',
+    }),
+});
+
 const yearRoute = createRoute({
   method: 'get',
   path: '/year/{year}',
   tags: ['Listening'],
   summary: 'Year in review',
-  description: 'Returns year-in-review listening data.',
-  request: { params: YearParamSchema },
+  description:
+    'Returns year-in-review listening data. Optionally pass ?month=N to scope to a single month.',
+  request: { params: YearParamSchema, query: YearQuerySchema },
   responses: {
     200: {
       description: 'Year in review data',
       content: { 'application/json': { schema: YearSchema } },
     },
     ...errorResponses(400, 401),
+  },
+});
+
+const GenrePeriodSchema = z.object({
+  period: z.string().openapi({ example: '2025-01' }),
+  genres: z.record(z.string(), z.number()).openapi({
+    example: { Rock: 245, 'Hip-Hop': 112, Electronic: 87, Other: 89 },
+  }),
+  total: z.number().openapi({ example: 637 }),
+});
+
+const genresRoute = createRoute({
+  method: 'get',
+  path: '/genres',
+  tags: ['Listening'],
+  summary: 'Genre breakdown',
+  description:
+    'Returns genre breakdown over time, grouped by period. Designed for stacked bar charts.',
+  request: {
+    query: DateFilterQuery.extend({
+      group_by: z
+        .enum(['week', 'month', 'year'])
+        .optional()
+        .default('month')
+        .openapi({ example: 'month' }),
+      limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .default(10)
+        .openapi({
+          example: 10,
+          description: 'Max genres to return (rest grouped as "Other")',
+        }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Genre breakdown by period',
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(GenrePeriodSchema) }),
+        },
+      },
+    },
+    ...errorResponses(401),
   },
 });
 
@@ -979,6 +1050,7 @@ listening.openapi(topArtistsRoute, async (c) => {
       artistId: lastfmArtists.id,
       artistName: lastfmArtists.name,
       artistUrl: lastfmArtists.url,
+      artistGenre: lastfmArtists.genre,
     })
     .from(lastfmTopArtists)
     .innerJoin(lastfmArtists, eq(lastfmTopArtists.artistId, lastfmArtists.id))
@@ -1005,6 +1077,7 @@ listening.openapi(topArtistsRoute, async (c) => {
       name: item.artistName,
       detail: '',
       playcount: item.playcount,
+      genre: item.artistGenre ?? null,
       image: imageMap.get(String(item.artistId)) ?? null,
       url: item.artistUrl ?? '',
     })),
@@ -1374,6 +1447,7 @@ listening.openapi(browseArtistsRoute, async (c) => {
       name: lastfmArtists.name,
       url: lastfmArtists.url,
       playcount: lastfmArtists.playcount,
+      genre: lastfmArtists.genre,
     })
     .from(lastfmArtists)
     .where(whereClause)
@@ -1394,6 +1468,7 @@ listening.openapi(browseArtistsRoute, async (c) => {
       id: item.id,
       name: item.name,
       playcount: item.playcount,
+      genre: item.genre ?? null,
       url: item.url ?? '',
       image: imageMap.get(String(item.id)) ?? null,
     })),
@@ -1562,6 +1637,8 @@ listening.openapi(artistDetailRoute, async (c) => {
     playcount: artist.playcount,
     scrobble_count: scrobbleCount.count,
     first_scrobbled_at: firstScrobble?.firstScrobbledAt ?? null,
+    genre: artist.genre ?? null,
+    tags: artist.tags ? JSON.parse(artist.tags) : null,
     image: artistImage,
     top_albums: topAlbums.map((a) => ({
       id: a.id,
@@ -1896,8 +1973,15 @@ listening.openapi(yearRoute, async (c) => {
   const currentYear = new Date().getFullYear();
   const year = parseInt(c.req.param('year'));
 
+  const monthParam = c.req.query('month')
+    ? parseInt(c.req.query('month')!)
+    : undefined;
+
   if (isNaN(year) || year < 2000 || year > currentYear + 1) {
     return badRequest(c, 'Invalid year') as any;
+  }
+  if (monthParam !== undefined && (monthParam < 1 || monthParam > 12)) {
+    return badRequest(c, 'Invalid month (1-12)') as any;
   }
 
   if (year < currentYear) {
@@ -1906,8 +1990,20 @@ listening.openapi(yearRoute, async (c) => {
     setCache(c, 'medium');
   }
 
-  const startDate = `${year}-01-01T00:00:00.000Z`;
-  const endDate = `${year + 1}-01-01T00:00:00.000Z`;
+  let startDate: string;
+  let endDate: string;
+  if (monthParam) {
+    const mm = String(monthParam).padStart(2, '0');
+    startDate = `${year}-${mm}-01T00:00:00.000Z`;
+    // Next month (handles December → next year)
+    const nextMonth = monthParam === 12 ? 1 : monthParam + 1;
+    const nextYear = monthParam === 12 ? year + 1 : year;
+    const nmm = String(nextMonth).padStart(2, '0');
+    endDate = `${nextYear}-${nmm}-01T00:00:00.000Z`;
+  } else {
+    startDate = `${year}-01-01T00:00:00.000Z`;
+    endDate = `${year + 1}-01-01T00:00:00.000Z`;
+  }
   const dateRange = and(
     gte(lastfmScrobbles.scrobbledAt, startDate),
     lte(lastfmScrobbles.scrobbledAt, endDate)
@@ -1982,19 +2078,21 @@ listening.openapi(yearRoute, async (c) => {
     .orderBy(desc(sql`count(*)`))
     .limit(10);
 
-  // Monthly breakdown
-  const monthlyBreakdown = await db
-    .select({
-      month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
-      scrobbles: sql<number>`count(*)`,
-      artists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
-      albums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
-    })
-    .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(filteredDateRange)
-    .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
-    .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
+  // Monthly breakdown (skip when scoped to a single month)
+  const monthlyBreakdown = monthParam
+    ? []
+    : await db
+        .select({
+          month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
+          scrobbles: sql<number>`count(*)`,
+          artists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
+          albums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+        })
+        .from(lastfmScrobbles)
+        .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+        .where(filteredDateRange)
+        .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
+        .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
 
   // Batch fetch images
   const artistIds = topArtists.map((a) => String(a.id));
@@ -2006,6 +2104,7 @@ listening.openapi(yearRoute, async (c) => {
 
   return c.json({
     year,
+    ...(monthParam ? { month: monthParam } : {}),
     total_scrobbles: totalScrobbles,
     unique_artists: uniqueCounts.artists,
     unique_albums: uniqueCounts.albums,
@@ -2036,6 +2135,99 @@ listening.openapi(yearRoute, async (c) => {
       unique_albums: m.albums,
     })),
   });
+});
+
+// GET /v1/listening/genres
+listening.openapi(genresRoute, async (c) => {
+  setCache(c, 'medium');
+  const db = createDb(c.env.DB);
+
+  const groupBy = c.req.query('group_by') ?? 'month';
+  const genreLimit = Math.min(
+    Math.max(1, parseInt(c.req.query('limit') ?? '10')),
+    50
+  );
+
+  // Build date format string based on group_by
+  let dateFormat: string;
+  switch (groupBy) {
+    case 'week':
+      // ISO week: YYYY-WNN
+      dateFormat = `strftime('%Y-W%W', ${lastfmScrobbles.scrobbledAt.name})`;
+      break;
+    case 'year':
+      dateFormat = `strftime('%Y', ${lastfmScrobbles.scrobbledAt.name})`;
+      break;
+    default:
+      dateFormat = `strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt.name})`;
+  }
+
+  const dateCondition = buildDateCondition(
+    lastfmScrobbles.scrobbledAt,
+    c.req.query()
+  );
+
+  const conditions = [
+    eq(lastfmTracks.isFiltered, 0),
+    sql`${lastfmArtists.genre} IS NOT NULL`,
+  ];
+  if (dateCondition) conditions.push(dateCondition);
+
+  // Query: group by period + genre, count scrobbles
+  const rows = await db
+    .select({
+      period: sql<string>`${sql.raw(dateFormat)}`.as('period'),
+      genre: lastfmArtists.genre,
+      count: sql<number>`count(*)`.as('count'),
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .where(and(...conditions))
+    .groupBy(sql.raw(dateFormat), lastfmArtists.genre)
+    .orderBy(sql.raw(dateFormat), desc(sql`count(*)`));
+
+  // Aggregate: for each period, take top N genres, sum rest as "Other"
+  const periodMap = new Map<
+    string,
+    { genres: Record<string, number>; total: number }
+  >();
+
+  for (const row of rows) {
+    if (!row.period || !row.genre) continue;
+    let entry = periodMap.get(row.period);
+    if (!entry) {
+      entry = { genres: {}, total: 0 };
+      periodMap.set(row.period, entry);
+    }
+    entry.genres[row.genre] = (entry.genres[row.genre] || 0) + row.count;
+    entry.total += row.count;
+  }
+
+  // Apply genre limit per period
+  const data = Array.from(periodMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, { genres, total }]) => {
+      const sorted = Object.entries(genres).sort(([, a], [, b]) => b - a);
+      const topGenres: Record<string, number> = {};
+      let otherCount = 0;
+
+      for (let i = 0; i < sorted.length; i++) {
+        if (i < genreLimit) {
+          topGenres[sorted[i][0]] = sorted[i][1];
+        } else {
+          otherCount += sorted[i][1];
+        }
+      }
+
+      if (otherCount > 0) {
+        topGenres['Other'] = otherCount;
+      }
+
+      return { period, genres: topGenres, total };
+    });
+
+  return c.json({ data });
 });
 
 // POST /v1/admin/sync/listening -- moved to admin-sync.ts

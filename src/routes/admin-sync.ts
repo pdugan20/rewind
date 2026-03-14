@@ -42,7 +42,14 @@ const SyncStatusResponse = z
 
 const ListeningSyncBody = z.object({
   type: z
-    .enum(['scrobbles', 'top_lists', 'stats', 'full', 'backfill'])
+    .enum([
+      'scrobbles',
+      'top_lists',
+      'stats',
+      'full',
+      'backfill',
+      'artist_tags',
+    ])
     .optional()
     .default('scrobbles')
     .openapi({ example: 'scrobbles' }),
@@ -128,9 +135,17 @@ adminSync.openapi(syncListeningRoute, async (c) => {
     | 'top_lists'
     | 'stats'
     | 'full'
-    | 'backfill';
+    | 'backfill'
+    | 'artist_tags';
 
-  const validTypes = ['scrobbles', 'top_lists', 'stats', 'full', 'backfill'];
+  const validTypes = [
+    'scrobbles',
+    'top_lists',
+    'stats',
+    'full',
+    'backfill',
+    'artist_tags',
+  ];
   if (!validTypes.includes(syncType)) {
     return badRequest(
       c,
@@ -143,6 +158,7 @@ adminSync.openapi(syncListeningRoute, async (c) => {
     return c.json({
       status: 'completed' as const,
       items_synced: result.itemsSynced,
+      ...(result.remaining !== undefined && { remaining: result.remaining }),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

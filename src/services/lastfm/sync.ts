@@ -18,6 +18,7 @@ import { isFiltered, loadFilters } from './filters.js';
 import { afterSync } from '../../lib/after-sync.js';
 import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import { cleanArtistName } from '../images/sources/utils.js';
+import { resolveGenre } from './genres.js';
 
 async function upsertArtist(
   db: Database,
@@ -287,6 +288,28 @@ export async function syncRecentScrobbles(
           track.albumName,
           track.trackUrl
         );
+
+        // Tag new artists with genres from Last.fm
+        if (artist.isNew) {
+          try {
+            const tagResponse = await client.getArtistTopTags(track.artistName);
+            const rawTags = tagResponse.toptags.tag.map((t) => ({
+              name: t.name,
+              count: t.count,
+            }));
+            const { genre, normalizedTags } = resolveGenre(rawTags);
+
+            await db
+              .update(lastfmArtists)
+              .set({
+                tags: JSON.stringify(normalizedTags),
+                genre,
+              })
+              .where(eq(lastfmArtists.id, artist.id));
+          } catch {
+            // Non-fatal -- artist still gets created, tags can be backfilled later
+          }
+        }
 
         // Track new artists and albums for feed/search
         if (artist.isNew && !newArtists.has(track.artistName)) {
@@ -745,13 +768,98 @@ export async function backfillScrobbles(
 }
 
 /**
+ * Backfill genre tags for existing artists.
+ * Processes up to `batchSize` artists per invocation to avoid Worker timeout.
+ * Returns tagged count and remaining count so the caller can loop.
+ */
+export async function backfillArtistTags(
+  db: Database,
+  client: LastfmClient,
+  batchSize = 500
+): Promise<{ tagged: number; remaining: number }> {
+  const runId = await startSyncRun(db, 'artist_tags');
+  let tagged = 0;
+
+  try {
+    const artists = await db
+      .select({ id: lastfmArtists.id, name: lastfmArtists.name })
+      .from(lastfmArtists)
+      .where(
+        and(eq(lastfmArtists.isFiltered, 0), sql`${lastfmArtists.tags} IS NULL`)
+      )
+      .orderBy(desc(lastfmArtists.playcount))
+      .limit(batchSize);
+
+    const totalRemaining = artists.length;
+
+    for (const artist of artists) {
+      try {
+        const response = await client.getArtistTopTags(artist.name);
+        const rawTags = response.toptags.tag.map((t) => ({
+          name: t.name,
+          count: t.count,
+        }));
+        const { genre, normalizedTags } = resolveGenre(rawTags);
+
+        await db
+          .update(lastfmArtists)
+          .set({
+            tags: JSON.stringify(normalizedTags),
+            genre,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(lastfmArtists.id, artist.id));
+
+        tagged++;
+
+        if (tagged % 100 === 0) {
+          console.log(
+            `[SYNC] Tagged ${tagged}/${totalRemaining} artists (this batch)`
+          );
+        }
+      } catch (err) {
+        console.log(`[ERROR] Failed to tag artist ${artist.name}: ${err}`);
+      }
+    }
+
+    // Count how many still need tagging after this batch
+    const [remainingRow] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(lastfmArtists)
+      .where(
+        and(eq(lastfmArtists.isFiltered, 0), sql`${lastfmArtists.tags} IS NULL`)
+      );
+    const remaining = remainingRow.count;
+
+    await completeSyncRun(db, runId, tagged, JSON.stringify({ remaining }));
+    console.log(
+      `[SYNC] Artist tag batch complete: ${tagged} tagged, ${remaining} remaining`
+    );
+    return { tagged, remaining };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await failSyncRun(db, runId, message);
+    console.log(`[ERROR] Artist tag backfill failed: ${message}`);
+    throw error;
+  }
+}
+
+/**
  * Main sync orchestrator called by cron or admin endpoint.
  */
 export async function syncListening(
   db: Database,
   client: LastfmClient,
-  options: { type: 'scrobbles' | 'top_lists' | 'stats' | 'full' | 'backfill' }
-): Promise<{ itemsSynced: number }> {
+  options: {
+    type:
+      | 'scrobbles'
+      | 'top_lists'
+      | 'stats'
+      | 'full'
+      | 'backfill'
+      | 'artist_tags';
+  }
+): Promise<{ itemsSynced: number; remaining?: number }> {
   // Load filter rules from DB into memory for this sync run
   await loadFilters(db);
 
@@ -784,6 +892,11 @@ export async function syncListening(
       await syncUserStats(db, client);
       totalSynced += 1;
       break;
+    }
+    case 'artist_tags': {
+      const tagResult = await backfillArtistTags(db, client);
+      await afterSync(db, { domain: 'listening', feedItems, searchItems });
+      return { itemsSynced: tagResult.tagged, remaining: tagResult.remaining };
     }
   }
 

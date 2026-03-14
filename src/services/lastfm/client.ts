@@ -40,6 +40,12 @@ export interface LastfmTopTrack {
   '@attr': { rank: string };
 }
 
+export interface LastfmTag {
+  name: string;
+  count: number;
+  url: string;
+}
+
 export interface LastfmUserInfo {
   user: {
     playcount: string;
@@ -209,6 +215,15 @@ export class LastfmClient {
   async getUserInfo(): Promise<LastfmUserInfo> {
     return this.request({
       method: 'user.getInfo',
+    });
+  }
+
+  async getArtistTopTags(artist: string): Promise<{
+    toptags: { tag: LastfmTag[]; '@attr': { artist: string } };
+  }> {
+    return this.request({
+      method: 'artist.getTopTags',
+      artist,
     });
   }
 }

@@ -17,6 +17,8 @@ export const lastfmArtists = sqliteTable(
     playcount: integer('playcount').default(0),
     isFiltered: integer('is_filtered').default(0),
     imageKey: text('image_key'),
+    tags: text('tags'), // JSON array of { name, count } after allowlist filtering
+    genre: text('genre'), // Primary genre (top allowlisted tag)
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -28,6 +30,7 @@ export const lastfmArtists = sqliteTable(
     uniqueIndex('idx_lastfm_artists_user_name').on(table.userId, table.name),
     index('idx_lastfm_artists_user_id').on(table.userId),
     index('idx_lastfm_artists_filtered').on(table.isFiltered),
+    index('idx_lastfm_artists_genre').on(table.genre),
   ]
 );
 
