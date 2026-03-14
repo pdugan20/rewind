@@ -19,6 +19,9 @@ export const lastfmArtists = sqliteTable(
     imageKey: text('image_key'),
     tags: text('tags'), // JSON array of { name, count } after allowlist filtering
     genre: text('genre'), // Primary genre (top allowlisted tag)
+    appleMusicId: integer('apple_music_id'),
+    appleMusicUrl: text('apple_music_url'),
+    itunesEnrichedAt: text('itunes_enriched_at'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -49,6 +52,9 @@ export const lastfmAlbums = sqliteTable(
     isFiltered: integer('is_filtered').default(0),
     imageKey: text('image_key'),
     isCompilation: integer('is_compilation').default(0),
+    appleMusicId: integer('apple_music_id'),
+    appleMusicUrl: text('apple_music_url'),
+    itunesEnrichedAt: text('itunes_enriched_at'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -79,6 +85,10 @@ export const lastfmTracks = sqliteTable(
     url: text('url'),
     durationMs: integer('duration_ms'),
     isFiltered: integer('is_filtered').default(0),
+    appleMusicId: integer('apple_music_id'),
+    appleMusicUrl: text('apple_music_url'),
+    previewUrl: text('preview_url'),
+    itunesEnrichedAt: text('itunes_enriched_at'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),

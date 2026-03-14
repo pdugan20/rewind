@@ -20,6 +20,7 @@ import { images } from '../db/schema/system.js';
 import { LastfmClient } from '../services/lastfm/client.js';
 import type { LastfmPeriod } from '../services/lastfm/client.js';
 import { backfillImages } from '../services/images/backfill.js';
+import { enrichBatch } from '../services/itunes/enrich.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses, PaginationMeta } from '../lib/schemas/common.js';
@@ -2436,6 +2437,46 @@ listening.openapi(backfillImagesRoute, async (c) => {
     results.artists = artistResult;
   }
 
+  return c.json({ success: true, results });
+});
+
+// POST /v1/listening/admin/listening/enrich-apple-music
+const enrichAppleMusicRoute = createRoute({
+  method: 'post',
+  path: '/admin/listening/enrich-apple-music',
+  tags: ['Listening', 'Admin'],
+  summary: 'Enrich tracks with Apple Music URLs',
+  description:
+    'Enriches unenriched tracks with Apple Music deep links and preview audio via iTunes Search API.',
+  responses: {
+    200: {
+      description: 'Enrichment results',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            results: z.object({
+              total: z.number(),
+              succeeded: z.number(),
+              skipped: z.number(),
+              failed: z.number(),
+            }),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+listening.openapi(enrichAppleMusicRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const limit = Math.min(
+    Math.max(1, parseInt(c.req.query('limit') ?? '50', 10)),
+    200
+  );
+
+  const results = await enrichBatch(db, limit);
   return c.json({ success: true, results });
 });
 

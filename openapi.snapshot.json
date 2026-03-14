@@ -3035,6 +3035,70 @@
         }
       }
     },
+    "/v1/listening/admin/listening/enrich-apple-music": {
+      "post": {
+        "tags": [
+          "Listening",
+          "Admin"
+        ],
+        "summary": "Enrich tracks with Apple Music URLs",
+        "description": "Enriches unenriched tracks with Apple Music deep links and preview audio via iTunes Search API.",
+        "responses": {
+          "200": {
+            "description": "Enrichment results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "results": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "number"
+                        },
+                        "succeeded": {
+                          "type": "number"
+                        },
+                        "skipped": {
+                          "type": "number"
+                        },
+                        "failed": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "succeeded",
+                        "skipped",
+                        "failed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "results"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/running/stats": {
       "get": {
         "tags": [
