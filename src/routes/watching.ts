@@ -932,6 +932,9 @@ watching.openapi(moviesListRoute, async (c) => {
   const total = totalResult?.total || 0;
 
   // Determine sort column
+  const useWatchedAtSort =
+    sort === 'watched_at' || !['title', 'year', 'rating'].includes(sort);
+
   let orderByClause;
   if (sort === 'title') {
     orderByClause = order === 'asc' ? asc(movies.title) : desc(movies.title);
@@ -940,18 +943,36 @@ watching.openapi(moviesListRoute, async (c) => {
   } else if (sort === 'rating') {
     orderByClause =
       order === 'asc' ? asc(movies.tmdbRating) : desc(movies.tmdbRating);
-  } else {
-    // Default: sort by most recent watch
-    orderByClause = desc(movies.createdAt);
   }
 
-  const movieRows = await db
-    .select()
-    .from(movies)
-    .where(whereClause)
-    .orderBy(orderByClause)
-    .limit(limit)
-    .offset(offset);
+  let movieRows;
+  if (useWatchedAtSort) {
+    // Join watch_history to sort by most recent watch date per movie
+    const lastWatched = sql<string>`MAX(${watchHistory.watchedAt})`.as(
+      'last_watched'
+    );
+    const results = await db
+      .select({
+        movie: movies,
+        lastWatched,
+      })
+      .from(movies)
+      .innerJoin(watchHistory, eq(movies.id, watchHistory.movieId))
+      .where(whereClause)
+      .groupBy(movies.id)
+      .orderBy(order === 'asc' ? asc(lastWatched) : desc(lastWatched))
+      .limit(limit)
+      .offset(offset);
+    movieRows = results.map((r) => r.movie);
+  } else {
+    movieRows = await db
+      .select()
+      .from(movies)
+      .where(whereClause)
+      .orderBy(orderByClause!)
+      .limit(limit)
+      .offset(offset);
+  }
 
   const movieIds = movieRows.map((m) => String(m.id));
   const imageMap = await getImageAttachmentBatch(
