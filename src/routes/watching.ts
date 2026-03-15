@@ -125,6 +125,8 @@ const WatchEventSchema = z.object({
   user_rating: z.number().nullable(),
   percent_complete: z.number().nullable(),
   rewatch: z.boolean(),
+  review: z.string().nullable(),
+  review_url: z.string().nullable(),
 });
 
 const WatchHistoryEntrySchema = z.object({
@@ -134,6 +136,8 @@ const WatchHistoryEntrySchema = z.object({
   user_rating: z.number().nullable(),
   percent_complete: z.number().nullable(),
   rewatch: z.boolean(),
+  review: z.string().nullable(),
+  review_url: z.string().nullable(),
 });
 
 const MovieDetailSchema = MovieSchema.extend({
@@ -806,6 +810,8 @@ watching.openapi(recentRoute, async (c) => {
       userRating: watchHistory.userRating,
       percentComplete: watchHistory.percentComplete,
       rewatch: watchHistory.rewatch,
+      review: watchHistory.review,
+      reviewUrl: watchHistory.reviewUrl,
       movieId: movies.id,
       title: movies.title,
       year: movies.year,
@@ -858,6 +864,8 @@ watching.openapi(recentRoute, async (c) => {
         user_rating: w.userRating,
         percent_complete: w.percentComplete,
         rewatch: w.rewatch === 1,
+        review: w.review ?? null,
+        review_url: w.reviewUrl ?? null,
       };
     })
   );
@@ -1607,6 +1615,7 @@ watching.openapi(ratingsRoute, async (c) => {
       watchId: watchHistory.id,
       watchedAt: watchHistory.watchedAt,
       userRating: watchHistory.userRating,
+      reviewUrl: watchHistory.reviewUrl,
       source: watchHistory.source,
       movieId: movies.id,
       title: movies.title,
@@ -1640,6 +1649,7 @@ watching.openapi(ratingsRoute, async (c) => {
         image: imageMap.get(String(r.movieId)) ?? null,
       },
       user_rating: r.userRating,
+      review_url: r.reviewUrl ?? null,
       watched_at: r.watchedAt,
       source: r.source,
     })),
@@ -1673,6 +1683,7 @@ watching.openapi(reviewsRoute, async (c) => {
       watchedAt: watchHistory.watchedAt,
       userRating: watchHistory.userRating,
       review: watchHistory.review,
+      reviewUrl: watchHistory.reviewUrl,
       source: watchHistory.source,
       movieId: movies.id,
       title: movies.title,
@@ -1705,6 +1716,7 @@ watching.openapi(reviewsRoute, async (c) => {
       },
       user_rating: r.userRating,
       review: r.review,
+      review_url: r.reviewUrl ?? null,
       watched_at: r.watchedAt,
       source: r.source,
     })),
