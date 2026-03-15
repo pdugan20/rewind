@@ -945,36 +945,32 @@ watching.openapi(moviesListRoute, async (c) => {
       order === 'asc' ? asc(movies.tmdbRating) : desc(movies.tmdbRating);
   }
 
-  let movieRows;
+  // Always join watch_history to include last_watched_at in the response
+  const lastWatched = sql<string>`MAX(${watchHistory.watchedAt})`.as(
+    'last_watched'
+  );
+
+  let queryOrderBy;
   if (useWatchedAtSort) {
-    // Join watch_history to sort by most recent watch date per movie
-    const lastWatched = sql<string>`MAX(${watchHistory.watchedAt})`.as(
-      'last_watched'
-    );
-    const results = await db
-      .select({
-        movie: movies,
-        lastWatched,
-      })
-      .from(movies)
-      .innerJoin(watchHistory, eq(movies.id, watchHistory.movieId))
-      .where(whereClause)
-      .groupBy(movies.id)
-      .orderBy(order === 'asc' ? asc(lastWatched) : desc(lastWatched))
-      .limit(limit)
-      .offset(offset);
-    movieRows = results.map((r) => r.movie);
+    queryOrderBy = order === 'asc' ? asc(lastWatched) : desc(lastWatched);
   } else {
-    movieRows = await db
-      .select()
-      .from(movies)
-      .where(whereClause)
-      .orderBy(orderByClause!)
-      .limit(limit)
-      .offset(offset);
+    queryOrderBy = orderByClause!;
   }
 
-  const movieIds = movieRows.map((m) => String(m.id));
+  const results = await db
+    .select({
+      movie: movies,
+      lastWatched,
+    })
+    .from(movies)
+    .innerJoin(watchHistory, eq(movies.id, watchHistory.movieId))
+    .where(whereClause)
+    .groupBy(movies.id)
+    .orderBy(queryOrderBy)
+    .limit(limit)
+    .offset(offset);
+
+  const movieIds = results.map((r) => String(r.movie.id));
   const imageMap = await getImageAttachmentBatch(
     db,
     'watching',
@@ -983,15 +979,18 @@ watching.openapi(moviesListRoute, async (c) => {
   );
 
   const data = await Promise.all(
-    movieRows.map(async (m) => {
-      const genreRows = await getMovieGenres(db, m.id);
-      const directorRows = await getMovieDirectors(db, m.id);
-      return formatMovie(
-        m,
-        genreRows.map((g) => g.name),
-        directorRows.map((d) => d.name),
-        imageMap.get(String(m.id)) ?? null
-      );
+    results.map(async (r) => {
+      const genreRows = await getMovieGenres(db, r.movie.id);
+      const directorRows = await getMovieDirectors(db, r.movie.id);
+      return {
+        ...formatMovie(
+          r.movie,
+          genreRows.map((g) => g.name),
+          directorRows.map((d) => d.name),
+          imageMap.get(String(r.movie.id)) ?? null
+        ),
+        last_watched_at: r.lastWatched,
+      };
     })
   );
 
