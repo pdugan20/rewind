@@ -945,7 +945,14 @@ watching.openapi(moviesListRoute, async (c) => {
       order === 'asc' ? asc(movies.tmdbRating) : desc(movies.tmdbRating);
   }
 
-  // Always join watch_history to include last_watched_at in the response
+  // Join watch_history to include last_watched_at in the response.
+  // Exclude Letterboxd entries without reviews — those are bulk-logged with
+  // unreliable dates (the date is when it was entered, not when it was watched).
+  const reliableWatchCondition = and(
+    eq(movies.id, watchHistory.movieId),
+    sql`(${watchHistory.source} != 'letterboxd' OR (${watchHistory.review} IS NOT NULL AND ${watchHistory.review} != ''))`
+  );
+
   const lastWatched = sql<string>`MAX(${watchHistory.watchedAt})`.as(
     'last_watched'
   );
@@ -963,7 +970,7 @@ watching.openapi(moviesListRoute, async (c) => {
       lastWatched,
     })
     .from(movies)
-    .innerJoin(watchHistory, eq(movies.id, watchHistory.movieId))
+    .leftJoin(watchHistory, reliableWatchCondition)
     .where(whereClause)
     .groupBy(movies.id)
     .orderBy(queryOrderBy)
