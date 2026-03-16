@@ -62,7 +62,7 @@
     "@hono/zod-validator": "^0.7.6",
     "drizzle-orm": "^0.45.1",
     "fast-png": "^8.0.0",
-    "hono": "^4.12.7",
+    "hono": "^4.12.8",
     "jpeg-js": "^0.4.4",
     "thumbhash": "^0.1.1",
     "zod": "^4.3.6"
