@@ -21,7 +21,7 @@ npm test             # Vitest
 
 Hono on Cloudflare Workers with D1 (SQLite) for structured data, R2 for image storage, and Cloudflare Images for on-the-fly transforms. Drizzle ORM for type-safe database access. Hono RPC for end-to-end type inference with consuming clients. All routes prefixed with `/v1/`. API key authentication on all endpoints (Bearer token). Multi-user ready (`user_id` on all tables).
 
-Four data domains: listening (Last.fm), running (Strava), watching (Plex + Letterboxd + manual), collecting (Discogs + Trakt). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
+Four data domains: listening (Last.fm + Apple Music), running (Strava), watching (Plex + Letterboxd + manual), collecting (Discogs + Trakt). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
 
 ## Project Structure
 

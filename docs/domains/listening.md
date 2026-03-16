@@ -1,13 +1,14 @@
 # Listening Domain
 
-Last.fm scrobble data (123,769+ scrobbles since 2012), top artists/albums/tracks by period, content filtering for audiobooks and holiday music. Apple Music API used for high-res artist images.
+Last.fm scrobble data + Apple Music listening history (138,885+ scrobbles since 2012), top artists/albums/tracks by period, content filtering for audiobooks and holiday music. Apple Music API used for high-res artist images and enrichment.
 
 ## Data Sources
 
 - Last.fm (primary) -- scrobbles, top lists, user stats. Username: pdugan20
-- Apple Music -- artist images, high-res album art (user has Apple Developer account)
+- Apple Music (one-time import) -- 8,595 scrobbles from Apple privacy data export (Play History Daily Tracks CSV). Merged into lastfm\_\* tables with full enrichment via iTunes batch ID lookup.
+- Apple Music API -- artist images, high-res album art (user has Apple Developer account)
+- iTunes Search/Lookup API -- track enrichment (apple_music_id, apple_music_url, preview_url, duration_ms), album art fallback
 - Cover Art Archive -- primary album art source (via MusicBrainz MBID)
-- iTunes Search API -- fallback album art
 
 ## Last.fm API
 
@@ -46,13 +47,16 @@ Note: Artist images deprecated since ~2020. All artist image URLs return placeho
 - `GET /v1/catalog/{storefront}/search?types=artists&term=...`
 - `GET /v1/catalog/{storefront}/artists/{id}`
 
-## iTunes Search API
+## iTunes Search/Lookup API
 
-- Base URL: `https://itunes.apple.com/search`
+- Base URL: `https://itunes.apple.com/search` and `https://itunes.apple.com/lookup`
 - Auth: None
-- Rate limit: ~20/minute
-- Used for: Album art fallback when Cover Art Archive has no match
-- Key endpoint: `GET /search?term={artist}+{album}&media=music&entity=album&limit=1`
+- Rate limit: ~20/minute (soft)
+- Used for: Track enrichment (Apple Music IDs, URLs, preview audio, duration), album art fallback
+- Key endpoints:
+  - `GET /search?term={artist}+{track}&media=music&entity=song&limit=5` -- fuzzy search for enrichment
+  - `GET /lookup?id={trackId1},{trackId2},...&entity=song` -- batch lookup by Apple Music track IDs (up to 200 per request)
+- Lookup returns full metadata: trackId, artistId, collectionId, trackViewUrl, artistViewUrl, collectionViewUrl, previewUrl, trackTimeMillis
 - Image URL: `artworkUrl100` field, replace `100x100` with desired size (e.g., `600x600`, `3000x3000`)
 
 ## Sync Strategy
@@ -61,6 +65,7 @@ Note: Artist images deprecated since ~2020. All artist image URLs return placeho
 - **Top lists**: daily at 3 AM. Fetch all 6 periods for artists, albums, tracks. Delete old rankings, insert new.
 - **User stats**: daily at 3 AM alongside top lists. Call `user.getInfo` for total scrobbles. Compute unique counts from local DB.
 - **Full historical backfill**: one-time. Paginate through all `user.getRecentTracks` from oldest to newest. ~124K scrobbles / 200 per page / 5 per second = ~2 minutes.
+- **Apple Music import**: one-time. Parse "Play History Daily Tracks" CSV from Apple privacy export. Batch resolve all track IDs via iTunes Lookup API (200 per request). Insert scrobbles with full enrichment (Apple Music IDs, URLs, preview audio, duration). Dedup against existing Last.fm scrobbles using artist+track+hour window.
 - **Incremental marker**: store last scrobble timestamp in `sync_runs` metadata.
 
 ## Content Filtering

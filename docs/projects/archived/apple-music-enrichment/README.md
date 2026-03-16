@@ -112,15 +112,15 @@ The iTunes rate limit (~20 req/min) is soft and loosely enforced. 3 concurrent i
 
 ### Backfill scope
 
-Current unfiltered entity counts:
+Current entity counts:
 
-| Entity  | Count  |
-| ------- | ------ |
-| Tracks  | 25,216 |
-| Albums  | 8,696  |
-| Artists | 4,397  |
+| Entity  | Count  | Enriched |
+| ------- | ------ | -------- |
+| Tracks  | 28,405 | 24,484   |
+| Albums  | 11,168 | 9,568    |
+| Artists | 5,278  | 4,618    |
 
-Song-level lookups enrich all three entity types in one call (artist URL + album URL + track URL + preview URL from a single response). 25K lookups at ~5,400/hour = ~5 hours. Albums and artists are enriched passively — no separate pass needed.
+Initial backfill via `scripts/backfill-apple-music.sh` enriched existing Last.fm tracks using song-level search lookups. The Apple Music import (`scripts/import-apple-music.ts`) enriched all imported tracks using batch ID lookups (deterministic, no fuzzy matching). Remaining unenriched entities are tracks that didn't match in iTunes search.
 
 ### Why song-level lookups (not tiered by entity)
 
@@ -155,37 +155,44 @@ Endpoints to update:
 
 ### Phase 1: Schema and Enrichment Service
 
-- [ ] **1.1** Generate Drizzle migration adding `apple_music_id`, `apple_music_url`, `itunes_enriched_at` to `lastfm_artists`
-- [ ] **1.2** Add same columns to `lastfm_albums` (plus migration)
-- [ ] **1.3** Add same columns plus `preview_url` to `lastfm_tracks` (plus migration)
-- [ ] **1.4** Update Drizzle schema in `src/db/schema/lastfm.ts` with new columns
-- [ ] **1.5** Create `src/services/itunes/enrich.ts` — search by artist+track using iTunes Search API, validate with `artistMatches()`, extract URLs, update DB records for artist/album/track in one pass. 3 concurrent requests per batch with 403 fallback to sequential.
-- [ ] **1.6** Tests for enrichment logic (valid match, no match, feat. artist handling, filtered track skip, 403 backoff)
-- [ ] **1.7** Test enrichment on ~100 tracks to validate hit rate and concurrency before full backfill
+- [x] **1.1** Generate Drizzle migration adding `apple_music_id`, `apple_music_url`, `itunes_enriched_at` to `lastfm_artists`
+- [x] **1.2** Add same columns to `lastfm_albums` (plus migration)
+- [x] **1.3** Add same columns plus `preview_url` to `lastfm_tracks` (plus migration)
+- [x] **1.4** Update Drizzle schema in `src/db/schema/lastfm.ts` with new columns
+- [x] **1.5** Create `src/services/itunes/enrich.ts` — search by artist+track using iTunes Search API, validate with `artistMatches()`, extract URLs, update DB records for artist/album/track in one pass. 3 concurrent requests per batch with 403 fallback to sequential.
+- [x] **1.6** Tests for enrichment logic (valid match, no match, feat. artist handling, filtered track skip, 403 backoff)
+- [x] **1.7** Test enrichment on ~100 tracks to validate hit rate and concurrency before full backfill
 
 ### Phase 2: Backfill
 
-- [ ] **2.1** Create `backfillAppleMusicLinks()` — queries unenriched tracks by playcount DESC, processes in batches of 50 with 3 concurrent lookups per batch
-- [ ] **2.2** Add admin endpoint: `POST /v1/admin/listening/enrich-apple-music` with `limit` param, returns succeeded/skipped/failed counts
-- [ ] **2.3** Create `scripts/backfills/backfill-apple-music.sh` — loops the admin endpoint, logs progress every batch, writes skipped tracks to CSV for review (same pattern as `backfill-album-images.sh`)
-- [ ] **2.4** Run initial backfill (~5 hours at 3 concurrent), monitor hit rate and 403 frequency
-- [ ] **2.5** Verify enrichment coverage — check percentage of top artists/albums/tracks with Apple Music URLs
+- [x] **2.1** Create `backfillAppleMusicLinks()` — queries unenriched tracks by playcount DESC, processes in batches of 50 with 3 concurrent lookups per batch
+- [x] **2.2** Add admin endpoint: `POST /v1/admin/listening/enrich-apple-music` with `limit` param, returns succeeded/skipped/failed counts
+- [x] **2.3** Create `scripts/backfill-apple-music.sh` — loops the admin endpoint, logs progress every batch, writes skipped tracks to CSV for review (same pattern as `backfill-album-images.sh`)
+- [x] **2.4** Run initial backfill (~5 hours at 3 concurrent), monitor hit rate and 403 frequency
+- [x] **2.5** Verify enrichment coverage — 86% of tracks have Apple Music IDs, 87% of artists, 86% of albums
 
 ### Phase 3: Sync Integration
 
-- [ ] **3.1** After upserting a new track in `syncRecentScrobbles()`, enrich if `itunesEnrichedAt IS NULL` (sequential, single lookup — concurrency not needed for incremental)
-- [ ] **3.2** Skip enrichment during scrobble sync if approaching rate limit, defer to next cycle
-- [ ] **3.3** Add enrichment stats to sync run tracking
+- [x] **3.1** After upserting a new track in `syncRecentScrobbles()`, enrich if `itunesEnrichedAt IS NULL` (sequential, single lookup — concurrency not needed for incremental)
+- [x] **3.2** Skip enrichment during scrobble sync if approaching rate limit, defer to next cycle
+- [x] **3.3** Add enrichment stats to sync run tracking
 
 ### Phase 4: API Response Updates
 
-- [ ] **4.1** Add `apple_music_url` to top artist/album/track responses
-- [ ] **4.2** Add `apple_music_url` and `preview_url` to year-in-review top lists
-- [ ] **4.3** Add `apple_music_url` to artist and album detail endpoints
-- [ ] **4.4** Update OpenAPI schemas and snapshot
+- [x] **4.1** Add `apple_music_url` to top artist/album/track responses
+- [x] **4.2** Add `apple_music_url` and `preview_url` to year-in-review top lists
+- [x] **4.3** Add `apple_music_url` to artist and album detail endpoints
+- [x] **4.4** Update OpenAPI schemas and snapshot
 
-### Phase 5: Documentation
+### Phase 5: Apple Music Listening History Import
 
-- [ ] **5.1** Update `docs/domains/listening.md` with enrichment details
-- [ ] **5.2** Update `docs/ARCHITECTURE.md` with enrichment pipeline
-- [ ] **5.3** Update CLAUDE.md if schema structure section changes
+- [x] **5.1** Rewrite `scripts/import-apple-music.ts` to use "Play History Daily Tracks" CSV with batch iTunes ID lookups instead of Play Activity CSV with fuzzy search
+- [x] **5.2** Run import: 8,595 scrobbles, 805 new artists, 1,736 new albums, 2,356 new tracks
+- [x] **5.3** Backfill images for new entities (595 artists, 1,339 albums)
+- [x] **5.4** Backfill artist tags/genres for all new artists
+
+### Phase 6: Documentation
+
+- [x] **6.1** Update `docs/domains/listening.md` with enrichment and import details
+- [x] **6.2** Update `docs/ARCHITECTURE.md` with enrichment pipeline
+- [x] **6.3** Update ROADMAP.md with completed import task

@@ -1,25 +1,28 @@
 /**
  * Apple Music Historical Import Script
  *
- * One-time script to import Apple Music listening history (from Apple's
- * privacy data export CSV) into the remote D1 database. Inserts into the
- * existing lastfm_* tables so all listening data lives in one place.
+ * One-time script to import Apple Music listening history from Apple's
+ * "Play History Daily Tracks" CSV (privacy data export) into the remote
+ * D1 database. Uses the Apple Music Track Identifiers in the CSV to do
+ * deterministic batch lookups via the iTunes API, resolving full metadata
+ * (artist, album, URLs, duration, preview) in ~21 API calls.
  *
- * Handles the full artist->album->track->scrobble foreign key chain,
- * applies Apple-specific filters (media type, source, duration, previews),
- * then holiday/audiobook filters, and deduplicates against existing scrobbles.
+ * Inserts into the existing lastfm_* tables so all listening data lives
+ * in one place. Fully enriches artists, albums, and tracks with Apple
+ * Music IDs/URLs on insert — no separate backfill step needed.
  *
  * Prerequisites:
  *   1. .dev.vars exists (not used for secrets, but required by convention)
  *   2. Ensure wrangler is authenticated (`npx wrangler login`)
  *   3. Apple Music CSV exported via https://privacy.apple.com
+ *      File: "Apple Music - Play History Daily Tracks.csv"
  *
  * Usage:
  *   npx tsx scripts/import-apple-music.ts <path-to-csv>
  *   npx tsx scripts/import-apple-music.ts <path-to-csv> --dry-run
  *   npx tsx scripts/import-apple-music.ts <path-to-csv> --resume
  *   npx tsx scripts/import-apple-music.ts <path-to-csv> --limit 100
- *   npx tsx scripts/import-apple-music.ts <path-to-csv> --min-play-pct 60
+ *   npx tsx scripts/import-apple-music.ts <path-to-csv> --include-skips
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -33,9 +36,26 @@ const CHECKPOINT_FILE = resolve(
   import.meta.dirname ?? '.',
   '.apple-music-checkpoint.json'
 );
-const BATCH_SIZE = 200;
-const DEFAULT_MIN_PLAY_PCT = 50;
-const DEFAULT_MIN_DURATION_MS = 30000;
+const DB_BATCH_SIZE = 200;
+const ITUNES_LOOKUP_BATCH_SIZE = 200;
+const DEFAULT_MIN_DURATION_MS = 30_000;
+
+// End reasons that represent actual listens (not skips/errors)
+const LISTEN_END_REASONS = new Set([
+  'NATURAL_END_OF_TRACK',
+  'PLAYBACK_MANUALLY_PAUSED',
+  'MANUALLY_SELECTED_PLAYBACK_OF_A_DIFF_ITEM',
+  'PLAYBACK_SUSPENDED',
+  'OTHER',
+  'EXITED_APPLICATION',
+]);
+
+const SKIP_END_REASONS = new Set([
+  'TRACK_SKIPPED_FORWARDS',
+  'TRACK_SKIPPED_BACKWARDS',
+  'SCRUB_BEGIN',
+  'FAILED_TO_LOAD',
+]);
 
 // --- Filter patterns (mirrored from src/services/lastfm/filters.ts) ---
 
@@ -126,26 +146,49 @@ function checkFiltered(
 // --- Types ---
 
 interface CsvRow {
-  [key: string]: string;
+  Country: string;
+  'Track Identifier': string;
+  'Media type': string;
+  'Date Played': string; // YYYYMMDD
+  Hours: string; // e.g. "15" or "15, 21"
+  'Play Duration Milliseconds': string;
+  'End Reason Type': string;
+  'Source Type': string;
+  'Play Count': string;
+  'Skip Count': string;
+  'Ignore For Recommendations': string;
+  'Track Reference': string;
+  'Track Description': string; // "Artist - Track" or just track name
 }
 
-interface ApplePlay {
+interface iTunesTrackResult {
+  trackId: number;
   trackName: string;
   artistName: string;
-  albumName: string;
-  timestamp: string; // ISO 8601
-  durationMs: number;
-  mediaDurationMs: number;
-  mediaType: string;
-  sourceType: string;
-  contentType: string;
-  featureName: string;
-  eventType: string;
+  artistId: number;
+  collectionName?: string;
+  collectionId?: number;
+  trackViewUrl: string;
+  artistViewUrl: string;
+  collectionViewUrl?: string;
+  previewUrl?: string;
+  trackTimeMillis: number;
+  artworkUrl100?: string;
+  wrapperType: string;
 }
 
-interface FilterResult {
-  pass: boolean;
-  reason?: string;
+interface ResolvedTrack {
+  appleTrackId: number;
+  trackName: string;
+  artistName: string;
+  artistId: number;
+  albumName: string;
+  albumId: number | null;
+  trackViewUrl: string;
+  artistViewUrl: string;
+  albumViewUrl: string;
+  previewUrl: string;
+  durationMs: number;
 }
 
 interface ParsedPlay {
@@ -154,6 +197,14 @@ interface ParsedPlay {
   albumName: string;
   scrobbledAt: string;
   filtered: boolean;
+  appleTrackId: number;
+  appleArtistId: number;
+  appleAlbumId: number | null;
+  trackViewUrl: string;
+  artistViewUrl: string;
+  albumViewUrl: string;
+  previewUrl: string;
+  durationMs: number;
 }
 
 interface Checkpoint {
@@ -164,9 +215,9 @@ interface Checkpoint {
 }
 
 // In-memory caches (loaded from DB)
-const artistCache: Map<string, number> = new Map(); // lowercase name -> id
-const albumCache: Map<string, number> = new Map(); // "name_lower|artistId" -> id
-const trackCache: Map<string, number> = new Map(); // "name_lower|artistId" -> id
+const artistCache: Map<string, number> = new Map(); // lowercase name -> db id
+const albumCache: Map<string, number> = new Map(); // "name_lower|artistId" -> db id
+const trackCache: Map<string, number> = new Map(); // "name_lower|artistId" -> db id
 
 // --- Env ---
 
@@ -270,44 +321,6 @@ async function queryRows(
 
 // --- CSV parsing ---
 
-/**
- * Column name mapping: Apple has changed CSV column names over time.
- * Map known variants to canonical names.
- */
-const COLUMN_VARIANTS: Record<string, string[]> = {
-  trackName: ['Song Name', 'Title', 'Original Title'],
-  artistName: ['Artist Name'],
-  albumName: ['Content Name', 'Album Name'],
-  timestamp: ['Event Start Timestamp', 'Activity date time'],
-  durationMs: ['Play Duration Milliseconds'],
-  mediaDurationMs: ['Media Duration In Milliseconds'],
-  mediaType: ['Media Type'],
-  sourceType: ['Source Type'],
-  contentType: ['Content Specific Type'],
-  featureName: ['Feature Name'],
-  eventType: ['Event Type'],
-};
-
-function buildColumnMap(headers: string[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const [canonical, variants] of Object.entries(COLUMN_VARIANTS)) {
-    for (const variant of variants) {
-      const idx = headers.findIndex(
-        (h) => h.toLowerCase() === variant.toLowerCase()
-      );
-      if (idx !== -1) {
-        map.set(canonical, idx);
-        break;
-      }
-    }
-  }
-  return map;
-}
-
-/**
- * Simple CSV parser that handles quoted fields with embedded commas, newlines,
- * and doubled quotes. No external dependencies.
- */
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
   let current = '';
@@ -347,8 +360,7 @@ function parseCsvLine(line: string): string[] {
   return fields;
 }
 
-function parseCsv(content: string): CsvRow[] {
-  // Strip UTF-8 BOM
+function parseDailyTracksCsv(content: string): CsvRow[] {
   if (content.charCodeAt(0) === 0xfeff) {
     content = content.slice(1);
   }
@@ -363,161 +375,115 @@ function parseCsv(content: string): CsvRow[] {
     const line = lines[i].trim();
     if (!line) continue;
     const fields = parseCsvLine(line);
-    const row: CsvRow = {};
+    const row: Record<string, string> = {};
     for (let j = 0; j < headers.length; j++) {
       row[headers[j]] = fields[j] ?? '';
     }
-    rows.push(row);
+    rows.push(row as unknown as CsvRow);
   }
 
   return rows;
 }
 
-function csvRowToApplePlay(
-  row: CsvRow,
-  columnMap: Map<string, number>,
-  headers: string[]
-): ApplePlay | null {
-  const get = (canonical: string): string => {
-    const idx = columnMap.get(canonical);
-    if (idx === undefined) return '';
-    return row[headers[idx]] ?? '';
-  };
+// --- iTunes batch lookup ---
 
-  const timestamp = get('timestamp');
-  if (!timestamp) return null;
+/**
+ * Resolve track metadata via iTunes Lookup API.
+ * Batches up to 200 IDs per request. Returns a map of trackId -> result.
+ */
+async function batchLookupTracks(
+  trackIds: number[]
+): Promise<Map<number, iTunesTrackResult>> {
+  const results = new Map<number, iTunesTrackResult>();
+  const batches: number[][] = [];
 
-  return {
-    trackName: get('trackName'),
-    artistName: get('artistName'),
-    albumName: get('albumName'),
-    timestamp,
-    durationMs: parseInt(get('durationMs'), 10) || 0,
-    mediaDurationMs: parseInt(get('mediaDurationMs'), 10) || 0,
-    mediaType: get('mediaType'),
-    sourceType: get('sourceType'),
-    contentType: get('contentType'),
-    featureName: get('featureName'),
-    eventType: get('eventType'),
-  };
-}
-
-// --- Apple-specific filters ---
-
-function filterMediaType(play: ApplePlay): FilterResult {
-  if (play.mediaType.toUpperCase() !== 'AUDIO') {
-    return { pass: false, reason: 'media_type_not_audio' };
+  for (let i = 0; i < trackIds.length; i += ITUNES_LOOKUP_BATCH_SIZE) {
+    batches.push(trackIds.slice(i, i + ITUNES_LOOKUP_BATCH_SIZE));
   }
-  return { pass: true };
-}
 
-function filterRadioSource(play: ApplePlay): FilterResult {
-  const source = play.sourceType.toUpperCase();
-  if (source.includes('RADIO') || source.includes('BEATS_1')) {
-    return { pass: false, reason: 'radio_source' };
-  }
-  return { pass: true };
-}
+  console.log(
+    `[INFO] Resolving ${trackIds.length} unique tracks via iTunes API (${batches.length} batches)`
+  );
 
-function filterContentType(play: ApplePlay): FilterResult {
-  const ct = play.contentType.toUpperCase();
-  if (ct === 'PODCAST' || ct === 'AUDIOBOOK') {
-    return { pass: false, reason: 'podcast_or_audiobook_content' };
-  }
-  return { pass: true };
-}
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    const url = `https://itunes.apple.com/lookup?id=${batch.join(',')}&entity=song`;
 
-function filterPreview(play: ApplePlay): FilterResult {
-  const feature = play.featureName.toLowerCase();
-  if (feature === 'auto_play_preview' || feature === 'preview') {
-    return { pass: false, reason: 'preview_play' };
-  }
-  return { pass: true };
-}
+    try {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'RewindAPI/1.0' },
+      });
 
-function filterPlayDuration(play: ApplePlay, minPlayPct: number): FilterResult {
-  if (play.mediaDurationMs > 0) {
-    const pct = (play.durationMs / play.mediaDurationMs) * 100;
-    if (pct < minPlayPct) {
-      return { pass: false, reason: 'insufficient_play_duration' };
+      if (response.status === 403) {
+        console.log(`[WARN] Rate limited on batch ${i + 1}, waiting 60s...`);
+        await sleep(60_000);
+        i--; // Retry this batch
+        continue;
+      }
+
+      if (!response.ok) {
+        console.error(
+          `[ERROR] iTunes API returned ${response.status} on batch ${i + 1}`
+        );
+        continue;
+      }
+
+      const data = (await response.json()) as {
+        resultCount: number;
+        results: iTunesTrackResult[];
+      };
+
+      for (const track of data.results) {
+        if (track.wrapperType === 'track' && track.trackId) {
+          results.set(track.trackId, track);
+        }
+      }
+
+      const resolved = data.results.filter(
+        (r) => r.wrapperType === 'track'
+      ).length;
+      console.log(
+        `[INFO] Batch ${i + 1}/${batches.length}: resolved ${resolved}/${batch.length} tracks`
+      );
+    } catch (err) {
+      console.error(`[ERROR] iTunes API batch ${i + 1} failed: ${err}`);
     }
-  } else {
-    if (play.durationMs < DEFAULT_MIN_DURATION_MS) {
-      return { pass: false, reason: 'insufficient_play_duration' };
+
+    // Brief pause between batches to be polite
+    if (i < batches.length - 1) {
+      await sleep(1_000);
     }
   }
-  return { pass: true };
+
+  return results;
 }
 
-function filterMissingFields(play: ApplePlay): FilterResult {
-  if (!play.artistName || !play.trackName) {
-    return { pass: false, reason: 'missing_artist_or_track' };
-  }
-  return { pass: true };
-}
+// --- Timestamp construction ---
 
-function filterHolidayAudiobook(play: ApplePlay): FilterResult {
-  if (checkFiltered(play.artistName, play.albumName, play.trackName)) {
-    return { pass: false, reason: 'holiday_or_audiobook' };
-  }
-  return { pass: true };
-}
+/**
+ * Build an ISO 8601 timestamp from the Daily Tracks CSV row.
+ * Date is YYYYMMDD, Hours is the hour of day (or comma-separated list).
+ * We use the first (earliest) hour listed. Minute/second set to :00:00.
+ */
+function buildTimestamp(datePlayed: string, hours: string): string {
+  const year = datePlayed.slice(0, 4);
+  const month = datePlayed.slice(4, 6);
+  const day = datePlayed.slice(6, 8);
 
-type FilterFn = (play: ApplePlay, minPlayPct: number) => FilterResult;
+  // Parse hours - could be "15" or "15, 21" (multi-hour listening)
+  // Use the first (earliest) hour for the scrobble timestamp
+  const hourParts = hours
+    .split(',')
+    .map((h) => parseInt(h.trim(), 10))
+    .filter((h) => !isNaN(h));
+  const hour = hourParts.length > 0 ? Math.min(...hourParts) : 12;
+  const hourStr = hour.toString().padStart(2, '0');
 
-const FILTER_PIPELINE: Array<{ name: string; fn: FilterFn }> = [
-  { name: 'media_type_not_audio', fn: (p) => filterMediaType(p) },
-  { name: 'radio_source', fn: (p) => filterRadioSource(p) },
-  { name: 'podcast_or_audiobook_content', fn: (p) => filterContentType(p) },
-  { name: 'preview_play', fn: (p) => filterPreview(p) },
-  {
-    name: 'insufficient_play_duration',
-    fn: (p, pct) => filterPlayDuration(p, pct),
-  },
-  { name: 'missing_artist_or_track', fn: (p) => filterMissingFields(p) },
-  { name: 'holiday_or_audiobook', fn: (p) => filterHolidayAudiobook(p) },
-];
-
-function applyFilters(play: ApplePlay, minPlayPct: number): FilterResult {
-  for (const filter of FILTER_PIPELINE) {
-    const result = filter.fn(play, minPlayPct);
-    if (!result.pass) return result;
-  }
-  return { pass: true };
+  return `${year}-${month}-${day}T${hourStr}:00:00.000Z`;
 }
 
 // --- Deduplication ---
 
-/**
- * Deduplicate Apple events for the same play.
- * Group by artist+track+minute timestamp; keep only one per group.
- */
-function deduplicateAppleEvents(plays: ApplePlay[]): {
-  deduped: ApplePlay[];
-  duplicateCount: number;
-} {
-  const seen = new Set<string>();
-  const deduped: ApplePlay[] = [];
-  let duplicateCount = 0;
-
-  for (const play of plays) {
-    const minuteTs = play.timestamp.slice(0, 16); // YYYY-MM-DDTHH:MM
-    const key = `${play.artistName.toLowerCase()}|${play.trackName.toLowerCase()}|${minuteTs}`;
-    if (seen.has(key)) {
-      duplicateCount++;
-      continue;
-    }
-    seen.add(key);
-    deduped.push(play);
-  }
-
-  return { deduped, duplicateCount };
-}
-
-/**
- * Build dedup set from existing scrobbles. Uses a 3-minute window for
- * timestamp comparison (minute-1, minute, minute+1).
- */
 function truncateToMinute(isoStr: string): number {
   const d = new Date(isoStr);
   d.setSeconds(0, 0);
@@ -541,6 +507,11 @@ function buildScrobbleDedupSet(
   return dedupSet;
 }
 
+/**
+ * Check for duplicate with existing scrobbles.
+ * Since Daily Tracks timestamps are hour-level (XX:00:00), we check
+ * a wider window: the entire hour (60 minutes around the timestamp).
+ */
 function isDuplicateScrobble(
   dedupSet: Set<string>,
   artistName: string,
@@ -549,11 +520,11 @@ function isDuplicateScrobble(
 ): boolean {
   const artistLower = artistName.toLowerCase();
   const trackLower = trackName.toLowerCase();
-  const minuteTs = truncateToMinute(timestamp);
+  const baseTs = truncateToMinute(timestamp);
 
-  // Check 3-minute window: minute-1, minute, minute+1
-  for (let offset = -60000; offset <= 60000; offset += 60000) {
-    if (dedupSet.has(`${artistLower}|${trackLower}|${minuteTs + offset}`)) {
+  // Check 60-minute window (30 minutes before/after the hour mark)
+  for (let offset = -30 * 60_000; offset <= 30 * 60_000; offset += 60_000) {
+    if (dedupSet.has(`${artistLower}|${trackLower}|${baseTs + offset}`)) {
       return true;
     }
   }
@@ -669,6 +640,9 @@ async function loadExistingScrobbles(cfToken: string): Promise<Set<string>> {
 
 // --- Batch upsert operations ---
 
+/**
+ * Insert new artists with full Apple Music enrichment data.
+ */
 async function batchUpsertArtists(
   plays: ParsedPlay[],
   cfToken: string
@@ -686,13 +660,15 @@ async function batchUpsertArtists(
   const values = [...newArtists.values()]
     .map(
       (p) =>
-        `(1, ${escapeSQL(p.artistName)}, NULL, '', 0, ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+        `(1, ${escapeSQL(p.artistName)}, NULL, '', 0, ${p.filtered ? 1 : 0}, ` +
+        `${p.appleArtistId || 'NULL'}, ${escapeSQL(p.artistViewUrl || null)}, ${escapeSQL(now)}, ` +
+        `${escapeSQL(now)}, ${escapeSQL(now)})`
     )
     .join(',\n');
 
   try {
     await executeSQL(
-      `INSERT OR IGNORE INTO lastfm_artists (user_id, name, mbid, url, playcount, is_filtered, created_at, updated_at) VALUES\n${values};`,
+      `INSERT OR IGNORE INTO lastfm_artists (user_id, name, mbid, url, playcount, is_filtered, apple_music_id, apple_music_url, itunes_enriched_at, created_at, updated_at) VALUES\n${values};`,
       cfToken
     );
   } catch (err) {
@@ -700,9 +676,30 @@ async function batchUpsertArtists(
     return;
   }
 
+  // Also update existing artists that lack Apple Music enrichment
+  for (const p of newArtists.values()) {
+    if (p.appleArtistId && artistCache.has(p.artistName.toLowerCase())) {
+      const dbId = artistCache.get(p.artistName.toLowerCase());
+      try {
+        await executeSQL(
+          `UPDATE lastfm_artists SET apple_music_id = ${p.appleArtistId}, ` +
+            `apple_music_url = ${escapeSQL(p.artistViewUrl || null)}, ` +
+            `itunes_enriched_at = ${escapeSQL(now)} ` +
+            `WHERE id = ${dbId} AND apple_music_id IS NULL;`,
+          cfToken
+        );
+      } catch {
+        // Non-critical, continue
+      }
+    }
+  }
+
   await loadAllArtists(cfToken, true);
 }
 
+/**
+ * Insert new albums with full Apple Music enrichment data.
+ */
 async function batchUpsertAlbums(
   plays: ParsedPlay[],
   cfToken: string
@@ -723,13 +720,15 @@ async function batchUpsertAlbums(
   const values = [...newAlbums.values()]
     .map(
       ({ p, artistId }) =>
-        `(1, ${escapeSQL(p.albumName)}, NULL, ${artistId}, '', 0, ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+        `(1, ${escapeSQL(p.albumName)}, NULL, ${artistId}, '', 0, ${p.filtered ? 1 : 0}, ` +
+        `${p.appleAlbumId || 'NULL'}, ${escapeSQL(p.albumViewUrl || null)}, ${escapeSQL(now)}, ` +
+        `${escapeSQL(now)}, ${escapeSQL(now)})`
     )
     .join(',\n');
 
   try {
     await executeSQL(
-      `INSERT OR IGNORE INTO lastfm_albums (user_id, name, mbid, artist_id, url, playcount, is_filtered, created_at, updated_at) VALUES\n${values};`,
+      `INSERT OR IGNORE INTO lastfm_albums (user_id, name, mbid, artist_id, url, playcount, is_filtered, apple_music_id, apple_music_url, itunes_enriched_at, created_at, updated_at) VALUES\n${values};`,
       cfToken
     );
   } catch (err) {
@@ -737,9 +736,32 @@ async function batchUpsertAlbums(
     return;
   }
 
+  // Update existing albums that lack Apple Music enrichment
+  for (const { p, artistId } of newAlbums.values()) {
+    const key = `${p.albumName.toLowerCase()}|${artistId}`;
+    if (p.appleAlbumId && albumCache.has(key)) {
+      const dbId = albumCache.get(key);
+      try {
+        await executeSQL(
+          `UPDATE lastfm_albums SET apple_music_id = ${p.appleAlbumId}, ` +
+            `apple_music_url = ${escapeSQL(p.albumViewUrl || null)}, ` +
+            `itunes_enriched_at = ${escapeSQL(now)} ` +
+            `WHERE id = ${dbId} AND apple_music_id IS NULL;`,
+          cfToken
+        );
+      } catch {
+        // Non-critical, continue
+      }
+    }
+  }
+
   await loadAllAlbums(cfToken, true);
 }
 
+/**
+ * Insert new tracks with full Apple Music enrichment data (including
+ * duration_ms, apple_music_id, apple_music_url, preview_url).
+ */
 async function batchUpsertTracks(
   plays: ParsedPlay[],
   cfToken: string
@@ -766,18 +788,48 @@ async function batchUpsertTracks(
   const values = [...newTracks.values()]
     .map(
       ({ p, artistId, albumId }) =>
-        `(1, ${escapeSQL(p.trackName)}, NULL, ${artistId}, ${albumId ?? 'NULL'}, '', ${p.filtered ? 1 : 0}, ${escapeSQL(now)}, ${escapeSQL(now)})`
+        `(1, ${escapeSQL(p.trackName)}, NULL, ${artistId}, ${albumId ?? 'NULL'}, '', ` +
+        `${p.durationMs || 'NULL'}, ${p.filtered ? 1 : 0}, ` +
+        `${p.appleTrackId || 'NULL'}, ${escapeSQL(p.trackViewUrl || null)}, ${escapeSQL(p.previewUrl || null)}, ` +
+        `${escapeSQL(now)}, ${escapeSQL(now)}, ${escapeSQL(now)})`
     )
     .join(',\n');
 
   try {
     await executeSQL(
-      `INSERT OR IGNORE INTO lastfm_tracks (user_id, name, mbid, artist_id, album_id, url, is_filtered, created_at, updated_at) VALUES\n${values};`,
+      `INSERT OR IGNORE INTO lastfm_tracks (user_id, name, mbid, artist_id, album_id, url, duration_ms, is_filtered, apple_music_id, apple_music_url, preview_url, itunes_enriched_at, created_at, updated_at) VALUES\n${values};`,
       cfToken
     );
   } catch (err) {
     console.error(`[ERROR] Track batch insert failed: ${err}`);
     return;
+  }
+
+  // Update existing tracks that lack Apple Music enrichment or duration
+  for (const { p, artistId } of newTracks.values()) {
+    const key = `${p.trackName.toLowerCase()}|${artistId}`;
+    if (p.appleTrackId && trackCache.has(key)) {
+      const dbId = trackCache.get(key);
+      const updates: string[] = [];
+      if (p.appleTrackId) updates.push(`apple_music_id = ${p.appleTrackId}`);
+      if (p.trackViewUrl)
+        updates.push(`apple_music_url = ${escapeSQL(p.trackViewUrl)}`);
+      if (p.previewUrl)
+        updates.push(`preview_url = ${escapeSQL(p.previewUrl)}`);
+      if (p.durationMs)
+        updates.push(`duration_ms = COALESCE(duration_ms, ${p.durationMs})`);
+      updates.push(`itunes_enriched_at = ${escapeSQL(now)}`);
+
+      try {
+        await executeSQL(
+          `UPDATE lastfm_tracks SET ${updates.join(', ')} ` +
+            `WHERE id = ${dbId} AND apple_music_id IS NULL;`,
+          cfToken
+        );
+      } catch {
+        // Non-critical, continue
+      }
+    }
   }
 
   await loadAllTracks(cfToken, true);
@@ -803,7 +855,6 @@ async function batchInsertScrobbles(
 
   if (values.length === 0) return 0;
 
-  // Split into chunks of 100 to avoid SQL size limits
   const chunkSize = 100;
   for (let i = 0; i < values.length; i += chunkSize) {
     const chunk = values.slice(i, i + chunkSize);
@@ -842,32 +893,27 @@ interface CliArgs {
   dryRun: boolean;
   resume: boolean;
   limit: number | null;
-  minPlayPct: number;
+  includeSkips: boolean;
 }
 
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   const flags = new Set(args.filter((a) => a.startsWith('--')));
-  const positional = args.filter((a) => !a.startsWith('--'));
+  const positional = args.filter(
+    (a) => !a.startsWith('--') && args[args.indexOf(a) - 1] !== '--limit'
+  );
 
   if (positional.length === 0) {
     console.error(
-      '[ERROR] Usage: npx tsx scripts/import-apple-music.ts <path-to-csv> [--dry-run] [--resume] [--limit N] [--min-play-pct N]'
+      '[ERROR] Usage: npx tsx scripts/import-apple-music.ts <path-to-csv> [--dry-run] [--resume] [--limit N] [--include-skips]'
     );
     process.exit(1);
   }
 
   let limit: number | null = null;
-  let minPlayPct = DEFAULT_MIN_PLAY_PCT;
-
   const limitIdx = args.indexOf('--limit');
   if (limitIdx !== -1 && args[limitIdx + 1]) {
     limit = parseInt(args[limitIdx + 1], 10);
-  }
-
-  const pctIdx = args.indexOf('--min-play-pct');
-  if (pctIdx !== -1 && args[pctIdx + 1]) {
-    minPlayPct = parseInt(args[pctIdx + 1], 10);
   }
 
   return {
@@ -875,7 +921,7 @@ function parseArgs(): CliArgs {
     dryRun: flags.has('--dry-run'),
     resume: flags.has('--resume'),
     limit,
-    minPlayPct,
+    includeSkips: flags.has('--include-skips'),
   };
 }
 
@@ -889,20 +935,21 @@ async function main() {
     process.exit(1);
   }
 
-  // Load env (validates .dev.vars exists)
   loadDevVars();
   const cfToken = loadCfToken();
 
   console.log('[INFO] Apple Music import starting');
   console.log(`[INFO] CSV: ${cliArgs.csvPath}`);
   console.log(`[INFO] Mode: ${cliArgs.dryRun ? 'DRY RUN' : 'PRODUCTION'}`);
-  console.log(`[INFO] Min play percentage: ${cliArgs.minPlayPct}%`);
+  console.log(
+    `[INFO] Skip handling: ${cliArgs.includeSkips ? 'including skipped tracks' : 'excluding skipped tracks'}`
+  );
   if (cliArgs.limit) console.log(`[INFO] Limit: ${cliArgs.limit} plays`);
 
-  // Read and parse CSV
+  // --- Phase 1: Parse CSV ---
   const csvContent = readFileSync(cliArgs.csvPath, 'utf-8');
   const csvHash = computeCsvHash(csvContent);
-  const rawRows = parseCsv(csvContent);
+  const rawRows = parseDailyTracksCsv(csvContent);
   console.log(`[INFO] Parsed ${rawRows.length} CSV rows`);
 
   if (rawRows.length === 0) {
@@ -910,73 +957,221 @@ async function main() {
     process.exit(1);
   }
 
-  // Build column map from headers
-  const firstRowContent = readFileSync(cliArgs.csvPath, 'utf-8');
-  const headerLine = (
-    firstRowContent.charCodeAt(0) === 0xfeff
-      ? firstRowContent.slice(1)
-      : firstRowContent
-  ).split(/\r?\n/)[0];
-  const headers = parseCsvLine(headerLine);
-  const columnMap = buildColumnMap(headers);
-
-  console.log(`[INFO] Mapped columns: ${[...columnMap.keys()].join(', ')}`);
-
-  // Parse all rows to ApplePlay objects
-  const allPlays: ApplePlay[] = [];
-  for (const row of rawRows) {
-    const play = csvRowToApplePlay(row, columnMap, headers);
-    if (play) allPlays.push(play);
-  }
-  console.log(`[INFO] Valid rows with timestamps: ${allPlays.length}`);
-
-  // Apply filters and track rejection reasons
+  // --- Phase 2: Filter rows ---
   const filterStats: Record<string, number> = {};
-  const passedPlays: ApplePlay[] = [];
+  const validRows: CsvRow[] = [];
 
-  for (const play of allPlays) {
-    const result = applyFilters(play, cliArgs.minPlayPct);
-    if (result.pass) {
-      passedPlays.push(play);
-    } else {
-      const reason = result.reason ?? 'unknown';
-      filterStats[reason] = (filterStats[reason] ?? 0) + 1;
+  for (const row of rawRows) {
+    // Must be audio
+    if (row['Media type']?.toUpperCase() !== 'AUDIO') {
+      filterStats['media_type_not_audio'] =
+        (filterStats['media_type_not_audio'] ?? 0) + 1;
+      continue;
+    }
+
+    // Filter by end reason
+    const endReason = row['End Reason Type'] || '';
+    if (!cliArgs.includeSkips && SKIP_END_REASONS.has(endReason)) {
+      filterStats['skipped_track'] = (filterStats['skipped_track'] ?? 0) + 1;
+      continue;
+    }
+
+    if (
+      !LISTEN_END_REASONS.has(endReason) &&
+      !SKIP_END_REASONS.has(endReason)
+    ) {
+      filterStats[`unknown_end_reason_${endReason}`] =
+        (filterStats[`unknown_end_reason_${endReason}`] ?? 0) + 1;
+      continue;
+    }
+
+    // Filter zero-duration plays (immediate skips with 0ms listen time)
+    const playDurationMs = parseInt(row['Play Duration Milliseconds'], 10) || 0;
+    if (playDurationMs < DEFAULT_MIN_DURATION_MS) {
+      filterStats['insufficient_play_duration'] =
+        (filterStats['insufficient_play_duration'] ?? 0) + 1;
+      continue;
+    }
+
+    // Must have a track identifier for lookup
+    if (!row['Track Identifier']) {
+      filterStats['missing_track_identifier'] =
+        (filterStats['missing_track_identifier'] ?? 0) + 1;
+      continue;
+    }
+
+    validRows.push(row);
+  }
+
+  console.log(`[INFO] Passed filters: ${validRows.length}`);
+  if (Object.keys(filterStats).length > 0) {
+    console.log('[INFO] Filtered out:');
+    for (const [reason, count] of Object.entries(filterStats).sort(
+      (a, b) => b[1] - a[1]
+    )) {
+      console.log(`  ${reason}: ${count}`);
     }
   }
 
-  console.log(`[INFO] Passed filters: ${passedPlays.length}`);
+  // --- Phase 3: Collect unique track IDs and batch lookup ---
+  const uniqueTrackIds = new Set<number>();
+  for (const row of validRows) {
+    uniqueTrackIds.add(parseInt(row['Track Identifier'], 10));
+  }
 
-  // Deduplicate Apple events (same artist+track+minute)
-  const { deduped: dedupedPlays, duplicateCount: appleDedupeCount } =
-    deduplicateAppleEvents(passedPlays);
+  console.log(
+    `[INFO] ${uniqueTrackIds.size} unique Apple Music track IDs to resolve`
+  );
+
+  const itunesResults = await batchLookupTracks([...uniqueTrackIds]);
+  console.log(
+    `[INFO] iTunes resolved ${itunesResults.size}/${uniqueTrackIds.size} tracks`
+  );
+
+  // Report unresolved tracks (removed from catalog, region-locked, etc.)
+  const unresolvedIds = [...uniqueTrackIds].filter(
+    (id) => !itunesResults.has(id)
+  );
+  if (unresolvedIds.length > 0) {
+    console.log(
+      `[WARN] ${unresolvedIds.length} tracks not found in iTunes catalog`
+    );
+    // Try to show what they are from the CSV descriptions
+    const unresolvedSet = new Set(unresolvedIds);
+    const unresolvedDescriptions = new Map<number, string>();
+    for (const row of validRows) {
+      const id = parseInt(row['Track Identifier'], 10);
+      if (unresolvedSet.has(id) && !unresolvedDescriptions.has(id)) {
+        unresolvedDescriptions.set(
+          id,
+          row['Track Description'] || '(no description)'
+        );
+      }
+    }
+    for (const [id, desc] of unresolvedDescriptions) {
+      console.log(`  [WARN] Unresolved: ${id} - ${desc}`);
+    }
+  }
+
+  // --- Phase 4: Build resolved plays ---
+  const resolvedPlays: ParsedPlay[] = [];
+  let unresolvedSkipCount = 0;
+
+  for (const row of validRows) {
+    const trackId = parseInt(row['Track Identifier'], 10);
+    const itunes = itunesResults.get(trackId);
+
+    if (!itunes) {
+      // Track not in iTunes catalog — try fallback from Track Description
+      const desc = row['Track Description'] || '';
+      const dashIdx = desc.indexOf(' - ');
+      if (dashIdx === -1) {
+        unresolvedSkipCount++;
+        continue;
+      }
+      const artistName = desc.slice(0, dashIdx);
+      const trackName = desc.slice(dashIdx + 3);
+      if (!artistName || !trackName) {
+        unresolvedSkipCount++;
+        continue;
+      }
+
+      const timestamp = buildTimestamp(row['Date Played'], row['Hours']);
+      const filtered = checkFiltered(artistName, '', trackName);
+
+      resolvedPlays.push({
+        trackName,
+        artistName,
+        albumName: '',
+        scrobbledAt: timestamp,
+        filtered,
+        appleTrackId: trackId,
+        appleArtistId: 0,
+        appleAlbumId: null,
+        trackViewUrl: '',
+        artistViewUrl: '',
+        albumViewUrl: '',
+        previewUrl: '',
+        durationMs: 0,
+      });
+      continue;
+    }
+
+    const timestamp = buildTimestamp(row['Date Played'], row['Hours']);
+    const albumName = itunes.collectionName ?? '';
+    const filtered = checkFiltered(
+      itunes.artistName,
+      albumName,
+      itunes.trackName
+    );
+
+    resolvedPlays.push({
+      trackName: itunes.trackName,
+      artistName: itunes.artistName,
+      albumName,
+      scrobbledAt: timestamp,
+      filtered,
+      appleTrackId: itunes.trackId,
+      appleArtistId: itunes.artistId,
+      appleAlbumId: itunes.collectionId ?? null,
+      trackViewUrl: itunes.trackViewUrl ?? '',
+      artistViewUrl: itunes.artistViewUrl ?? '',
+      albumViewUrl: itunes.collectionViewUrl ?? '',
+      previewUrl: itunes.previewUrl ?? '',
+      durationMs: itunes.trackTimeMillis ?? 0,
+    });
+  }
+
+  if (unresolvedSkipCount > 0) {
+    console.log(
+      `[WARN] Skipped ${unresolvedSkipCount} plays (unresolved + no parseable description)`
+    );
+  }
+  console.log(`[INFO] Resolved plays: ${resolvedPlays.length}`);
+
+  // --- Phase 5: Deduplicate ---
+
+  // Dedup Apple events (same artist+track+hour)
+  const seen = new Set<string>();
+  const dedupedPlays: ParsedPlay[] = [];
+  let appleDedupeCount = 0;
+
+  for (const play of resolvedPlays) {
+    const key = `${play.artistName.toLowerCase()}|${play.trackName.toLowerCase()}|${play.scrobbledAt}`;
+    if (seen.has(key)) {
+      appleDedupeCount++;
+      continue;
+    }
+    seen.add(key);
+    dedupedPlays.push(play);
+  }
 
   if (appleDedupeCount > 0) {
     console.log(`[INFO] Removed ${appleDedupeCount} duplicate Apple events`);
   }
 
-  // Apply limit if specified
+  // Apply limit
   let playsToProcess = dedupedPlays;
   if (cliArgs.limit && cliArgs.limit < playsToProcess.length) {
     playsToProcess = playsToProcess.slice(0, cliArgs.limit);
     console.log(`[INFO] Limited to ${cliArgs.limit} plays`);
   }
 
-  // Sort by timestamp ascending (oldest first)
-  playsToProcess.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  // Sort by timestamp ascending
+  playsToProcess.sort((a, b) => a.scrobbledAt.localeCompare(b.scrobbledAt));
 
-  // Load existing scrobbles for dedup
+  // Dedup against existing scrobbles
   const scrobbleDedupSet = await loadExistingScrobbles(cfToken);
-
-  // Check for duplicates against existing Last.fm scrobbles
   let existingDupeCount = 0;
-  const newPlays: ApplePlay[] = [];
+  const newPlays: ParsedPlay[] = [];
+
   for (const play of playsToProcess) {
     if (
       isDuplicateScrobble(
         scrobbleDedupSet,
         play.artistName,
         play.trackName,
-        play.timestamp
+        play.scrobbledAt
       )
     ) {
       existingDupeCount++;
@@ -992,22 +1187,48 @@ async function main() {
   if (cliArgs.dryRun) {
     console.log('\n--- DRY RUN REPORT ---');
     console.log(`Total CSV rows: ${rawRows.length}`);
-    console.log(`Valid rows with timestamps: ${allPlays.length}`);
-    console.log('\nRows rejected by filter:');
-    for (const [reason, count] of Object.entries(filterStats).sort(
-      (a, b) => b[1] - a[1]
-    )) {
-      console.log(`  ${reason}: ${count}`);
-    }
-    console.log(`\nApple event duplicates removed: ${appleDedupeCount}`);
+    console.log(`Passed filters: ${validRows.length}`);
     console.log(
-      `Duplicates with existing Last.fm scrobbles: ${existingDupeCount}`
+      `iTunes resolved: ${itunesResults.size}/${uniqueTrackIds.size}`
     );
+    console.log(`Resolved plays: ${resolvedPlays.length}`);
+    console.log(`Apple event duplicates removed: ${appleDedupeCount}`);
+    console.log(`Duplicates with existing scrobbles: ${existingDupeCount}`);
     console.log(`Net new plays to import: ${newPlays.length}`);
 
     if (newPlays.length > 0) {
-      const dates = newPlays.map((p) => p.timestamp);
-      console.log(`\nDate range: ${dates[0]} to ${dates[dates.length - 1]}`);
+      console.log(
+        `\nDate range: ${newPlays[0].scrobbledAt} to ${newPlays[newPlays.length - 1].scrobbledAt}`
+      );
+
+      // Unique artists/albums/tracks counts
+      const uniqueArtists = new Set(
+        newPlays.map((p) => p.artistName.toLowerCase())
+      );
+      const uniqueAlbums = new Set(
+        newPlays
+          .filter((p) => p.albumName)
+          .map(
+            (p) => `${p.albumName.toLowerCase()}|${p.artistName.toLowerCase()}`
+          )
+      );
+      const uniqueTracks = new Set(
+        newPlays.map(
+          (p) => `${p.trackName.toLowerCase()}|${p.artistName.toLowerCase()}`
+        )
+      );
+      console.log(
+        `\nUnique entities: ${uniqueArtists.size} artists, ${uniqueAlbums.size} albums, ${uniqueTracks.size} tracks`
+      );
+
+      // Enrichment stats
+      const withAppleId = newPlays.filter((p) => p.appleTrackId > 0).length;
+      const withPreview = newPlays.filter((p) => p.previewUrl).length;
+      const withDuration = newPlays.filter((p) => p.durationMs > 0).length;
+      const withAlbumUrl = newPlays.filter((p) => p.albumViewUrl).length;
+      console.log(
+        `\nEnrichment coverage: ${withAppleId} apple_music_id, ${withPreview} preview_url, ${withDuration} duration_ms, ${withAlbumUrl} album_url`
+      );
 
       // Top 20 artists by play count
       const artistCounts = new Map<string, number>();
@@ -1026,12 +1247,12 @@ async function main() {
         console.log(`  ${count} plays - ${artist}`);
       }
 
-      // Sample of 10 plays
-      console.log('\nSample of plays that would be inserted:');
+      // Sample plays
+      console.log('\nSample plays:');
       const sample = newPlays.slice(0, 10);
       for (const play of sample) {
         console.log(
-          `  ${play.timestamp} | ${play.artistName} - ${play.trackName} (${play.albumName || 'no album'})`
+          `  ${play.scrobbledAt} | ${play.artistName} - ${play.trackName} (${play.albumName || 'no album'}) [AM:${play.appleTrackId}, dur:${play.durationMs}ms]`
         );
       }
     }
@@ -1046,7 +1267,6 @@ async function main() {
     return;
   }
 
-  // Preload entity caches
   await preloadCaches(cfToken);
 
   // Check for resume
@@ -1065,20 +1285,11 @@ async function main() {
     }
   }
 
-  // Convert to ParsedPlay objects
-  const parsedPlays: ParsedPlay[] = newPlays.map((play) => ({
-    trackName: play.trackName,
-    artistName: play.artistName,
-    albumName: play.albumName,
-    scrobbledAt: new Date(play.timestamp).toISOString(),
-    filtered: checkFiltered(play.artistName, play.albumName, play.trackName),
-  }));
-
   let totalInserted = 0;
   let batchCount = 0;
 
-  for (let i = startIndex; i < parsedPlays.length; i += BATCH_SIZE) {
-    const batch = parsedPlays.slice(i, i + BATCH_SIZE);
+  for (let i = startIndex; i < newPlays.length; i += DB_BATCH_SIZE) {
+    const batch = newPlays.slice(i, i + DB_BATCH_SIZE);
 
     // Batch upsert in foreign key order
     await batchUpsertArtists(batch, cfToken);
@@ -1088,29 +1299,28 @@ async function main() {
     totalInserted += inserted;
     batchCount++;
 
-    const progress = Math.min(i + BATCH_SIZE, parsedPlays.length);
+    const progress = Math.min(i + DB_BATCH_SIZE, newPlays.length);
     console.log(
-      `[INFO] Batch ${batchCount}: ${inserted} scrobbles. Progress: ${progress}/${parsedPlays.length}. Total inserted: ${totalInserted}`
+      `[INFO] Batch ${batchCount}: ${inserted} scrobbles. Progress: ${progress}/${newPlays.length}. Total inserted: ${totalInserted}`
     );
 
     // Save checkpoint every 10 batches
     if (batchCount % 10 === 0) {
       saveCheckpoint({
-        totalPlays: parsedPlays.length,
+        totalPlays: newPlays.length,
         processedIndex: progress,
         totalInserted,
         csvHash,
       });
     }
 
-    // Brief pause between batches to avoid rate limits
     await sleep(100);
   }
 
-  // Final checkpoint save
+  // Final checkpoint
   saveCheckpoint({
-    totalPlays: parsedPlays.length,
-    processedIndex: parsedPlays.length,
+    totalPlays: newPlays.length,
+    processedIndex: newPlays.length,
     totalInserted,
     csvHash,
   });

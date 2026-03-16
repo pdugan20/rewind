@@ -53,8 +53,8 @@ Each step is independent -- a failure in one doesn't block the others.
 Entity needs image
   -> Check images table
   -> [miss] Run source waterfall:
-       Albums:   Cover Art Archive -> iTunes -> Apple Music
-       Artists:  Apple Music -> Fanart.tv
+       Albums:   Apple Music -> Deezer -> iTunes
+       Artists:  Deezer -> Apple Music -> Fanart.tv
        Movies:   TMDB (poster + backdrop)
        Releases: Discogs images
   -> Fetch from source
@@ -63,6 +63,10 @@ Entity needs image
   -> Extract dominant + accent colors
   -> Store metadata in images table
 ```
+
+### Apple Music Enrichment
+
+Listening entities (artists, albums, tracks) are enriched with Apple Music metadata via the iTunes Search/Lookup API. Enriched fields: `apple_music_id`, `apple_music_url`, `preview_url` (tracks only), `duration_ms` (tracks only), `itunes_enriched_at`. New tracks discovered during sync are enriched inline. Bulk enrichment is handled by `scripts/backfill-apple-music.sh`. The Apple Music historical import (`scripts/import-apple-music.ts`) uses batch ID lookups for deterministic enrichment on insert.
 
 R2 keys follow `{domain}/{entity_type}/{entity_id}/original.{ext}`. CDN URL: `cdn.rewind.rest/{r2_key}`.
 
