@@ -49,32 +49,33 @@ Migrate from standalone Scalar HTML page to Mintlify hosted docs platform.
 
 **2.1 -- Initialize Mintlify**
 
-- [ ] **2.1.1** Sign up for Mintlify Hobby (free) plan
-- [ ] **2.1.2** Initialize Mintlify project (via CLI or dashboard) -- creates `mint.json` config and content directory
-- [ ] **2.1.3** Connect GitHub repo for content sync
-- [ ] **2.1.4** Configure `mint.json`: project name, logo, colors, favicon, navigation structure
+- [x] **2.1.1** Sign up for Mintlify Hobby (free) plan
+- [x] **2.1.2** Initialize Mintlify project -- `docs-mintlify/` directory with `docs.json` config
+- [x] **2.1.3** Connect GitHub repo for content sync (monorepo mode, `docs-mintlify` subdirectory)
+- [x] **2.1.4** Configure `docs.json`: maple theme, dark mode, colors, favicon, navigation tabs
 
 **2.2 -- OpenAPI Integration**
 
-- [ ] **2.2.1** Configure OpenAPI source in `mint.json` pointing to `https://api.rewind.rest/v1/openapi.json`
-- [ ] **2.2.2** Configure API playground with Bearer auth pattern
-- [ ] **2.2.3** Verify auto-generated API reference pages render correctly with operationIds and examples
-- [ ] **2.2.4** Configure tag grouping in sidebar: group by domain (Listening, Running, Watching, Collecting, etc.)
+- [x] **2.2.1** Configure OpenAPI source in `docs.json` pointing to `https://api.rewind.rest/v1/openapi.json`
+- [x] **2.2.2** Configure API playground with interactive mode and Bearer auth
+- [x] **2.2.3** Verify auto-generated API reference pages render correctly with operationIds and examples
+- [x] **2.2.4** Configure tag grouping in sidebar: Listening, Running, Watching, Collecting, Feed, Search, Images, System
 
 **2.3 -- Theme and Branding**
 
-- [ ] **2.3.1** Configure color scheme to match landing site dark palette (`#0a0a0a` background, `#e5e5e5` text)
-- [ ] **2.3.2** Add Rewind logo/favicon
-- [ ] **2.3.3** Configure light/dark mode toggle (or dark-only if supported)
+- [x] **2.3.1** Configure color scheme to match landing site dark palette (`#0a0a0a` background, `#e5e5e5` text)
+- [x] **2.3.2** Add Rewind favicon (SVG)
+- [x] **2.3.3** Configure dark mode as default with toggle available
 - [ ] **2.3.4** Review typography and spacing against SF Compute reference
 
 **2.4 -- Custom Domain and Deployment**
 
-- [ ] **2.4.1** Configure custom domain `docs.rewind.rest` in Mintlify dashboard
-- [ ] **2.4.2** Update DNS CNAME to point to Mintlify
-- [ ] **2.4.3** Verify site loads at `docs.rewind.rest`
-- [ ] **2.4.4** Decommission old `docs-scalar/index.html` and `rewind-docs` Cloudflare Pages project
-- [ ] **2.4.5** Update `docs:deploy` script in `package.json` (may no longer be needed if Mintlify auto-deploys from Git)
+- [x] **2.4.1** Configure custom domain `docs.rewind.rest` in Mintlify dashboard
+- [x] **2.4.2** Update DNS CNAME to `cname.mintlify-dns.com`
+- [x] **2.4.3** Verify site loads at `docs.rewind.rest`
+- [x] **2.4.4** Decommission old `docs-scalar/` directory, replace `docs:deploy` with `docs:dev` and `docs:validate`
+- [ ] **2.4.5** Delete `rewind-docs` Cloudflare Pages project from dashboard
+- [ ] **2.4.6** Delete `pdugan20/docs` starter repo from GitHub
 
 ## Phase 3: Content Migration
 
@@ -82,23 +83,23 @@ Add getting-started guides and domain overviews so developers have a guided onbo
 
 **3.1 -- Getting Started**
 
-- [ ] **3.1.1** Write Introduction page: what Rewind is, what data it aggregates, link to API reference
-- [ ] **3.1.2** Write Quick Start guide: obtain API key, make first request, understand pagination, understand date filtering
-- [ ] **3.1.3** Write Authentication guide: read keys vs admin keys, how to pass Bearer token, rate limiting
+- [x] **3.1.1** Write Introduction page: what Rewind is, what data it aggregates, link to API reference
+- [x] **3.1.2** Write Quick Start guide: obtain API key, make first request, understand pagination, understand date filtering
+- [x] **3.1.3** Write Authentication guide: read keys vs admin keys, how to pass Bearer token, rate limiting
 
 **3.2 -- Domain Overviews**
 
-- [ ] **3.2.1** Write Listening overview: what it tracks (Last.fm + Apple Music), key endpoints, common patterns
-- [ ] **3.2.2** Write Running overview: what it tracks (Strava), key endpoints, stats and charts
-- [ ] **3.2.3** Write Watching overview: what it tracks (Plex + Letterboxd), key endpoints, ratings/reviews
-- [ ] **3.2.4** Write Collecting overview: what it tracks (Discogs + Trakt), key endpoints, wantlist
-- [ ] **3.2.5** Write Images overview: how the image pipeline works, CDN URLs, thumbhash, color extraction
+- [x] **3.2.1** Write Listening overview: what it tracks (Last.fm + Apple Music), key endpoints, common patterns
+- [x] **3.2.2** Write Running overview: what it tracks (Strava), key endpoints, stats and charts
+- [x] **3.2.3** Write Watching overview: what it tracks (Plex + Letterboxd), key endpoints, ratings/reviews
+- [x] **3.2.4** Write Collecting overview: what it tracks (Discogs + Trakt), key endpoints, wantlist
+- [x] **3.2.5** Write Images overview: how the image pipeline works, CDN URLs, thumbhash, color extraction
 
 **3.3 -- Navigation Structure**
 
-- [ ] **3.3.1** Configure sidebar in `mint.json` with sections: Getting Started, Domains, API Reference
-- [ ] **3.3.2** Add "On this page" table of contents for longer guides
-- [ ] **3.3.3** Verify navigation flow from introduction -> quick start -> domain guides -> API reference
+- [x] **3.3.1** Configure sidebar in `docs.json` with tabs: Guides (Getting Started + Domains) and API Reference
+- [x] **3.3.2** "On this page" table of contents is built-in to Mintlify
+- [x] **3.3.3** Verify navigation flow from introduction -> quick start -> domain guides -> API reference
 
 **3.4 -- Changelog**
 

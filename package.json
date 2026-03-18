@@ -36,7 +36,8 @@
     "www:dev": "cd docs-site && npx astro dev",
     "www:build": "cd docs-site && npx astro build",
     "www:deploy": "cd docs-site && npx astro build && npx wrangler pages deploy dist --project-name rewind-www --commit-dirty=true",
-    "docs:deploy": "npx wrangler pages deploy docs-scalar --project-name rewind-docs --commit-dirty=true",
+    "docs:dev": "cd docs-mintlify && mint dev",
+    "docs:validate": "cd docs-mintlify && mint validate",
     "prepare": "husky"
   },
   "lint-staged": {
