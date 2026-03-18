@@ -78,6 +78,8 @@ const TopItemSchema = z.object({
   playcount: z.number(),
   image: z.any().nullable(),
   url: z.string(),
+  apple_music_url: z.string().nullable(),
+  preview_url: z.string().nullable().optional(),
 });
 
 const NowPlayingSchema = z.object({
@@ -91,6 +93,8 @@ const ScrobbleSchema = z.object({
     id: z.number(),
     name: z.string(),
     url: z.string().nullable(),
+    apple_music_url: z.string().nullable(),
+    preview_url: z.string().nullable(),
   }),
   artist: z.object({ id: z.number(), name: z.string() }),
   album: z.object({
@@ -153,6 +157,7 @@ const ArtistBrowseSchema = z.object({
   playcount: z.number().nullable(),
   genre: z.string().nullable(),
   url: z.string(),
+  apple_music_url: z.string().nullable(),
   image: z.any().nullable(),
 });
 
@@ -162,6 +167,7 @@ const AlbumBrowseSchema = z.object({
   artist: z.object({ id: z.number(), name: z.string() }),
   playcount: z.number().nullable(),
   url: z.string(),
+  apple_music_url: z.string().nullable(),
   image: z.any().nullable(),
 });
 
@@ -175,6 +181,7 @@ const ArtistDetailSchema = z.object({
   name: z.string(),
   mbid: z.string().nullable(),
   url: z.string().nullable(),
+  apple_music_url: z.string().nullable(),
   playcount: z.number(),
   scrobble_count: z.number(),
   genre: z.string().nullable(),
@@ -185,6 +192,7 @@ const ArtistDetailSchema = z.object({
       id: z.number(),
       name: z.string(),
       playcount: z.number(),
+      apple_music_url: z.string().nullable(),
       image: z.any().nullable(),
     })
   ),
@@ -193,6 +201,8 @@ const ArtistDetailSchema = z.object({
       id: z.number(),
       name: z.string(),
       scrobble_count: z.number(),
+      apple_music_url: z.string().nullable(),
+      preview_url: z.string().nullable(),
     })
   ),
 });
@@ -202,6 +212,7 @@ const AlbumDetailSchema = z.object({
   name: z.string(),
   mbid: z.string().nullable(),
   url: z.string().nullable(),
+  apple_music_url: z.string().nullable(),
   playcount: z.number(),
   image: z.any().nullable(),
   artist: z.object({ id: z.number(), name: z.string() }),
@@ -210,6 +221,8 @@ const AlbumDetailSchema = z.object({
       id: z.number(),
       name: z.string(),
       scrobble_count: z.number(),
+      apple_music_url: z.string().nullable(),
+      preview_url: z.string().nullable(),
     })
   ),
 });
@@ -235,6 +248,7 @@ const YearSchema = z.object({
       id: z.number(),
       name: z.string(),
       scrobbles: z.number(),
+      apple_music_url: z.string().nullable(),
       image: z.any().nullable(),
     })
   ),
@@ -244,6 +258,7 @@ const YearSchema = z.object({
       name: z.string(),
       artist: z.string(),
       scrobbles: z.number(),
+      apple_music_url: z.string().nullable(),
       image: z.any().nullable(),
     })
   ),
@@ -253,6 +268,8 @@ const YearSchema = z.object({
       name: z.string(),
       artist: z.string(),
       scrobbles: z.number(),
+      apple_music_url: z.string().nullable(),
+      preview_url: z.string().nullable(),
     })
   ),
   monthly: z.array(
@@ -881,7 +898,11 @@ listening.openapi(nowPlayingRoute, async (c) => {
 
     // Look up artist and album in DB for IDs
     const [artist] = await db
-      .select({ id: lastfmArtists.id, name: lastfmArtists.name })
+      .select({
+        id: lastfmArtists.id,
+        name: lastfmArtists.name,
+        appleMusicUrl: lastfmArtists.appleMusicUrl,
+      })
       .from(lastfmArtists)
       .where(eq(lastfmArtists.name, latestTrack.artist['#text']))
       .limit(1);
@@ -907,6 +928,30 @@ listening.openapi(nowPlayingRoute, async (c) => {
       albumData = album ?? null;
     }
 
+    // Look up track in DB for Apple Music data
+    let trackData: {
+      id: number;
+      appleMusicUrl: string | null;
+      previewUrl: string | null;
+    } | null = null;
+    if (artist) {
+      const [track] = await db
+        .select({
+          id: lastfmTracks.id,
+          appleMusicUrl: lastfmTracks.appleMusicUrl,
+          previewUrl: lastfmTracks.previewUrl,
+        })
+        .from(lastfmTracks)
+        .where(
+          and(
+            eq(lastfmTracks.name, latestTrack.name),
+            eq(lastfmTracks.artistId, artist.id)
+          )
+        )
+        .limit(1);
+      trackData = track ?? null;
+    }
+
     const albumImage = albumData
       ? await getImageAttachment(
           db,
@@ -927,6 +972,7 @@ listening.openapi(nowPlayingRoute, async (c) => {
         artist: {
           id: artist?.id ?? null,
           name: latestTrack.artist['#text'],
+          apple_music_url: artist?.appleMusicUrl ?? null,
         },
         album: {
           id: albumData?.id ?? null,
@@ -934,6 +980,8 @@ listening.openapi(nowPlayingRoute, async (c) => {
           image: albumImage,
         },
         url: latestTrack.url,
+        apple_music_url: trackData?.appleMusicUrl ?? null,
+        preview_url: trackData?.previewUrl ?? null,
       },
       scrobbled_at: scrobbledAt,
     });
@@ -964,6 +1012,8 @@ listening.openapi(recentRoute, async (c) => {
       trackName: lastfmTracks.name,
       trackUrl: lastfmTracks.url,
       trackId: lastfmTracks.id,
+      trackAppleMusicUrl: lastfmTracks.appleMusicUrl,
+      trackPreviewUrl: lastfmTracks.previewUrl,
       artistName: lastfmArtists.name,
       artistId: lastfmArtists.id,
       albumName: lastfmAlbums.name,
@@ -995,6 +1045,8 @@ listening.openapi(recentRoute, async (c) => {
         id: s.trackId,
         name: s.trackName,
         url: s.trackUrl,
+        apple_music_url: s.trackAppleMusicUrl ?? null,
+        preview_url: s.trackPreviewUrl ?? null,
       },
       artist: {
         id: s.artistId,
@@ -1046,6 +1098,7 @@ listening.openapi(topArtistsRoute, async (c) => {
       artistName: lastfmArtists.name,
       artistUrl: lastfmArtists.url,
       artistGenre: lastfmArtists.genre,
+      artistAppleMusicUrl: lastfmArtists.appleMusicUrl,
     })
     .from(lastfmTopArtists)
     .innerJoin(lastfmArtists, eq(lastfmTopArtists.artistId, lastfmArtists.id))
@@ -1075,6 +1128,7 @@ listening.openapi(topArtistsRoute, async (c) => {
       genre: item.artistGenre ?? null,
       image: imageMap.get(String(item.artistId)) ?? null,
       url: item.artistUrl ?? '',
+      apple_music_url: item.artistAppleMusicUrl ?? null,
     })),
     pagination: paginate(page, limit, total),
   });
@@ -1115,6 +1169,7 @@ listening.openapi(topAlbumsRoute, async (c) => {
       albumId: lastfmAlbums.id,
       albumName: lastfmAlbums.name,
       albumUrl: lastfmAlbums.url,
+      albumAppleMusicUrl: lastfmAlbums.appleMusicUrl,
       artistName: lastfmArtists.name,
     })
     .from(lastfmTopAlbums)
@@ -1145,6 +1200,7 @@ listening.openapi(topAlbumsRoute, async (c) => {
       playcount: item.playcount,
       image: imageMap.get(String(item.albumId)) ?? null,
       url: item.albumUrl ?? '',
+      apple_music_url: item.albumAppleMusicUrl ?? null,
     })),
     pagination: paginate(page, limit, total),
   });
@@ -1185,6 +1241,8 @@ listening.openapi(topTracksRoute, async (c) => {
       trackId: lastfmTracks.id,
       trackName: lastfmTracks.name,
       trackUrl: lastfmTracks.url,
+      trackAppleMusicUrl: lastfmTracks.appleMusicUrl,
+      trackPreviewUrl: lastfmTracks.previewUrl,
       artistName: lastfmArtists.name,
     })
     .from(lastfmTopTracks)
@@ -1207,6 +1265,8 @@ listening.openapi(topTracksRoute, async (c) => {
       playcount: item.playcount,
       image: null,
       url: item.trackUrl ?? '',
+      apple_music_url: item.trackAppleMusicUrl ?? null,
+      preview_url: item.trackPreviewUrl ?? null,
     })),
     pagination: paginate(page, limit, total),
   });
@@ -1359,6 +1419,8 @@ listening.openapi(historyRoute, async (c) => {
       trackName: lastfmTracks.name,
       trackUrl: lastfmTracks.url,
       trackId: lastfmTracks.id,
+      trackAppleMusicUrl: lastfmTracks.appleMusicUrl,
+      trackPreviewUrl: lastfmTracks.previewUrl,
       artistName: lastfmArtists.name,
       artistId: lastfmArtists.id,
       albumName: lastfmAlbums.name,
@@ -1387,7 +1449,13 @@ listening.openapi(historyRoute, async (c) => {
 
   return c.json({
     data: scrobbles.map((s) => ({
-      track: { id: s.trackId, name: s.trackName, url: s.trackUrl },
+      track: {
+        id: s.trackId,
+        name: s.trackName,
+        url: s.trackUrl,
+        apple_music_url: s.trackAppleMusicUrl ?? null,
+        preview_url: s.trackPreviewUrl ?? null,
+      },
       artist: { id: s.artistId, name: s.artistName },
       album: {
         id: s.albumId,
@@ -1441,6 +1509,7 @@ listening.openapi(browseArtistsRoute, async (c) => {
       id: lastfmArtists.id,
       name: lastfmArtists.name,
       url: lastfmArtists.url,
+      appleMusicUrl: lastfmArtists.appleMusicUrl,
       playcount: lastfmArtists.playcount,
       genre: lastfmArtists.genre,
     })
@@ -1465,6 +1534,7 @@ listening.openapi(browseArtistsRoute, async (c) => {
       playcount: item.playcount,
       genre: item.genre ?? null,
       url: item.url ?? '',
+      apple_music_url: item.appleMusicUrl ?? null,
       image: imageMap.get(String(item.id)) ?? null,
     })),
     pagination: paginate(page, limit, total),
@@ -1520,6 +1590,7 @@ listening.openapi(browseAlbumsRoute, async (c) => {
       id: lastfmAlbums.id,
       name: lastfmAlbums.name,
       url: lastfmAlbums.url,
+      appleMusicUrl: lastfmAlbums.appleMusicUrl,
       playcount: lastfmAlbums.playcount,
       artistId: lastfmArtists.id,
       artistName: lastfmArtists.name,
@@ -1546,6 +1617,7 @@ listening.openapi(browseAlbumsRoute, async (c) => {
       artist: { id: item.artistId, name: item.artistName },
       playcount: item.playcount,
       url: item.url ?? '',
+      apple_music_url: item.appleMusicUrl ?? null,
       image: imageMap.get(String(item.id)) ?? null,
     })),
     pagination: paginate(page, limit, total),
@@ -1581,6 +1653,7 @@ listening.openapi(artistDetailRoute, async (c) => {
       id: lastfmAlbums.id,
       name: lastfmAlbums.name,
       playcount: lastfmAlbums.playcount,
+      appleMusicUrl: lastfmAlbums.appleMusicUrl,
     })
     .from(lastfmAlbums)
     .where(and(eq(lastfmAlbums.artistId, id), eq(lastfmAlbums.isFiltered, 0)))
@@ -1592,6 +1665,8 @@ listening.openapi(artistDetailRoute, async (c) => {
     .select({
       id: lastfmTracks.id,
       name: lastfmTracks.name,
+      appleMusicUrl: lastfmTracks.appleMusicUrl,
+      previewUrl: lastfmTracks.previewUrl,
       scrobbleCount: sql<number>`count(${lastfmScrobbles.id})`,
     })
     .from(lastfmTracks)
@@ -1629,6 +1704,7 @@ listening.openapi(artistDetailRoute, async (c) => {
     name: artist.name,
     mbid: artist.mbid,
     url: artist.url,
+    apple_music_url: artist.appleMusicUrl ?? null,
     playcount: artist.playcount,
     scrobble_count: scrobbleCount.count,
     first_scrobbled_at: firstScrobble?.firstScrobbledAt ?? null,
@@ -1639,12 +1715,15 @@ listening.openapi(artistDetailRoute, async (c) => {
       id: a.id,
       name: a.name,
       playcount: a.playcount,
+      apple_music_url: a.appleMusicUrl ?? null,
       image: albumImageMap.get(String(a.id)) ?? null,
     })),
     top_tracks: topTracks.map((t) => ({
       id: t.id,
       name: t.name,
       scrobble_count: t.scrobbleCount,
+      apple_music_url: t.appleMusicUrl ?? null,
+      preview_url: t.previewUrl ?? null,
     })),
   });
 });
@@ -1663,6 +1742,7 @@ listening.openapi(albumDetailRoute, async (c) => {
       name: lastfmAlbums.name,
       mbid: lastfmAlbums.mbid,
       url: lastfmAlbums.url,
+      appleMusicUrl: lastfmAlbums.appleMusicUrl,
       playcount: lastfmAlbums.playcount,
       artistId: lastfmArtists.id,
       artistName: lastfmArtists.name,
@@ -1679,6 +1759,8 @@ listening.openapi(albumDetailRoute, async (c) => {
     .select({
       id: lastfmTracks.id,
       name: lastfmTracks.name,
+      appleMusicUrl: lastfmTracks.appleMusicUrl,
+      previewUrl: lastfmTracks.previewUrl,
       scrobbleCount: sql<number>`count(${lastfmScrobbles.id})`,
     })
     .from(lastfmTracks)
@@ -1708,6 +1790,7 @@ listening.openapi(albumDetailRoute, async (c) => {
     name: album.name,
     mbid: album.mbid,
     url: album.url,
+    apple_music_url: album.appleMusicUrl ?? null,
     playcount: album.playcount,
     first_scrobbled_at: firstAlbumScrobble?.firstScrobbledAt ?? null,
     image: albumImage,
@@ -1719,6 +1802,8 @@ listening.openapi(albumDetailRoute, async (c) => {
       id: t.id,
       name: t.name,
       scrobble_count: t.scrobbleCount,
+      apple_music_url: t.appleMusicUrl ?? null,
+      preview_url: t.previewUrl ?? null,
     })),
   });
 });
@@ -2036,6 +2121,7 @@ listening.openapi(yearRoute, async (c) => {
     .select({
       id: lastfmArtists.id,
       name: lastfmArtists.name,
+      appleMusicUrl: lastfmArtists.appleMusicUrl,
       scrobbles: sql<number>`count(*)`,
     })
     .from(lastfmScrobbles)
@@ -2051,6 +2137,7 @@ listening.openapi(yearRoute, async (c) => {
     .select({
       id: lastfmAlbums.id,
       name: lastfmAlbums.name,
+      appleMusicUrl: lastfmAlbums.appleMusicUrl,
       artistName: lastfmArtists.name,
       scrobbles: sql<number>`count(*)`,
     })
@@ -2068,6 +2155,8 @@ listening.openapi(yearRoute, async (c) => {
     .select({
       id: lastfmTracks.id,
       name: lastfmTracks.name,
+      appleMusicUrl: lastfmTracks.appleMusicUrl,
+      previewUrl: lastfmTracks.previewUrl,
       artistName: lastfmArtists.name,
       scrobbles: sql<number>`count(*)`,
     })
@@ -2115,6 +2204,7 @@ listening.openapi(yearRoute, async (c) => {
       id: a.id,
       name: a.name,
       scrobbles: a.scrobbles,
+      apple_music_url: a.appleMusicUrl ?? null,
       image: artistImageMap.get(String(a.id)) ?? null,
     })),
     top_albums: topAlbums.map((a) => ({
@@ -2122,6 +2212,7 @@ listening.openapi(yearRoute, async (c) => {
       name: a.name,
       artist: a.artistName,
       scrobbles: a.scrobbles,
+      apple_music_url: a.appleMusicUrl ?? null,
       image: albumImageMap.get(String(a.id)) ?? null,
     })),
     top_tracks: topTracks.map((t) => ({
@@ -2129,6 +2220,8 @@ listening.openapi(yearRoute, async (c) => {
       name: t.name,
       artist: t.artistName,
       scrobbles: t.scrobbles,
+      apple_music_url: t.appleMusicUrl ?? null,
+      preview_url: t.previewUrl ?? null,
     })),
     monthly: monthlyBreakdown.map((m) => ({
       month: m.month,

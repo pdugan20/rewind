@@ -701,12 +701,26 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "apple_music_url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "preview_url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
                               "id",
                               "name",
-                              "url"
+                              "url",
+                              "apple_music_url",
+                              "preview_url"
                             ]
                           },
                           "artist": {
@@ -863,6 +877,18 @@
                           "image": {},
                           "url": {
                             "type": "string"
+                          },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "preview_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -871,7 +897,8 @@
                           "name",
                           "detail",
                           "playcount",
-                          "url"
+                          "url",
+                          "apple_music_url"
                         ]
                       }
                     },
@@ -995,6 +1022,18 @@
                           "image": {},
                           "url": {
                             "type": "string"
+                          },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "preview_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -1003,7 +1042,8 @@
                           "name",
                           "detail",
                           "playcount",
-                          "url"
+                          "url",
+                          "apple_music_url"
                         ]
                       }
                     },
@@ -1127,6 +1167,18 @@
                           "image": {},
                           "url": {
                             "type": "string"
+                          },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "preview_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -1135,7 +1187,8 @@
                           "name",
                           "detail",
                           "playcount",
-                          "url"
+                          "url",
+                          "apple_music_url"
                         ]
                       }
                     },
@@ -1372,12 +1425,26 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "apple_music_url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "preview_url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
                               "id",
                               "name",
-                              "url"
+                              "url",
+                              "apple_music_url",
+                              "preview_url"
                             ]
                           },
                           "artist": {
@@ -1557,6 +1624,12 @@
                           "url": {
                             "type": "string"
                           },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "image": {}
                         },
                         "required": [
@@ -1564,7 +1637,8 @@
                           "name",
                           "playcount",
                           "genre",
-                          "url"
+                          "url",
+                          "apple_music_url"
                         ]
                       }
                     },
@@ -1715,6 +1789,12 @@
                           "url": {
                             "type": "string"
                           },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "image": {}
                         },
                         "required": [
@@ -1722,7 +1802,8 @@
                           "name",
                           "artist",
                           "playcount",
-                          "url"
+                          "url",
+                          "apple_music_url"
                         ]
                       }
                     },
@@ -1795,6 +1876,12 @@
                         "null"
                       ]
                     },
+                    "apple_music_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "playcount": {
                       "type": "number"
                     },
@@ -1845,12 +1932,19 @@
                           "playcount": {
                             "type": "number"
                           },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "image": {}
                         },
                         "required": [
                           "id",
                           "name",
-                          "playcount"
+                          "playcount",
+                          "apple_music_url"
                         ]
                       }
                     },
@@ -1867,12 +1961,26 @@
                           },
                           "scrobble_count": {
                             "type": "number"
+                          },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "preview_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "id",
                           "name",
-                          "scrobble_count"
+                          "scrobble_count",
+                          "apple_music_url",
+                          "preview_url"
                         ]
                       }
                     }
@@ -1882,6 +1990,7 @@
                     "name",
                     "mbid",
                     "url",
+                    "apple_music_url",
                     "playcount",
                     "scrobble_count",
                     "genre",
@@ -1970,6 +2079,12 @@
                         "null"
                       ]
                     },
+                    "apple_music_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "playcount": {
                       "type": "number"
                     },
@@ -2002,12 +2117,26 @@
                           },
                           "scrobble_count": {
                             "type": "number"
+                          },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "preview_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "id",
                           "name",
-                          "scrobble_count"
+                          "scrobble_count",
+                          "apple_music_url",
+                          "preview_url"
                         ]
                       }
                     }
@@ -2017,6 +2146,7 @@
                     "name",
                     "mbid",
                     "url",
+                    "apple_music_url",
                     "playcount",
                     "artist",
                     "tracks"
@@ -2423,12 +2553,19 @@
                           "scrobbles": {
                             "type": "number"
                           },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "image": {}
                         },
                         "required": [
                           "id",
                           "name",
-                          "scrobbles"
+                          "scrobbles",
+                          "apple_music_url"
                         ]
                       }
                     },
@@ -2449,13 +2586,20 @@
                           "scrobbles": {
                             "type": "number"
                           },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "image": {}
                         },
                         "required": [
                           "id",
                           "name",
                           "artist",
-                          "scrobbles"
+                          "scrobbles",
+                          "apple_music_url"
                         ]
                       }
                     },
@@ -2475,13 +2619,27 @@
                           },
                           "scrobbles": {
                             "type": "number"
+                          },
+                          "apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "preview_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "id",
                           "name",
                           "artist",
-                          "scrobbles"
+                          "scrobbles",
+                          "apple_music_url",
+                          "preview_url"
                         ]
                       }
                     },

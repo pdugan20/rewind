@@ -170,16 +170,34 @@ interface NowPlayingResponse {
   is_playing: boolean;
   track: {
     name: string;
-    artist: { id: number; name: string };
+    artist: { id: number; name: string; apple_music_url: string | null };
     album: {
       id: number;
       name: string;
-      image_url: string | null;
-      thumbhash: string | null;
+      image: ImageAttachment | null;
     };
     url: string;
+    apple_music_url: string | null;
+    preview_url: string | null;
   } | null;
   scrobbled_at: string | null;
+}
+
+interface Scrobble {
+  track: {
+    id: number;
+    name: string;
+    url: string | null;
+    apple_music_url: string | null;
+    preview_url: string | null;
+  };
+  artist: { id: number; name: string };
+  album: {
+    id: number | null;
+    name: string | null;
+    image: ImageAttachment | null;
+  };
+  scrobbled_at: string;
 }
 
 interface TopItem {
@@ -188,15 +206,61 @@ interface TopItem {
   name: string;
   detail: string;
   playcount: number;
-  image_url: string | null;
-  thumbhash: string | null;
+  image: ImageAttachment | null;
   url: string;
+  apple_music_url: string | null;
+  preview_url?: string | null; // tracks only
 }
 
 interface TopListResponse {
   period: string;
   data: TopItem[];
   pagination: Pagination;
+}
+
+interface ArtistDetail {
+  id: number;
+  name: string;
+  mbid: string | null;
+  url: string | null;
+  apple_music_url: string | null;
+  playcount: number;
+  scrobble_count: number;
+  genre: string | null;
+  tags: { name: string; count: number }[] | null;
+  image: ImageAttachment | null;
+  top_albums: {
+    id: number;
+    name: string;
+    playcount: number;
+    apple_music_url: string | null;
+    image: ImageAttachment | null;
+  }[];
+  top_tracks: {
+    id: number;
+    name: string;
+    scrobble_count: number;
+    apple_music_url: string | null;
+    preview_url: string | null;
+  }[];
+}
+
+interface AlbumDetail {
+  id: number;
+  name: string;
+  mbid: string | null;
+  url: string | null;
+  apple_music_url: string | null;
+  playcount: number;
+  image: ImageAttachment | null;
+  artist: { id: number; name: string };
+  tracks: {
+    id: number;
+    name: string;
+    scrobble_count: number;
+    apple_music_url: string | null;
+    preview_url: string | null;
+  }[];
 }
 
 interface ListeningStats {
