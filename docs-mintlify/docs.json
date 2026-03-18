@@ -4,6 +4,7 @@
   "name": "Rewind",
   "description": "Personal data aggregation API. Syncs and serves data from the services that track your life.",
   "favicon": "/favicon.svg",
+  "openapi": "openapi.json",
   "appearance": {
     "default": "dark",
     "strict": false
@@ -55,16 +56,151 @@
       },
       {
         "tab": "API Reference",
-        "openapi": "https://api.rewind.rest/v1/openapi.json",
         "groups": [
-          { "group": "Listening" },
-          { "group": "Running" },
-          { "group": "Watching" },
-          { "group": "Collecting" },
-          { "group": "Feed" },
-          { "group": "Search" },
-          { "group": "Images" },
-          { "group": "System" }
+          {
+            "group": "System",
+            "pages": [
+              "api-reference/system/health-check",
+              "api-reference/system/sync-health-status"
+            ]
+          },
+          {
+            "group": "Listening",
+            "pages": [
+              "api-reference/listening/now-playing",
+              "api-reference/listening/recent-scrobbles",
+              "api-reference/listening/top-artists",
+              "api-reference/listening/top-albums",
+              "api-reference/listening/top-tracks",
+              "api-reference/listening/listening-stats",
+              "api-reference/listening/scrobble-history",
+              "api-reference/listening/browse-artists",
+              "api-reference/listening/browse-albums",
+              "api-reference/listening/artist-detail",
+              "api-reference/listening/album-detail",
+              "api-reference/listening/scrobble-calendar",
+              "api-reference/listening/listening-trends",
+              "api-reference/listening/listening-streaks",
+              "api-reference/listening/year-in-review",
+              "api-reference/listening/genre-breakdown"
+            ]
+          },
+          {
+            "group": "Running",
+            "pages": [
+              "api-reference/running/lifetime-running-statistics",
+              "api-reference/running/all-year-summaries",
+              "api-reference/running/single-year-summary",
+              "api-reference/running/personal-records",
+              "api-reference/running/recent-activities",
+              "api-reference/running/list-activities",
+              "api-reference/running/activity-detail",
+              "api-reference/running/activity-splits",
+              "api-reference/running/gear-list",
+              "api-reference/running/activity-calendar",
+              "api-reference/running/cumulative-distance-chart",
+              "api-reference/running/pace-trend-chart",
+              "api-reference/running/time-of-day-chart",
+              "api-reference/running/elevation-chart",
+              "api-reference/running/cities",
+              "api-reference/running/running-streaks",
+              "api-reference/running/race-activities",
+              "api-reference/running/eddington-number",
+              "api-reference/running/year-in-review"
+            ]
+          },
+          {
+            "group": "Watching",
+            "pages": [
+              "api-reference/watching/recent-watches",
+              "api-reference/watching/list-movies",
+              "api-reference/watching/movie-detail",
+              "api-reference/watching/watch-stats",
+              "api-reference/watching/genre-stats",
+              "api-reference/watching/decade-stats",
+              "api-reference/watching/director-stats",
+              "api-reference/watching/watch-calendar",
+              "api-reference/watching/watch-trends",
+              "api-reference/watching/list-tv-shows",
+              "api-reference/watching/show-detail",
+              "api-reference/watching/season-detail",
+              "api-reference/watching/rated-movies",
+              "api-reference/watching/movie-reviews",
+              "api-reference/watching/year-in-review"
+            ]
+          },
+          {
+            "group": "Collecting",
+            "pages": [
+              "api-reference/collecting/list-vinyl-collection",
+              "api-reference/collecting/collection-statistics",
+              "api-reference/collecting/recent-additions",
+              "api-reference/collecting/collection-item-detail",
+              "api-reference/collecting/wantlist",
+              "api-reference/collecting/format-breakdown",
+              "api-reference/collecting/genre-breakdown",
+              "api-reference/collecting/top-artists",
+              "api-reference/collecting/collection-listening-cross-reference",
+              "api-reference/collecting/collection-calendar",
+              "api-reference/collecting/list-physical-media-collection",
+              "api-reference/collecting/physical-media-statistics",
+              "api-reference/collecting/recently-added-physical-media",
+              "api-reference/collecting/media-format-breakdown",
+              "api-reference/collecting/owned-vs-watched-cross-reference",
+              "api-reference/collecting/physical-media-item-detail"
+            ]
+          },
+          {
+            "group": "Feed",
+            "pages": [
+              "api-reference/feed/cross-domain-activity-feed",
+              "api-reference/feed/single-domain-activity-feed",
+              "api-reference/feed/on-this-day"
+            ]
+          },
+          {
+            "group": "Search",
+            "pages": ["api-reference/search/cross-domain-search"]
+          },
+          {
+            "group": "Images",
+            "pages": [
+              "api-reference/images/get-image-by-entity",
+              "api-reference/images/browse-image-alternatives",
+              "api-reference/images/set-image-override",
+              "api-reference/images/revert-image-override"
+            ]
+          },
+          {
+            "group": "Admin",
+            "pages": [
+              "api-reference/admin/export-domain-data",
+              "api-reference/admin/list-api-keys",
+              "api-reference/admin/create-api-key",
+              "api-reference/admin/revoke-api-key",
+              "api-reference/admin/trigger-lastfm-sync",
+              "api-reference/admin/trigger-strava-sync",
+              "api-reference/admin/trigger-watching-sync",
+              "api-reference/admin/trigger-discogs-collection-sync",
+              "api-reference/admin/trigger-trakt-collection-sync",
+              "api-reference/admin/soft-delete-a-strava-activity",
+              "api-reference/admin/recompute-running-stats",
+              "api-reference/admin/regenerate-thumbhashes",
+              "api-reference/listening/list-listening-filters",
+              "api-reference/listening/create-listening-filter",
+              "api-reference/listening/delete-listening-filter",
+              "api-reference/listening/backfill-listening-images",
+              "api-reference/listening/enrich-tracks-with-apple-music-urls",
+              "api-reference/watching/add-movie-manually",
+              "api-reference/watching/edit-watch-event",
+              "api-reference/watching/delete-watch-event",
+              "api-reference/watching/backfill-images",
+              "api-reference/collecting/backfill-collection-images",
+              "api-reference/collecting/add-physical-media",
+              "api-reference/collecting/remove-physical-media",
+              "api-reference/collecting/backfill-media-poster-images"
+            ]
+          }
         ]
       }
     ]
