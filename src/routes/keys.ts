@@ -60,6 +60,7 @@ const KeyRevokedSchema = z.object({
 const createKeyRoute = createRoute({
   method: 'post',
   path: '/',
+  operationId: 'createAdminKey',
   tags: ['Admin'],
   summary: 'Create API key',
   description:
@@ -89,6 +90,7 @@ const createKeyRoute = createRoute({
 const listKeysRoute = createRoute({
   method: 'get',
   path: '/',
+  operationId: 'listAdminKeys',
   tags: ['Admin'],
   summary: 'List API keys',
   description:
@@ -109,6 +111,7 @@ const listKeysRoute = createRoute({
 const deleteKeyRoute = createRoute({
   method: 'delete',
   path: '/{id}',
+  operationId: 'deleteAdminKey',
   tags: ['Admin'],
   summary: 'Revoke API key',
   description: 'Soft-delete an API key by setting is_active to false.',

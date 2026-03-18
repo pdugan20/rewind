@@ -53,6 +53,7 @@ const PlexWebhookResponseSchema = z.object({
 const stravaValidationRoute = createRoute({
   method: 'get',
   path: '/webhooks/strava',
+  operationId: 'validateStravaWebhook',
   tags: ['Webhooks'],
   summary: 'Strava webhook subscription validation',
   description:
@@ -96,6 +97,7 @@ webhooks.openapi(stravaValidationRoute, (c) => {
 const stravaEventRoute = createRoute({
   method: 'post',
   path: '/webhooks/strava',
+  operationId: 'receiveStravaWebhook',
   tags: ['Webhooks'],
   summary: 'Strava webhook event receiver',
   description:
@@ -136,6 +138,7 @@ webhooks.openapi(stravaEventRoute, async (c) => {
 const plexWebhookRoute = createRoute({
   method: 'post',
   path: '/webhooks/plex',
+  operationId: 'receivePlexWebhook',
   tags: ['Webhooks'],
   summary: 'Plex webhook event receiver',
   description:

@@ -532,6 +532,7 @@
   "paths": {
     "/v1/health": {
       "get": {
+        "operationId": "getHealth",
         "tags": [
           "System"
         ],
@@ -544,6 +545,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "status": "ok",
+                  "timestamp": "2026-03-18T21:00:00.000Z"
                 }
               }
             }
@@ -553,6 +558,7 @@
     },
     "/v1/health/sync": {
       "get": {
+        "operationId": "getHealthSync",
         "tags": [
           "System"
         ],
@@ -574,6 +580,7 @@
     },
     "/v1/listening/now-playing": {
       "get": {
+        "operationId": "getListeningNowPlaying",
         "tags": [
           "Listening"
         ],
@@ -621,6 +628,7 @@
     },
     "/v1/listening/recent": {
       "get": {
+        "operationId": "getListeningRecent",
         "tags": [
           "Listening"
         ],
@@ -776,6 +784,34 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "track": {
+                        "id": 4296,
+                        "name": "Cherry",
+                        "url": "https://www.last.fm/music/Ratatat/_/Cherry",
+                        "apple_music_url": "https://music.apple.com/us/album/cherry/1540685260?i=1540685721&uo=4",
+                        "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/68/56/3d/68563d2b-7ef3-4bb0-5f97-8cd2984a4e90/mzaf_17848570804808983859.plus.aac.p.m4a"
+                      },
+                      "artist": {
+                        "id": 551,
+                        "name": "Ratatat"
+                      },
+                      "album": {
+                        "id": 1566,
+                        "name": "Ratatat",
+                        "image": {
+                          "url": "https://cdn.rewind.rest/listening/albums/1566/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                          "thumbhash": "NwgKBwDIl4d2h3h/hrZ4d2h0d4QHQ2oA",
+                          "dominant_color": "#d8d8d8",
+                          "accent_color": "#d8d8d8"
+                        }
+                      },
+                      "scrobbled_at": "2026-03-18T01:14:04.000Z"
+                    }
+                  ]
                 }
               }
             }
@@ -795,6 +831,7 @@
     },
     "/v1/listening/top/artists": {
       "get": {
+        "operationId": "getListeningTopArtists",
         "tags": [
           "Listening"
         ],
@@ -911,6 +948,33 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "period": "overall",
+                  "data": [
+                    {
+                      "rank": 1,
+                      "id": 91,
+                      "name": "The Beatles",
+                      "detail": "",
+                      "playcount": 6322,
+                      "genre": "Classic Rock",
+                      "image": {
+                        "url": "https://cdn.rewind.rest/listening/artists/91/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "5fcRBwD4yLd5doh/hZZ4p3iGOWr3o3YP",
+                        "dominant_color": "#ffffff",
+                        "accent_color": "#ffffff"
+                      },
+                      "url": "https://www.last.fm/music/The+Beatles",
+                      "apple_music_url": "https://music.apple.com/us/artist/the-beatles/136975?uo=4"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 29,
+                    "total_pages": 2
+                  }
                 }
               }
             }
@@ -940,6 +1004,7 @@
     },
     "/v1/listening/top/albums": {
       "get": {
+        "operationId": "getListeningTopAlbums",
         "tags": [
           "Listening"
         ],
@@ -1085,6 +1150,7 @@
     },
     "/v1/listening/top/tracks": {
       "get": {
+        "operationId": "getListeningTopTracks",
         "tags": [
           "Listening"
         ],
@@ -1230,6 +1296,7 @@
     },
     "/v1/listening/stats": {
       "get": {
+        "operationId": "getListeningStats",
         "tags": [
           "Listening"
         ],
@@ -1332,6 +1399,7 @@
     },
     "/v1/listening/history": {
       "get": {
+        "operationId": "getListeningHistory",
         "tags": [
           "Listening"
         ],
@@ -1523,6 +1591,7 @@
     },
     "/v1/listening/artists": {
       "get": {
+        "operationId": "listListeningArtists",
         "tags": [
           "Listening"
         ],
@@ -1669,6 +1738,7 @@
     },
     "/v1/listening/albums": {
       "get": {
+        "operationId": "listListeningAlbums",
         "tags": [
           "Listening"
         ],
@@ -1834,6 +1904,7 @@
     },
     "/v1/listening/artists/{id}": {
       "get": {
+        "operationId": "getListeningArtist",
         "tags": [
           "Listening"
         ],
@@ -2037,6 +2108,7 @@
     },
     "/v1/listening/albums/{id}": {
       "get": {
+        "operationId": "getListeningAlbum",
         "tags": [
           "Listening"
         ],
@@ -2190,6 +2262,7 @@
     },
     "/v1/listening/calendar": {
       "get": {
+        "operationId": "getListeningCalendar",
         "tags": [
           "Listening"
         ],
@@ -2292,6 +2365,7 @@
     },
     "/v1/listening/trends": {
       "get": {
+        "operationId": "getListeningTrends",
         "tags": [
           "Listening"
         ],
@@ -2396,6 +2470,7 @@
     },
     "/v1/listening/streaks": {
       "get": {
+        "operationId": "getListeningStreaks",
         "tags": [
           "Listening"
         ],
@@ -2484,6 +2559,7 @@
     },
     "/v1/listening/year/{year}": {
       "get": {
+        "operationId": "getListeningYearInReview",
         "tags": [
           "Listening"
         ],
@@ -2710,6 +2786,7 @@
     },
     "/v1/listening/genres": {
       "get": {
+        "operationId": "getListeningGenres",
         "tags": [
           "Listening"
         ],
@@ -2844,6 +2921,7 @@
     },
     "/v1/listening/admin/filters": {
       "get": {
+        "operationId": "listListeningFilters",
         "tags": [
           "Listening",
           "Admin"
@@ -2919,6 +2997,7 @@
         }
       },
       "post": {
+        "operationId": "createListeningFilter",
         "tags": [
           "Listening",
           "Admin"
@@ -3037,6 +3116,7 @@
     },
     "/v1/listening/admin/filters/{id}": {
       "delete": {
+        "operationId": "deleteListeningFilter",
         "tags": [
           "Listening",
           "Admin"
@@ -3112,6 +3192,7 @@
     },
     "/v1/listening/admin/listening/backfill-images": {
       "post": {
+        "operationId": "backfillListeningImages",
         "tags": [
           "Listening",
           "Admin"
@@ -3195,6 +3276,7 @@
     },
     "/v1/listening/admin/listening/enrich-apple-music": {
       "post": {
+        "operationId": "enrichListeningAppleMusic",
         "tags": [
           "Listening",
           "Admin"
@@ -3259,6 +3341,7 @@
     },
     "/v1/running/stats": {
       "get": {
+        "operationId": "getRunningStats",
         "tags": [
           "Running"
         ],
@@ -3321,6 +3404,18 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": {
+                    "total_runs": 1350,
+                    "total_distance_mi": 6069.88,
+                    "total_elevation_ft": 238690.03,
+                    "total_duration": "828:56:08",
+                    "avg_pace": "8:12/mi",
+                    "years_active": 17,
+                    "first_run": "2010-09-10T17:24:19.000Z",
+                    "eddington_number": 11
+                  }
                 }
               }
             }
@@ -3340,6 +3435,7 @@
     },
     "/v1/running/stats/years": {
       "get": {
+        "operationId": "listRunningStatsYears",
         "tags": [
           "Running"
         ],
@@ -3421,6 +3517,7 @@
     },
     "/v1/running/stats/years/{year}": {
       "get": {
+        "operationId": "getRunningStatsYear",
         "tags": [
           "Running"
         ],
@@ -3529,6 +3626,7 @@
     },
     "/v1/running/prs": {
       "get": {
+        "operationId": "getRunningPRs",
         "tags": [
           "Running"
         ],
@@ -3607,6 +3705,7 @@
     },
     "/v1/running/recent": {
       "get": {
+        "operationId": "getRunningRecent",
         "tags": [
           "Running"
         ],
@@ -3807,6 +3906,7 @@
     },
     "/v1/running/activities": {
       "get": {
+        "operationId": "listRunningActivities",
         "tags": [
           "Running"
         ],
@@ -4080,6 +4180,38 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 17748681520,
+                      "strava_id": 17748681520,
+                      "name": "Monday Evening Run",
+                      "date": "2026-03-16T17:00:05Z",
+                      "distance_mi": 4.49,
+                      "duration": "36:02",
+                      "duration_s": 2162,
+                      "pace": "8:02/mi",
+                      "elevation_ft": 370.73,
+                      "heartrate_avg": null,
+                      "heartrate_max": null,
+                      "cadence": 75.2,
+                      "calories": 525,
+                      "suffer_score": null,
+                      "city": null,
+                      "state": null,
+                      "polyline": "_wfbHb|niVD_@TEd@...",
+                      "is_race": false,
+                      "workout_type": "default",
+                      "strava_url": "https://www.strava.com/activities/17748681520"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 1350,
+                    "total_pages": 68
+                  }
                 }
               }
             }
@@ -4099,6 +4231,7 @@
     },
     "/v1/running/activities/{id}": {
       "get": {
+        "operationId": "getRunningActivity",
         "tags": [
           "Running"
         ],
@@ -4271,6 +4404,7 @@
     },
     "/v1/running/activities/{id}/splits": {
       "get": {
+        "operationId": "getRunningActivitySplits",
         "tags": [
           "Running"
         ],
@@ -4378,6 +4512,7 @@
     },
     "/v1/running/gear": {
       "get": {
+        "operationId": "listRunningGear",
         "tags": [
           "Running"
         ],
@@ -4458,6 +4593,7 @@
     },
     "/v1/running/calendar": {
       "get": {
+        "operationId": "getRunningCalendar",
         "tags": [
           "Running"
         ],
@@ -4530,6 +4666,7 @@
     },
     "/v1/running/charts/cumulative": {
       "get": {
+        "operationId": "getRunningChartsCumulative",
         "tags": [
           "Running"
         ],
@@ -4597,6 +4734,7 @@
     },
     "/v1/running/charts/pace-trend": {
       "get": {
+        "operationId": "getRunningChartsPaceTrend",
         "tags": [
           "Running"
         ],
@@ -4697,6 +4835,7 @@
     },
     "/v1/running/charts/time-of-day": {
       "get": {
+        "operationId": "getRunningChartsTimeOfDay",
         "tags": [
           "Running"
         ],
@@ -4761,6 +4900,7 @@
     },
     "/v1/running/charts/elevation": {
       "get": {
+        "operationId": "getRunningChartsElevation",
         "tags": [
           "Running"
         ],
@@ -4833,6 +4973,7 @@
     },
     "/v1/running/cities": {
       "get": {
+        "operationId": "listRunningCities",
         "tags": [
           "Running"
         ],
@@ -4908,6 +5049,7 @@
     },
     "/v1/running/streaks": {
       "get": {
+        "operationId": "getRunningStreaks",
         "tags": [
           "Running"
         ],
@@ -5003,6 +5145,7 @@
     },
     "/v1/running/races": {
       "get": {
+        "operationId": "listRunningRaces",
         "tags": [
           "Running"
         ],
@@ -5166,6 +5309,7 @@
     },
     "/v1/running/eddington": {
       "get": {
+        "operationId": "getRunningEddington",
         "tags": [
           "Running"
         ],
@@ -5229,6 +5373,7 @@
     },
     "/v1/running/year/{year}": {
       "get": {
+        "operationId": "getRunningYearInReview",
         "tags": [
           "Running"
         ],
@@ -5475,6 +5620,7 @@
     },
     "/v1/watching/recent": {
       "get": {
+        "operationId": "getWatchingRecent",
         "tags": [
           "Watching"
         ],
@@ -5689,6 +5835,45 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "movie": {
+                        "id": 220,
+                        "title": "The French Dispatch",
+                        "year": 2021,
+                        "director": "Wes Anderson",
+                        "directors": [
+                          "Wes Anderson"
+                        ],
+                        "genres": [
+                          "Comedy",
+                          "Drama"
+                        ],
+                        "duration_min": 108,
+                        "rating": "R",
+                        "image": {
+                          "url": "https://cdn.rewind.rest/watching/movies/220/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                          "thumbhash": "KPgFHQiHdZWZeZY4lZbX976AxApI",
+                          "dominant_color": "#a29c93",
+                          "accent_color": "#81c4c7"
+                        },
+                        "imdb_id": "tt8847712",
+                        "tmdb_id": 542178,
+                        "tmdb_rating": 7.011,
+                        "tagline": null,
+                        "summary": "The staff of an American magazine based in France puts out its last issue, with stories featuring an artist sentenced to life imprisonment, student riots, and a kidnapping resolved by a chef."
+                      },
+                      "watched_at": "2026-03-18T20:11:30.214Z",
+                      "source": "plex",
+                      "user_rating": null,
+                      "percent_complete": 100,
+                      "rewatch": false,
+                      "review": null,
+                      "review_url": null
+                    }
+                  ]
                 }
               }
             }
@@ -5708,6 +5893,7 @@
     },
     "/v1/watching/movies": {
       "get": {
+        "operationId": "listWatchingMovies",
         "tags": [
           "Watching"
         ],
@@ -5901,6 +6087,43 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 220,
+                      "title": "The French Dispatch",
+                      "year": 2021,
+                      "director": "Wes Anderson",
+                      "directors": [
+                        "Wes Anderson"
+                      ],
+                      "genres": [
+                        "Comedy",
+                        "Drama"
+                      ],
+                      "duration_min": 108,
+                      "rating": "R",
+                      "image": {
+                        "url": "https://cdn.rewind.rest/watching/movies/220/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "KPgFHQiHdZWZeZY4lZbX976AxApI",
+                        "dominant_color": "#a29c93",
+                        "accent_color": "#81c4c7"
+                      },
+                      "imdb_id": "tt8847712",
+                      "tmdb_id": 542178,
+                      "tmdb_rating": 7.011,
+                      "tagline": null,
+                      "summary": "The staff of an American magazine based in France puts out its last issue.",
+                      "last_watched_at": "2026-03-18T20:11:30.214Z"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 694,
+                    "total_pages": 35
+                  }
                 }
               }
             }
@@ -5920,6 +6143,7 @@
     },
     "/v1/watching/movies/{id}": {
       "get": {
+        "operationId": "getWatchingMovie",
         "tags": [
           "Watching"
         ],
@@ -6132,6 +6356,7 @@
     },
     "/v1/watching/stats": {
       "get": {
+        "operationId": "getWatchingStats",
         "tags": [
           "Watching"
         ],
@@ -6260,6 +6485,7 @@
     },
     "/v1/watching/stats/genres": {
       "get": {
+        "operationId": "getWatchingStatsGenres",
         "tags": [
           "Watching"
         ],
@@ -6318,6 +6544,7 @@
     },
     "/v1/watching/stats/decades": {
       "get": {
+        "operationId": "getWatchingStatsDecades",
         "tags": [
           "Watching"
         ],
@@ -6372,6 +6599,7 @@
     },
     "/v1/watching/stats/directors": {
       "get": {
+        "operationId": "getWatchingStatsDirectors",
         "tags": [
           "Watching"
         ],
@@ -6439,6 +6667,7 @@
     },
     "/v1/watching/calendar": {
       "get": {
+        "operationId": "getWatchingCalendar",
         "tags": [
           "Watching"
         ],
@@ -6507,6 +6736,7 @@
     },
     "/v1/watching/trends": {
       "get": {
+        "operationId": "getWatchingTrends",
         "tags": [
           "Watching"
         ],
@@ -6610,6 +6840,7 @@
     },
     "/v1/watching/shows": {
       "get": {
+        "operationId": "listWatchingShows",
         "tags": [
           "Watching"
         ],
@@ -6766,6 +6997,7 @@
     },
     "/v1/watching/shows/{id}": {
       "get": {
+        "operationId": "getWatchingShow",
         "tags": [
           "Watching"
         ],
@@ -6945,6 +7177,7 @@
     },
     "/v1/watching/shows/{id}/seasons/{season}": {
       "get": {
+        "operationId": "getWatchingShowSeason",
         "tags": [
           "Watching"
         ],
@@ -7060,6 +7293,7 @@
     },
     "/v1/watching/ratings": {
       "get": {
+        "operationId": "listWatchingRatings",
         "tags": [
           "Watching"
         ],
@@ -7210,6 +7444,7 @@
     },
     "/v1/watching/reviews": {
       "get": {
+        "operationId": "listWatchingReviews",
         "tags": [
           "Watching"
         ],
@@ -7342,6 +7577,7 @@
     },
     "/v1/watching/year/{year}": {
       "get": {
+        "operationId": "getWatchingYearInReview",
         "tags": [
           "Watching"
         ],
@@ -7518,6 +7754,7 @@
     },
     "/v1/watching/admin/watching/movies": {
       "post": {
+        "operationId": "adminWatchingCreateMovie",
         "tags": [
           "Watching",
           "Admin"
@@ -7633,6 +7870,7 @@
     },
     "/v1/watching/admin/watching/movies/{id}": {
       "put": {
+        "operationId": "adminWatchingUpdateMovie",
         "tags": [
           "Watching",
           "Admin"
@@ -7747,6 +7985,7 @@
         }
       },
       "delete": {
+        "operationId": "adminWatchingDeleteMovie",
         "tags": [
           "Watching",
           "Admin"
@@ -7821,6 +8060,7 @@
     },
     "/v1/watching/admin/watching/backfill-images": {
       "post": {
+        "operationId": "adminWatchingBackfillImages",
         "tags": [
           "Watching",
           "Admin"
@@ -7902,6 +8142,7 @@
     },
     "/v1/webhooks/strava": {
       "get": {
+        "operationId": "validateStravaWebhook",
         "tags": [
           "Webhooks"
         ],
@@ -7966,6 +8207,7 @@
         }
       },
       "post": {
+        "operationId": "receiveStravaWebhook",
         "tags": [
           "Webhooks"
         ],
@@ -8051,6 +8293,7 @@
     },
     "/v1/webhooks/plex": {
       "post": {
+        "operationId": "receivePlexWebhook",
         "tags": [
           "Webhooks"
         ],
@@ -8105,6 +8348,7 @@
     },
     "/v1/images/{domain}/{entity_type}/{entity_id}/{size}": {
       "get": {
+        "operationId": "getImage",
         "tags": [
           "Images"
         ],
@@ -8256,6 +8500,7 @@
     },
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}/alternatives": {
       "get": {
+        "operationId": "getImageAlternatives",
         "tags": [
           "Images",
           "Admin"
@@ -8376,6 +8621,7 @@
     },
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}": {
       "put": {
+        "operationId": "setImageOverride",
         "tags": [
           "Images",
           "Admin"
@@ -8470,6 +8716,7 @@
     },
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}/override": {
       "delete": {
+        "operationId": "deleteImageOverride",
         "tags": [
           "Images",
           "Admin"
@@ -8610,6 +8857,7 @@
     },
     "/v1/admin/images/regenerate-thumbhashes": {
       "post": {
+        "operationId": "regenerateThumbhashes",
         "tags": [
           "Admin",
           "Images"
@@ -8686,6 +8934,7 @@
     },
     "/v1/collecting/collection": {
       "get": {
+        "operationId": "listCollection",
         "tags": [
           "Collecting"
         ],
@@ -8901,6 +9150,44 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 1,
+                      "discogs_id": 6872464,
+                      "title": "Strange Trails",
+                      "artists": [
+                        "Lord Huron"
+                      ],
+                      "year": 2015,
+                      "format": "Vinyl",
+                      "format_detail": "[\"LP\",\"Album\",\"Stereo\"]",
+                      "label": "[{\"name\":\"IAmSound Records\",\"catno\":\"IAM066L\"}]",
+                      "genres": [
+                        "Rock"
+                      ],
+                      "styles": [
+                        "Folk Rock",
+                        "Rock & Roll"
+                      ],
+                      "image": {
+                        "url": "https://cdn.rewind.rest/collecting/releases/6872464/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "GncKRwaU9niFd3dShlaJSFeJlYCYhGYA",
+                        "dominant_color": "#222229",
+                        "accent_color": "#9b31ed"
+                      },
+                      "date_added": "2026-03-11T16:05:58-07:00",
+                      "rating": 0,
+                      "discogs_url": "https://www.discogs.com/release/6872464"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 284,
+                    "total_pages": 15
+                  }
                 }
               }
             }
@@ -8930,6 +9217,7 @@
     },
     "/v1/collecting/stats": {
       "get": {
+        "operationId": "getCollectingStats",
         "tags": [
           "Collecting"
         ],
@@ -9066,6 +9354,7 @@
     },
     "/v1/collecting/recent": {
       "get": {
+        "operationId": "getCollectingRecent",
         "tags": [
           "Collecting"
         ],
@@ -9246,6 +9535,7 @@
     },
     "/v1/collecting/collection/{id}": {
       "get": {
+        "operationId": "getCollectionRecord",
         "tags": [
           "Collecting"
         ],
@@ -9439,6 +9729,7 @@
     },
     "/v1/collecting/wantlist": {
       "get": {
+        "operationId": "listCollectingWantlist",
         "tags": [
           "Collecting"
         ],
@@ -9612,6 +9903,7 @@
     },
     "/v1/collecting/formats": {
       "get": {
+        "operationId": "listCollectingFormats",
         "tags": [
           "Collecting"
         ],
@@ -9676,6 +9968,7 @@
     },
     "/v1/collecting/genres": {
       "get": {
+        "operationId": "listCollectingGenres",
         "tags": [
           "Collecting"
         ],
@@ -9740,6 +10033,7 @@
     },
     "/v1/collecting/artists": {
       "get": {
+        "operationId": "listCollectingArtists",
         "tags": [
           "Collecting"
         ],
@@ -9828,6 +10122,7 @@
     },
     "/v1/collecting/cross-reference": {
       "get": {
+        "operationId": "getCollectingCrossReference",
         "tags": [
           "Collecting"
         ],
@@ -10076,6 +10371,7 @@
     },
     "/v1/collecting/calendar": {
       "get": {
+        "operationId": "getCollectingCalendar",
         "tags": [
           "Collecting"
         ],
@@ -10174,6 +10470,7 @@
     },
     "/v1/admin/sync/collecting": {
       "post": {
+        "operationId": "adminSyncDiscogsCollection",
         "tags": [
           "Admin"
         ],
@@ -10215,6 +10512,7 @@
     },
     "/v1/admin/collecting/backfill-images": {
       "post": {
+        "operationId": "adminCollectingBackfillImages",
         "tags": [
           "Collecting",
           "Admin"
@@ -10280,6 +10578,7 @@
     },
     "/v1/collecting/media": {
       "get": {
+        "operationId": "listCollectingMedia",
         "tags": [
           "Collecting"
         ],
@@ -10525,6 +10824,7 @@
     },
     "/v1/collecting/media/stats": {
       "get": {
+        "operationId": "getCollectingMediaStats",
         "tags": [
           "Collecting"
         ],
@@ -10586,6 +10886,7 @@
     },
     "/v1/collecting/media/recent": {
       "get": {
+        "operationId": "getCollectingMediaRecent",
         "tags": [
           "Collecting"
         ],
@@ -10761,6 +11062,7 @@
     },
     "/v1/collecting/media/formats": {
       "get": {
+        "operationId": "listCollectingMediaFormats",
         "tags": [
           "Collecting"
         ],
@@ -10825,6 +11127,7 @@
     },
     "/v1/collecting/media/cross-reference": {
       "get": {
+        "operationId": "getCollectingMediaCrossReference",
         "tags": [
           "Collecting"
         ],
@@ -11016,6 +11319,7 @@
     },
     "/v1/collecting/media/{id}": {
       "get": {
+        "operationId": "getCollectingMediaItem",
         "tags": [
           "Collecting"
         ],
@@ -11230,6 +11534,7 @@
     },
     "/v1/admin/collecting/media": {
       "post": {
+        "operationId": "adminAddCollectingMedia",
         "tags": [
           "Collecting",
           "Admin"
@@ -11388,6 +11693,7 @@
     },
     "/v1/admin/collecting/media/{id}/remove": {
       "post": {
+        "operationId": "adminRemoveCollectingMedia",
         "tags": [
           "Collecting",
           "Admin"
@@ -11472,6 +11778,7 @@
     },
     "/v1/admin/sync/trakt": {
       "post": {
+        "operationId": "adminSyncTraktCollection",
         "tags": [
           "Admin"
         ],
@@ -11513,6 +11820,7 @@
     },
     "/v1/admin/collecting/media/backfill-images": {
       "post": {
+        "operationId": "adminCollectingMediaBackfillImages",
         "tags": [
           "Collecting",
           "Admin"
@@ -11578,6 +11886,7 @@
     },
     "/v1/feed": {
       "get": {
+        "operationId": "getFeed",
         "tags": [
           "Feed"
         ],
@@ -11729,6 +12038,27 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 2491,
+                      "domain": "watching",
+                      "event_type": "movie_watched",
+                      "occurred_at": "2026-03-18T20:11:30.741Z",
+                      "title": "Watched The French Dispatch (2021)",
+                      "subtitle": null,
+                      "image_key": null,
+                      "source_id": "plex:webhook:27504-2026-03-18",
+                      "metadata": null,
+                      "created_at": "2026-03-18T20:11:30.762Z"
+                    }
+                  ],
+                  "pagination": {
+                    "next_cursor": "2491",
+                    "has_more": true,
+                    "limit": 20
+                  }
                 }
               }
             }
@@ -11748,6 +12078,7 @@
     },
     "/v1/feed/domain/{domain}": {
       "get": {
+        "operationId": "getFeedByDomain",
         "tags": [
           "Feed"
         ],
@@ -11945,6 +12276,7 @@
     },
     "/v1/feed/on-this-day": {
       "get": {
+        "operationId": "getFeedOnThisDay",
         "tags": [
           "Feed"
         ],
@@ -12087,6 +12419,7 @@
     },
     "/v1/search": {
       "get": {
+        "operationId": "searchAll",
         "tags": [
           "Search"
         ],
@@ -12196,6 +12529,24 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "domain": "listening",
+                      "entity_type": "artist",
+                      "entity_id": "636",
+                      "title": "Radiohead",
+                      "subtitle": null,
+                      "image_key": null
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 9,
+                    "total_pages": 1
+                  }
                 }
               }
             }
@@ -12225,6 +12576,7 @@
     },
     "/v1/admin/export/{domain}": {
       "get": {
+        "operationId": "exportDomain",
         "tags": [
           "Admin"
         ],
@@ -12283,6 +12635,7 @@
     },
     "/v1/admin/keys": {
       "post": {
+        "operationId": "createAdminKey",
         "tags": [
           "Admin"
         ],
@@ -12375,6 +12728,7 @@
         }
       },
       "get": {
+        "operationId": "listAdminKeys",
         "tags": [
           "Admin"
         ],
@@ -12477,6 +12831,7 @@
     },
     "/v1/admin/keys/{id}": {
       "delete": {
+        "operationId": "deleteAdminKey",
         "tags": [
           "Admin"
         ],
@@ -12550,6 +12905,7 @@
     },
     "/v1/admin/sync/listening": {
       "post": {
+        "operationId": "adminSyncListening",
         "tags": [
           "Admin"
         ],
@@ -12626,6 +12982,7 @@
     },
     "/v1/admin/sync/running": {
       "post": {
+        "operationId": "adminSyncRunning",
         "tags": [
           "Admin"
         ],
@@ -12667,6 +13024,7 @@
     },
     "/v1/admin/sync/watching": {
       "post": {
+        "operationId": "adminSyncWatching",
         "tags": [
           "Admin"
         ],
@@ -12724,6 +13082,7 @@
     },
     "/v1/admin/running/activities/{id}": {
       "delete": {
+        "operationId": "adminDeleteRunningActivity",
         "tags": [
           "Admin"
         ],
@@ -12788,6 +13147,7 @@
     },
     "/v1/admin/running/recompute": {
       "post": {
+        "operationId": "adminRecomputeRunningStats",
         "tags": [
           "Admin"
         ],

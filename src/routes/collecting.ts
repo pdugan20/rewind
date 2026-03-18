@@ -344,6 +344,7 @@ const MediaCrossRefQuerySchema = z.object({
 const collectionListRoute = createRoute({
   method: 'get',
   path: '/collecting/collection',
+  operationId: 'listCollection',
   tags: ['Collecting'],
   summary: 'List vinyl collection',
   description:
@@ -359,6 +360,32 @@ const collectionListRoute = createRoute({
             data: z.array(CollectionItemSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                id: 1,
+                discogs_id: 6872464,
+                title: 'Strange Trails',
+                artists: ['Lord Huron'],
+                year: 2015,
+                format: 'Vinyl',
+                format_detail: '["LP","Album","Stereo"]',
+                label: '[{"name":"IAmSound Records","catno":"IAM066L"}]',
+                genres: ['Rock'],
+                styles: ['Folk Rock', 'Rock & Roll'],
+                image: {
+                  url: 'https://cdn.rewind.rest/collecting/releases/6872464/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: 'GncKRwaU9niFd3dShlaJSFeJlYCYhGYA',
+                  dominant_color: '#222229',
+                  accent_color: '#9b31ed',
+                },
+                date_added: '2026-03-11T16:05:58-07:00',
+                rating: 0,
+                discogs_url: 'https://www.discogs.com/release/6872464',
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 284, total_pages: 15 },
+          },
         },
       },
       description: 'Paginated collection items',
@@ -371,6 +398,7 @@ const collectionListRoute = createRoute({
 const collectionStatsRoute = createRoute({
   method: 'get',
   path: '/collecting/stats',
+  operationId: 'getCollectingStats',
   tags: ['Collecting'],
   summary: 'Collection statistics',
   description:
@@ -393,6 +421,7 @@ const collectionStatsRoute = createRoute({
 const collectionRecentRoute = createRoute({
   method: 'get',
   path: '/collecting/recent',
+  operationId: 'getCollectingRecent',
   tags: ['Collecting'],
   summary: 'Recent additions',
   description:
@@ -417,6 +446,7 @@ const collectionRecentRoute = createRoute({
 const collectionDetailRoute = createRoute({
   method: 'get',
   path: '/collecting/collection/{id}',
+  operationId: 'getCollectionRecord',
   tags: ['Collecting'],
   summary: 'Collection item detail',
   description:
@@ -439,6 +469,7 @@ const collectionDetailRoute = createRoute({
 const wantlistRoute = createRoute({
   method: 'get',
   path: '/collecting/wantlist',
+  operationId: 'listCollectingWantlist',
   tags: ['Collecting'],
   summary: 'Wantlist',
   description: 'Paginated Discogs wantlist with sorting.',
@@ -465,6 +496,7 @@ const wantlistRoute = createRoute({
 const formatsRoute = createRoute({
   method: 'get',
   path: '/collecting/formats',
+  operationId: 'listCollectingFormats',
   tags: ['Collecting'],
   summary: 'Format breakdown',
   description:
@@ -486,6 +518,7 @@ const formatsRoute = createRoute({
 const genresRoute = createRoute({
   method: 'get',
   path: '/collecting/genres',
+  operationId: 'listCollectingGenres',
   tags: ['Collecting'],
   summary: 'Genre breakdown',
   description: 'Count of collection items grouped by genre.',
@@ -506,6 +539,7 @@ const genresRoute = createRoute({
 const artistsRoute = createRoute({
   method: 'get',
   path: '/collecting/artists',
+  operationId: 'listCollectingArtists',
   tags: ['Collecting'],
   summary: 'Top artists',
   description: 'Artists ranked by number of releases in the collection.',
@@ -529,6 +563,7 @@ const artistsRoute = createRoute({
 const crossRefRoute = createRoute({
   method: 'get',
   path: '/collecting/cross-reference',
+  operationId: 'getCollectingCrossReference',
   tags: ['Collecting'],
   summary: 'Collection-listening cross-reference',
   description:
@@ -557,6 +592,7 @@ const crossRefRoute = createRoute({
 const calendarRoute = createRoute({
   method: 'get',
   path: '/collecting/calendar',
+  operationId: 'getCollectingCalendar',
   tags: ['Collecting'],
   summary: 'Collection calendar',
   description:
@@ -596,6 +632,7 @@ const calendarRoute = createRoute({
 const syncCollectingRoute = createRoute({
   method: 'post',
   path: '/admin/sync/collecting',
+  operationId: 'adminSyncCollecting',
   tags: ['Collecting', 'Admin'],
   summary: 'Sync Discogs collection',
   description: 'Trigger a manual sync of the Discogs vinyl collection.',
@@ -614,6 +651,7 @@ const syncCollectingRoute = createRoute({
 const backfillImagesRoute = createRoute({
   method: 'post',
   path: '/admin/collecting/backfill-images',
+  operationId: 'adminCollectingBackfillImages',
   tags: ['Collecting', 'Admin'],
   summary: 'Backfill collection images',
   description:
@@ -640,6 +678,7 @@ const backfillImagesRoute = createRoute({
 const mediaListRoute = createRoute({
   method: 'get',
   path: '/collecting/media',
+  operationId: 'listCollectingMedia',
   tags: ['Collecting'],
   summary: 'List physical media collection',
   description:
@@ -667,6 +706,7 @@ const mediaListRoute = createRoute({
 const mediaStatsRoute = createRoute({
   method: 'get',
   path: '/collecting/media/stats',
+  operationId: 'getCollectingMediaStats',
   tags: ['Collecting'],
   summary: 'Physical media statistics',
   description:
@@ -686,6 +726,7 @@ const mediaStatsRoute = createRoute({
 const mediaRecentRoute = createRoute({
   method: 'get',
   path: '/collecting/media/recent',
+  operationId: 'getCollectingMediaRecent',
   tags: ['Collecting'],
   summary: 'Recently added physical media',
   description:
@@ -710,6 +751,7 @@ const mediaRecentRoute = createRoute({
 const mediaFormatsRoute = createRoute({
   method: 'get',
   path: '/collecting/media/formats',
+  operationId: 'listCollectingMediaFormats',
   tags: ['Collecting'],
   summary: 'Media format breakdown',
   description:
@@ -731,6 +773,7 @@ const mediaFormatsRoute = createRoute({
 const mediaCrossRefRoute = createRoute({
   method: 'get',
   path: '/collecting/media/cross-reference',
+  operationId: 'getCollectingMediaCrossReference',
   tags: ['Collecting'],
   summary: 'Owned vs watched cross-reference',
   description:
@@ -759,6 +802,7 @@ const mediaCrossRefRoute = createRoute({
 const mediaDetailRoute = createRoute({
   method: 'get',
   path: '/collecting/media/{id}',
+  operationId: 'getCollectingMediaItem',
   tags: ['Collecting'],
   summary: 'Physical media item detail',
   description:
@@ -781,6 +825,7 @@ const mediaDetailRoute = createRoute({
 const addMediaRoute = createRoute({
   method: 'post',
   path: '/admin/collecting/media',
+  operationId: 'adminAddCollectingMedia',
   tags: ['Collecting', 'Admin'],
   summary: 'Add physical media',
   description:
@@ -807,6 +852,7 @@ const addMediaRoute = createRoute({
 const removeMediaRoute = createRoute({
   method: 'post',
   path: '/admin/collecting/media/{id}/remove',
+  operationId: 'adminRemoveCollectingMedia',
   tags: ['Collecting', 'Admin'],
   summary: 'Remove physical media',
   description:
@@ -829,6 +875,7 @@ const removeMediaRoute = createRoute({
 const syncTraktRoute = createRoute({
   method: 'post',
   path: '/admin/sync/trakt',
+  operationId: 'adminSyncTrakt',
   tags: ['Collecting', 'Admin'],
   summary: 'Sync Trakt collection',
   description: 'Trigger a manual sync of the Trakt physical media collection.',
@@ -847,6 +894,7 @@ const syncTraktRoute = createRoute({
 const mediaBackfillImagesRoute = createRoute({
   method: 'post',
   path: '/admin/collecting/media/backfill-images',
+  operationId: 'adminCollectingMediaBackfillImages',
   tags: ['Collecting', 'Admin'],
   summary: 'Backfill media poster images',
   description:

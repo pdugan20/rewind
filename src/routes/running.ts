@@ -206,6 +206,7 @@ const IdParamSchema = z.object({
 const statsRoute = createRoute({
   method: 'get',
   path: '/stats',
+  operationId: 'getRunningStats',
   tags: ['Running'],
   summary: 'Lifetime running statistics',
   description: 'Returns aggregate lifetime running statistics.',
@@ -213,7 +214,21 @@ const statsRoute = createRoute({
     200: {
       description: 'Lifetime stats',
       content: {
-        'application/json': { schema: z.object({ data: LifetimeStatsSchema }) },
+        'application/json': {
+          schema: z.object({ data: LifetimeStatsSchema }),
+          example: {
+            data: {
+              total_runs: 1350,
+              total_distance_mi: 6069.88,
+              total_elevation_ft: 238690.03,
+              total_duration: '828:56:08',
+              avg_pace: '8:12/mi',
+              years_active: 17,
+              first_run: '2010-09-10T17:24:19.000Z',
+              eddington_number: 11,
+            },
+          },
+        },
       },
     },
     ...errorResponses(401),
@@ -263,6 +278,7 @@ running.openapi(statsRoute, async (c) => {
 const statsYearsRoute = createRoute({
   method: 'get',
   path: '/stats/years',
+  operationId: 'listRunningStatsYears',
   tags: ['Running'],
   summary: 'All year summaries',
   description: 'Returns running summaries for all years.',
@@ -307,6 +323,7 @@ running.openapi(statsYearsRoute, async (c) => {
 const statsYearRoute = createRoute({
   method: 'get',
   path: '/stats/years/{year}',
+  operationId: 'getRunningStatsYear',
   tags: ['Running'],
   summary: 'Single year summary',
   description: 'Returns running summary for a specific year.',
@@ -363,6 +380,7 @@ running.openapi(statsYearRoute, async (c) => {
 const prsRoute = createRoute({
   method: 'get',
   path: '/prs',
+  operationId: 'getRunningPRs',
   tags: ['Running'],
   summary: 'Personal records',
   description: 'Returns personal records for standard race distances.',
@@ -406,6 +424,7 @@ running.openapi(prsRoute, async (c) => {
 const recentRoute = createRoute({
   method: 'get',
   path: '/recent',
+  operationId: 'getRunningRecent',
   tags: ['Running'],
   summary: 'Recent activities',
   description:
@@ -457,6 +476,7 @@ running.openapi(recentRoute, async (c) => {
 const activitiesRoute = createRoute({
   method: 'get',
   path: '/activities',
+  operationId: 'listRunningActivities',
   tags: ['Running'],
   summary: 'List activities',
   description: 'Returns a paginated, filterable list of running activities.',
@@ -484,6 +504,38 @@ const activitiesRoute = createRoute({
             data: z.array(ActivitySchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                id: 17748681520,
+                strava_id: 17748681520,
+                name: 'Monday Evening Run',
+                date: '2026-03-16T17:00:05Z',
+                distance_mi: 4.49,
+                duration: '36:02',
+                duration_s: 2162,
+                pace: '8:02/mi',
+                elevation_ft: 370.73,
+                heartrate_avg: null,
+                heartrate_max: null,
+                cadence: 75.2,
+                calories: 525,
+                suffer_score: null,
+                city: null,
+                state: null,
+                polyline: '_wfbHb|niVD_@TEd@...',
+                is_race: false,
+                workout_type: 'default',
+                strava_url: 'https://www.strava.com/activities/17748681520',
+              },
+            ],
+            pagination: {
+              page: 1,
+              limit: 20,
+              total: 1350,
+              total_pages: 68,
+            },
+          },
         },
       },
     },
@@ -606,6 +658,7 @@ running.openapi(activitiesRoute, async (c) => {
 const activityDetailRoute = createRoute({
   method: 'get',
   path: '/activities/{id}',
+  operationId: 'getRunningActivity',
   tags: ['Running'],
   summary: 'Activity detail',
   description: 'Returns a single activity by Strava ID.',
@@ -649,6 +702,7 @@ running.openapi(activityDetailRoute, async (c) => {
 const splitsRoute = createRoute({
   method: 'get',
   path: '/activities/{id}/splits',
+  operationId: 'getRunningActivitySplits',
   tags: ['Running'],
   summary: 'Activity splits',
   description: 'Returns per-mile splits for a specific activity.',
@@ -704,6 +758,7 @@ running.openapi(splitsRoute, async (c) => {
 const gearRoute = createRoute({
   method: 'get',
   path: '/gear',
+  operationId: 'listRunningGear',
   tags: ['Running'],
   summary: 'Gear list',
   description: 'Returns all gear/shoes with activity counts.',
@@ -760,6 +815,7 @@ running.openapi(gearRoute, async (c) => {
 const calendarRoute = createRoute({
   method: 'get',
   path: '/calendar',
+  operationId: 'getRunningCalendar',
   tags: ['Running'],
   summary: 'Activity calendar',
   description: 'Returns daily activity heatmap data for a given year.',
@@ -834,6 +890,7 @@ running.openapi(calendarRoute, async (c) => {
 const cumulativeRoute = createRoute({
   method: 'get',
   path: '/charts/cumulative',
+  operationId: 'getRunningChartsCumulative',
   tags: ['Running'],
   summary: 'Cumulative distance chart',
   description: 'Returns year-over-year cumulative distance data for charting.',
@@ -911,6 +968,7 @@ running.openapi(cumulativeRoute, async (c) => {
 const paceTrendRoute = createRoute({
   method: 'get',
   path: '/charts/pace-trend',
+  operationId: 'getRunningChartsPaceTrend',
   tags: ['Running'],
   summary: 'Pace trend chart',
   description: 'Returns pace over time with a rolling weighted average.',
@@ -1006,6 +1064,7 @@ running.openapi(paceTrendRoute, async (c) => {
 const timeOfDayRoute = createRoute({
   method: 'get',
   path: '/charts/time-of-day',
+  operationId: 'getRunningChartsTimeOfDay',
   tags: ['Running'],
   summary: 'Time of day chart',
   description: 'Returns run frequency by hour of day.',
@@ -1062,6 +1121,7 @@ running.openapi(timeOfDayRoute, async (c) => {
 const elevationRoute = createRoute({
   method: 'get',
   path: '/charts/elevation',
+  operationId: 'getRunningChartsElevation',
   tags: ['Running'],
   summary: 'Elevation chart',
   description: 'Returns elevation data with cumulative totals.',
@@ -1125,6 +1185,7 @@ running.openapi(elevationRoute, async (c) => {
 const citiesRoute = createRoute({
   method: 'get',
   path: '/cities',
+  operationId: 'listRunningCities',
   tags: ['Running'],
   summary: 'Cities',
   description: 'Returns cities where runs occurred with counts and distances.',
@@ -1180,6 +1241,7 @@ running.openapi(citiesRoute, async (c) => {
 const streaksRoute = createRoute({
   method: 'get',
   path: '/streaks',
+  operationId: 'getRunningStreaks',
   tags: ['Running'],
   summary: 'Running streaks',
   description: 'Returns current and longest running streaks.',
@@ -1233,6 +1295,7 @@ running.openapi(streaksRoute, async (c) => {
 const racesRoute = createRoute({
   method: 'get',
   path: '/races',
+  operationId: 'listRunningRaces',
   tags: ['Running'],
   summary: 'Race activities',
   description:
@@ -1294,6 +1357,7 @@ running.openapi(racesRoute, async (c) => {
 const eddingtonRoute = createRoute({
   method: 'get',
   path: '/eddington',
+  operationId: 'getRunningEddington',
   tags: ['Running'],
   summary: 'Eddington number',
   description:
@@ -1342,6 +1406,7 @@ running.openapi(eddingtonRoute, async (c) => {
 const yearInReviewRoute = createRoute({
   method: 'get',
   path: '/year/{year}',
+  operationId: 'getRunningYearInReview',
   tags: ['Running'],
   summary: 'Year in review',
   description:

@@ -40,12 +40,21 @@ const SyncHealthResponse = z
 const healthRoute = createRoute({
   method: 'get',
   path: '/health',
+  operationId: 'getHealth',
   tags: ['System'],
   summary: 'Health check',
   description: 'Returns API health status and current timestamp.',
   responses: {
     200: {
-      content: { 'application/json': { schema: HealthResponse } },
+      content: {
+        'application/json': {
+          schema: HealthResponse,
+          example: {
+            status: 'ok',
+            timestamp: '2026-03-18T21:00:00.000Z',
+          },
+        },
+      },
       description: 'API is healthy',
     },
   },
@@ -62,6 +71,7 @@ system.openapi(healthRoute, (c) => {
 const syncHealthRoute = createRoute({
   method: 'get',
   path: '/health/sync',
+  operationId: 'getHealthSync',
   tags: ['System'],
   summary: 'Sync health status',
   description:

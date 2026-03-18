@@ -30,6 +30,7 @@ const SearchResponseSchema = z.object({
 const searchRoute = createRoute({
   method: 'get',
   path: '/',
+  operationId: 'searchAll',
   tags: ['Search'],
   summary: 'Cross-domain search',
   description:
@@ -57,6 +58,19 @@ const searchRoute = createRoute({
       content: {
         'application/json': {
           schema: SearchResponseSchema,
+          example: {
+            data: [
+              {
+                domain: 'listening',
+                entity_type: 'artist',
+                entity_id: '636',
+                title: 'Radiohead',
+                subtitle: null,
+                image_key: null,
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 9, total_pages: 1 },
+          },
         },
       },
     },

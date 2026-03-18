@@ -103,6 +103,7 @@ const AlternativesResponse = z
 const getImageRoute = createRoute({
   method: 'get',
   path: '/images/{domain}/{entity_type}/{entity_id}/{size}',
+  operationId: 'getImage',
   tags: ['Images'],
   summary: 'Get image by entity',
   description:
@@ -220,6 +221,7 @@ imagesRoute.openapi(getImageRoute, async (c) => {
 const getAlternativesRoute = createRoute({
   method: 'get',
   path: '/admin/images/{domain}/{entity_type}/{entity_id}/alternatives',
+  operationId: 'getImageAlternatives',
   tags: ['Images', 'Admin'],
   summary: 'Browse image alternatives',
   description:
@@ -298,6 +300,7 @@ imagesRoute.openapi(getAlternativesRoute, async (c) => {
 const putOverrideRoute = createRoute({
   method: 'put',
   path: '/admin/images/{domain}/{entity_type}/{entity_id}',
+  operationId: 'setImageOverride',
   tags: ['Images', 'Admin'],
   summary: 'Set image override',
   description:
@@ -414,6 +417,7 @@ imagesRoute.openapi(putOverrideRoute, async (c) => {
 const deleteOverrideRoute = createRoute({
   method: 'delete',
   path: '/admin/images/{domain}/{entity_type}/{entity_id}/override',
+  operationId: 'deleteImageOverride',
   tags: ['Images', 'Admin'],
   summary: 'Revert image override',
   description:
@@ -507,6 +511,7 @@ imagesRoute.openapi(deleteOverrideRoute, async (c) => {
 const regenThumbhashRoute = createRoute({
   method: 'post',
   path: '/admin/images/regenerate-thumbhashes',
+  operationId: 'regenerateThumbhashes',
   tags: ['Admin', 'Images'],
   summary: 'Regenerate thumbhashes',
   description:

@@ -104,6 +104,7 @@ const DeletedResponse = z
 const syncListeningRoute = createRoute({
   method: 'post',
   path: '/admin/sync/listening',
+  operationId: 'adminSyncListening',
   tags: ['Admin'],
   summary: 'Trigger Last.fm sync',
   description:
@@ -171,6 +172,7 @@ adminSync.openapi(syncListeningRoute, async (c) => {
 const syncRunningRoute = createRoute({
   method: 'post',
   path: '/admin/sync/running',
+  operationId: 'adminSyncRunning',
   tags: ['Admin'],
   summary: 'Trigger Strava sync',
   description: 'Manually trigger a Strava running activities sync.',
@@ -202,6 +204,7 @@ adminSync.openapi(syncRunningRoute, async (c) => {
 const syncWatchingRoute = createRoute({
   method: 'post',
   path: '/admin/sync/watching',
+  operationId: 'adminSyncWatching',
   tags: ['Admin'],
   summary: 'Trigger watching sync',
   description:
@@ -250,6 +253,7 @@ adminSync.openapi(syncWatchingRoute, async (c) => {
 const syncCollectingRoute = createRoute({
   method: 'post',
   path: '/admin/sync/collecting',
+  operationId: 'adminSyncDiscogsCollection',
   tags: ['Admin'],
   summary: 'Trigger Discogs collection sync',
   description: 'Manually trigger a Discogs collection sync.',
@@ -277,6 +281,7 @@ adminSync.openapi(syncCollectingRoute, async (c) => {
 const syncTraktRoute = createRoute({
   method: 'post',
   path: '/admin/sync/trakt',
+  operationId: 'adminSyncTraktCollection',
   tags: ['Admin'],
   summary: 'Trigger Trakt collection sync',
   description: 'Manually trigger a Trakt collection sync.',
@@ -304,6 +309,7 @@ adminSync.openapi(syncTraktRoute, async (c) => {
 const deleteActivityRoute = createRoute({
   method: 'delete',
   path: '/admin/running/activities/{id}',
+  operationId: 'adminDeleteRunningActivity',
   tags: ['Admin'],
   summary: 'Soft-delete a Strava activity',
   description:
@@ -340,6 +346,7 @@ adminSync.openapi(deleteActivityRoute, async (c) => {
 const recomputeRoute = createRoute({
   method: 'post',
   path: '/admin/running/recompute',
+  operationId: 'adminRecomputeRunningStats',
   tags: ['Admin'],
   summary: 'Recompute running stats',
   description:

@@ -295,6 +295,7 @@ const YearParamSchema = z.object({
 const nowPlayingRoute = createRoute({
   method: 'get',
   path: '/now-playing',
+  operationId: 'getListeningNowPlaying',
   tags: ['Listening'],
   summary: 'Now playing',
   description:
@@ -311,6 +312,7 @@ const nowPlayingRoute = createRoute({
 const recentRoute = createRoute({
   method: 'get',
   path: '/recent',
+  operationId: 'getListeningRecent',
   tags: ['Listening'],
   summary: 'Recent scrobbles',
   description:
@@ -335,6 +337,33 @@ const recentRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(ScrobbleSchema) }),
+          example: {
+            data: [
+              {
+                track: {
+                  id: 4296,
+                  name: 'Cherry',
+                  url: 'https://www.last.fm/music/Ratatat/_/Cherry',
+                  apple_music_url:
+                    'https://music.apple.com/us/album/cherry/1540685260?i=1540685721&uo=4',
+                  preview_url:
+                    'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/68/56/3d/68563d2b-7ef3-4bb0-5f97-8cd2984a4e90/mzaf_17848570804808983859.plus.aac.p.m4a',
+                },
+                artist: { id: 551, name: 'Ratatat' },
+                album: {
+                  id: 1566,
+                  name: 'Ratatat',
+                  image: {
+                    url: 'https://cdn.rewind.rest/listening/albums/1566/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                    thumbhash: 'NwgKBwDIl4d2h3h/hrZ4d2h0d4QHQ2oA',
+                    dominant_color: '#d8d8d8',
+                    accent_color: '#d8d8d8',
+                  },
+                },
+                scrobbled_at: '2026-03-18T01:14:04.000Z',
+              },
+            ],
+          },
         },
       },
     },
@@ -345,6 +374,7 @@ const recentRoute = createRoute({
 const topArtistsRoute = createRoute({
   method: 'get',
   path: '/top/artists',
+  operationId: 'getListeningTopArtists',
   tags: ['Listening'],
   summary: 'Top artists',
   description: 'Returns top artists for a given time period.',
@@ -359,6 +389,29 @@ const topArtistsRoute = createRoute({
             data: z.array(TopItemSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            period: 'overall',
+            data: [
+              {
+                rank: 1,
+                id: 91,
+                name: 'The Beatles',
+                detail: '',
+                playcount: 6322,
+                genre: 'Classic Rock',
+                image: {
+                  url: 'https://cdn.rewind.rest/listening/artists/91/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: '5fcRBwD4yLd5doh/hZZ4p3iGOWr3o3YP',
+                  dominant_color: '#ffffff',
+                  accent_color: '#ffffff',
+                },
+                url: 'https://www.last.fm/music/The+Beatles',
+                apple_music_url:
+                  'https://music.apple.com/us/artist/the-beatles/136975?uo=4',
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 29, total_pages: 2 },
+          },
         },
       },
     },
@@ -369,6 +422,7 @@ const topArtistsRoute = createRoute({
 const topAlbumsRoute = createRoute({
   method: 'get',
   path: '/top/albums',
+  operationId: 'getListeningTopAlbums',
   tags: ['Listening'],
   summary: 'Top albums',
   description: 'Returns top albums for a given time period.',
@@ -393,6 +447,7 @@ const topAlbumsRoute = createRoute({
 const topTracksRoute = createRoute({
   method: 'get',
   path: '/top/tracks',
+  operationId: 'getListeningTopTracks',
   tags: ['Listening'],
   summary: 'Top tracks',
   description: 'Returns top tracks for a given time period.',
@@ -417,6 +472,7 @@ const topTracksRoute = createRoute({
 const statsRoute = createRoute({
   method: 'get',
   path: '/stats',
+  operationId: 'getListeningStats',
   tags: ['Listening'],
   summary: 'Listening stats',
   description:
@@ -436,6 +492,7 @@ const statsRoute = createRoute({
 const historyRoute = createRoute({
   method: 'get',
   path: '/history',
+  operationId: 'getListeningHistory',
   tags: ['Listening'],
   summary: 'Scrobble history',
   description: 'Returns paginated scrobble history with optional filters.',
@@ -487,6 +544,7 @@ const historyRoute = createRoute({
 const browseArtistsRoute = createRoute({
   method: 'get',
   path: '/artists',
+  operationId: 'listListeningArtists',
   tags: ['Listening'],
   summary: 'Browse artists',
   description: 'Returns paginated list of all artists.',
@@ -539,6 +597,7 @@ const browseArtistsRoute = createRoute({
 const browseAlbumsRoute = createRoute({
   method: 'get',
   path: '/albums',
+  operationId: 'listListeningAlbums',
   tags: ['Listening'],
   summary: 'Browse albums',
   description: 'Returns paginated list of all albums.',
@@ -592,6 +651,7 @@ const browseAlbumsRoute = createRoute({
 const artistDetailRoute = createRoute({
   method: 'get',
   path: '/artists/{id}',
+  operationId: 'getListeningArtist',
   tags: ['Listening'],
   summary: 'Artist detail',
   description:
@@ -609,6 +669,7 @@ const artistDetailRoute = createRoute({
 const albumDetailRoute = createRoute({
   method: 'get',
   path: '/albums/{id}',
+  operationId: 'getListeningAlbum',
   tags: ['Listening'],
   summary: 'Album detail',
   description: 'Returns detailed information about an album including tracks.',
@@ -625,6 +686,7 @@ const albumDetailRoute = createRoute({
 const calendarRoute = createRoute({
   method: 'get',
   path: '/calendar',
+  operationId: 'getListeningCalendar',
   tags: ['Listening'],
   summary: 'Scrobble calendar',
   description: 'Returns daily scrobble counts for a given year.',
@@ -645,6 +707,7 @@ const calendarRoute = createRoute({
 const trendsRoute = createRoute({
   method: 'get',
   path: '/trends',
+  operationId: 'getListeningTrends',
   tags: ['Listening'],
   summary: 'Listening trends',
   description: 'Returns monthly trend data for a given metric.',
@@ -677,6 +740,7 @@ const trendsRoute = createRoute({
 const streaksRoute = createRoute({
   method: 'get',
   path: '/streaks',
+  operationId: 'getListeningStreaks',
   tags: ['Listening'],
   summary: 'Listening streaks',
   description: 'Returns current and longest listening streaks.',
@@ -699,6 +763,7 @@ const YearQuerySchema = z.object({
 const yearRoute = createRoute({
   method: 'get',
   path: '/year/{year}',
+  operationId: 'getListeningYearInReview',
   tags: ['Listening'],
   summary: 'Year in review',
   description:
@@ -724,6 +789,7 @@ const GenrePeriodSchema = z.object({
 const genresRoute = createRoute({
   method: 'get',
   path: '/genres',
+  operationId: 'getListeningGenres',
   tags: ['Listening'],
   summary: 'Genre breakdown',
   description:
@@ -764,6 +830,7 @@ const genresRoute = createRoute({
 const listFiltersRoute = createRoute({
   method: 'get',
   path: '/admin/filters',
+  operationId: 'listListeningFilters',
   tags: ['Listening', 'Admin'],
   summary: 'List listening filters',
   description: 'Returns all listening filters.',
@@ -783,6 +850,7 @@ const listFiltersRoute = createRoute({
 const createFilterRoute = createRoute({
   method: 'post',
   path: '/admin/filters',
+  operationId: 'createListeningFilter',
   tags: ['Listening', 'Admin'],
   summary: 'Create listening filter',
   description: 'Creates a new listening filter.',
@@ -815,6 +883,7 @@ const createFilterRoute = createRoute({
 const deleteFilterRoute = createRoute({
   method: 'delete',
   path: '/admin/filters/{id}',
+  operationId: 'deleteListeningFilter',
   tags: ['Listening', 'Admin'],
   summary: 'Delete listening filter',
   description: 'Deletes a listening filter by ID.',
@@ -835,6 +904,7 @@ const deleteFilterRoute = createRoute({
 const backfillImagesRoute = createRoute({
   method: 'post',
   path: '/admin/listening/backfill-images',
+  operationId: 'backfillListeningImages',
   tags: ['Listening', 'Admin'],
   summary: 'Backfill listening images',
   description: 'Backfills missing images for albums and/or artists.',
@@ -2537,6 +2607,7 @@ listening.openapi(backfillImagesRoute, async (c) => {
 const enrichAppleMusicRoute = createRoute({
   method: 'post',
   path: '/admin/listening/enrich-apple-music',
+  operationId: 'enrichListeningAppleMusic',
   tags: ['Listening', 'Admin'],
   summary: 'Enrich tracks with Apple Music URLs',
   description:

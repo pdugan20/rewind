@@ -267,6 +267,7 @@ const WatchEventResultSchema = z.object({
 const recentRoute = createRoute({
   method: 'get',
   path: '/recent',
+  operationId: 'getWatchingRecent',
   tags: ['Watching'],
   summary: 'Recent watches',
   description:
@@ -284,6 +285,41 @@ const recentRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(WatchEventSchema) }),
+          example: {
+            data: [
+              {
+                movie: {
+                  id: 220,
+                  title: 'The French Dispatch',
+                  year: 2021,
+                  director: 'Wes Anderson',
+                  directors: ['Wes Anderson'],
+                  genres: ['Comedy', 'Drama'],
+                  duration_min: 108,
+                  rating: 'R',
+                  image: {
+                    url: 'https://cdn.rewind.rest/watching/movies/220/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                    thumbhash: 'KPgFHQiHdZWZeZY4lZbX976AxApI',
+                    dominant_color: '#a29c93',
+                    accent_color: '#81c4c7',
+                  },
+                  imdb_id: 'tt8847712',
+                  tmdb_id: 542178,
+                  tmdb_rating: 7.011,
+                  tagline: null,
+                  summary:
+                    'The staff of an American magazine based in France puts out its last issue, with stories featuring an artist sentenced to life imprisonment, student riots, and a kidnapping resolved by a chef.',
+                },
+                watched_at: '2026-03-18T20:11:30.214Z',
+                source: 'plex',
+                user_rating: null,
+                percent_complete: 100,
+                rewatch: false,
+                review: null,
+                review_url: null,
+              },
+            ],
+          },
         },
       },
     },
@@ -294,6 +330,7 @@ const recentRoute = createRoute({
 const moviesListRoute = createRoute({
   method: 'get',
   path: '/movies',
+  operationId: 'listWatchingMovies',
   tags: ['Watching'],
   summary: 'List movies',
   description: 'Returns paginated list of movies with optional filters.',
@@ -318,6 +355,39 @@ const moviesListRoute = createRoute({
             data: z.array(MovieSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                id: 220,
+                title: 'The French Dispatch',
+                year: 2021,
+                director: 'Wes Anderson',
+                directors: ['Wes Anderson'],
+                genres: ['Comedy', 'Drama'],
+                duration_min: 108,
+                rating: 'R',
+                image: {
+                  url: 'https://cdn.rewind.rest/watching/movies/220/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: 'KPgFHQiHdZWZeZY4lZbX976AxApI',
+                  dominant_color: '#a29c93',
+                  accent_color: '#81c4c7',
+                },
+                imdb_id: 'tt8847712',
+                tmdb_id: 542178,
+                tmdb_rating: 7.011,
+                tagline: null,
+                summary:
+                  'The staff of an American magazine based in France puts out its last issue.',
+                last_watched_at: '2026-03-18T20:11:30.214Z',
+              },
+            ],
+            pagination: {
+              page: 1,
+              limit: 20,
+              total: 694,
+              total_pages: 35,
+            },
+          },
         },
       },
     },
@@ -328,6 +398,7 @@ const moviesListRoute = createRoute({
 const movieDetailRoute = createRoute({
   method: 'get',
   path: '/movies/{id}',
+  operationId: 'getWatchingMovie',
   tags: ['Watching'],
   summary: 'Movie detail',
   description:
@@ -347,6 +418,7 @@ const movieDetailRoute = createRoute({
 const statsRoute = createRoute({
   method: 'get',
   path: '/stats',
+  operationId: 'getWatchingStats',
   tags: ['Watching'],
   summary: 'Watch stats',
   description:
@@ -368,6 +440,7 @@ const statsRoute = createRoute({
 const genreStatsRoute = createRoute({
   method: 'get',
   path: '/stats/genres',
+  operationId: 'getWatchingStatsGenres',
   tags: ['Watching'],
   summary: 'Genre stats',
   description: 'Returns genre breakdown for all watched movies.',
@@ -387,6 +460,7 @@ const genreStatsRoute = createRoute({
 const decadeStatsRoute = createRoute({
   method: 'get',
   path: '/stats/decades',
+  operationId: 'getWatchingStatsDecades',
   tags: ['Watching'],
   summary: 'Decade stats',
   description: 'Returns decade breakdown for all watched movies.',
@@ -406,6 +480,7 @@ const decadeStatsRoute = createRoute({
 const directorStatsRoute = createRoute({
   method: 'get',
   path: '/stats/directors',
+  operationId: 'getWatchingStatsDirectors',
   tags: ['Watching'],
   summary: 'Director stats',
   description: 'Returns top directors by movie count.',
@@ -430,6 +505,7 @@ const directorStatsRoute = createRoute({
 const calendarRoute = createRoute({
   method: 'get',
   path: '/calendar',
+  operationId: 'getWatchingCalendar',
   tags: ['Watching'],
   summary: 'Watch calendar',
   description: 'Returns daily watch counts for a given year.',
@@ -457,6 +533,7 @@ const calendarRoute = createRoute({
 const trendsRoute = createRoute({
   method: 'get',
   path: '/trends',
+  operationId: 'getWatchingTrends',
   tags: ['Watching'],
   summary: 'Watch trends',
   description:
@@ -487,6 +564,7 @@ const trendsRoute = createRoute({
 const showsListRoute = createRoute({
   method: 'get',
   path: '/shows',
+  operationId: 'listWatchingShows',
   tags: ['Watching'],
   summary: 'List TV shows',
   description: 'Returns paginated list of TV shows.',
@@ -517,6 +595,7 @@ const showsListRoute = createRoute({
 const showDetailRoute = createRoute({
   method: 'get',
   path: '/shows/{id}',
+  operationId: 'getWatchingShow',
   tags: ['Watching'],
   summary: 'Show detail',
   description:
@@ -536,6 +615,7 @@ const showDetailRoute = createRoute({
 const seasonDetailRoute = createRoute({
   method: 'get',
   path: '/shows/{id}/seasons/{season}',
+  operationId: 'getWatchingShowSeason',
   tags: ['Watching'],
   summary: 'Season detail',
   description: 'Returns watched episodes for a specific season of a show.',
@@ -566,6 +646,7 @@ const seasonDetailRoute = createRoute({
 const ratingsRoute = createRoute({
   method: 'get',
   path: '/ratings',
+  operationId: 'listWatchingRatings',
   tags: ['Watching'],
   summary: 'Rated movies',
   description: 'Returns paginated list of movies with user ratings.',
@@ -596,6 +677,7 @@ const ratingsRoute = createRoute({
 const reviewsRoute = createRoute({
   method: 'get',
   path: '/reviews',
+  operationId: 'listWatchingReviews',
   tags: ['Watching'],
   summary: 'Movie reviews',
   description: 'Returns paginated list of movies with user reviews.',
@@ -624,6 +706,7 @@ const reviewsRoute = createRoute({
 const yearInReviewRoute = createRoute({
   method: 'get',
   path: '/year/{year}',
+  operationId: 'getWatchingYearInReview',
   tags: ['Watching'],
   summary: 'Year in review',
   description:
@@ -668,6 +751,7 @@ const yearInReviewRoute = createRoute({
 const adminCreateMovieRoute = createRoute({
   method: 'post',
   path: '/admin/watching/movies',
+  operationId: 'adminWatchingCreateMovie',
   tags: ['Watching', 'Admin'],
   summary: 'Add movie manually',
   description: 'Create a manual watch event by TMDB ID or title search.',
@@ -699,6 +783,7 @@ const adminCreateMovieRoute = createRoute({
 const adminEditMovieRoute = createRoute({
   method: 'put',
   path: '/admin/watching/movies/{id}',
+  operationId: 'adminWatchingUpdateMovie',
   tags: ['Watching', 'Admin'],
   summary: 'Edit watch event',
   description: 'Update fields on an existing watch event.',
@@ -728,6 +813,7 @@ const adminEditMovieRoute = createRoute({
 const adminDeleteMovieRoute = createRoute({
   method: 'delete',
   path: '/admin/watching/movies/{id}',
+  operationId: 'adminWatchingDeleteMovie',
   tags: ['Watching', 'Admin'],
   summary: 'Delete watch event',
   description: 'Delete a watch event by ID.',
@@ -753,6 +839,7 @@ const adminDeleteMovieRoute = createRoute({
 const adminBackfillImagesRoute = createRoute({
   method: 'post',
   path: '/admin/watching/backfill-images',
+  operationId: 'adminWatchingBackfillImages',
   tags: ['Watching', 'Admin'],
   summary: 'Backfill images',
   description: 'Backfill missing images for movies and/or shows from TMDB.',

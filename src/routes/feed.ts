@@ -68,6 +68,7 @@ const DomainParamSchema = z.object({
 const getFeedRoute = createRoute({
   method: 'get',
   path: '/',
+  operationId: 'getFeed',
   tags: ['Feed'],
   summary: 'Cross-domain activity feed',
   description:
@@ -81,6 +82,23 @@ const getFeedRoute = createRoute({
       content: {
         'application/json': {
           schema: FeedResponseSchema,
+          example: {
+            data: [
+              {
+                id: 2491,
+                domain: 'watching',
+                event_type: 'movie_watched',
+                occurred_at: '2026-03-18T20:11:30.741Z',
+                title: 'Watched The French Dispatch (2021)',
+                subtitle: null,
+                image_key: null,
+                source_id: 'plex:webhook:27504-2026-03-18',
+                metadata: null,
+                created_at: '2026-03-18T20:11:30.762Z',
+              },
+            ],
+            pagination: { next_cursor: '2491', has_more: true, limit: 20 },
+          },
         },
       },
     },
@@ -135,6 +153,7 @@ feed.openapi(getFeedRoute, async (c) => {
 const getDomainFeedRoute = createRoute({
   method: 'get',
   path: '/domain/{domain}',
+  operationId: 'getFeedByDomain',
   tags: ['Feed'],
   summary: 'Single-domain activity feed',
   description:
@@ -233,6 +252,7 @@ const OnThisDayYearSchema = z.object({
 const onThisDayRoute = createRoute({
   method: 'get',
   path: '/on-this-day',
+  operationId: 'getFeedOnThisDay',
   tags: ['Feed'],
   summary: 'On this day',
   description:

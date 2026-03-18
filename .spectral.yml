@@ -6,7 +6,7 @@ rules:
   operation-description: error
 
   # Require operation IDs
-  operation-operationId: warn
+  operation-operationId: error
 
   # Require tags on operations
   operation-tags: error
@@ -15,12 +15,12 @@ rules:
   openapi-tags: error
 
   # No unused component schemas
-  oas3-unused-component: warn
+  oas3-unused-component: error
 
   # Descriptions should not be empty
   no-empty-description:
     description: Descriptions must not be empty strings.
     given: '$..description'
-    severity: warn
+    severity: error
     then:
       function: truthy
