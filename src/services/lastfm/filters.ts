@@ -121,6 +121,34 @@ export function isFiltered(item: FilterableItem): boolean {
 }
 
 /**
+ * Audiobook-indicating Last.fm tags (lowercased).
+ * Used to auto-detect audiobook artists from their Last.fm tag data
+ * so we don't have to manually add every author to the filter list.
+ */
+const AUDIOBOOK_TAGS = new Set([
+  'audiobook',
+  'audiobooks',
+  'spoken word',
+  'spoken',
+  'hoerbuch',
+  'hörbuch',
+  'audio book',
+  'audio books',
+]);
+
+/**
+ * Check if raw Last.fm tags indicate an audiobook/spoken-word artist.
+ * Returns true if any tag with sufficient weight matches.
+ */
+export function hasAudiobookTags(
+  tags: { name: string; count: number }[]
+): boolean {
+  return tags.some(
+    (t) => t.count >= 25 && AUDIOBOOK_TAGS.has(t.name.toLowerCase())
+  );
+}
+
+/**
  * Over-fetch, filter, and re-rank strategy for top lists.
  * Takes the raw (over-fetched) list, filters out matched items,
  * re-ranks the remaining, and returns the desired count.

@@ -13,6 +13,8 @@ import {
   handlePlexWebhook,
 } from '../services/plex/webhook.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
+import { runPipeline } from '../services/images/pipeline.js';
+
 const webhooks = createOpenAPIApp();
 
 // --- Schemas ---
@@ -178,6 +180,23 @@ webhooks.openapi(plexWebhookRoute, async (c) => {
   const tmdbClient = new TmdbClient(c.env.TMDB_API_KEY);
 
   const result = await handlePlexWebhook(db, payload, tmdbClient);
+
+  // Process image in the background so artwork is available immediately
+  if (result.entity) {
+    const { type, id, tmdbId } = result.entity;
+    c.executionCtx.waitUntil(
+      runPipeline(db, c.env, {
+        domain: 'watching',
+        entityType: type,
+        entityId: id,
+        tmdbId,
+      }).catch((error) => {
+        console.log(
+          `[ERROR] Webhook image pipeline failed for ${type}/${id}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      })
+    );
+  }
 
   return c.json(
     {

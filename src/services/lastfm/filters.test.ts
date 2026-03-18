@@ -4,6 +4,7 @@ import {
   isAudiobook,
   isFiltered,
   filterAndRerank,
+  hasAudiobookTags,
   seedFilterCache,
 } from './filters.js';
 
@@ -207,5 +208,47 @@ describe('filterAndRerank', () => {
     const result = filterAndRerank(items, 5);
     expect(result).toHaveLength(1);
     expect(result[0].artistName).toBe('Radiohead');
+  });
+});
+
+describe('hasAudiobookTags', () => {
+  it('detects audiobook tag with sufficient weight', () => {
+    expect(
+      hasAudiobookTags([
+        { name: 'Audiobook', count: 100 },
+        { name: 'horror', count: 80 },
+      ])
+    ).toBe(true);
+  });
+
+  it('detects spoken word tag', () => {
+    expect(
+      hasAudiobookTags([
+        { name: 'spoken word', count: 50 },
+        { name: 'podcast', count: 30 },
+      ])
+    ).toBe(true);
+  });
+
+  it('ignores audiobook tag with low weight', () => {
+    expect(
+      hasAudiobookTags([
+        { name: 'Audiobook', count: 10 },
+        { name: 'rock', count: 90 },
+      ])
+    ).toBe(false);
+  });
+
+  it('returns false for music-only tags', () => {
+    expect(
+      hasAudiobookTags([
+        { name: 'rock', count: 100 },
+        { name: 'alternative', count: 80 },
+      ])
+    ).toBe(false);
+  });
+
+  it('returns false for empty tags', () => {
+    expect(hasAudiobookTags([])).toBe(false);
   });
 });

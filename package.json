@@ -15,8 +15,8 @@
     }
   },
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "npm run db:migrate && wrangler dev",
+    "deploy": "npm run db:migrate && npm run db:remote && wrangler deploy",
     "build": "wrangler deploy --dry-run --outdir dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

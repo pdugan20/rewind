@@ -14,7 +14,7 @@ import { syncRuns } from '../../db/schema/system.js';
 import { LastfmClient, LASTFM_PERIODS } from './client.js';
 import type { LastfmPeriod } from './client.js';
 import { normalizeScrobble } from './transforms.js';
-import { isFiltered, loadFilters } from './filters.js';
+import { isFiltered, hasAudiobookTags, loadFilters } from './filters.js';
 import { afterSync } from '../../lib/after-sync.js';
 import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import { cleanArtistName } from '../images/sources/utils.js';
@@ -312,13 +312,32 @@ export async function syncRecentScrobbles(
             }));
             const { genre, normalizedTags } = resolveGenre(rawTags);
 
+            // Auto-detect audiobook artists from Last.fm tags
+            const tagFiltered = hasAudiobookTags(rawTags) ? 1 : 0;
+
             await db
               .update(lastfmArtists)
               .set({
                 tags: JSON.stringify(normalizedTags),
                 genre,
+                ...(tagFiltered ? { isFiltered: 1 } : {}),
               })
               .where(eq(lastfmArtists.id, artist.id));
+
+            // Cascade filter to albums/tracks for this artist
+            if (tagFiltered) {
+              await db
+                .update(lastfmAlbums)
+                .set({ isFiltered: 1 })
+                .where(eq(lastfmAlbums.artistId, artist.id));
+              await db
+                .update(lastfmTracks)
+                .set({ isFiltered: 1 })
+                .where(eq(lastfmTracks.artistId, artist.id));
+              console.log(
+                `[SYNC] Auto-filtered audiobook artist from tags: ${track.artistName}`
+              );
+            }
           } catch {
             // Non-fatal -- artist still gets created, tags can be backfilled later
           }
@@ -814,14 +833,31 @@ export async function backfillArtistTags(
         }));
         const { genre, normalizedTags } = resolveGenre(rawTags);
 
+        const tagFiltered = hasAudiobookTags(rawTags) ? 1 : 0;
+
         await db
           .update(lastfmArtists)
           .set({
             tags: JSON.stringify(normalizedTags),
             genre,
             updatedAt: new Date().toISOString(),
+            ...(tagFiltered ? { isFiltered: 1 } : {}),
           })
           .where(eq(lastfmArtists.id, artist.id));
+
+        if (tagFiltered) {
+          await db
+            .update(lastfmAlbums)
+            .set({ isFiltered: 1 })
+            .where(eq(lastfmAlbums.artistId, artist.id));
+          await db
+            .update(lastfmTracks)
+            .set({ isFiltered: 1 })
+            .where(eq(lastfmTracks.artistId, artist.id));
+          console.log(
+            `[SYNC] Auto-filtered audiobook artist from tags: ${artist.name}`
+          );
+        }
 
         tagged++;
 

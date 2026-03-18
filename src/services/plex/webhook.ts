@@ -430,11 +430,18 @@ async function upsertShowFromPlex(
 /**
  * Main webhook event handler.
  */
+export interface PlexWebhookResult {
+  success: boolean;
+  message: string;
+  /** Entity info for post-webhook image processing */
+  entity?: { type: 'movies' | 'shows'; id: string; tmdbId?: string };
+}
+
 export async function handlePlexWebhook(
   db: Database,
   payload: PlexWebhookPayload,
   tmdbClient: TmdbClient
-): Promise<{ success: boolean; message: string }> {
+): Promise<PlexWebhookResult> {
   // Only handle media.scrobble events
   if (payload.event !== 'media.scrobble') {
     return { success: true, message: `Ignored event: ${payload.event}` };
@@ -509,10 +516,34 @@ export async function handlePlexWebhook(
     });
   }
 
+  const imageEntityType = mediaType === 'movie' ? 'movies' : 'shows';
+  const imageEntityId =
+    mediaType === 'movie' ? String(result.movieId) : String(result.showId);
+
+  // Look up tmdbId for image pipeline
+  let tmdbId: string | undefined;
+  if (result.success && imageEntityId !== 'undefined') {
+    const table = mediaType === 'movie' ? movies : plexShows;
+    const [row] = await db
+      .select({ tmdbId: table.tmdbId })
+      .from(table)
+      .where(eq(table.id, Number(imageEntityId)))
+      .limit(1);
+    if (row?.tmdbId) tmdbId = String(row.tmdbId);
+  }
+
   return {
     success: result.success,
     message: result.success
       ? `Processed ${mediaType} scrobble`
       : `Failed to process ${mediaType} scrobble`,
+    entity:
+      result.success && imageEntityId !== 'undefined'
+        ? {
+            type: imageEntityType as 'movies' | 'shows',
+            id: imageEntityId,
+            tmdbId,
+          }
+        : undefined,
   };
 }
