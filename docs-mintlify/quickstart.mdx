@@ -1,0 +1,131 @@
+---
+title: Quick Start
+description: Make your first API call in 5 minutes
+---
+
+## Check the API is up
+
+No authentication required for the health endpoint:
+
+```bash
+curl https://api.rewind.rest/v1/health
+```
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-03-18T21:00:00.000Z"
+}
+```
+
+## Authenticate
+
+All other endpoints require a Bearer token in the `Authorization` header. There are two key types:
+
+- **Read keys** (`rw_live_...`) -- access all GET endpoints
+- **Admin keys** (`rw_admin_...`) -- access all endpoints including sync triggers
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." \
+  https://api.rewind.rest/v1/listening/recent
+```
+
+## Fetch recent scrobbles
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." \
+  https://api.rewind.rest/v1/listening/recent?limit=5
+```
+
+```json
+{
+  "data": [
+    {
+      "track": { "id": 4296, "name": "Cherry" },
+      "artist": { "id": 551, "name": "Ratatat" },
+      "album": { "id": 1566, "name": "Ratatat", "image": { "url": "..." } },
+      "scrobbled_at": "2026-03-18T01:14:04.000Z"
+    }
+  ]
+}
+```
+
+## Fetch running stats
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." \
+  https://api.rewind.rest/v1/running/stats
+```
+
+```json
+{
+  "data": {
+    "total_runs": 1350,
+    "total_distance_mi": 6069.88,
+    "total_elevation_ft": 238690.03,
+    "total_duration": "828:56:08",
+    "avg_pace": "8:12/mi",
+    "years_active": 17
+  }
+}
+```
+
+## Pagination
+
+List endpoints return paginated responses. Use `page` and `limit` query parameters:
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." \
+  "https://api.rewind.rest/v1/watching/movies?page=2&limit=10"
+```
+
+```json
+{
+  "data": [...],
+  "pagination": {
+    "page": 2,
+    "limit": 10,
+    "total": 694,
+    "total_pages": 70
+  }
+}
+```
+
+The activity feed uses cursor-based pagination instead -- see the [Feed API reference](/api-reference/feed/get-feed) for details.
+
+## Date filtering
+
+Most list and stats endpoints accept optional date filters:
+
+| Parameter | Format | Description |
+| --- | --- | --- |
+| `date` | `YYYY-MM-DD` | Filter to a specific date |
+| `from` | ISO 8601 | Filter from this date (inclusive) |
+| `to` | ISO 8601 | Filter to this date (inclusive) |
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." \
+  "https://api.rewind.rest/v1/listening/recent?from=2026-01-01&to=2026-03-31"
+```
+
+## Errors
+
+All errors follow the same envelope:
+
+```json
+{
+  "error": "Not found",
+  "status": 404
+}
+```
+
+Common status codes: `400` (bad request), `401` (unauthorized), `404` (not found), `500` (server error).
+
+## Next steps
+
+Explore the domain-specific guides to understand what data is available:
+
+- [Listening](/domains/listening) -- Last.fm and Apple Music
+- [Running](/domains/running) -- Strava
+- [Watching](/domains/watching) -- Plex and Letterboxd
+- [Collecting](/domains/collecting) -- Discogs and Trakt

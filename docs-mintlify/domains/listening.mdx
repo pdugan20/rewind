@@ -1,0 +1,45 @@
+---
+title: Listening
+description: Last.fm and Apple Music scrobble data
+---
+
+## Overview
+
+The Listening domain tracks music listening history from Last.fm, enriched with Apple Music metadata (artwork, preview URLs, Apple Music links).
+
+Data syncs every 15 minutes via cron. Each sync fetches recent scrobbles and updates artist/album/track records.
+
+## Key endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| [GET /listening/recent](/api-reference/listening/get-listening-recent) | Recent scrobbles with track, artist, album, and image data |
+| [GET /listening/now-playing](/api-reference/listening/get-listening-now-playing) | Currently playing track (if any) |
+| [GET /listening/top/artists](/api-reference/listening/get-listening-top-artists) | Top artists by play count, filterable by time period |
+| [GET /listening/top/albums](/api-reference/listening/get-listening-top-albums) | Top albums by play count |
+| [GET /listening/top/tracks](/api-reference/listening/get-listening-top-tracks) | Top tracks by scrobble count |
+| [GET /listening/stats](/api-reference/listening/get-listening-stats) | Lifetime listening statistics |
+| [GET /listening/streaks](/api-reference/listening/get-listening-streaks) | Listening streak data (consecutive days) |
+| [GET /listening/artists](/api-reference/listening/list-listening-artists) | Browse all artists with pagination |
+| [GET /listening/artists/:id](/api-reference/listening/get-listening-artist) | Artist detail with top albums and tracks |
+
+## Time periods
+
+Top list endpoints accept a `period` parameter:
+
+| Period | Description |
+| --- | --- |
+| `7day` | Last 7 days |
+| `1month` | Last 30 days |
+| `3month` | Last 90 days |
+| `6month` | Last 180 days |
+| `12month` | Last 365 days |
+| `overall` | All time |
+
+## Filtering
+
+Audiobooks, podcasts, and holiday music are automatically filtered from all listening endpoints. The filter system uses a combination of artist matching, album/track pattern matching, and Last.fm tag-based auto-detection.
+
+## Images
+
+Album and artist artwork is sourced from Apple Music, Deezer, iTunes, and Last.fm. Images are stored in R2 and served via CDN with thumbhash placeholders and extracted dominant/accent colors.

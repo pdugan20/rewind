@@ -1,0 +1,84 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "theme": "maple",
+  "name": "Rewind",
+  "description": "Personal data aggregation API. Syncs and serves data from the services that track your life.",
+  "favicon": "/favicon.svg",
+  "appearance": {
+    "default": "dark",
+    "strict": false
+  },
+  "colors": {
+    "primary": "#e5e5e5",
+    "light": "#a3a3a3",
+    "dark": "#e5e5e5"
+  },
+  "background": {
+    "color": {
+      "dark": "#0a0a0a",
+      "light": "#ffffff"
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "API Status",
+        "href": "https://api.rewind.rest/v1/health"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/pdugan20/rewind"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": ["introduction", "quickstart", "authentication"]
+          },
+          {
+            "group": "Domains",
+            "pages": [
+              "domains/listening",
+              "domains/running",
+              "domains/watching",
+              "domains/collecting",
+              "domains/images"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "https://api.rewind.rest/v1/openapi.json",
+        "groups": [
+          { "group": "Listening" },
+          { "group": "Running" },
+          { "group": "Watching" },
+          { "group": "Collecting" },
+          { "group": "Feed" },
+          { "group": "Search" },
+          { "group": "Images" },
+          { "group": "System" }
+        ]
+      }
+    ]
+  },
+  "api": {
+    "playground": {
+      "display": "interactive"
+    },
+    "examples": {
+      "languages": ["bash", "javascript", "python"],
+      "prefill": true
+    }
+  },
+  "search": {
+    "prompt": "Search docs..."
+  }
+}

@@ -1,0 +1,47 @@
+---
+title: Collecting
+description: Discogs vinyl and Trakt physical media
+---
+
+## Overview
+
+The Collecting domain tracks physical media from two sources:
+
+- **Discogs** -- vinyl and CD collection, wantlist, and marketplace data
+- **Trakt** -- physical media (Blu-ray, DVD, 4K) collection tracking
+
+## Key endpoints
+
+### Vinyl collection (Discogs)
+
+| Endpoint | Description |
+| --- | --- |
+| [GET /collecting/collection](/api-reference/collecting/list-collection) | Paginated vinyl/CD collection |
+| [GET /collecting/collection/:id](/api-reference/collecting/get-collection-record) | Record detail |
+| [GET /collecting/stats](/api-reference/collecting/get-collecting-stats) | Collection statistics (total records, value) |
+| [GET /collecting/wantlist](/api-reference/collecting/list-collecting-wantlist) | Discogs wantlist |
+| [GET /collecting/formats](/api-reference/collecting/list-collecting-formats) | Breakdown by format (vinyl, CD, cassette) |
+| [GET /collecting/genres](/api-reference/collecting/list-collecting-genres) | Breakdown by genre |
+| [GET /collecting/artists](/api-reference/collecting/list-collecting-artists) | Artists in collection |
+| [GET /collecting/cross-reference](/api-reference/collecting/get-collecting-cross-reference) | Cross-reference collection with listening data |
+
+### Physical media (Trakt)
+
+| Endpoint | Description |
+| --- | --- |
+| [GET /collecting/media](/api-reference/collecting/list-collecting-media) | Blu-ray/DVD/4K collection |
+| [GET /collecting/media/:id](/api-reference/collecting/get-collecting-media-item) | Media item detail |
+| [GET /collecting/media/stats](/api-reference/collecting/get-collecting-media-stats) | Media collection statistics |
+| [GET /collecting/media/formats](/api-reference/collecting/list-collecting-media-formats) | Breakdown by format |
+| [GET /collecting/media/cross-reference](/api-reference/collecting/get-collecting-media-cross-reference) | Cross-reference with watching data |
+
+## Cross-referencing
+
+The cross-reference endpoints compare your physical collection with your digital activity:
+
+- **Vinyl cross-reference**: shows which records in your collection you've actually listened to (matched via Last.fm artist/album data)
+- **Media cross-reference**: shows which Blu-rays/DVDs you own that you've also watched on Plex
+
+## Images
+
+Album artwork is sourced from Discogs release images. Movie/show artwork for physical media comes from TMDB.

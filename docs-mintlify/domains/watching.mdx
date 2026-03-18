@@ -1,0 +1,45 @@
+---
+title: Watching
+description: Plex and Letterboxd movie and TV data
+---
+
+## Overview
+
+The Watching domain tracks movies and TV shows from two sources:
+
+- **Plex** -- real-time watch events via webhooks, plus daily library scans
+- **Letterboxd** -- RSS feed sync for ratings, reviews, and watch history
+
+Both sources feed into a unified movie database enriched with TMDB metadata (posters, ratings, genres, directors, summaries).
+
+## Key endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| [GET /watching/recent](/api-reference/watching/get-watching-recent) | Recent watch events with full movie details |
+| [GET /watching/movies](/api-reference/watching/list-watching-movies) | Browse all movies with filters |
+| [GET /watching/movies/:id](/api-reference/watching/get-watching-movie) | Movie detail with watch history |
+| [GET /watching/shows](/api-reference/watching/list-watching-shows) | TV shows with episode counts |
+| [GET /watching/shows/:id](/api-reference/watching/get-watching-show) | Show detail with season/episode breakdown |
+| [GET /watching/stats](/api-reference/watching/get-watching-stats) | Watching statistics (total movies, shows, hours) |
+| [GET /watching/ratings](/api-reference/watching/list-watching-ratings) | User ratings from Letterboxd |
+| [GET /watching/reviews](/api-reference/watching/list-watching-reviews) | Reviews from Letterboxd |
+
+## Movie filters
+
+The movies endpoint supports filtering by:
+
+- `genre` -- filter by genre name
+- `decade` -- filter by decade (e.g., "2020")
+- `director` -- filter by director name
+- `year` -- filter by release year
+- `sort` -- sort field (watched_at, year, title, tmdb_rating)
+- `order` -- asc or desc
+
+## Images
+
+Movie posters and backdrops are sourced from TMDB, with fallbacks to Fanart.tv and Plex. Images include thumbhash placeholders and extracted dominant/accent colors.
+
+## Year in review
+
+[GET /watching/year/:year](/api-reference/watching/get-watching-year-in-review) returns a year summary including total movies watched, top-rated films, genre breakdown, and decade distribution.

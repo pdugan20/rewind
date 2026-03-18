@@ -1,0 +1,40 @@
+---
+title: Introduction
+description: Personal data aggregation API
+---
+
+# Rewind
+
+Rewind is a personal data aggregation API that syncs and serves data from the services that track your life. It pulls data from multiple sources into a unified REST API.
+
+## Domains
+
+| Domain | Sources | What it tracks |
+| --- | --- | --- |
+| **Listening** | Last.fm, Apple Music | Scrobbles, top artists/albums/tracks, streaks, stats |
+| **Running** | Strava | Activities, splits, gear, personal records, year summaries |
+| **Watching** | Plex, Letterboxd | Movies, TV shows, watch history, ratings, reviews |
+| **Collecting** | Discogs, Trakt | Vinyl/CD collection, physical media, wantlist |
+
+## How it works
+
+Rewind runs on Cloudflare Workers with a D1 (SQLite) database. Cron-triggered sync workers pull data from each source on a schedule. Plex and Strava also push real-time updates via webhooks.
+
+All data is served through a REST API at `api.rewind.rest` with consistent pagination, date filtering, and image CDN support across all domains.
+
+## Quick links
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Make your first API call in 5 minutes
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    API keys and authorization
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Full endpoint documentation
+  </Card>
+  <Card title="API Status" icon="heart-pulse" href="https://api.rewind.rest/v1/health">
+    Check if the API is up
+  </Card>
+</CardGroup>

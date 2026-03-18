@@ -1,0 +1,47 @@
+---
+title: Running
+description: Strava activity data
+---
+
+## Overview
+
+The Running domain tracks running activities from Strava, including distance, pace, elevation, splits, gear, and personal records.
+
+Data syncs daily at 3:00 AM UTC via cron, with real-time updates from Strava webhooks for new activities.
+
+## Key endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| [GET /running/activities](/api-reference/running/list-running-activities) | Paginated activity list with filters |
+| [GET /running/activities/:id](/api-reference/running/get-running-activity) | Full activity detail including map polyline |
+| [GET /running/activities/:id/splits](/api-reference/running/get-running-activity-splits) | Per-mile or per-km splits |
+| [GET /running/stats](/api-reference/running/get-running-stats) | Lifetime stats (total runs, distance, elevation, pace) |
+| [GET /running/stats/years/:year](/api-reference/running/get-running-stats-year) | Year-specific stats |
+| [GET /running/prs](/api-reference/running/get-running-prs) | Personal records by distance |
+| [GET /running/streaks](/api-reference/running/get-running-streaks) | Run streak data (consecutive days) |
+| [GET /running/gear](/api-reference/running/list-running-gear) | Shoe/gear tracker with mileage |
+| [GET /running/races](/api-reference/running/list-running-races) | Race results |
+
+## Charts
+
+Several endpoints return data formatted for charting:
+
+| Endpoint | Description |
+| --- | --- |
+| [GET /running/charts/cumulative](/api-reference/running/get-running-charts-cumulative) | Cumulative distance over time |
+| [GET /running/charts/pace-trend](/api-reference/running/get-running-charts-pace-trend) | Pace trend over time |
+| [GET /running/charts/time-of-day](/api-reference/running/get-running-charts-time-of-day) | Activity distribution by time of day |
+| [GET /running/charts/elevation](/api-reference/running/get-running-charts-elevation) | Elevation gain over time |
+
+## Activity filters
+
+The activities endpoint supports filtering by:
+
+- `year` -- filter to a specific year
+- `type` -- workout type (default, race, long_run, etc.)
+- `city` -- filter by city name
+- `min_distance` / `max_distance` -- distance range in miles
+- `sort` -- sort field (date, distance, pace, elevation)
+- `order` -- asc or desc
+- Standard date filters (`date`, `from`, `to`)

@@ -1,0 +1,42 @@
+---
+title: Authentication
+description: API keys and authorization
+---
+
+## API keys
+
+All endpoints (except `/v1/health` and webhooks) require a Bearer token.
+
+```bash
+curl -H "Authorization: Bearer rw_live_..." \
+  https://api.rewind.rest/v1/listening/recent
+```
+
+## Key types
+
+| Key type | Prefix | Access |
+| --- | --- | --- |
+| **Read** | `rw_live_...` | All GET endpoints |
+| **Admin** | `rw_admin_...` | All endpoints including sync triggers, data management, and key management |
+
+Read keys are safe to use in client-side applications. Admin keys should only be used server-side.
+
+## Rate limiting
+
+The API uses a sliding window rate limiter per API key:
+
+- **Window**: 60 seconds
+- **Limit**: 100 requests per window
+
+When rate limited, the API returns `429 Too Many Requests`.
+
+## Unauthorized responses
+
+If your key is missing or invalid:
+
+```json
+{
+  "error": "Unauthorized",
+  "status": 401
+}
+```

@@ -1,0 +1,62 @@
+---
+title: Images
+description: Image pipeline, CDN, and color extraction
+---
+
+## Overview
+
+Rewind has a unified image pipeline that handles artwork for all domains. Images are fetched from source APIs, stored in Cloudflare R2, and served through Cloudflare Images for on-the-fly transforms.
+
+## CDN URLs
+
+All image responses include an `image` object:
+
+```json
+{
+  "image": {
+    "url": "https://cdn.rewind.rest/listening/albums/1566/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+    "thumbhash": "NwgKBwDIl4d2h3h/hrZ4d2h0d4QHQ2oA",
+    "dominant_color": "#d8d8d8",
+    "accent_color": "#d8d8d8"
+  }
+}
+```
+
+## Image transforms
+
+The CDN URL supports query parameters for on-the-fly transforms:
+
+| Parameter | Values | Description |
+| --- | --- | --- |
+| `width` | pixels | Target width |
+| `height` | pixels | Target height |
+| `fit` | `cover`, `contain`, `scale-down` | Resize behavior |
+| `format` | `auto`, `webp`, `avif`, `jpeg` | Output format (`auto` picks best for client) |
+| `quality` | 1-100 | Compression quality |
+
+## ThumbHash
+
+Every image includes a `thumbhash` -- a compact placeholder (20-30 bytes, base64-encoded) that can be decoded client-side into a blurry preview image. This enables instant placeholder rendering before the full image loads.
+
+See [thumbhash.io](https://evanw.github.io/thumbhash/) for decoder libraries.
+
+## Color extraction
+
+Each image has two extracted colors:
+
+- **`dominant_color`** -- the most common color in the image (hex)
+- **`accent_color`** -- a secondary color that contrasts well with the dominant color (hex)
+
+These are useful for dynamic UI theming (e.g., tinting a background based on album art).
+
+## Image sources by domain
+
+| Domain | Primary source | Fallbacks |
+| --- | --- | --- |
+| Listening (albums) | Apple Music | Deezer, iTunes |
+| Listening (artists) | Apple Music | Deezer, Fanart.tv |
+| Running | Strava map tiles | -- |
+| Watching (movies) | TMDB | Fanart.tv, Plex |
+| Watching (shows) | TMDB | Fanart.tv, Plex |
+| Collecting (vinyl) | Discogs | -- |
+| Collecting (media) | TMDB | -- |
