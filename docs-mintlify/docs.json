@@ -6,7 +6,7 @@
   "favicon": "/favicon.svg",
   "openapi": "openapi.json",
   "appearance": {
-    "default": "dark",
+    "default": "system",
     "strict": false
   },
   "colors": {
