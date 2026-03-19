@@ -18,52 +18,60 @@
 - [x] **3.1** Getting started pages (introduction, quickstart, authentication)
 - [x] **3.2** Domain overviews (listening, running, watching, collecting, images)
 
-## Phase 3.5: Docs Site Polish -- IN PROGRESS
+## Phase 3.5: Docs Site Polish -- COMPLETE
 
-**3.5.1 -- Real response examples on all public endpoints -- COMPLETE**
-
-- [x] **3.5.1.1** Add curated examples to all Listening endpoints (Nirvana, Olivia Rodrigo, Sabrina Carpenter, Beastie Boys, Taylor Swift)
-- [x] **3.5.1.2** Add curated examples to all Running endpoints
-- [x] **3.5.1.3** Add curated examples to all Watching endpoints (Ferris Bueller's, Interstellar, The Great Escape, Band of Brothers, Mad Men, Fallout)
-- [x] **3.5.1.4** Add curated examples to all Collecting endpoints (Nirvana vinyl, Top Gun/Great Escape/Interstellar physical media)
-- [x] **3.5.1.5** Add curated examples to Feed, Search, System endpoints
-- [x] **3.5.1.6** Hide 32 admin/webhook endpoints with `x-hidden: true`
-- [x] **3.5.1.7** Fix 44 schema mismatches (examples now match actual Zod schemas)
-- [x] **3.5.1.8** Update old Phase 1 examples to use curated picks instead of stale data
-- [x] **3.5.1.9** Spectral: 0 errors, spec regenerated, docs-mintlify/openapi.json updated
-
-**3.5.2 -- Navigation layout -- COMPLETE**
-
-- [x] **3.5.2.1** Tabs layout: Guides tab (Getting Started + Basics) and API Reference tab (collapsed endpoint groups)
-- [x] **3.5.2.2** Verified on localhost:3002
-
-**3.5.3 -- Theme and visual polish -- COMPLETE**
-
-- [x] **3.5.3.1** Selected `palm` theme
-- [x] **3.5.3.2** Set bluish-purple primary color (`#6874e8`)
-- [x] **3.5.3.3** Dark mode default with toggle available
-- [x] **3.5.3.4** Added icons to all guide pages (book-open, rocket, key, headphones, person-running, film, record-vinyl, image)
-
-**3.5.4 -- Verify all sidebar links**
-
-- [ ] **3.5.4.1** Click every sidebar link on localhost:3002 and verify no 404s
-- [ ] **3.5.4.2** Fix any navigation/file mismatches
-
-**3.5.5 -- Cleanup**
-
-- [ ] **3.5.5.1** Delete `rewind-docs` Cloudflare Pages project from dashboard
-- [ ] **3.5.5.2** Delete `pdugan20/docs` starter repo from GitHub
-
-**3.5.6 -- Changelog**
-
-- [ ] **3.5.6.1** Create changelog page with recent significant changes
-- [ ] **3.5.6.2** Document process for updating changelog
+- [x] **3.5.1** Real response examples on all 72 public endpoints with curated data
+- [x] **3.5.2** Tabbed navigation layout (Guides + API Reference)
+- [x] **3.5.3** Almond theme, bluish-purple accent (#6874e8), icons on Basics pages, "Get Started" CTA button, "Copy page" contextual menu
+- [x] **3.5.4** All sidebar links verified, 44 broken domain overview links fixed
+- [x] **3.5.5** Deleted `rewind-docs` CF Pages project and `pdugan20/docs` repo
+- [x] **3.5.6** Hidden 32 admin/webhook endpoints with `x-hidden: true`
+- [x] **3.5.7** Changelog page with `<Update>` components and tag filters
+- [x] **3.5.8** Fixed all broken links in domain overview pages (44 links)
 
 ## Phase 4: Landing Site Polish
 
-- [ ] **4.1** Favicon, OG meta, Twitter cards, OG image
-- [ ] **4.2** Sitemap, robots meta, canonical URLs
-- [ ] **4.3** Footer link audit, dead reference cleanup
+Bring `rewind.rest` up to professional standards.
+
+**4.1 -- Logo**
+
+- [ ] **4.1.1** Design a Rewind logo (or source one)
+- [ ] **4.1.2** Create logo variants: dark background, light background, favicon sizes
+- [ ] **4.1.3** Add logo to landing site (`docs-site/`)
+- [ ] **4.1.4** Add logo to Mintlify docs (`docs-mintlify/`)
+
+**4.2 -- Favicon and Meta Tags**
+
+- [ ] **4.2.1** Generate favicon from logo (ico + svg + apple-touch-icon)
+- [ ] **4.2.2** Add favicon links to `Base.astro` `<head>`
+- [ ] **4.2.3** Add Open Graph meta tags: `og:title`, `og:description`, `og:image`, `og:url`, `og:type`
+- [ ] **4.2.4** Add Twitter card meta tags: `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`
+- [ ] **4.2.5** Create OG image (1200x630) for link previews
+
+**4.3 -- SEO and Discoverability**
+
+- [ ] **4.3.1** Install `@astrojs/sitemap` and configure in `astro.config.mjs`
+- [ ] **4.3.2** Add `<meta name="robots" content="index, follow">` to `Base.astro`
+- [ ] **4.3.3** Add canonical URL meta tag
+
+**4.4 -- Theme Alignment**
+
+- [ ] **4.4.1** Align landing site colors with docs site (primary accent, backgrounds, text)
+- [ ] **4.4.2** Ensure consistent typography between landing site and docs
+- [ ] **4.4.3** Review both sites side-by-side and fix any visual inconsistencies
+
+**4.5 -- Status Page**
+
+- [ ] **4.5.1** Research status page options (simple custom page vs hosted service like Instatus, Openstatus, or custom)
+- [ ] **4.5.2** Design status page showing: API health, sync status per domain, uptime
+- [ ] **4.5.3** Build and deploy status page (at `rewind.rest/status` or `status.rewind.rest`)
+- [ ] **4.5.4** Link from landing site and docs
+
+**4.6 -- Content and Link Cleanup**
+
+- [ ] **4.6.1** Audit footer links on landing site
+- [ ] **4.6.2** Remove dead references in `/docs/README.md` (`API.md`, `ROADMAP.md`)
+- [ ] **4.6.3** Verify all links on the landing site resolve correctly
 
 ## Phase 5: AI Readiness
 

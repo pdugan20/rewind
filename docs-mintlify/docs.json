@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "theme": "palm",
+  "theme": "almond",
   "name": "Rewind",
   "description": "Personal data aggregation API. Syncs and serves data from the services that track your life.",
   "favicon": "/favicon.svg",
@@ -20,7 +20,13 @@
       "light": "#ffffff"
     }
   },
-  "navbar": {},
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Get Started",
+      "href": "/quickstart"
+    }
+  },
   "footer": {
     "socials": {
       "github": "https://github.com/pdugan20/rewind"
@@ -44,6 +50,10 @@
               "domains/collecting",
               "domains/images"
             ]
+          },
+          {
+            "group": "Updates",
+            "pages": ["changelog"]
           }
         ]
       },
@@ -168,6 +178,9 @@
   },
   "interaction": {
     "drilldown": true
+  },
+  "contextual": {
+    "options": ["copy", "view"]
   },
   "search": {
     "prompt": "Search docs..."

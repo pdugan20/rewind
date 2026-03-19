@@ -1,0 +1,69 @@
+---
+title: Changelog
+description: API updates and new features.
+---
+
+<Update label="March 18, 2026" tags={["New releases"]}>
+
+## Public API documentation
+
+Launched interactive API documentation at [docs.rewind.rest](https://docs.rewind.rest) powered by Mintlify. Includes getting started guides, domain overviews, and a full API reference with response examples and an interactive playground.
+
+</Update>
+
+<Update label="March 16, 2026" tags={["New features"]}>
+
+## Apple Music enrichment
+
+Listening endpoints now include `apple_music_url` and `preview_url` fields on tracks, artists, and albums. Links go directly to the matching item on Apple Music. Preview URLs point to 30-second audio clips when available.
+
+</Update>
+
+<Update label="March 14, 2026" tags={["New features"]}>
+
+## Watching: reviews, ratings, and last watched
+
+- Movies endpoint now includes `last_watched_at` for sorting by when you last watched
+- Reviews and ratings from Letterboxd are now exposed via `review`, `review_url`, and `user_rating` fields on watch history entries
+
+</Update>
+
+<Update label="March 13, 2026" tags={["New features", "Improvements"]}>
+
+## Genres, on-this-day, and date filtering
+
+- New `GET /listening/genres` endpoint with genre breakdown over time
+- Artists now tagged with genres from Last.fm (`genre` field on artist responses)
+- New `GET /feed/on-this-day` endpoint showing what happened on this date in previous years
+- Artist and album detail endpoints now include `first_scrobbled_at`
+- All recent, stats, and feed endpoints now accept `date`, `from`, and `to` query parameters for date filtering
+- Album and artist artwork now falls back to Deezer when Apple Music and iTunes don't have a match
+
+</Update>
+
+<Update label="March 11, 2026" tags={["New features"]}>
+
+## Trakt physical media collection
+
+New physical media endpoints in the Collecting domain. Track your Blu-ray, DVD, and 4K UHD collection synced from Trakt, with cross-referencing against your Plex watch history.
+
+- `GET /collecting/media` -- list physical media collection
+- `GET /collecting/media/:id` -- media item detail
+- `GET /collecting/media/stats` -- collection statistics by format
+- `GET /collecting/media/cross-reference` -- owned vs watched comparison
+
+</Update>
+
+<Update label="March 10, 2026" tags={["New releases"]}>
+
+## Cross-domain features
+
+New endpoints that work across all data domains:
+
+- `GET /feed` -- unified activity feed with cursor-based pagination
+- `GET /feed/domain/:domain` -- filter feed to a single domain
+- `GET /search` -- full-text search across listening, running, watching, and collecting
+- `GET /health` -- API health check
+- `GET /health/sync` -- sync status for all domains
+
+</Update>
