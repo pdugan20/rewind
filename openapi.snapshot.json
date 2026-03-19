@@ -1610,7 +1610,7 @@
         "tags": [
           "Listening"
         ],
-        "summary": "Scrobble history",
+        "summary": "Listening history",
         "description": "Returns paginated scrobble history with optional filters.",
         "parameters": [
           {
@@ -2662,7 +2662,7 @@
         "tags": [
           "Listening"
         ],
-        "summary": "Scrobble calendar",
+        "summary": "Listening calendar",
         "description": "Returns daily scrobble counts for a given year.",
         "parameters": [
           {
@@ -3748,7 +3748,7 @@
         }
       }
     },
-    "/v1/listening/admin/listening/backfill-images": {
+    "/v1/listening/admin/backfill-images": {
       "post": {
         "operationId": "backfillListeningImages",
         "x-hidden": true,
@@ -3833,7 +3833,7 @@
         }
       }
     },
-    "/v1/listening/admin/listening/enrich-apple-music": {
+    "/v1/listening/admin/enrich-apple-music": {
       "post": {
         "operationId": "enrichListeningAppleMusic",
         "x-hidden": true,
@@ -3905,7 +3905,7 @@
         "tags": [
           "Running"
         ],
-        "summary": "Lifetime running statistics",
+        "summary": "Running stats",
         "description": "Returns aggregate lifetime running statistics.",
         "responses": {
           "200": {
@@ -4339,7 +4339,7 @@
         "tags": [
           "Running"
         ],
-        "summary": "Recent activities",
+        "summary": "Latest runs",
         "description": "Returns the last N activities (default 5, max 20). Supports date filtering via date, from, and to params.",
         "parameters": [
           {
@@ -9083,7 +9083,7 @@
         }
       }
     },
-    "/v1/watching/admin/watching/movies": {
+    "/v1/watching/admin/movies": {
       "post": {
         "operationId": "adminWatchingCreateMovie",
         "x-hidden": true,
@@ -9200,7 +9200,7 @@
         }
       }
     },
-    "/v1/watching/admin/watching/movies/{id}": {
+    "/v1/watching/admin/movies/{id}": {
       "put": {
         "operationId": "adminWatchingUpdateMovie",
         "x-hidden": true,
@@ -9392,7 +9392,7 @@
         }
       }
     },
-    "/v1/watching/admin/watching/backfill-images": {
+    "/v1/watching/admin/backfill-images": {
       "post": {
         "operationId": "adminWatchingBackfillImages",
         "x-hidden": true,
@@ -10274,9 +10274,9 @@
         }
       }
     },
-    "/v1/collecting/collection": {
+    "/v1/collecting/vinyl": {
       "get": {
-        "operationId": "listCollection",
+        "operationId": "listCollectingVinyl",
         "tags": [
           "Collecting"
         ],
@@ -10563,7 +10563,7 @@
         "tags": [
           "Collecting"
         ],
-        "summary": "Collection statistics",
+        "summary": "Collection stats",
         "description": "Aggregate statistics for the vinyl collection. Supports optional date filtering to scope stats to items added within a time period.",
         "parameters": [
           {
@@ -10720,7 +10720,7 @@
         "tags": [
           "Collecting"
         ],
-        "summary": "Recent additions",
+        "summary": "Recent vinyl additions",
         "description": "Most recently added items to the vinyl collection. Supports date filtering via date, from, and to params.",
         "parameters": [
           {
@@ -10932,13 +10932,13 @@
         }
       }
     },
-    "/v1/collecting/collection/{id}": {
+    "/v1/collecting/vinyl/{id}": {
       "get": {
-        "operationId": "getCollectionRecord",
+        "operationId": "getCollectingVinylRecord",
         "tags": [
           "Collecting"
         ],
-        "summary": "Collection item detail",
+        "summary": "Vinyl record detail",
         "description": "Full detail for a single collection item including tracklist, country, and marketplace data.",
         "parameters": [
           {
@@ -10952,7 +10952,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Collection item detail",
+            "description": "Vinyl record detail",
             "content": {
               "application/json": {
                 "schema": {
@@ -11538,7 +11538,7 @@
         "tags": [
           "Collecting"
         ],
-        "summary": "Top artists",
+        "summary": "Top collected artists",
         "description": "Artists ranked by number of releases in the collection.",
         "parameters": [
           {
@@ -12054,49 +12054,6 @@
         }
       }
     },
-    "/v1/admin/sync/collecting": {
-      "post": {
-        "operationId": "adminSyncDiscogsCollection",
-        "x-hidden": true,
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Trigger Discogs collection sync",
-        "description": "Manually trigger a Discogs collection sync.",
-        "responses": {
-          "200": {
-            "description": "Sync completed successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SyncStatusResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/admin/collecting/backfill-images": {
       "post": {
         "operationId": "adminCollectingBackfillImages",
@@ -12479,7 +12436,7 @@
         "tags": [
           "Collecting"
         ],
-        "summary": "Physical media statistics",
+        "summary": "Physical media stats",
         "description": "Aggregate statistics for the physical media collection by format, resolution, HDR, genre, and decade.",
         "responses": {
           "200": {
@@ -13551,49 +13508,6 @@
         }
       }
     },
-    "/v1/admin/sync/trakt": {
-      "post": {
-        "operationId": "adminSyncTraktCollection",
-        "x-hidden": true,
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Trigger Trakt collection sync",
-        "description": "Manually trigger a Trakt collection sync.",
-        "responses": {
-          "200": {
-            "description": "Sync completed successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SyncStatusResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/admin/collecting/media/backfill-images": {
       "post": {
         "operationId": "adminCollectingMediaBackfillImages",
@@ -14239,7 +14153,7 @@
     },
     "/v1/search": {
       "get": {
-        "operationId": "searchAll",
+        "operationId": "getSearch",
         "tags": [
           "Search"
         ],
@@ -14880,6 +14794,92 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WatchingSyncResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sync/collecting": {
+      "post": {
+        "operationId": "adminSyncDiscogsCollection",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Trigger Discogs collection sync",
+        "description": "Manually trigger a Discogs collection sync.",
+        "responses": {
+          "200": {
+            "description": "Sync completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sync/trakt": {
+      "post": {
+        "operationId": "adminSyncTraktCollection",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Trigger Trakt collection sync",
+        "description": "Manually trigger a Trakt collection sync.",
+        "responses": {
+          "200": {
+            "description": "Sync completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatusResponse"
                 }
               }
             }

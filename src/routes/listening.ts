@@ -665,7 +665,7 @@ const historyRoute = createRoute({
   path: '/history',
   operationId: 'getListeningHistory',
   tags: ['Listening'],
-  summary: 'Scrobble history',
+  summary: 'Listening history',
   description: 'Returns paginated scrobble history with optional filters.',
   request: {
     query: z.object({
@@ -1032,7 +1032,7 @@ const calendarRoute = createRoute({
   path: '/calendar',
   operationId: 'getListeningCalendar',
   tags: ['Listening'],
-  summary: 'Scrobble calendar',
+  summary: 'Listening calendar',
   description: 'Returns daily scrobble counts for a given year.',
   request: {
     query: z.object({
@@ -1392,7 +1392,7 @@ const deleteFilterRoute = createRoute({
 
 const backfillImagesRoute = createRoute({
   method: 'post',
-  path: '/admin/listening/backfill-images',
+  path: '/admin/backfill-images',
   operationId: 'backfillListeningImages',
   'x-hidden': true,
   tags: ['Listening', 'Admin'],
@@ -3093,10 +3093,10 @@ listening.openapi(backfillImagesRoute, async (c) => {
   return c.json({ success: true, results });
 });
 
-// POST /v1/listening/admin/listening/enrich-apple-music
+// POST /v1/listening/admin/enrich-apple-music
 const enrichAppleMusicRoute = createRoute({
   method: 'post',
-  path: '/admin/listening/enrich-apple-music',
+  path: '/admin/enrich-apple-music',
   operationId: 'enrichListeningAppleMusic',
   'x-hidden': true,
   tags: ['Listening', 'Admin'],

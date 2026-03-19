@@ -38,12 +38,8 @@ describe('watching endpoints (e2e shape)', () => {
     );
 
     // Admin endpoints (sync moved to admin-sync.ts)
-    expect(paths).toContainEqual(
-      expect.stringContaining('/admin/watching/movies')
-    );
-    expect(paths).toContainEqual(
-      expect.stringContaining('/admin/watching/movies/:id')
-    );
+    expect(paths).toContainEqual(expect.stringContaining('/admin/movies'));
+    expect(paths).toContainEqual(expect.stringContaining('/admin/movies/:id'));
   });
 
   it('registers GET methods for read endpoints', () => {
@@ -65,9 +61,7 @@ describe('watching endpoints (e2e shape)', () => {
     const postPaths = postRoutes.map((r) => r.path);
 
     // Admin sync moved to admin-sync.ts
-    expect(postPaths).toContainEqual(
-      expect.stringContaining('/admin/watching/movies')
-    );
+    expect(postPaths).toContainEqual(expect.stringContaining('/admin/movies'));
   });
 
   it('registers PUT method for edit endpoint', () => {
@@ -76,7 +70,7 @@ describe('watching endpoints (e2e shape)', () => {
     const putPaths = putRoutes.map((r) => r.path);
 
     expect(putPaths).toContainEqual(
-      expect.stringContaining('/admin/watching/movies/:id')
+      expect.stringContaining('/admin/movies/:id')
     );
   });
 
@@ -86,7 +80,7 @@ describe('watching endpoints (e2e shape)', () => {
     const deletePaths = deleteRoutes.map((r) => r.path);
 
     expect(deletePaths).toContainEqual(
-      expect.stringContaining('/admin/watching/movies/:id')
+      expect.stringContaining('/admin/movies/:id')
     );
   });
 

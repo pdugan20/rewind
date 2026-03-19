@@ -1046,7 +1046,7 @@ const yearInReviewRoute = createRoute({
 
 const adminCreateMovieRoute = createRoute({
   method: 'post',
-  path: '/admin/watching/movies',
+  path: '/admin/movies',
   operationId: 'adminWatchingCreateMovie',
   'x-hidden': true,
   tags: ['Watching', 'Admin'],
@@ -1079,7 +1079,7 @@ const adminCreateMovieRoute = createRoute({
 
 const adminEditMovieRoute = createRoute({
   method: 'put',
-  path: '/admin/watching/movies/{id}',
+  path: '/admin/movies/{id}',
   operationId: 'adminWatchingUpdateMovie',
   'x-hidden': true,
   tags: ['Watching', 'Admin'],
@@ -1110,7 +1110,7 @@ const adminEditMovieRoute = createRoute({
 
 const adminDeleteMovieRoute = createRoute({
   method: 'delete',
-  path: '/admin/watching/movies/{id}',
+  path: '/admin/movies/{id}',
   operationId: 'adminWatchingDeleteMovie',
   'x-hidden': true,
   tags: ['Watching', 'Admin'],
@@ -1137,7 +1137,7 @@ const adminDeleteMovieRoute = createRoute({
 
 const adminBackfillImagesRoute = createRoute({
   method: 'post',
-  path: '/admin/watching/backfill-images',
+  path: '/admin/backfill-images',
   operationId: 'adminWatchingBackfillImages',
   'x-hidden': true,
   tags: ['Watching', 'Admin'],

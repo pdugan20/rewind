@@ -68,9 +68,9 @@ describe('collecting routes', () => {
     await dbRun('DELETE FROM discogs_releases');
   });
 
-  describe('GET /v1/collecting/collection', () => {
+  describe('GET /v1/collecting/vinyl', () => {
     it('should return empty collection', async () => {
-      const response = await fetchApp(authRequest('/v1/collecting/collection'));
+      const response = await fetchApp(authRequest('/v1/collecting/vinyl'));
       expect(response.status).toBe(200);
 
       const body = (await response.json()) as any;
@@ -97,7 +97,7 @@ describe('collecting routes', () => {
         "INSERT INTO discogs_collection (id, user_id, release_id, instance_id, folder_id, rating, date_added, created_at) VALUES (1, 1, 1, 1001, 0, 5, '2024-01-15T00:00:00Z', '2024-01-15')"
       );
 
-      const response = await fetchApp(authRequest('/v1/collecting/collection'));
+      const response = await fetchApp(authRequest('/v1/collecting/vinyl'));
       expect(response.status).toBe(200);
 
       const body = (await response.json()) as any;
@@ -110,7 +110,7 @@ describe('collecting routes', () => {
 
     it('should require auth', async () => {
       const response = await fetchApp(
-        new Request('http://localhost/v1/collecting/collection')
+        new Request('http://localhost/v1/collecting/vinyl')
       );
       expect(response.status).toBe(401);
     });
@@ -157,18 +157,14 @@ describe('collecting routes', () => {
     });
   });
 
-  describe('GET /v1/collecting/collection/:id', () => {
+  describe('GET /v1/collecting/vinyl/:id', () => {
     it('should return 400 for invalid id', async () => {
-      const response = await fetchApp(
-        authRequest('/v1/collecting/collection/abc')
-      );
+      const response = await fetchApp(authRequest('/v1/collecting/vinyl/abc'));
       expect(response.status).toBe(400);
     });
 
     it('should return 404 for nonexistent item', async () => {
-      const response = await fetchApp(
-        authRequest('/v1/collecting/collection/999')
-      );
+      const response = await fetchApp(authRequest('/v1/collecting/vinyl/999'));
       expect(response.status).toBe(404);
     });
 
@@ -186,9 +182,7 @@ describe('collecting routes', () => {
         "INSERT INTO discogs_collection (id, user_id, release_id, instance_id, folder_id, rating, date_added, created_at) VALUES (1, 1, 1, 2001, 0, 4, '2024-06-01T00:00:00Z', '2024-06-01')"
       );
 
-      const response = await fetchApp(
-        authRequest('/v1/collecting/collection/1')
-      );
+      const response = await fetchApp(authRequest('/v1/collecting/vinyl/1'));
       expect(response.status).toBe(200);
 
       const body = (await response.json()) as any;
@@ -268,7 +262,7 @@ describe('collecting routes', () => {
 
   describe('Cache-Control headers', () => {
     it('should set long cache for collection', async () => {
-      const response = await fetchApp(authRequest('/v1/collecting/collection'));
+      const response = await fetchApp(authRequest('/v1/collecting/vinyl'));
       expect(response.headers.get('Cache-Control')).toContain('max-age=86400');
     });
 

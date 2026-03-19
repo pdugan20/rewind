@@ -125,7 +125,7 @@ describe('collecting integration', () => {
   });
 
   it('should return collection with correct data', async () => {
-    const response = await fetchApp(authRequest('/v1/collecting/collection'));
+    const response = await fetchApp(authRequest('/v1/collecting/vinyl'));
     expect(response.status).toBe(200);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -136,7 +136,7 @@ describe('collecting integration', () => {
 
   it('should filter collection by format', async () => {
     const response = await fetchApp(
-      authRequest('/v1/collecting/collection?format=Vinyl')
+      authRequest('/v1/collecting/vinyl?format=Vinyl')
     );
     expect(response.status).toBe(200);
 
@@ -147,7 +147,7 @@ describe('collecting integration', () => {
 
   it('should filter collection by genre', async () => {
     const response = await fetchApp(
-      authRequest('/v1/collecting/collection?genre=Electronic')
+      authRequest('/v1/collecting/vinyl?genre=Electronic')
     );
     expect(response.status).toBe(200);
 
@@ -158,7 +158,7 @@ describe('collecting integration', () => {
 
   it('should search collection by title', async () => {
     const response = await fetchApp(
-      authRequest('/v1/collecting/collection?q=Computer')
+      authRequest('/v1/collecting/vinyl?q=Computer')
     );
     expect(response.status).toBe(200);
 
@@ -194,7 +194,7 @@ describe('collecting integration', () => {
   });
 
   it('should return single collection item detail', async () => {
-    const response = await fetchApp(authRequest('/v1/collecting/collection/1'));
+    const response = await fetchApp(authRequest('/v1/collecting/vinyl/1'));
     expect(response.status).toBe(200);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -208,7 +208,7 @@ const statsRoute = createRoute({
   path: '/stats',
   operationId: 'getRunningStats',
   tags: ['Running'],
-  summary: 'Lifetime running statistics',
+  summary: 'Running stats',
   description: 'Returns aggregate lifetime running statistics.',
   responses: {
     200: {
@@ -498,7 +498,7 @@ const recentRoute = createRoute({
   path: '/recent',
   operationId: 'getRunningRecent',
   tags: ['Running'],
-  summary: 'Recent activities',
+  summary: 'Latest runs',
   description:
     'Returns the last N activities (default 5, max 20). Supports date filtering via date, from, and to params.',
   request: {

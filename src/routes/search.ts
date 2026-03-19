@@ -30,7 +30,7 @@ const SearchResponseSchema = z.object({
 const searchRoute = createRoute({
   method: 'get',
   path: '/',
-  operationId: 'searchAll',
+  operationId: 'getSearch',
   tags: ['Search'],
   summary: 'Cross-domain search',
   description:

@@ -71,8 +71,8 @@ watching.ts (19)
   ...
 
 collecting.ts (19)
-  GET  /collecting/collection    -> listCollectingCollection
-  GET  /collecting/collection/:id -> getCollectingRecord
+  GET  /collecting/vinyl          -> listCollectingVinyl
+  GET  /collecting/vinyl/:id     -> getCollectingVinylRecord
   GET  /collecting/wantlist      -> listCollectingWantlist
   GET  /collecting/stats         -> getCollectingStats
   GET  /collecting/calendar      -> getCollectingCalendar
@@ -144,7 +144,7 @@ responses: {
 4. `GET /v1/running/activities` -- demonstrates activity detail
 5. `GET /v1/watching/recent` -- demonstrates nested movie shape
 6. `GET /v1/watching/movies` -- demonstrates movie list
-7. `GET /v1/collecting/collection` -- demonstrates vinyl record shape
+7. `GET /v1/collecting/vinyl` -- demonstrates vinyl record shape
 8. `GET /v1/feed` -- demonstrates cross-domain feed
 9. `GET /v1/search` -- demonstrates search results
 10. `GET /v1/health` -- simple reference shape

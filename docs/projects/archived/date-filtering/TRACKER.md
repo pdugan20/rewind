@@ -96,7 +96,7 @@ Add date filtering to stats endpoints and close remaining parity gaps. Estimated
 
 **3.5 -- Collecting List Filtering**
 
-- [x] **3.5.1** Merge `DateFilterQuery` into `CollectionQuerySchema`, add date condition to `/collecting/collection` handler (filter on `date_added`)
+- [x] **3.5.1** Merge `DateFilterQuery` into `CollectionQuerySchema`, add date condition to `/collecting/vinyl` handler (filter on `date_added`)
 - [x] **3.5.2** Merge `DateFilterQuery` into `MediaQuerySchema`, add date condition to `/collecting/media` handler (filter on `collected_at`)
 
 **3.6 -- Verify**
@@ -120,7 +120,7 @@ New endpoints for temporal discovery. Estimated effort: ~3-4hrs.
 - [x] **4.2.2** Add `first_scrobbled_at` to `/listening/albums/{id}` -- MIN(scrobbled_at) via scrobbles join
 - [x] **4.2.3** Add `first_watched_at` to `/watching/movies/{id}` -- derived from watch_history (last item, already fetched desc)
 - [x] **4.2.4** Add `first_watched_at` to `/watching/shows/{id}` -- earliest episode watched_at (first item, already fetched asc)
-- ~~**4.2.5** Add `first_added_at` to `/collecting/collection/{id}`~~ -- already has `date_added` which is equivalent
+- ~~**4.2.5** Add `first_added_at` to `/collecting/vinyl/{id}`~~ -- already has `date_added` which is equivalent
 
 **4.3 -- Verify**
 

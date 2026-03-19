@@ -29,8 +29,6 @@ import { images } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
 import { DateFilterQuery, buildDateCondition } from '../lib/date-filters.js';
 import { notFound, badRequest, serverError } from '../lib/errors.js';
-import { syncCollecting } from '../services/discogs/sync.js';
-import { syncTraktCollection } from '../services/trakt/sync.js';
 import { TraktClient } from '../services/trakt/client.js';
 import { getAccessToken } from '../services/trakt/auth.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
@@ -234,11 +232,6 @@ const MediaCrossRefSummarySchema = z.object({
   watch_rate: z.number(),
 });
 
-const SyncResponseSchema = z.object({
-  status: z.string(),
-  message: z.string(),
-});
-
 const BackfillResponseSchema = z.object({
   success: z.boolean(),
   results: z.any(),
@@ -340,11 +333,11 @@ const MediaCrossRefQuerySchema = z.object({
 
 // ─── Route Definitions ──────────────────────────────────────────────
 
-// GET /collecting/collection
+// GET /collecting/vinyl
 const collectionListRoute = createRoute({
   method: 'get',
-  path: '/collecting/collection',
-  operationId: 'listCollection',
+  path: '/collecting/vinyl',
+  operationId: 'listCollectingVinyl',
   tags: ['Collecting'],
   summary: 'List vinyl collection',
   description:
@@ -400,7 +393,7 @@ const collectionStatsRoute = createRoute({
   path: '/collecting/stats',
   operationId: 'getCollectingStats',
   tags: ['Collecting'],
-  summary: 'Collection statistics',
+  summary: 'Collection stats',
   description:
     'Aggregate statistics for the vinyl collection. Supports optional date filtering to scope stats to items added within a time period.',
   request: {
@@ -437,7 +430,7 @@ const collectionRecentRoute = createRoute({
   path: '/collecting/recent',
   operationId: 'getCollectingRecent',
   tags: ['Collecting'],
-  summary: 'Recent additions',
+  summary: 'Recent vinyl additions',
   description:
     'Most recently added items to the vinyl collection. Supports date filtering via date, from, and to params.',
   request: {
@@ -482,13 +475,13 @@ const collectionRecentRoute = createRoute({
   },
 });
 
-// GET /collecting/collection/:id
+// GET /collecting/vinyl/:id
 const collectionDetailRoute = createRoute({
   method: 'get',
-  path: '/collecting/collection/{id}',
-  operationId: 'getCollectionRecord',
+  path: '/collecting/vinyl/{id}',
+  operationId: 'getCollectingVinylRecord',
   tags: ['Collecting'],
-  summary: 'Collection item detail',
+  summary: 'Vinyl record detail',
   description:
     'Full detail for a single collection item including tracklist, country, and marketplace data.',
   request: {
@@ -535,7 +528,7 @@ const collectionDetailRoute = createRoute({
           },
         },
       },
-      description: 'Collection item detail',
+      description: 'Vinyl record detail',
     },
     ...errorResponses(400, 401, 404, 500),
   },
@@ -650,7 +643,7 @@ const artistsRoute = createRoute({
   path: '/collecting/artists',
   operationId: 'listCollectingArtists',
   tags: ['Collecting'],
-  summary: 'Top artists',
+  summary: 'Top collected artists',
   description: 'Artists ranked by number of releases in the collection.',
   request: {
     query: ArtistLimitQuerySchema,
@@ -802,26 +795,6 @@ const calendarRoute = createRoute({
   },
 });
 
-// POST /admin/sync/collecting
-const syncCollectingRoute = createRoute({
-  method: 'post',
-  path: '/admin/sync/collecting',
-  operationId: 'adminSyncCollecting',
-  'x-hidden': true,
-  tags: ['Collecting', 'Admin'],
-  summary: 'Sync Discogs collection',
-  description: 'Trigger a manual sync of the Discogs vinyl collection.',
-  responses: {
-    200: {
-      content: {
-        'application/json': { schema: SyncResponseSchema },
-      },
-      description: 'Sync completed',
-    },
-    ...errorResponses(401, 500),
-  },
-});
-
 // POST /admin/collecting/backfill-images
 const backfillImagesRoute = createRoute({
   method: 'post',
@@ -942,7 +915,7 @@ const mediaStatsRoute = createRoute({
   path: '/collecting/media/stats',
   operationId: 'getCollectingMediaStats',
   tags: ['Collecting'],
-  summary: 'Physical media statistics',
+  summary: 'Physical media stats',
   description:
     'Aggregate statistics for the physical media collection by format, resolution, HDR, genre, and decade.',
   responses: {
@@ -1200,26 +1173,6 @@ const removeMediaRoute = createRoute({
   },
 });
 
-// POST /admin/sync/trakt
-const syncTraktRoute = createRoute({
-  method: 'post',
-  path: '/admin/sync/trakt',
-  operationId: 'adminSyncTrakt',
-  'x-hidden': true,
-  tags: ['Collecting', 'Admin'],
-  summary: 'Sync Trakt collection',
-  description: 'Trigger a manual sync of the Trakt physical media collection.',
-  responses: {
-    200: {
-      content: {
-        'application/json': { schema: SyncResponseSchema },
-      },
-      description: 'Sync completed',
-    },
-    ...errorResponses(401, 500),
-  },
-});
-
 // POST /admin/collecting/media/backfill-images
 const mediaBackfillImagesRoute = createRoute({
   method: 'post',
@@ -1250,7 +1203,7 @@ const mediaBackfillImagesRoute = createRoute({
 
 // ─── Handlers ───────────────────────────────────────────────────────
 
-// GET /collecting/collection - paginated, filterable, searchable
+// GET /collecting/vinyl - paginated, filterable, searchable
 collecting.openapi(collectionListRoute, async (c) => {
   try {
     const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
@@ -1423,7 +1376,7 @@ collecting.openapi(collectionListRoute, async (c) => {
       },
     });
   } catch (err) {
-    console.log(`[ERROR] GET /collecting/collection: ${err}`);
+    console.log(`[ERROR] GET /collecting/vinyl: ${err}`);
     return serverError(c) as any;
   }
 });
@@ -1632,7 +1585,7 @@ collecting.openapi(collectionRecentRoute, async (c) => {
   }
 });
 
-// GET /collecting/collection/:id
+// GET /collecting/vinyl/:id
 collecting.openapi(collectionDetailRoute, async (c) => {
   try {
     const id = parseInt(c.req.param('id'), 10);
@@ -1724,7 +1677,7 @@ collecting.openapi(collectionDetailRoute, async (c) => {
       notes: row.notes ? JSON.parse(row.notes) : null,
     });
   } catch (err) {
-    console.log(`[ERROR] GET /collecting/collection/:id: ${err}`);
+    console.log(`[ERROR] GET /collecting/vinyl/:id: ${err}`);
     return serverError(c) as any;
   }
 });
@@ -2166,18 +2119,6 @@ collecting.openapi(calendarRoute, async (c) => {
   } catch (err) {
     console.log(`[ERROR] GET /collecting/calendar: ${err}`);
     return serverError(c) as any;
-  }
-});
-
-// POST /admin/sync/collecting
-collecting.openapi(syncCollectingRoute, async (c) => {
-  try {
-    await syncCollecting(c.env);
-    return c.json({ status: 'ok', message: 'Collecting sync complete' });
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.log(`[ERROR] POST /admin/sync/collecting: ${errorMsg}`);
-    return serverError(c, `Sync failed: ${errorMsg}`) as any;
   }
 });
 
@@ -2995,18 +2936,6 @@ collecting.openapi(removeMediaRoute, async (c) => {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.log(`[ERROR] POST /admin/collecting/media/:id/remove: ${errorMsg}`);
     return serverError(c, `Failed to remove media: ${errorMsg}`) as any;
-  }
-});
-
-// POST /admin/sync/trakt
-collecting.openapi(syncTraktRoute, async (c) => {
-  try {
-    await syncTraktCollection(c.env);
-    return c.json({ status: 'ok', message: 'Trakt collection sync complete' });
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.log(`[ERROR] POST /admin/sync/trakt: ${errorMsg}`);
-    return serverError(c, `Trakt sync failed: ${errorMsg}`) as any;
   }
 });
 
