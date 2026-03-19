@@ -9,12 +9,12 @@ Rewind is a personal data aggregation API that syncs and serves data from the se
 
 ## Domains
 
-| Domain | Sources | What it tracks |
-| --- | --- | --- |
-| **Listening** | Last.fm, Apple Music | Scrobbles, top artists/albums/tracks, streaks, stats |
-| **Running** | Strava | Activities, splits, gear, personal records, year summaries |
-| **Watching** | Plex, Letterboxd | Movies, TV shows, watch history, ratings, reviews |
-| **Collecting** | Discogs, Trakt | Vinyl/CD collection, physical media, wantlist |
+| Domain         | Sources              | What it tracks                                             |
+| -------------- | -------------------- | ---------------------------------------------------------- |
+| **Listening**  | Last.fm, Apple Music | Scrobbles, top artists/albums/tracks, streaks, stats       |
+| **Running**    | Strava               | Activities, splits, gear, personal records, year summaries |
+| **Watching**   | Plex, Letterboxd     | Movies, TV shows, watch history, ratings, reviews          |
+| **Collecting** | Discogs, Trakt       | Vinyl/CD collection, physical media, wantlist              |
 
 ## How it works
 
@@ -34,7 +34,11 @@ All data is served through a REST API at `api.rewind.rest` with consistent pagin
   <Card title="API Reference" icon="code" href="/api-reference">
     Full endpoint documentation
   </Card>
-  <Card title="API Status" icon="heart-pulse" href="https://api.rewind.rest/v1/health">
+  <Card
+    title="API Status"
+    icon="heart-pulse"
+    href="https://api.rewind.rest/v1/health"
+  >
     Check if the API is up
   </Card>
 </CardGroup>

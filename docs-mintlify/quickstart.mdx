@@ -97,11 +97,11 @@ The activity feed uses cursor-based pagination instead -- see the [Feed API refe
 
 Most list and stats endpoints accept optional date filters:
 
-| Parameter | Format | Description |
-| --- | --- | --- |
-| `date` | `YYYY-MM-DD` | Filter to a specific date |
-| `from` | ISO 8601 | Filter from this date (inclusive) |
-| `to` | ISO 8601 | Filter to this date (inclusive) |
+| Parameter | Format       | Description                       |
+| --------- | ------------ | --------------------------------- |
+| `date`    | `YYYY-MM-DD` | Filter to a specific date         |
+| `from`    | ISO 8601     | Filter from this date (inclusive) |
+| `to`      | ISO 8601     | Filter to this date (inclusive)   |
 
 ```bash
 curl -H "Authorization: Bearer rw_live_..." \

@@ -12,30 +12,30 @@ Data syncs every 15 minutes via cron. Each sync fetches recent scrobbles and upd
 
 ## Key endpoints
 
-| Endpoint | Description |
-| --- | --- |
-| [GET /listening/recent](/api-reference/listening/recent-scrobbles) | Recent scrobbles with track, artist, album, and image data |
-| [GET /listening/now-playing](/api-reference/listening/now-playing) | Currently playing track (if any) |
-| [GET /listening/top/artists](/api-reference/listening/top-artists) | Top artists by play count, filterable by time period |
-| [GET /listening/top/albums](/api-reference/listening/top-albums) | Top albums by play count |
-| [GET /listening/top/tracks](/api-reference/listening/top-tracks) | Top tracks by scrobble count |
-| [GET /listening/stats](/api-reference/listening/listening-stats) | Lifetime listening statistics |
-| [GET /listening/streaks](/api-reference/listening/listening-streaks) | Listening streak data (consecutive days) |
-| [GET /listening/artists](/api-reference/listening/browse-artists) | Browse all artists with pagination |
-| [GET /listening/artists/:id](/api-reference/listening/artist-detail) | Artist detail with top albums and tracks |
+| Endpoint                                                             | Description                                                |
+| -------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [GET /listening/recent](/api-reference/listening/recent-scrobbles)   | Recent scrobbles with track, artist, album, and image data |
+| [GET /listening/now-playing](/api-reference/listening/now-playing)   | Currently playing track (if any)                           |
+| [GET /listening/top/artists](/api-reference/listening/top-artists)   | Top artists by play count, filterable by time period       |
+| [GET /listening/top/albums](/api-reference/listening/top-albums)     | Top albums by play count                                   |
+| [GET /listening/top/tracks](/api-reference/listening/top-tracks)     | Top tracks by scrobble count                               |
+| [GET /listening/stats](/api-reference/listening/listening-stats)     | Lifetime listening statistics                              |
+| [GET /listening/streaks](/api-reference/listening/listening-streaks) | Listening streak data (consecutive days)                   |
+| [GET /listening/artists](/api-reference/listening/browse-artists)    | Browse all artists with pagination                         |
+| [GET /listening/artists/:id](/api-reference/listening/artist-detail) | Artist detail with top albums and tracks                   |
 
 ## Time periods
 
 Top list endpoints accept a `period` parameter:
 
-| Period | Description |
-| --- | --- |
-| `7day` | Last 7 days |
-| `1month` | Last 30 days |
-| `3month` | Last 90 days |
-| `6month` | Last 180 days |
+| Period    | Description   |
+| --------- | ------------- |
+| `7day`    | Last 7 days   |
+| `1month`  | Last 30 days  |
+| `3month`  | Last 90 days  |
+| `6month`  | Last 180 days |
 | `12month` | Last 365 days |
-| `overall` | All time |
+| `overall` | All time      |
 
 ## Filtering
 

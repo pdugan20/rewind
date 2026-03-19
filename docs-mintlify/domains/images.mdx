@@ -27,13 +27,13 @@ All image responses include an `image` object:
 
 The CDN URL supports query parameters for on-the-fly transforms:
 
-| Parameter | Values | Description |
-| --- | --- | --- |
-| `width` | pixels | Target width |
-| `height` | pixels | Target height |
-| `fit` | `cover`, `contain`, `scale-down` | Resize behavior |
-| `format` | `auto`, `webp`, `avif`, `jpeg` | Output format (`auto` picks best for client) |
-| `quality` | 1-100 | Compression quality |
+| Parameter | Values                           | Description                                  |
+| --------- | -------------------------------- | -------------------------------------------- |
+| `width`   | pixels                           | Target width                                 |
+| `height`  | pixels                           | Target height                                |
+| `fit`     | `cover`, `contain`, `scale-down` | Resize behavior                              |
+| `format`  | `auto`, `webp`, `avif`, `jpeg`   | Output format (`auto` picks best for client) |
+| `quality` | 1-100                            | Compression quality                          |
 
 ## ThumbHash
 
@@ -52,12 +52,12 @@ These are useful for dynamic UI theming (e.g., tinting a background based on alb
 
 ## Image sources by domain
 
-| Domain | Primary source | Fallbacks |
-| --- | --- | --- |
-| Listening (albums) | Apple Music | Deezer, iTunes |
-| Listening (artists) | Apple Music | Deezer, Fanart.tv |
-| Running | Strava map tiles | -- |
-| Watching (movies) | TMDB | Fanart.tv, Plex |
-| Watching (shows) | TMDB | Fanart.tv, Plex |
-| Collecting (vinyl) | Discogs | -- |
-| Collecting (media) | TMDB | -- |
+| Domain              | Primary source   | Fallbacks         |
+| ------------------- | ---------------- | ----------------- |
+| Listening (albums)  | Apple Music      | Deezer, iTunes    |
+| Listening (artists) | Apple Music      | Deezer, Fanart.tv |
+| Running             | Strava map tiles | --                |
+| Watching (movies)   | TMDB             | Fanart.tv, Plex   |
+| Watching (shows)    | TMDB             | Fanart.tv, Plex   |
+| Collecting (vinyl)  | Discogs          | --                |
+| Collecting (media)  | TMDB             | --                |
