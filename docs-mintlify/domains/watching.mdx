@@ -1,5 +1,6 @@
 ---
 title: Watching
+icon: film
 description: Plex and Letterboxd movie and TV data
 ---
 
@@ -16,14 +17,14 @@ Both sources feed into a unified movie database enriched with TMDB metadata (pos
 
 | Endpoint | Description |
 | --- | --- |
-| [GET /watching/recent](/api-reference/watching/get-watching-recent) | Recent watch events with full movie details |
-| [GET /watching/movies](/api-reference/watching/list-watching-movies) | Browse all movies with filters |
-| [GET /watching/movies/:id](/api-reference/watching/get-watching-movie) | Movie detail with watch history |
-| [GET /watching/shows](/api-reference/watching/list-watching-shows) | TV shows with episode counts |
-| [GET /watching/shows/:id](/api-reference/watching/get-watching-show) | Show detail with season/episode breakdown |
-| [GET /watching/stats](/api-reference/watching/get-watching-stats) | Watching statistics (total movies, shows, hours) |
-| [GET /watching/ratings](/api-reference/watching/list-watching-ratings) | User ratings from Letterboxd |
-| [GET /watching/reviews](/api-reference/watching/list-watching-reviews) | Reviews from Letterboxd |
+| [GET /watching/recent](/api-reference/watching/recent-watches) | Recent watch events with full movie details |
+| [GET /watching/movies](/api-reference/watching/list-movies) | Browse all movies with filters |
+| [GET /watching/movies/:id](/api-reference/watching/movie-detail) | Movie detail with watch history |
+| [GET /watching/shows](/api-reference/watching/list-tv-shows) | TV shows with episode counts |
+| [GET /watching/shows/:id](/api-reference/watching/show-detail) | Show detail with season/episode breakdown |
+| [GET /watching/stats](/api-reference/watching/watch-stats) | Watching statistics (total movies, shows, hours) |
+| [GET /watching/ratings](/api-reference/watching/rated-movies) | User ratings from Letterboxd |
+| [GET /watching/reviews](/api-reference/watching/movie-reviews) | Reviews from Letterboxd |
 
 ## Movie filters
 
@@ -42,4 +43,4 @@ Movie posters and backdrops are sourced from TMDB, with fallbacks to Fanart.tv a
 
 ## Year in review
 
-[GET /watching/year/:year](/api-reference/watching/get-watching-year-in-review) returns a year summary including total movies watched, top-rated films, genre breakdown, and decade distribution.
+[GET /watching/year/:year](/api-reference/watching/year-in-review) returns a year summary including total movies watched, top-rated films, genre breakdown, and decade distribution.

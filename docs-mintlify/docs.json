@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "theme": "maple",
+  "theme": "palm",
   "name": "Rewind",
   "description": "Personal data aggregation API. Syncs and serves data from the services that track your life.",
   "favicon": "/favicon.svg",
@@ -10,9 +10,9 @@
     "strict": false
   },
   "colors": {
-    "primary": "#e5e5e5",
-    "light": "#a3a3a3",
-    "dark": "#e5e5e5"
+    "primary": "#6874e8",
+    "light": "#8b94f0",
+    "dark": "#6874e8"
   },
   "background": {
     "color": {
@@ -20,14 +20,7 @@
       "light": "#ffffff"
     }
   },
-  "navbar": {
-    "links": [
-      {
-        "label": "API Status",
-        "href": "https://api.rewind.rest/v1/health"
-      }
-    ]
-  },
+  "navbar": {},
   "footer": {
     "socials": {
       "github": "https://github.com/pdugan20/rewind"
@@ -43,7 +36,7 @@
             "pages": ["introduction", "quickstart", "authentication"]
           },
           {
-            "group": "Domains",
+            "group": "Basics",
             "pages": [
               "domains/listening",
               "domains/running",
@@ -57,13 +50,6 @@
       {
         "tab": "API Reference",
         "groups": [
-          {
-            "group": "System",
-            "pages": [
-              "api-reference/system/health-check",
-              "api-reference/system/sync-health-status"
-            ]
-          },
           {
             "group": "Listening",
             "pages": [
@@ -151,54 +137,20 @@
             ]
           },
           {
-            "group": "Feed",
+            "group": "Feed & Search",
             "pages": [
               "api-reference/feed/cross-domain-activity-feed",
               "api-reference/feed/single-domain-activity-feed",
-              "api-reference/feed/on-this-day"
+              "api-reference/feed/on-this-day",
+              "api-reference/search/cross-domain-search"
             ]
           },
           {
-            "group": "Search",
-            "pages": ["api-reference/search/cross-domain-search"]
-          },
-          {
-            "group": "Images",
+            "group": "System",
             "pages": [
-              "api-reference/images/get-image-by-entity",
-              "api-reference/images/browse-image-alternatives",
-              "api-reference/images/set-image-override",
-              "api-reference/images/revert-image-override"
-            ]
-          },
-          {
-            "group": "Admin",
-            "pages": [
-              "api-reference/admin/export-domain-data",
-              "api-reference/admin/list-api-keys",
-              "api-reference/admin/create-api-key",
-              "api-reference/admin/revoke-api-key",
-              "api-reference/admin/trigger-lastfm-sync",
-              "api-reference/admin/trigger-strava-sync",
-              "api-reference/admin/trigger-watching-sync",
-              "api-reference/admin/trigger-discogs-collection-sync",
-              "api-reference/admin/trigger-trakt-collection-sync",
-              "api-reference/admin/soft-delete-a-strava-activity",
-              "api-reference/admin/recompute-running-stats",
-              "api-reference/admin/regenerate-thumbhashes",
-              "api-reference/listening/list-listening-filters",
-              "api-reference/listening/create-listening-filter",
-              "api-reference/listening/delete-listening-filter",
-              "api-reference/listening/backfill-listening-images",
-              "api-reference/listening/enrich-tracks-with-apple-music-urls",
-              "api-reference/watching/add-movie-manually",
-              "api-reference/watching/edit-watch-event",
-              "api-reference/watching/delete-watch-event",
-              "api-reference/watching/backfill-images",
-              "api-reference/collecting/backfill-collection-images",
-              "api-reference/collecting/add-physical-media",
-              "api-reference/collecting/remove-physical-media",
-              "api-reference/collecting/backfill-media-poster-images"
+              "api-reference/system/health-check",
+              "api-reference/system/sync-health-status",
+              "api-reference/images/get-image-by-entity"
             ]
           }
         ]
@@ -213,6 +165,9 @@
       "languages": ["bash", "javascript", "python"],
       "prefill": true
     }
+  },
+  "interaction": {
+    "drilldown": true
   },
   "search": {
     "prompt": "Search docs..."

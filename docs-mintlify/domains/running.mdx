@@ -1,5 +1,6 @@
 ---
 title: Running
+icon: person-running
 description: Strava activity data
 ---
 
@@ -13,15 +14,15 @@ Data syncs daily at 3:00 AM UTC via cron, with real-time updates from Strava web
 
 | Endpoint | Description |
 | --- | --- |
-| [GET /running/activities](/api-reference/running/list-running-activities) | Paginated activity list with filters |
-| [GET /running/activities/:id](/api-reference/running/get-running-activity) | Full activity detail including map polyline |
-| [GET /running/activities/:id/splits](/api-reference/running/get-running-activity-splits) | Per-mile or per-km splits |
-| [GET /running/stats](/api-reference/running/get-running-stats) | Lifetime stats (total runs, distance, elevation, pace) |
-| [GET /running/stats/years/:year](/api-reference/running/get-running-stats-year) | Year-specific stats |
-| [GET /running/prs](/api-reference/running/get-running-prs) | Personal records by distance |
-| [GET /running/streaks](/api-reference/running/get-running-streaks) | Run streak data (consecutive days) |
-| [GET /running/gear](/api-reference/running/list-running-gear) | Shoe/gear tracker with mileage |
-| [GET /running/races](/api-reference/running/list-running-races) | Race results |
+| [GET /running/activities](/api-reference/running/list-activities) | Paginated activity list with filters |
+| [GET /running/activities/:id](/api-reference/running/activity-detail) | Full activity detail including map polyline |
+| [GET /running/activities/:id/splits](/api-reference/running/activity-splits) | Per-mile or per-km splits |
+| [GET /running/stats](/api-reference/running/lifetime-running-statistics) | Lifetime stats (total runs, distance, elevation, pace) |
+| [GET /running/stats/years/:year](/api-reference/running/single-year-summary) | Year-specific stats |
+| [GET /running/prs](/api-reference/running/personal-records) | Personal records by distance |
+| [GET /running/streaks](/api-reference/running/running-streaks) | Run streak data (consecutive days) |
+| [GET /running/gear](/api-reference/running/gear-list) | Shoe/gear tracker with mileage |
+| [GET /running/races](/api-reference/running/race-activities) | Race results |
 
 ## Charts
 
@@ -29,10 +30,10 @@ Several endpoints return data formatted for charting:
 
 | Endpoint | Description |
 | --- | --- |
-| [GET /running/charts/cumulative](/api-reference/running/get-running-charts-cumulative) | Cumulative distance over time |
-| [GET /running/charts/pace-trend](/api-reference/running/get-running-charts-pace-trend) | Pace trend over time |
-| [GET /running/charts/time-of-day](/api-reference/running/get-running-charts-time-of-day) | Activity distribution by time of day |
-| [GET /running/charts/elevation](/api-reference/running/get-running-charts-elevation) | Elevation gain over time |
+| [GET /running/charts/cumulative](/api-reference/running/cumulative-distance-chart) | Cumulative distance over time |
+| [GET /running/charts/pace-trend](/api-reference/running/pace-trend-chart) | Pace trend over time |
+| [GET /running/charts/time-of-day](/api-reference/running/time-of-day-chart) | Activity distribution by time of day |
+| [GET /running/charts/elevation](/api-reference/running/elevation-chart) | Elevation gain over time |
 
 ## Activity filters
 

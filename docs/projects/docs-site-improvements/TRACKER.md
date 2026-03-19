@@ -1,147 +1,71 @@
 # Docs Site Improvements -- Task Tracker
 
-## Phase 1: OpenAPI Quality
+## Phase 1: OpenAPI Quality -- COMPLETE
 
-Fix all 104 Spectral warnings and add response examples before the Mintlify migration, so auto-generated API reference pages are polished from day one.
+- [x] **1.1** Spec infrastructure (servers block, tag ordering, info.description -- all already in place)
+- [x] **1.2** operationId on all 106 endpoints, Spectral rules promoted from warn to error
+- [x] **1.3** Response examples on 10 key endpoints (initial pass)
 
-**1.1 -- Spec Infrastructure**
+## Phase 2: Mintlify Setup -- COMPLETE
 
-- [x] **1.1.1** Add `servers` block to `src/lib/openapi.ts`: `[{ url: "https://api.rewind.rest", description: "Production" }]` _(already existed)_
-- [x] **1.1.2** Reorder tags: public domains first (Listening, Running, Watching, Collecting), then cross-domain (Feed, Search, Images), then system (System, Admin, Webhooks) _(already correct)_
-- [x] **1.1.3** Review and improve the `info.description` markdown -- ensure Quick Start examples are accurate _(already good)_
+- [x] **2.1** Sign up, connect repo, configure monorepo mode (`docs-mintlify`)
+- [x] **2.2** OpenAPI integration with generated MDX endpoint pages via `@mintlify/scraping`
+- [x] **2.3** Theme and branding (initial -- needs iteration)
+- [x] **2.4** Custom domain `docs.rewind.rest` live, old Scalar decommissioned
 
-**1.2 -- operationId on All Endpoints**
+## Phase 3: Content -- COMPLETE
 
-- [x] **1.2.1** Define naming convention: `camelCase`, pattern `{verb}{Domain}{Resource}` (e.g., `getListeningRecent`, `listRunningActivities`)
-- [x] **1.2.2** Add operationId to `system.ts` routes (2 endpoints)
-- [x] **1.2.3** Add operationId to `keys.ts` routes (3 endpoints)
-- [x] **1.2.4** Add operationId to `search.ts` routes (1 endpoint)
-- [x] **1.2.5** Add operationId to `feed.ts` routes (3 endpoints)
-- [x] **1.2.6** Add operationId to `images.ts` routes (5 endpoints)
-- [x] **1.2.7** Add operationId to `webhooks.ts` routes (3 endpoints)
-- [x] **1.2.8** Add operationId to `listening.ts` routes (21 endpoints)
-- [x] **1.2.9** Add operationId to `running.ts` routes (19 endpoints)
-- [x] **1.2.10** Add operationId to `watching.ts` routes (19 endpoints)
-- [x] **1.2.11** Add operationId to `collecting.ts` routes (22 endpoints)
-- [x] **1.2.12** Add operationId to remaining routes (export, admin-sync -- 8 endpoints)
-- [x] **1.2.13** Run `npm run lint:api` and verify 0 Spectral errors -- promoted all rules from warn to error in `.spectral.yml`
-- [x] **1.2.14** Update OpenAPI snapshot: `npm run spec:update`
+- [x] **3.1** Getting started pages (introduction, quickstart, authentication)
+- [x] **3.2** Domain overviews (listening, running, watching, collecting, images)
 
-**1.3 -- Response Examples**
+## Phase 3.5: Docs Site Polish -- IN PROGRESS
 
-Add example response bodies to the most-used endpoints so the API reference shows real data shapes.
+**3.5.1 -- Real response examples on all public endpoints -- COMPLETE**
 
-- [x] **1.3.1** Add response example to `GET /v1/listening/recent` (scrobble list with pagination)
-- [x] **1.3.2** Add response example to `GET /v1/listening/top/artists` (top list with images)
-- [x] **1.3.3** Add response example to `GET /v1/running/stats` (stats summary)
-- [x] **1.3.4** Add response example to `GET /v1/running/activities` (activity list)
-- [x] **1.3.5** Add response example to `GET /v1/watching/recent` (recent watches with movie details)
-- [x] **1.3.6** Add response example to `GET /v1/watching/movies` (movie list)
-- [x] **1.3.7** Add response example to `GET /v1/collecting/collection` (vinyl collection)
-- [x] **1.3.8** Add response example to `GET /v1/feed` (cross-domain feed)
-- [x] **1.3.9** Add response example to `GET /v1/search` (search results)
-- [x] **1.3.10** Add response example to `GET /v1/health` (health check)
-- [x] **1.3.11** Update OpenAPI snapshot: `npm run spec:update`
+- [x] **3.5.1.1** Add curated examples to all Listening endpoints (Nirvana, Olivia Rodrigo, Sabrina Carpenter, Beastie Boys, Taylor Swift)
+- [x] **3.5.1.2** Add curated examples to all Running endpoints
+- [x] **3.5.1.3** Add curated examples to all Watching endpoints (Ferris Bueller's, Interstellar, The Great Escape, Band of Brothers, Mad Men, Fallout)
+- [x] **3.5.1.4** Add curated examples to all Collecting endpoints (Nirvana vinyl, Top Gun/Great Escape/Interstellar physical media)
+- [x] **3.5.1.5** Add curated examples to Feed, Search, System endpoints
+- [x] **3.5.1.6** Hide 32 admin/webhook endpoints with `x-hidden: true`
+- [x] **3.5.1.7** Fix 44 schema mismatches (examples now match actual Zod schemas)
+- [x] **3.5.1.8** Update old Phase 1 examples to use curated picks instead of stale data
+- [x] **3.5.1.9** Spectral: 0 errors, spec regenerated, docs-mintlify/openapi.json updated
 
-## Phase 2: Mintlify Setup
+**3.5.2 -- Navigation layout -- COMPLETE**
 
-Migrate from standalone Scalar HTML page to Mintlify hosted docs platform.
+- [x] **3.5.2.1** Tabs layout: Guides tab (Getting Started + Basics) and API Reference tab (collapsed endpoint groups)
+- [x] **3.5.2.2** Verified on localhost:3002
 
-**2.1 -- Initialize Mintlify**
+**3.5.3 -- Theme and visual polish -- COMPLETE**
 
-- [x] **2.1.1** Sign up for Mintlify Hobby (free) plan
-- [x] **2.1.2** Initialize Mintlify project -- `docs-mintlify/` directory with `docs.json` config
-- [x] **2.1.3** Connect GitHub repo for content sync (monorepo mode, `docs-mintlify` subdirectory)
-- [x] **2.1.4** Configure `docs.json`: maple theme, dark mode, colors, favicon, navigation tabs
+- [x] **3.5.3.1** Selected `palm` theme
+- [x] **3.5.3.2** Set bluish-purple primary color (`#6874e8`)
+- [x] **3.5.3.3** Dark mode default with toggle available
+- [x] **3.5.3.4** Added icons to all guide pages (book-open, rocket, key, headphones, person-running, film, record-vinyl, image)
 
-**2.2 -- OpenAPI Integration**
+**3.5.4 -- Verify all sidebar links**
 
-- [x] **2.2.1** Configure OpenAPI source in `docs.json` pointing to `https://api.rewind.rest/v1/openapi.json`
-- [x] **2.2.2** Configure API playground with interactive mode and Bearer auth
-- [x] **2.2.3** Verify auto-generated API reference pages render correctly with operationIds and examples
-- [x] **2.2.4** Configure tag grouping in sidebar: Listening, Running, Watching, Collecting, Feed, Search, Images, System
+- [ ] **3.5.4.1** Click every sidebar link on localhost:3002 and verify no 404s
+- [ ] **3.5.4.2** Fix any navigation/file mismatches
 
-**2.3 -- Theme and Branding**
+**3.5.5 -- Cleanup**
 
-- [x] **2.3.1** Configure color scheme to match landing site dark palette (`#0a0a0a` background, `#e5e5e5` text)
-- [x] **2.3.2** Add Rewind favicon (SVG)
-- [x] **2.3.3** Configure dark mode as default with toggle available
-- [ ] **2.3.4** Review typography and spacing against SF Compute reference
+- [ ] **3.5.5.1** Delete `rewind-docs` Cloudflare Pages project from dashboard
+- [ ] **3.5.5.2** Delete `pdugan20/docs` starter repo from GitHub
 
-**2.4 -- Custom Domain and Deployment**
+**3.5.6 -- Changelog**
 
-- [x] **2.4.1** Configure custom domain `docs.rewind.rest` in Mintlify dashboard
-- [x] **2.4.2** Update DNS CNAME to `cname.mintlify-dns.com`
-- [x] **2.4.3** Verify site loads at `docs.rewind.rest`
-- [x] **2.4.4** Decommission old `docs-scalar/` directory, replace `docs:deploy` with `docs:dev` and `docs:validate`
-- [ ] **2.4.5** Delete `rewind-docs` Cloudflare Pages project from dashboard
-- [ ] **2.4.6** Delete `pdugan20/docs` starter repo from GitHub
-
-## Phase 3: Content Migration
-
-Add getting-started guides and domain overviews so developers have a guided onboarding path.
-
-**3.1 -- Getting Started**
-
-- [x] **3.1.1** Write Introduction page: what Rewind is, what data it aggregates, link to API reference
-- [x] **3.1.2** Write Quick Start guide: obtain API key, make first request, understand pagination, understand date filtering
-- [x] **3.1.3** Write Authentication guide: read keys vs admin keys, how to pass Bearer token, rate limiting
-
-**3.2 -- Domain Overviews**
-
-- [x] **3.2.1** Write Listening overview: what it tracks (Last.fm + Apple Music), key endpoints, common patterns
-- [x] **3.2.2** Write Running overview: what it tracks (Strava), key endpoints, stats and charts
-- [x] **3.2.3** Write Watching overview: what it tracks (Plex + Letterboxd), key endpoints, ratings/reviews
-- [x] **3.2.4** Write Collecting overview: what it tracks (Discogs + Trakt), key endpoints, wantlist
-- [x] **3.2.5** Write Images overview: how the image pipeline works, CDN URLs, thumbhash, color extraction
-
-**3.3 -- Navigation Structure**
-
-- [x] **3.3.1** Configure sidebar in `docs.json` with tabs: Guides (Getting Started + Domains) and API Reference
-- [x] **3.3.2** "On this page" table of contents is built-in to Mintlify
-- [x] **3.3.3** Verify navigation flow from introduction -> quick start -> domain guides -> API reference
-
-**3.4 -- Changelog**
-
-- [ ] **3.4.1** Create changelog page with recent significant changes
-- [ ] **3.4.2** Document process for updating changelog with future changes
+- [ ] **3.5.6.1** Create changelog page with recent significant changes
+- [ ] **3.5.6.2** Document process for updating changelog
 
 ## Phase 4: Landing Site Polish
 
-Bring `rewind.rest` up to professional standards with proper meta tags and SEO.
-
-**4.1 -- Meta Tags and Favicon**
-
-- [ ] **4.1.1** Create or source a Rewind favicon (ico + svg + apple-touch-icon)
-- [ ] **4.1.2** Add favicon links to `Base.astro` `<head>`
-- [ ] **4.1.3** Add Open Graph meta tags: `og:title`, `og:description`, `og:image`, `og:url`, `og:type`
-- [ ] **4.1.4** Add Twitter card meta tags: `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`
-- [ ] **4.1.5** Create or source an OG image (1200x630) for link previews
-
-**4.2 -- SEO and Discoverability**
-
-- [ ] **4.2.1** Install `@astrojs/sitemap` and configure in `astro.config.mjs`
-- [ ] **4.2.2** Add `<meta name="robots" content="index, follow">` to `Base.astro`
-- [ ] **4.2.3** Add canonical URL meta tag
-
-**4.3 -- Content and Link Cleanup**
-
-- [ ] **4.3.1** Audit footer link to GitHub repo -- if repo is private, remove or link to docs instead
-- [ ] **4.3.2** Remove dead references in `/docs/README.md` (`API.md`, `ROADMAP.md`)
-- [ ] **4.3.3** Verify all links on the landing site resolve correctly
+- [ ] **4.1** Favicon, OG meta, Twitter cards, OG image
+- [ ] **4.2** Sitemap, robots meta, canonical URLs
+- [ ] **4.3** Footer link audit, dead reference cleanup
 
 ## Phase 5: AI Readiness
 
-Make the API discoverable and usable by AI coding assistants and agents.
-
-**5.1 -- llms.txt**
-
-- [ ] **5.1.1** Research `llms.txt` format and best practices for API documentation
-- [ ] **5.1.2** Create a `GET /llms.txt` or `GET /v1/llms.txt` endpoint that returns a machine-readable API summary
-- [ ] **5.1.3** Include: base URL, auth pattern, domain overview, top endpoints with example curl commands
-- [ ] **5.1.4** Test with AI coding assistants to validate usefulness
-
-**5.2 -- Machine-Readable Schema**
-
-- [ ] **5.2.1** Ensure OpenAPI spec is fully valid (0 errors, 0 warnings from Spectral)
-- [ ] **5.2.2** Verify spec is accessible at a stable, public URL with proper CORS and cache headers
+- [ ] **5.1** `llms.txt` endpoint
+- [ ] **5.2** Verify spec is fully valid and publicly accessible

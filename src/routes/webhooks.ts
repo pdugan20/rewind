@@ -54,6 +54,7 @@ const stravaValidationRoute = createRoute({
   method: 'get',
   path: '/webhooks/strava',
   operationId: 'validateStravaWebhook',
+  'x-hidden': true,
   tags: ['Webhooks'],
   summary: 'Strava webhook subscription validation',
   description:
@@ -98,6 +99,7 @@ const stravaEventRoute = createRoute({
   method: 'post',
   path: '/webhooks/strava',
   operationId: 'receiveStravaWebhook',
+  'x-hidden': true,
   tags: ['Webhooks'],
   summary: 'Strava webhook event receiver',
   description:
@@ -139,6 +141,7 @@ const plexWebhookRoute = createRoute({
   method: 'post',
   path: '/webhooks/plex',
   operationId: 'receivePlexWebhook',
+  'x-hidden': true,
   tags: ['Webhooks'],
   summary: 'Plex webhook event receiver',
   description:

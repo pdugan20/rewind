@@ -78,7 +78,34 @@ const syncHealthRoute = createRoute({
     'Returns the latest sync status for each data domain, including last sync time, items synced, duration, and 24-hour error rate.',
   responses: {
     200: {
-      content: { 'application/json': { schema: SyncHealthResponse } },
+      content: {
+        'application/json': {
+          schema: SyncHealthResponse,
+          example: {
+            status: 'ok',
+            domains: {
+              listening: {
+                last_sync: '2026-03-18T21:00:00.000Z',
+                status: 'completed',
+                sync_type: 'scrobbles',
+                items_synced: 42,
+                duration_ms: 1250,
+                error: null,
+                error_rate: 0.0,
+              },
+              running: {
+                last_sync: '2026-03-18T03:00:00.000Z',
+                status: 'completed',
+                sync_type: 'activities',
+                items_synced: 3,
+                duration_ms: 4200,
+                error: null,
+                error_rate: 0.0,
+              },
+            },
+          },
+        },
+      },
       description: 'Sync status for all domains',
     },
   },

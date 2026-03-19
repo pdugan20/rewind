@@ -61,6 +61,7 @@ const createKeyRoute = createRoute({
   method: 'post',
   path: '/',
   operationId: 'createAdminKey',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Create API key',
   description:
@@ -91,6 +92,7 @@ const listKeysRoute = createRoute({
   method: 'get',
   path: '/',
   operationId: 'listAdminKeys',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'List API keys',
   description:
@@ -112,6 +114,7 @@ const deleteKeyRoute = createRoute({
   method: 'delete',
   path: '/{id}',
   operationId: 'deleteAdminKey',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Revoke API key',
   description: 'Soft-delete an API key by setting is_active to false.',

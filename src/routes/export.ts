@@ -78,6 +78,7 @@ const exportDomainRoute = createRoute({
   method: 'get',
   path: '/{domain}',
   operationId: 'exportDomain',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Export domain data',
   description:

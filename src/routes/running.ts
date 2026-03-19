@@ -288,6 +288,30 @@ const statsYearsRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(YearSummarySchema) }),
+          example: {
+            data: [
+              {
+                year: 2025,
+                total_runs: 120,
+                total_distance_mi: 540.2,
+                total_elevation_ft: 18500,
+                total_duration_s: 257400,
+                avg_pace: '7:55/mi',
+                longest_run_mi: 13.1,
+                race_count: 3,
+              },
+              {
+                year: 2024,
+                total_runs: 105,
+                total_distance_mi: 470.8,
+                total_elevation_ft: 15200,
+                total_duration_s: 231600,
+                avg_pace: '8:10/mi',
+                longest_run_mi: 10.5,
+                race_count: 2,
+              },
+            ],
+          },
         },
       },
     },
@@ -334,7 +358,21 @@ const statsYearRoute = createRoute({
     200: {
       description: 'Year summary',
       content: {
-        'application/json': { schema: z.object({ data: YearSummarySchema }) },
+        'application/json': {
+          schema: z.object({ data: YearSummarySchema }),
+          example: {
+            data: {
+              year: 2025,
+              total_runs: 120,
+              total_distance_mi: 540.2,
+              total_elevation_ft: 18500,
+              total_duration_s: 257400,
+              avg_pace: '7:55/mi',
+              longest_run_mi: 13.1,
+              race_count: 3,
+            },
+          },
+        },
       },
     },
     ...errorResponses(400, 401, 404),
@@ -390,6 +428,40 @@ const prsRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(PersonalRecordSchema) }),
+          example: {
+            data: [
+              {
+                distance: '5K',
+                distance_label: '5K',
+                time: '22:45',
+                time_s: 1365,
+                pace: '7:20/mi',
+                date: '2024-09-15',
+                activity_id: 12345,
+                activity_name: 'Fall 5K Race',
+              },
+              {
+                distance: '10K',
+                distance_label: '10K',
+                time: '48:30',
+                time_s: 2910,
+                pace: '7:49/mi',
+                date: '2024-06-01',
+                activity_id: 12346,
+                activity_name: 'Summer 10K',
+              },
+              {
+                distance: 'Half Marathon',
+                distance_label: 'Half Marathon',
+                time: '1:45:00',
+                time_s: 6300,
+                pace: '8:01/mi',
+                date: '2023-10-08',
+                activity_id: 12347,
+                activity_name: 'Portland Half Marathon',
+              },
+            ],
+          },
         },
       },
     },
@@ -442,6 +514,32 @@ const recentRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(ActivitySchema) }),
+          example: {
+            data: [
+              {
+                id: 17748681520,
+                strava_id: 17748681520,
+                name: 'Monday Evening Run',
+                date: '2026-03-16T17:00:05Z',
+                distance_mi: 4.49,
+                duration: '36:02',
+                duration_s: 2162,
+                pace: '8:02/mi',
+                elevation_ft: 370.73,
+                heartrate_avg: null,
+                heartrate_max: null,
+                cadence: 75.2,
+                calories: 525,
+                suffer_score: null,
+                city: null,
+                state: null,
+                polyline: '_wfbHb|niVD_@TEd@...',
+                is_race: false,
+                workout_type: 'default',
+                strava_url: 'https://www.strava.com/activities/17748681520',
+              },
+            ],
+          },
         },
       },
     },
@@ -668,7 +766,33 @@ const activityDetailRoute = createRoute({
   responses: {
     200: {
       description: 'Activity detail',
-      content: { 'application/json': { schema: ActivitySchema } },
+      content: {
+        'application/json': {
+          schema: ActivitySchema,
+          example: {
+            id: 17748681520,
+            strava_id: 17748681520,
+            name: 'Monday Evening Run',
+            date: '2026-03-16T17:00:05Z',
+            distance_mi: 4.49,
+            duration: '36:02',
+            duration_s: 2162,
+            pace: '8:02/mi',
+            elevation_ft: 370.73,
+            heartrate_avg: null,
+            heartrate_max: null,
+            cadence: 75.2,
+            calories: 525,
+            suffer_score: null,
+            city: null,
+            state: null,
+            polyline: '_wfbHb|niVD_@TEd@...',
+            is_race: false,
+            workout_type: 'default',
+            strava_url: 'https://www.strava.com/activities/17748681520',
+          },
+        },
+      },
     },
     ...errorResponses(400, 401, 404),
   },
@@ -715,6 +839,37 @@ const splitsRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(SplitSchema) }),
+          example: {
+            data: [
+              {
+                split: 1,
+                distance_mi: 1.0,
+                moving_time_s: 495,
+                elapsed_time_s: 500,
+                elevation_ft: 85,
+                pace: '8:15/mi',
+                heartrate: null,
+              },
+              {
+                split: 2,
+                distance_mi: 1.0,
+                moving_time_s: 470,
+                elapsed_time_s: 475,
+                elevation_ft: 120,
+                pace: '7:50/mi',
+                heartrate: null,
+              },
+              {
+                split: 3,
+                distance_mi: 1.0,
+                moving_time_s: 482,
+                elapsed_time_s: 488,
+                elevation_ft: 95,
+                pace: '8:02/mi',
+                heartrate: null,
+              },
+            ],
+          },
         },
       },
     },
@@ -766,7 +921,31 @@ const gearRoute = createRoute({
     200: {
       description: 'Gear list',
       content: {
-        'application/json': { schema: z.object({ data: z.array(GearSchema) }) },
+        'application/json': {
+          schema: z.object({ data: z.array(GearSchema) }),
+          example: {
+            data: [
+              {
+                id: 'g12345',
+                name: 'Nike Pegasus 40',
+                brand: 'Nike',
+                model: 'Pegasus 40',
+                distance_mi: 342.5,
+                is_retired: false,
+                activity_count: 85,
+              },
+              {
+                id: 'g12346',
+                name: 'Brooks Ghost 15',
+                brand: 'Brooks',
+                model: 'Ghost 15',
+                distance_mi: 512.3,
+                is_retired: true,
+                activity_count: 130,
+              },
+            ],
+          },
+        },
       },
     },
     ...errorResponses(401),
@@ -833,6 +1012,14 @@ const calendarRoute = createRoute({
             year: z.number(),
             data: z.array(CalendarDaySchema),
           }),
+          example: {
+            year: 2026,
+            data: [
+              { date: '2026-03-01', count: 1, total_distance_mi: 5.2 },
+              { date: '2026-03-03', count: 1, total_distance_mi: 4.1 },
+              { date: '2026-03-05', count: 1, total_distance_mi: 6.8 },
+            ],
+          },
         },
       },
     },
@@ -907,6 +1094,19 @@ const cumulativeRoute = createRoute({
           schema: z.object({
             data: z.record(z.string(), z.array(CumulativePointSchema)),
           }),
+          example: {
+            data: {
+              '2026': [
+                { day: 1, cumulative_mi: 5.2 },
+                { day: 3, cumulative_mi: 9.3 },
+                { day: 5, cumulative_mi: 16.1 },
+              ],
+              '2025': [
+                { day: 2, cumulative_mi: 4.8 },
+                { day: 5, cumulative_mi: 12.6 },
+              ],
+            },
+          },
         },
       },
     },
@@ -988,6 +1188,25 @@ const paceTrendRoute = createRoute({
             window: z.number(),
             data: z.array(PaceTrendPointSchema),
           }),
+          example: {
+            window: 30,
+            data: [
+              {
+                date: '2026-03-01',
+                pace: '8:02/mi',
+                pace_min_per_mile: 8.03,
+                rolling_avg: '8:05/mi',
+                rolling_avg_min_per_mile: 8.08,
+              },
+              {
+                date: '2026-03-03',
+                pace: '8:15/mi',
+                pace_min_per_mile: 8.25,
+                rolling_avg: '8:07/mi',
+                rolling_avg_min_per_mile: 8.12,
+              },
+            ],
+          },
         },
       },
     },
@@ -1079,6 +1298,14 @@ const timeOfDayRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(TimeOfDaySchema) }),
+          example: {
+            data: [
+              { hour: 6, count: 45 },
+              { hour: 7, count: 82 },
+              { hour: 17, count: 120 },
+              { hour: 18, count: 95 },
+            ],
+          },
         },
       },
     },
@@ -1136,6 +1363,22 @@ const elevationRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(ElevationPointSchema) }),
+          example: {
+            data: [
+              {
+                date: '2026-03-01',
+                elevation_ft: 350,
+                distance_mi: 5.2,
+                cumulative_elevation_ft: 350,
+              },
+              {
+                date: '2026-03-03',
+                elevation_ft: 280,
+                distance_mi: 4.1,
+                cumulative_elevation_ft: 630,
+              },
+            ],
+          },
         },
       },
     },
@@ -1193,7 +1436,27 @@ const citiesRoute = createRoute({
     200: {
       description: 'City list',
       content: {
-        'application/json': { schema: z.object({ data: z.array(CitySchema) }) },
+        'application/json': {
+          schema: z.object({ data: z.array(CitySchema) }),
+          example: {
+            data: [
+              {
+                city: 'Portland',
+                state: 'OR',
+                country: 'United States',
+                run_count: 450,
+                total_distance_mi: 1800,
+              },
+              {
+                city: 'Seattle',
+                state: 'WA',
+                country: 'United States',
+                run_count: 120,
+                total_distance_mi: 480,
+              },
+            ],
+          },
+        },
       },
     },
     ...errorResponses(401),
@@ -1249,7 +1512,15 @@ const streaksRoute = createRoute({
     200: {
       description: 'Streak data',
       content: {
-        'application/json': { schema: z.object({ data: StreaksSchema }) },
+        'application/json': {
+          schema: z.object({ data: StreaksSchema }),
+          example: {
+            data: {
+              current: { days: 0, start: null, end: null },
+              longest: { days: 8, start: '2020-05-09', end: '2020-05-16' },
+            },
+          },
+        },
       },
     },
     ...errorResponses(401),
@@ -1311,6 +1582,32 @@ const racesRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(ActivitySchema) }),
+          example: {
+            data: [
+              {
+                id: 12345,
+                strava_id: 12345,
+                name: 'Portland Marathon',
+                date: '2024-10-06',
+                distance_mi: 26.2,
+                duration: '3:45:00',
+                duration_s: 13500,
+                pace: '8:35/mi',
+                elevation_ft: 450,
+                heartrate_avg: 165,
+                heartrate_max: 182,
+                cadence: 78.5,
+                calories: 2800,
+                suffer_score: 250,
+                city: 'Portland',
+                state: 'OR',
+                polyline: null,
+                is_race: true,
+                workout_type: 'race',
+                strava_url: 'https://www.strava.com/activities/12345',
+              },
+            ],
+          },
         },
       },
     },
@@ -1365,7 +1662,16 @@ const eddingtonRoute = createRoute({
   responses: {
     200: {
       description: 'Eddington data',
-      content: { 'application/json': { schema: EddingtonSchema } },
+      content: {
+        'application/json': {
+          schema: EddingtonSchema,
+          example: {
+            number: 11,
+            explanation: 'You have run at least 11 miles on at least 11 days',
+            progress: { target: 12, days_completed: 9, runs_needed: 3 },
+          },
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -1417,7 +1723,61 @@ const yearInReviewRoute = createRoute({
   responses: {
     200: {
       description: 'Year in review',
-      content: { 'application/json': { schema: YearInReviewSchema } },
+      content: {
+        'application/json': {
+          schema: YearInReviewSchema,
+          example: {
+            year: 2025,
+            total_runs: 120,
+            total_distance_mi: 540.2,
+            total_elevation_ft: 18500,
+            total_duration_s: 257400,
+            avg_pace: '7:55/mi',
+            longest_run_mi: 13.1,
+            race_count: 3,
+            monthly: [
+              {
+                month: '2025-01',
+                runs: 8,
+                distance_mi: 35.2,
+                duration_s: 17100,
+                elevation_ft: 1200,
+              },
+              {
+                month: '2025-02',
+                runs: 10,
+                distance_mi: 42.1,
+                duration_s: 20400,
+                elevation_ft: 1500,
+              },
+            ],
+            top_runs: [
+              {
+                id: 12345,
+                strava_id: 12345,
+                name: 'Portland Half Marathon',
+                date: '2025-10-06',
+                distance_mi: 13.1,
+                duration: '1:45:00',
+                duration_s: 6300,
+                pace: '8:01/mi',
+                elevation_ft: 320,
+                heartrate_avg: 160,
+                heartrate_max: 178,
+                cadence: 77.0,
+                calories: 1400,
+                suffer_score: 120,
+                city: 'Portland',
+                state: 'OR',
+                polyline: null,
+                is_race: true,
+                workout_type: 'race',
+                strava_url: 'https://www.strava.com/activities/12345',
+              },
+            ],
+          },
+        },
+      },
     },
     ...errorResponses(400, 401, 404),
   },

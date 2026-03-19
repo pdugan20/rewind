@@ -303,7 +303,38 @@ const nowPlayingRoute = createRoute({
   responses: {
     200: {
       description: 'Now playing info',
-      content: { 'application/json': { schema: NowPlayingSchema } },
+      content: {
+        'application/json': {
+          schema: NowPlayingSchema,
+          example: {
+            is_playing: true,
+            track: {
+              name: 'Espresso',
+              artist: {
+                id: 471,
+                name: 'Sabrina Carpenter',
+                apple_music_url:
+                  'https://music.apple.com/us/artist/sabrina-carpenter/595947033?uo=4',
+              },
+              album: {
+                id: 254,
+                name: "Short n' Sweet",
+                image: {
+                  url: 'https://cdn.rewind.rest/listening/albums/254/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: 'HBkKHQi694WIeIiAh3Z3d2eAd4B3',
+                  dominant_color: '#5c4a6d',
+                  accent_color: '#c4a8d4',
+                },
+              },
+              url: 'https://www.last.fm/music/Sabrina+Carpenter/_/Espresso',
+              apple_music_url:
+                'https://music.apple.com/us/album/espresso/1745069032?i=1745069234&uo=4',
+              preview_url: null,
+            },
+            scrobbled_at: '2026-03-18T22:30:00.000Z',
+          },
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -341,26 +372,49 @@ const recentRoute = createRoute({
             data: [
               {
                 track: {
-                  id: 4296,
-                  name: 'Cherry',
-                  url: 'https://www.last.fm/music/Ratatat/_/Cherry',
-                  apple_music_url:
-                    'https://music.apple.com/us/album/cherry/1540685260?i=1540685721&uo=4',
-                  preview_url:
-                    'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/68/56/3d/68563d2b-7ef3-4bb0-5f97-8cd2984a4e90/mzaf_17848570804808983859.plus.aac.p.m4a',
+                  id: 1001,
+                  name: 'bad idea right?',
+                  url: 'https://www.last.fm/music/Olivia+Rodrigo/_/bad+idea+right%3F',
+                  apple_music_url: null,
+                  preview_url: null,
                 },
-                artist: { id: 551, name: 'Ratatat' },
+                artist: { id: 37, name: 'Olivia Rodrigo' },
                 album: {
-                  id: 1566,
-                  name: 'Ratatat',
+                  id: 20,
+                  name: 'GUTS',
                   image: {
-                    url: 'https://cdn.rewind.rest/listening/albums/1566/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
-                    thumbhash: 'NwgKBwDIl4d2h3h/hrZ4d2h0d4QHQ2oA',
-                    dominant_color: '#d8d8d8',
-                    accent_color: '#d8d8d8',
+                    url: 'https://cdn.rewind.rest/listening/albums/20/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                    thumbhash: 'HBkKHQi694WIeIiAh3Z3d2eAd4B3',
+                    dominant_color: '#5c4a6d',
+                    accent_color: '#c4a8d4',
                   },
                 },
-                scrobbled_at: '2026-03-18T01:14:04.000Z',
+                scrobbled_at: '2026-03-18T22:14:04.000Z',
+              },
+              {
+                track: {
+                  id: 1002,
+                  name: 'Sabotage',
+                  url: 'https://www.last.fm/music/Beastie+Boys/_/Sabotage',
+                  apple_music_url: null,
+                  preview_url: null,
+                },
+                artist: { id: 130, name: 'Beastie Boys' },
+                album: { id: 500, name: 'Ill Communication', image: null },
+                scrobbled_at: '2026-03-18T22:10:00.000Z',
+              },
+              {
+                track: {
+                  id: 1003,
+                  name: 'Come as You Are',
+                  url: 'https://www.last.fm/music/Nirvana/_/Come+as+You+Are',
+                  apple_music_url:
+                    'https://music.apple.com/us/album/come-as-you-are/1440783617?i=1440783636&uo=4',
+                  preview_url: null,
+                },
+                artist: { id: 189, name: 'Nirvana' },
+                album: { id: 300, name: 'Nevermind', image: null },
+                scrobbled_at: '2026-03-18T22:05:00.000Z',
               },
             ],
           },
@@ -394,20 +448,43 @@ const topArtistsRoute = createRoute({
             data: [
               {
                 rank: 1,
-                id: 91,
-                name: 'The Beatles',
+                id: 130,
+                name: 'Beastie Boys',
                 detail: '',
-                playcount: 6322,
-                genre: 'Classic Rock',
+                playcount: 4011,
+                genre: 'Hip-Hop',
                 image: {
-                  url: 'https://cdn.rewind.rest/listening/artists/91/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
-                  thumbhash: '5fcRBwD4yLd5doh/hZZ4p3iGOWr3o3YP',
-                  dominant_color: '#ffffff',
-                  accent_color: '#ffffff',
+                  url: 'https://cdn.rewind.rest/listening/artists/130/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: 'GggGBwDN+CSBp7VXcmVmlyZ2BgAAAAAA',
+                  dominant_color: '#191919',
+                  accent_color: '#7e7e7e',
                 },
-                url: 'https://www.last.fm/music/The+Beatles',
+                url: 'https://www.last.fm/music/Beastie+Boys',
+                apple_music_url: null,
+              },
+              {
+                rank: 2,
+                id: 189,
+                name: 'Nirvana',
+                detail: '',
+                playcount: 2179,
+                genre: 'Grunge',
+                image: null,
+                url: 'https://www.last.fm/music/Nirvana',
                 apple_music_url:
-                  'https://music.apple.com/us/artist/the-beatles/136975?uo=4',
+                  'https://music.apple.com/us/artist/nirvana/112018?uo=4',
+              },
+              {
+                rank: 3,
+                id: 92,
+                name: 'Taylor Swift',
+                detail: '',
+                playcount: 2164,
+                genre: 'Country',
+                image: null,
+                url: 'https://www.last.fm/music/Taylor+Swift',
+                apple_music_url:
+                  'https://music.apple.com/us/artist/taylor-swift/159260351?uo=4',
               },
             ],
             pagination: { page: 1, limit: 20, total: 29, total_pages: 2 },
@@ -437,6 +514,47 @@ const topAlbumsRoute = createRoute({
             data: z.array(TopItemSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            period: 'overall',
+            data: [
+              {
+                rank: 1,
+                id: 300,
+                name: 'MTV Unplugged in New York',
+                detail: 'Nirvana',
+                playcount: 428,
+                image: {
+                  url: 'https://cdn.rewind.rest/listening/albums/300/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: 'HBkKHQi694WIeIiAh3Z3d2eAd4B3',
+                  dominant_color: '#5c4a6d',
+                  accent_color: '#c4a8d4',
+                },
+                url: 'https://www.last.fm/music/Nirvana/MTV+Unplugged+in+New+York',
+                apple_music_url: null,
+              },
+              {
+                rank: 2,
+                id: 500,
+                name: 'Hot Sauce Committee Part Two',
+                detail: 'Beastie Boys',
+                playcount: 534,
+                image: null,
+                url: 'https://www.last.fm/music/Beastie+Boys/Hot+Sauce+Committee+Part+Two',
+                apple_music_url: null,
+              },
+              {
+                rank: 3,
+                id: 20,
+                name: 'GUTS',
+                detail: 'Olivia Rodrigo',
+                playcount: 32,
+                image: null,
+                url: 'https://www.last.fm/music/Olivia+Rodrigo/GUTS',
+                apple_music_url: null,
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 29, total_pages: 2 },
+          },
         },
       },
     },
@@ -462,6 +580,46 @@ const topTracksRoute = createRoute({
             data: z.array(TopItemSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            period: 'overall',
+            data: [
+              {
+                rank: 1,
+                id: 595,
+                name: 'Come as You Are',
+                detail: 'Nirvana',
+                playcount: 101,
+                image: null,
+                url: 'https://www.last.fm/music/Nirvana/_/Come+as+You+Are',
+                apple_music_url:
+                  'https://music.apple.com/us/album/come-as-you-are/1440783617?i=1440783636&uo=4',
+                preview_url: null,
+              },
+              {
+                rank: 2,
+                id: 1050,
+                name: 'bad idea right?',
+                detail: 'Olivia Rodrigo',
+                playcount: 82,
+                image: null,
+                url: 'https://www.last.fm/music/Olivia+Rodrigo/_/bad+idea+right%3F',
+                apple_music_url: null,
+                preview_url: null,
+              },
+              {
+                rank: 3,
+                id: 2001,
+                name: 'Espresso',
+                detail: 'Sabrina Carpenter',
+                playcount: 68,
+                image: null,
+                url: 'https://www.last.fm/music/Sabrina+Carpenter/_/Espresso',
+                apple_music_url: null,
+                preview_url: null,
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 13, total_pages: 1 },
+          },
         },
       },
     },
@@ -483,7 +641,20 @@ const statsRoute = createRoute({
   responses: {
     200: {
       description: 'Listening statistics',
-      content: { 'application/json': { schema: StatsSchema } },
+      content: {
+        'application/json': {
+          schema: StatsSchema,
+          example: {
+            total_scrobbles: 123867,
+            unique_artists: 5278,
+            unique_albums: 11168,
+            unique_tracks: 28405,
+            registered_date: '2012-02-09T16:01:17.000Z',
+            years_tracking: 14,
+            scrobbles_per_day: 24,
+          },
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -534,6 +705,37 @@ const historyRoute = createRoute({
             data: z.array(ScrobbleSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                track: {
+                  id: 1001,
+                  name: 'bad idea right?',
+                  url: 'https://www.last.fm/music/Olivia+Rodrigo/_/bad+idea+right%3F',
+                  apple_music_url: null,
+                  preview_url: null,
+                },
+                artist: { id: 37, name: 'Olivia Rodrigo' },
+                album: {
+                  id: 20,
+                  name: 'GUTS',
+                  image: {
+                    url: 'https://cdn.rewind.rest/listening/albums/20/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                    thumbhash: 'HBkKHQi694WIeIiAh3Z3d2eAd4B3',
+                    dominant_color: '#5c4a6d',
+                    accent_color: '#c4a8d4',
+                  },
+                },
+                scrobbled_at: '2026-03-18T22:14:04.000Z',
+              },
+            ],
+            pagination: {
+              page: 1,
+              limit: 50,
+              total: 123867,
+              total_pages: 2478,
+            },
+          },
         },
       },
     },
@@ -587,6 +789,45 @@ const browseArtistsRoute = createRoute({
             data: z.array(ArtistBrowseSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                id: 130,
+                name: 'Beastie Boys',
+                playcount: 4011,
+                genre: 'Hip-Hop',
+                url: 'https://www.last.fm/music/Beastie+Boys',
+                apple_music_url: null,
+                image: {
+                  url: 'https://cdn.rewind.rest/listening/artists/130/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: 'GggGBwDN+CSBp7VXcmVmlyZ2BgAAAAAA',
+                  dominant_color: '#191919',
+                  accent_color: '#7e7e7e',
+                },
+              },
+              {
+                id: 189,
+                name: 'Nirvana',
+                playcount: 2179,
+                genre: 'Grunge',
+                url: 'https://www.last.fm/music/Nirvana',
+                apple_music_url:
+                  'https://music.apple.com/us/artist/nirvana/112018?uo=4',
+                image: null,
+              },
+              {
+                id: 92,
+                name: 'Taylor Swift',
+                playcount: 2164,
+                genre: 'Country',
+                url: 'https://www.last.fm/music/Taylor+Swift',
+                apple_music_url:
+                  'https://music.apple.com/us/artist/taylor-swift/159260351?uo=4',
+                image: null,
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 5278, total_pages: 264 },
+          },
         },
       },
     },
@@ -641,6 +882,29 @@ const browseAlbumsRoute = createRoute({
             data: z.array(AlbumBrowseSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                id: 300,
+                name: 'Nevermind',
+                artist: { id: 189, name: 'Nirvana' },
+                playcount: 333,
+                url: 'https://www.last.fm/music/Nirvana/Nevermind',
+                apple_music_url: null,
+                image: null,
+              },
+              {
+                id: 20,
+                name: 'GUTS',
+                artist: { id: 37, name: 'Olivia Rodrigo' },
+                playcount: 32,
+                url: 'https://www.last.fm/music/Olivia+Rodrigo/GUTS',
+                apple_music_url: null,
+                image: null,
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 11168, total_pages: 559 },
+          },
         },
       },
     },
@@ -660,7 +924,52 @@ const artistDetailRoute = createRoute({
   responses: {
     200: {
       description: 'Artist detail',
-      content: { 'application/json': { schema: ArtistDetailSchema } },
+      content: {
+        'application/json': {
+          schema: ArtistDetailSchema,
+          example: {
+            id: 189,
+            name: 'Nirvana',
+            mbid: null,
+            url: 'https://www.last.fm/music/Nirvana',
+            apple_music_url:
+              'https://music.apple.com/us/artist/nirvana/112018?uo=4',
+            playcount: 2179,
+            scrobble_count: 2193,
+            first_scrobbled_at: '2012-05-02T18:32:15.000Z',
+            genre: 'Grunge',
+            tags: [
+              { name: 'Grunge', count: 100 },
+              { name: 'Rock', count: 49 },
+            ],
+            image: {
+              url: 'https://cdn.rewind.rest/listening/artists/189/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+              thumbhash: 'GggGBwDN+CSBp7VXcmVmlyZ2BgAAAAAA',
+              dominant_color: '#191919',
+              accent_color: '#7e7e7e',
+            },
+            top_albums: [
+              {
+                id: 300,
+                name: 'MTV Unplugged in New York',
+                playcount: 428,
+                apple_music_url: null,
+                image: null,
+              },
+            ],
+            top_tracks: [
+              {
+                id: 595,
+                name: 'Come as You Are',
+                scrobble_count: 101,
+                apple_music_url:
+                  'https://music.apple.com/us/album/come-as-you-are/1440783617?i=1440783636&uo=4',
+                preview_url: null,
+              },
+            ],
+          },
+        },
+      },
     },
     ...errorResponses(400, 401, 404),
   },
@@ -677,7 +986,42 @@ const albumDetailRoute = createRoute({
   responses: {
     200: {
       description: 'Album detail',
-      content: { 'application/json': { schema: AlbumDetailSchema } },
+      content: {
+        'application/json': {
+          schema: AlbumDetailSchema,
+          example: {
+            id: 20,
+            name: 'GUTS',
+            mbid: null,
+            artist: { id: 37, name: 'Olivia Rodrigo' },
+            playcount: 32,
+            url: 'https://www.last.fm/music/Olivia+Rodrigo/GUTS',
+            apple_music_url: null,
+            image: {
+              url: 'https://cdn.rewind.rest/listening/albums/20/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+              thumbhash: 'HBkKHQi694WIeIiAh3Z3d2eAd4B3',
+              dominant_color: '#5c4a6d',
+              accent_color: '#c4a8d4',
+            },
+            tracks: [
+              {
+                id: 1001,
+                name: 'bad idea right?',
+                scrobble_count: 82,
+                apple_music_url: null,
+                preview_url: null,
+              },
+              {
+                id: 1002,
+                name: 'vampire',
+                scrobble_count: 57,
+                apple_music_url: null,
+                preview_url: null,
+              },
+            ],
+          },
+        },
+      },
     },
     ...errorResponses(400, 401, 404),
   },
@@ -698,7 +1042,21 @@ const calendarRoute = createRoute({
   responses: {
     200: {
       description: 'Calendar data',
-      content: { 'application/json': { schema: CalendarSchema } },
+      content: {
+        'application/json': {
+          schema: CalendarSchema,
+          example: {
+            year: 2026,
+            days: [
+              { date: '2026-03-01', count: 15 },
+              { date: '2026-03-02', count: 22 },
+              { date: '2026-03-03', count: 8 },
+            ],
+            total: 45,
+            max_day: { date: '2026-03-02', count: 22 },
+          },
+        },
+      },
     },
     ...errorResponses(400, 401),
   },
@@ -731,7 +1089,19 @@ const trendsRoute = createRoute({
   responses: {
     200: {
       description: 'Trend data',
-      content: { 'application/json': { schema: TrendsSchema } },
+      content: {
+        'application/json': {
+          schema: TrendsSchema,
+          example: {
+            metric: 'scrobbles',
+            data: [
+              { period: '2026-01', value: 552 },
+              { period: '2026-02', value: 501 },
+              { period: '2026-03', value: 387 },
+            ],
+          },
+        },
+      },
     },
     ...errorResponses(400, 401),
   },
@@ -747,7 +1117,20 @@ const streaksRoute = createRoute({
   responses: {
     200: {
       description: 'Streak data',
-      content: { 'application/json': { schema: StreaksSchema } },
+      content: {
+        'application/json': {
+          schema: StreaksSchema,
+          example: {
+            current: { days: 3, start_date: '2026-03-16', total_scrobbles: 65 },
+            longest: {
+              days: 62,
+              start_date: '2017-01-02',
+              end_date: '2017-03-04',
+              total_scrobbles: 3535,
+            },
+          },
+        },
+      },
     },
     ...errorResponses(401),
   },
@@ -772,7 +1155,86 @@ const yearRoute = createRoute({
   responses: {
     200: {
       description: 'Year in review data',
-      content: { 'application/json': { schema: YearSchema } },
+      content: {
+        'application/json': {
+          schema: YearSchema,
+          example: {
+            year: 2025,
+            total_scrobbles: 8500,
+            unique_artists: 420,
+            unique_albums: 890,
+            unique_tracks: 3200,
+            top_artists: [
+              {
+                id: 92,
+                name: 'Taylor Swift',
+                scrobbles: 350,
+                apple_music_url:
+                  'https://music.apple.com/us/artist/taylor-swift/159260351?uo=4',
+                image: null,
+              },
+              {
+                id: 189,
+                name: 'Nirvana',
+                scrobbles: 280,
+                apple_music_url:
+                  'https://music.apple.com/us/artist/nirvana/112018?uo=4',
+                image: null,
+              },
+            ],
+            top_albums: [
+              {
+                id: 20,
+                name: 'GUTS',
+                artist: 'Olivia Rodrigo',
+                scrobbles: 120,
+                apple_music_url: null,
+                image: null,
+              },
+              {
+                id: 300,
+                name: 'MTV Unplugged in New York',
+                artist: 'Nirvana',
+                scrobbles: 95,
+                apple_music_url: null,
+                image: null,
+              },
+            ],
+            top_tracks: [
+              {
+                id: 2001,
+                name: 'Espresso',
+                artist: 'Sabrina Carpenter',
+                scrobbles: 68,
+                apple_music_url: null,
+                preview_url: null,
+              },
+              {
+                id: 1001,
+                name: 'bad idea right?',
+                artist: 'Olivia Rodrigo',
+                scrobbles: 55,
+                apple_music_url: null,
+                preview_url: null,
+              },
+            ],
+            monthly: [
+              {
+                month: '2025-01',
+                scrobbles: 720,
+                unique_artists: 85,
+                unique_albums: 140,
+              },
+              {
+                month: '2025-02',
+                scrobbles: 680,
+                unique_artists: 78,
+                unique_albums: 125,
+              },
+            ],
+          },
+        },
+      },
     },
     ...errorResponses(400, 401),
   },
@@ -820,6 +1282,30 @@ const genresRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(GenrePeriodSchema) }),
+          example: {
+            data: [
+              {
+                period: '2026-01',
+                genres: {
+                  Rock: 245,
+                  'Hip-Hop': 112,
+                  Electronic: 87,
+                  Other: 89,
+                },
+                total: 533,
+              },
+              {
+                period: '2026-02',
+                genres: { Pop: 180, Rock: 150, 'Hip-Hop': 95, Other: 76 },
+                total: 501,
+              },
+              {
+                period: '2026-03',
+                genres: { Grunge: 120, Rock: 110, Pop: 90, Other: 67 },
+                total: 387,
+              },
+            ],
+          },
         },
       },
     },
@@ -831,6 +1317,7 @@ const listFiltersRoute = createRoute({
   method: 'get',
   path: '/admin/filters',
   operationId: 'listListeningFilters',
+  'x-hidden': true,
   tags: ['Listening', 'Admin'],
   summary: 'List listening filters',
   description: 'Returns all listening filters.',
@@ -851,6 +1338,7 @@ const createFilterRoute = createRoute({
   method: 'post',
   path: '/admin/filters',
   operationId: 'createListeningFilter',
+  'x-hidden': true,
   tags: ['Listening', 'Admin'],
   summary: 'Create listening filter',
   description: 'Creates a new listening filter.',
@@ -884,6 +1372,7 @@ const deleteFilterRoute = createRoute({
   method: 'delete',
   path: '/admin/filters/{id}',
   operationId: 'deleteListeningFilter',
+  'x-hidden': true,
   tags: ['Listening', 'Admin'],
   summary: 'Delete listening filter',
   description: 'Deletes a listening filter by ID.',
@@ -905,6 +1394,7 @@ const backfillImagesRoute = createRoute({
   method: 'post',
   path: '/admin/listening/backfill-images',
   operationId: 'backfillListeningImages',
+  'x-hidden': true,
   tags: ['Listening', 'Admin'],
   summary: 'Backfill listening images',
   description: 'Backfills missing images for albums and/or artists.',
@@ -2608,6 +3098,7 @@ const enrichAppleMusicRoute = createRoute({
   method: 'post',
   path: '/admin/listening/enrich-apple-music',
   operationId: 'enrichListeningAppleMusic',
+  'x-hidden': true,
   tags: ['Listening', 'Admin'],
   summary: 'Enrich tracks with Apple Music URLs',
   description:

@@ -365,9 +365,9 @@ const collectionListRoute = createRoute({
               {
                 id: 1,
                 discogs_id: 6872464,
-                title: 'Strange Trails',
-                artists: ['Lord Huron'],
-                year: 2015,
+                title: 'Nevermind',
+                artists: ['Nirvana'],
+                year: 1991,
                 format: 'Vinyl',
                 format_detail: '["LP","Album","Stereo"]',
                 label: '[{"name":"IAmSound Records","catno":"IAM066L"}]',
@@ -409,7 +409,21 @@ const collectionStatsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': { schema: CollectionStatsSchema },
+        'application/json': {
+          schema: CollectionStatsSchema,
+          example: {
+            total_items: 284,
+            by_format: { vinyl: 253, cd: 29, cassette: 0, other: 2 },
+            wantlist_count: 1,
+            unique_artists: 107,
+            estimated_value: 7394.51,
+            top_genre: 'Rock',
+            oldest_release_year: 1957,
+            newest_release_year: 2025,
+            most_collected_artist: { name: 'Taylor Swift', count: 24 },
+            added_this_year: 139,
+          },
+        },
       },
       description: 'Collection statistics',
     },
@@ -434,6 +448,32 @@ const collectionRecentRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(CollectionItemSchema) }),
+          example: {
+            data: [
+              {
+                id: 1,
+                discogs_id: 6872464,
+                title: 'Nevermind',
+                artists: ['Nirvana'],
+                year: 1991,
+                format: 'Vinyl',
+                format_detail: '["LP","Album"]',
+                label: '[{"name":"DGC","catno":"DGC-24425"}]',
+                genres: ['Rock'],
+                styles: ['Grunge'],
+                image: {
+                  url: 'https://cdn.rewind.rest/collecting/releases/6872464/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: 'GncKRwaU9niFd3dShlaJSFeJlYCYhGYA',
+                  dominant_color: '#222229',
+                  accent_color: '#9b31ed',
+                },
+                date_added: '2026-03-11T16:05:58-07:00',
+                rating: 0,
+                discogs_url: 'https://www.discogs.com/release/6872464',
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 284, total_pages: 15 },
+          },
         },
       },
       description: 'Recent collection items',
@@ -457,7 +497,43 @@ const collectionDetailRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': { schema: CollectionDetailSchema },
+        'application/json': {
+          schema: CollectionDetailSchema,
+          example: {
+            id: 1,
+            discogs_id: 6872464,
+            title: 'Nevermind',
+            artists: ['Nirvana'],
+            year: 1991,
+            format: 'Vinyl',
+            format_detail: '["LP","Album"]',
+            label: '[{"name":"DGC","catno":"DGC-24425"}]',
+            genres: ['Rock'],
+            styles: ['Grunge'],
+            image: {
+              url: 'https://cdn.rewind.rest/collecting/releases/6872464/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+              thumbhash: 'GncKRwaU9niFd3dShlaJSFeJlYCYhGYA',
+              dominant_color: '#222229',
+              accent_color: '#9b31ed',
+            },
+            date_added: '2026-03-11T16:05:58-07:00',
+            rating: 0,
+            discogs_url: 'https://www.discogs.com/release/6872464',
+            tracklist: [
+              {
+                position: '1',
+                title: 'Smells Like Teen Spirit',
+                duration: '5:01',
+              },
+            ],
+            country: 'US',
+            community_have: 45000,
+            community_want: 12000,
+            lowest_price: 25.99,
+            num_for_sale: 350,
+            notes: null,
+          },
+        },
       },
       description: 'Collection item detail',
     },
@@ -484,6 +560,25 @@ const wantlistRoute = createRoute({
             data: z.array(WantlistItemSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                id: 100,
+                discogs_id: 9999999,
+                title: 'In Utero',
+                artists: ['Nirvana'],
+                year: 1993,
+                formats: ['Vinyl'],
+                genres: ['Rock'],
+                image: null,
+                discogs_url: 'https://www.discogs.com/release/9999999',
+                notes: null,
+                rating: null,
+                date_added: '2026-01-10T12:00:00Z',
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 1, total_pages: 1 },
+          },
         },
       },
       description: 'Paginated wantlist items',
@@ -506,6 +601,13 @@ const formatsRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(NameCountSchema) }),
+          example: {
+            data: [
+              { name: 'Vinyl', count: 253 },
+              { name: 'CD', count: 29 },
+              { name: 'Other', count: 2 },
+            ],
+          },
         },
       },
       description: 'Format counts',
@@ -527,6 +629,13 @@ const genresRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(NameCountSchema) }),
+          example: {
+            data: [
+              { name: 'Rock', count: 120 },
+              { name: 'Pop', count: 45 },
+              { name: 'Hip Hop', count: 38 },
+            ],
+          },
         },
       },
       description: 'Genre counts',
@@ -551,6 +660,28 @@ const artistsRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(ArtistItemSchema) }),
+          example: {
+            data: [
+              {
+                name: 'Taylor Swift',
+                discogs_id: 123456,
+                image_url: null,
+                release_count: 24,
+              },
+              {
+                name: 'Nirvana',
+                discogs_id: 125246,
+                image_url: null,
+                release_count: 5,
+              },
+              {
+                name: 'Beastie Boys',
+                discogs_id: 19943,
+                image_url: null,
+                release_count: 3,
+              },
+            ],
+          },
         },
       },
       description: 'Artist list with release counts',
@@ -580,6 +711,40 @@ const crossRefRoute = createRoute({
             summary: CrossReferenceSummarySchema,
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                collection: {
+                  id: 1,
+                  discogs_id: 6872464,
+                  title: 'Nevermind',
+                  artists: ['Nirvana'],
+                  year: 1991,
+                  format: 'Vinyl',
+                  genres: ['Rock'],
+                  styles: ['Grunge'],
+                  image: null,
+                  date_added: '2026-03-11T16:05:58-07:00',
+                  rating: 0,
+                  discogs_url: 'https://www.discogs.com/release/6872464',
+                },
+                listening: {
+                  album_name: 'Nevermind',
+                  artist_name: 'Nirvana',
+                  play_count: 333,
+                  last_played: '2026-02-15T20:00:00Z',
+                  match_type: 'exact',
+                  match_confidence: 1.0,
+                },
+              },
+            ],
+            summary: {
+              total_matches: 50,
+              listen_rate: 0.72,
+              unlistened_count: 14,
+            },
+            pagination: { page: 1, limit: 20, total: 50, total_pages: 3 },
+          },
         },
       },
       description: 'Cross-reference data with summary stats',
@@ -620,6 +785,15 @@ const calendarRoute = createRoute({
               count: z.number(),
             }),
           }),
+          example: {
+            year: 2026,
+            days: [
+              { date: '2026-01-15', count: 3 },
+              { date: '2026-02-01', count: 5 },
+            ],
+            total: 139,
+            max_day: { date: '2026-02-01', count: 5 },
+          },
         },
       },
       description: 'Calendar data with daily counts',
@@ -633,6 +807,7 @@ const syncCollectingRoute = createRoute({
   method: 'post',
   path: '/admin/sync/collecting',
   operationId: 'adminSyncCollecting',
+  'x-hidden': true,
   tags: ['Collecting', 'Admin'],
   summary: 'Sync Discogs collection',
   description: 'Trigger a manual sync of the Discogs vinyl collection.',
@@ -652,6 +827,7 @@ const backfillImagesRoute = createRoute({
   method: 'post',
   path: '/admin/collecting/backfill-images',
   operationId: 'adminCollectingBackfillImages',
+  'x-hidden': true,
   tags: ['Collecting', 'Admin'],
   summary: 'Backfill collection images',
   description:
@@ -694,6 +870,64 @@ const mediaListRoute = createRoute({
             data: z.array(MediaItemSchema),
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                id: 1,
+                title: 'Top Gun: Maverick',
+                year: 2022,
+                tmdb_id: 361743,
+                imdb_id: 'tt1745960',
+                image: {
+                  url: 'https://cdn.rewind.rest/collecting/media/1/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+                  thumbhash: 'YRcKDQKadZh4d3Z4d3aHeAeAh4B3',
+                  dominant_color: '#2a2a2a',
+                  accent_color: '#c8a882',
+                },
+                runtime: 131,
+                tmdb_rating: 8.2,
+                media_type: 'bluray',
+                resolution: '1080p',
+                hdr: null,
+                audio: 'Dolby Atmos',
+                audio_channels: '7.1',
+                collected_at: '2026-01-15T00:00:00Z',
+              },
+              {
+                id: 2,
+                title: 'The Great Escape',
+                year: 1963,
+                tmdb_id: 5925,
+                imdb_id: 'tt0057115',
+                image: null,
+                runtime: 172,
+                tmdb_rating: 8.0,
+                media_type: 'bluray_4k',
+                resolution: '2160p',
+                hdr: 'HDR10',
+                audio: 'DTS-HD MA',
+                audio_channels: '5.1',
+                collected_at: '2025-12-25T00:00:00Z',
+              },
+              {
+                id: 3,
+                title: 'Interstellar',
+                year: 2014,
+                tmdb_id: 157336,
+                imdb_id: 'tt0816692',
+                image: null,
+                runtime: 169,
+                tmdb_rating: 8.4,
+                media_type: 'bluray_4k',
+                resolution: '2160p',
+                hdr: 'HDR10',
+                audio: 'DTS-HD MA',
+                audio_channels: '5.1',
+                collected_at: '2025-11-10T00:00:00Z',
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 45, total_pages: 3 },
+          },
         },
       },
       description: 'Paginated media items',
@@ -714,7 +948,18 @@ const mediaStatsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': { schema: MediaStatsSchema },
+        'application/json': {
+          schema: MediaStatsSchema,
+          example: {
+            total_items: 45,
+            by_format: { 'Blu-ray': 25, '4K UHD': 15, DVD: 5 },
+            by_resolution: { '1080p': 25, '2160p': 15, '480p': 5 },
+            by_hdr: { HDR10: 10, 'Dolby Vision': 5, none: 30 },
+            by_genre: { Action: 15, Drama: 12, 'Science Fiction': 8 },
+            by_decade: { '2020s': 10, '2010s': 15, '2000s': 8 },
+            added_this_year: 12,
+          },
+        },
       },
       description: 'Media collection statistics',
     },
@@ -739,6 +984,24 @@ const mediaRecentRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(MediaRecentItemSchema) }),
+          example: {
+            data: [
+              {
+                id: 1,
+                title: 'Top Gun: Maverick',
+                year: 2022,
+                tmdb_id: 361743,
+                image: null,
+                tmdb_rating: 8.2,
+                media_type: 'bluray',
+                resolution: '1080p',
+                hdr: null,
+                audio: 'Dolby Atmos',
+                audio_channels: '7.1',
+                collected_at: '2026-01-15T00:00:00Z',
+              },
+            ],
+          },
         },
       },
       description: 'Recent media items',
@@ -761,6 +1024,13 @@ const mediaFormatsRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({ data: z.array(NameCountSchema) }),
+          example: {
+            data: [
+              { name: 'Blu-ray', count: 25 },
+              { name: '4K UHD', count: 15 },
+              { name: 'DVD', count: 5 },
+            ],
+          },
         },
       },
       description: 'Format counts',
@@ -790,6 +1060,34 @@ const mediaCrossRefRoute = createRoute({
             summary: MediaCrossRefSummarySchema,
             pagination: PaginationMeta,
           }),
+          example: {
+            data: [
+              {
+                collection: {
+                  id: 2,
+                  title: 'The Great Escape',
+                  year: 1963,
+                  tmdb_id: 5925,
+                  image: null,
+                  media_type: 'bluray_4k',
+                  resolution: '2160p',
+                  collected_at: '2025-12-25T00:00:00Z',
+                },
+                watching: {
+                  watched: true,
+                  watch_count: 3,
+                  last_watched: '2025-08-10T20:00:00Z',
+                },
+              },
+            ],
+            summary: {
+              total_owned: 45,
+              total_watched: 30,
+              total_unwatched: 15,
+              watch_rate: 0.67,
+            },
+            pagination: { page: 1, limit: 20, total: 30, total_pages: 2 },
+          },
         },
       },
       description: 'Cross-reference data with summary stats',
@@ -813,7 +1111,36 @@ const mediaDetailRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': { schema: MediaDetailSchema },
+        'application/json': {
+          schema: MediaDetailSchema,
+          example: {
+            id: 2,
+            title: 'The Great Escape',
+            year: 1963,
+            tmdb_id: 5925,
+            imdb_id: 'tt0057115',
+            tagline: 'No prison can hold them!',
+            summary:
+              'Allied prisoners of war plan for several hundred of their number to escape from a German camp during World War II.',
+            image: null,
+            runtime: 172,
+            tmdb_rating: 8.0,
+            content_rating: 'NR',
+            media_type: 'bluray_4k',
+            resolution: '2160p',
+            hdr: 'HDR10',
+            audio: 'DTS-HD MA',
+            audio_channels: '5.1',
+            collected_at: '2025-12-25T00:00:00Z',
+            watch_history: [
+              {
+                watched_at: '2025-08-10T20:00:00Z',
+                source: 'plex',
+                user_rating: null,
+              },
+            ],
+          },
+        },
       },
       description: 'Media item detail',
     },
@@ -826,6 +1153,7 @@ const addMediaRoute = createRoute({
   method: 'post',
   path: '/admin/collecting/media',
   operationId: 'adminAddCollectingMedia',
+  'x-hidden': true,
   tags: ['Collecting', 'Admin'],
   summary: 'Add physical media',
   description:
@@ -853,6 +1181,7 @@ const removeMediaRoute = createRoute({
   method: 'post',
   path: '/admin/collecting/media/{id}/remove',
   operationId: 'adminRemoveCollectingMedia',
+  'x-hidden': true,
   tags: ['Collecting', 'Admin'],
   summary: 'Remove physical media',
   description:
@@ -876,6 +1205,7 @@ const syncTraktRoute = createRoute({
   method: 'post',
   path: '/admin/sync/trakt',
   operationId: 'adminSyncTrakt',
+  'x-hidden': true,
   tags: ['Collecting', 'Admin'],
   summary: 'Sync Trakt collection',
   description: 'Trigger a manual sync of the Trakt physical media collection.',
@@ -895,6 +1225,7 @@ const mediaBackfillImagesRoute = createRoute({
   method: 'post',
   path: '/admin/collecting/media/backfill-images',
   operationId: 'adminCollectingMediaBackfillImages',
+  'x-hidden': true,
   tags: ['Collecting', 'Admin'],
   summary: 'Backfill media poster images',
   description:

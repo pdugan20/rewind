@@ -1,5 +1,6 @@
 ---
 title: Listening
+icon: headphones
 description: Last.fm and Apple Music scrobble data
 ---
 
@@ -13,15 +14,15 @@ Data syncs every 15 minutes via cron. Each sync fetches recent scrobbles and upd
 
 | Endpoint | Description |
 | --- | --- |
-| [GET /listening/recent](/api-reference/listening/get-listening-recent) | Recent scrobbles with track, artist, album, and image data |
-| [GET /listening/now-playing](/api-reference/listening/get-listening-now-playing) | Currently playing track (if any) |
-| [GET /listening/top/artists](/api-reference/listening/get-listening-top-artists) | Top artists by play count, filterable by time period |
-| [GET /listening/top/albums](/api-reference/listening/get-listening-top-albums) | Top albums by play count |
-| [GET /listening/top/tracks](/api-reference/listening/get-listening-top-tracks) | Top tracks by scrobble count |
-| [GET /listening/stats](/api-reference/listening/get-listening-stats) | Lifetime listening statistics |
-| [GET /listening/streaks](/api-reference/listening/get-listening-streaks) | Listening streak data (consecutive days) |
-| [GET /listening/artists](/api-reference/listening/list-listening-artists) | Browse all artists with pagination |
-| [GET /listening/artists/:id](/api-reference/listening/get-listening-artist) | Artist detail with top albums and tracks |
+| [GET /listening/recent](/api-reference/listening/recent-scrobbles) | Recent scrobbles with track, artist, album, and image data |
+| [GET /listening/now-playing](/api-reference/listening/now-playing) | Currently playing track (if any) |
+| [GET /listening/top/artists](/api-reference/listening/top-artists) | Top artists by play count, filterable by time period |
+| [GET /listening/top/albums](/api-reference/listening/top-albums) | Top albums by play count |
+| [GET /listening/top/tracks](/api-reference/listening/top-tracks) | Top tracks by scrobble count |
+| [GET /listening/stats](/api-reference/listening/listening-stats) | Lifetime listening statistics |
+| [GET /listening/streaks](/api-reference/listening/listening-streaks) | Listening streak data (consecutive days) |
+| [GET /listening/artists](/api-reference/listening/browse-artists) | Browse all artists with pagination |
+| [GET /listening/artists/:id](/api-reference/listening/artist-detail) | Artist detail with top albums and tracks |
 
 ## Time periods
 

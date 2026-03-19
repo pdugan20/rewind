@@ -63,8 +63,8 @@ const searchRoute = createRoute({
               {
                 domain: 'listening',
                 entity_type: 'artist',
-                entity_id: '636',
-                title: 'Radiohead',
+                entity_id: '189',
+                title: 'Nirvana',
                 subtitle: null,
                 image_key: null,
               },

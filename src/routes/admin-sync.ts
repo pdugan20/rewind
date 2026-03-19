@@ -105,6 +105,7 @@ const syncListeningRoute = createRoute({
   method: 'post',
   path: '/admin/sync/listening',
   operationId: 'adminSyncListening',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Trigger Last.fm sync',
   description:
@@ -173,6 +174,7 @@ const syncRunningRoute = createRoute({
   method: 'post',
   path: '/admin/sync/running',
   operationId: 'adminSyncRunning',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Trigger Strava sync',
   description: 'Manually trigger a Strava running activities sync.',
@@ -205,6 +207,7 @@ const syncWatchingRoute = createRoute({
   method: 'post',
   path: '/admin/sync/watching',
   operationId: 'adminSyncWatching',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Trigger watching sync',
   description:
@@ -254,6 +257,7 @@ const syncCollectingRoute = createRoute({
   method: 'post',
   path: '/admin/sync/collecting',
   operationId: 'adminSyncDiscogsCollection',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Trigger Discogs collection sync',
   description: 'Manually trigger a Discogs collection sync.',
@@ -282,6 +286,7 @@ const syncTraktRoute = createRoute({
   method: 'post',
   path: '/admin/sync/trakt',
   operationId: 'adminSyncTraktCollection',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Trigger Trakt collection sync',
   description: 'Manually trigger a Trakt collection sync.',
@@ -310,6 +315,7 @@ const deleteActivityRoute = createRoute({
   method: 'delete',
   path: '/admin/running/activities/{id}',
   operationId: 'adminDeleteRunningActivity',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Soft-delete a Strava activity',
   description:
@@ -347,6 +353,7 @@ const recomputeRoute = createRoute({
   method: 'post',
   path: '/admin/running/recompute',
   operationId: 'adminRecomputeRunningStats',
+  'x-hidden': true,
   tags: ['Admin'],
   summary: 'Recompute running stats',
   description:

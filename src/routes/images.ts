@@ -222,6 +222,7 @@ const getAlternativesRoute = createRoute({
   method: 'get',
   path: '/admin/images/{domain}/{entity_type}/{entity_id}/alternatives',
   operationId: 'getImageAlternatives',
+  'x-hidden': true,
   tags: ['Images', 'Admin'],
   summary: 'Browse image alternatives',
   description:
@@ -301,6 +302,7 @@ const putOverrideRoute = createRoute({
   method: 'put',
   path: '/admin/images/{domain}/{entity_type}/{entity_id}',
   operationId: 'setImageOverride',
+  'x-hidden': true,
   tags: ['Images', 'Admin'],
   summary: 'Set image override',
   description:
@@ -418,6 +420,7 @@ const deleteOverrideRoute = createRoute({
   method: 'delete',
   path: '/admin/images/{domain}/{entity_type}/{entity_id}/override',
   operationId: 'deleteImageOverride',
+  'x-hidden': true,
   tags: ['Images', 'Admin'],
   summary: 'Revert image override',
   description:
@@ -512,6 +515,7 @@ const regenThumbhashRoute = createRoute({
   method: 'post',
   path: '/admin/images/regenerate-thumbhashes',
   operationId: 'regenerateThumbhashes',
+  'x-hidden': true,
   tags: ['Admin', 'Images'],
   summary: 'Regenerate thumbhashes',
   description:

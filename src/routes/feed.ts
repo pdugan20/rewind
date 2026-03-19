@@ -89,7 +89,7 @@ const getFeedRoute = createRoute({
                 domain: 'watching',
                 event_type: 'movie_watched',
                 occurred_at: '2026-03-18T20:11:30.741Z',
-                title: 'Watched The French Dispatch (2021)',
+                title: "Watched Ferris Bueller's Day Off (1986)",
                 subtitle: null,
                 image_key: null,
                 source_id: 'plex:webhook:27504-2026-03-18',
@@ -168,6 +168,23 @@ const getDomainFeedRoute = createRoute({
       content: {
         'application/json': {
           schema: FeedResponseSchema,
+          example: {
+            data: [
+              {
+                id: 2491,
+                domain: 'watching',
+                event_type: 'movie_watched',
+                occurred_at: '2026-03-18T20:11:30.741Z',
+                title: "Watched Ferris Bueller's Day Off (1986)",
+                subtitle: null,
+                image_key: null,
+                source_id: 'plex:webhook:123',
+                metadata: null,
+                created_at: '2026-03-18T20:11:30.762Z',
+              },
+            ],
+            pagination: { next_cursor: '2491', has_more: true, limit: 20 },
+          },
         },
       },
     },
@@ -273,6 +290,28 @@ const onThisDayRoute = createRoute({
             day: z.number(),
             years: z.array(OnThisDayYearSchema),
           }),
+          example: {
+            month: 3,
+            day: 18,
+            years: [
+              {
+                year: 2024,
+                items: [
+                  {
+                    id: 500,
+                    domain: 'listening',
+                    event_type: 'artist_discovered',
+                    occurred_at: '2024-03-18T15:00:00.000Z',
+                    title: 'Discovered Sabrina Carpenter',
+                    subtitle: null,
+                    image_key: null,
+                    source_id: 'lastfm:sync:abc',
+                    metadata: null,
+                  },
+                ],
+              },
+            ],
+          },
         },
       },
     },

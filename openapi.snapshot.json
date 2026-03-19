@@ -571,6 +571,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SyncHealthResponse"
+                },
+                "example": {
+                  "status": "ok",
+                  "domains": {
+                    "listening": {
+                      "last_sync": "2026-03-18T21:00:00.000Z",
+                      "status": "completed",
+                      "sync_type": "scrobbles",
+                      "items_synced": 42,
+                      "duration_ms": 1250,
+                      "error": null,
+                      "error_rate": 0
+                    },
+                    "running": {
+                      "last_sync": "2026-03-18T03:00:00.000Z",
+                      "status": "completed",
+                      "sync_type": "activities",
+                      "items_synced": 3,
+                      "duration_ms": 4200,
+                      "error": null,
+                      "error_rate": 0
+                    }
+                  }
                 }
               }
             }
@@ -609,6 +632,31 @@
                     "is_playing",
                     "scrobbled_at"
                   ]
+                },
+                "example": {
+                  "is_playing": true,
+                  "track": {
+                    "name": "Espresso",
+                    "artist": {
+                      "id": 471,
+                      "name": "Sabrina Carpenter",
+                      "apple_music_url": "https://music.apple.com/us/artist/sabrina-carpenter/595947033?uo=4"
+                    },
+                    "album": {
+                      "id": 254,
+                      "name": "Short n' Sweet",
+                      "image": {
+                        "url": "https://cdn.rewind.rest/listening/albums/254/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "HBkKHQi694WIeIiAh3Z3d2eAd4B3",
+                        "dominant_color": "#5c4a6d",
+                        "accent_color": "#c4a8d4"
+                      }
+                    },
+                    "url": "https://www.last.fm/music/Sabrina+Carpenter/_/Espresso",
+                    "apple_music_url": "https://music.apple.com/us/album/espresso/1745069032?i=1745069234&uo=4",
+                    "preview_url": null
+                  },
+                  "scrobbled_at": "2026-03-18T22:30:00.000Z"
                 }
               }
             }
@@ -789,27 +837,65 @@
                   "data": [
                     {
                       "track": {
-                        "id": 4296,
-                        "name": "Cherry",
-                        "url": "https://www.last.fm/music/Ratatat/_/Cherry",
-                        "apple_music_url": "https://music.apple.com/us/album/cherry/1540685260?i=1540685721&uo=4",
-                        "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/68/56/3d/68563d2b-7ef3-4bb0-5f97-8cd2984a4e90/mzaf_17848570804808983859.plus.aac.p.m4a"
+                        "id": 1001,
+                        "name": "bad idea right?",
+                        "url": "https://www.last.fm/music/Olivia+Rodrigo/_/bad+idea+right%3F",
+                        "apple_music_url": null,
+                        "preview_url": null
                       },
                       "artist": {
-                        "id": 551,
-                        "name": "Ratatat"
+                        "id": 37,
+                        "name": "Olivia Rodrigo"
                       },
                       "album": {
-                        "id": 1566,
-                        "name": "Ratatat",
+                        "id": 20,
+                        "name": "GUTS",
                         "image": {
-                          "url": "https://cdn.rewind.rest/listening/albums/1566/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
-                          "thumbhash": "NwgKBwDIl4d2h3h/hrZ4d2h0d4QHQ2oA",
-                          "dominant_color": "#d8d8d8",
-                          "accent_color": "#d8d8d8"
+                          "url": "https://cdn.rewind.rest/listening/albums/20/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                          "thumbhash": "HBkKHQi694WIeIiAh3Z3d2eAd4B3",
+                          "dominant_color": "#5c4a6d",
+                          "accent_color": "#c4a8d4"
                         }
                       },
-                      "scrobbled_at": "2026-03-18T01:14:04.000Z"
+                      "scrobbled_at": "2026-03-18T22:14:04.000Z"
+                    },
+                    {
+                      "track": {
+                        "id": 1002,
+                        "name": "Sabotage",
+                        "url": "https://www.last.fm/music/Beastie+Boys/_/Sabotage",
+                        "apple_music_url": null,
+                        "preview_url": null
+                      },
+                      "artist": {
+                        "id": 130,
+                        "name": "Beastie Boys"
+                      },
+                      "album": {
+                        "id": 500,
+                        "name": "Ill Communication",
+                        "image": null
+                      },
+                      "scrobbled_at": "2026-03-18T22:10:00.000Z"
+                    },
+                    {
+                      "track": {
+                        "id": 1003,
+                        "name": "Come as You Are",
+                        "url": "https://www.last.fm/music/Nirvana/_/Come+as+You+Are",
+                        "apple_music_url": "https://music.apple.com/us/album/come-as-you-are/1440783617?i=1440783636&uo=4",
+                        "preview_url": null
+                      },
+                      "artist": {
+                        "id": 189,
+                        "name": "Nirvana"
+                      },
+                      "album": {
+                        "id": 300,
+                        "name": "Nevermind",
+                        "image": null
+                      },
+                      "scrobbled_at": "2026-03-18T22:05:00.000Z"
                     }
                   ]
                 }
@@ -954,19 +1040,41 @@
                   "data": [
                     {
                       "rank": 1,
-                      "id": 91,
-                      "name": "The Beatles",
+                      "id": 130,
+                      "name": "Beastie Boys",
                       "detail": "",
-                      "playcount": 6322,
-                      "genre": "Classic Rock",
+                      "playcount": 4011,
+                      "genre": "Hip-Hop",
                       "image": {
-                        "url": "https://cdn.rewind.rest/listening/artists/91/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
-                        "thumbhash": "5fcRBwD4yLd5doh/hZZ4p3iGOWr3o3YP",
-                        "dominant_color": "#ffffff",
-                        "accent_color": "#ffffff"
+                        "url": "https://cdn.rewind.rest/listening/artists/130/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "GggGBwDN+CSBp7VXcmVmlyZ2BgAAAAAA",
+                        "dominant_color": "#191919",
+                        "accent_color": "#7e7e7e"
                       },
-                      "url": "https://www.last.fm/music/The+Beatles",
-                      "apple_music_url": "https://music.apple.com/us/artist/the-beatles/136975?uo=4"
+                      "url": "https://www.last.fm/music/Beastie+Boys",
+                      "apple_music_url": null
+                    },
+                    {
+                      "rank": 2,
+                      "id": 189,
+                      "name": "Nirvana",
+                      "detail": "",
+                      "playcount": 2179,
+                      "genre": "Grunge",
+                      "image": null,
+                      "url": "https://www.last.fm/music/Nirvana",
+                      "apple_music_url": "https://music.apple.com/us/artist/nirvana/112018?uo=4"
+                    },
+                    {
+                      "rank": 3,
+                      "id": 92,
+                      "name": "Taylor Swift",
+                      "detail": "",
+                      "playcount": 2164,
+                      "genre": "Country",
+                      "image": null,
+                      "url": "https://www.last.fm/music/Taylor+Swift",
+                      "apple_music_url": "https://music.apple.com/us/artist/taylor-swift/159260351?uo=4"
                     }
                   ],
                   "pagination": {
@@ -1121,6 +1229,52 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "period": "overall",
+                  "data": [
+                    {
+                      "rank": 1,
+                      "id": 300,
+                      "name": "MTV Unplugged in New York",
+                      "detail": "Nirvana",
+                      "playcount": 428,
+                      "image": {
+                        "url": "https://cdn.rewind.rest/listening/albums/300/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "HBkKHQi694WIeIiAh3Z3d2eAd4B3",
+                        "dominant_color": "#5c4a6d",
+                        "accent_color": "#c4a8d4"
+                      },
+                      "url": "https://www.last.fm/music/Nirvana/MTV+Unplugged+in+New+York",
+                      "apple_music_url": null
+                    },
+                    {
+                      "rank": 2,
+                      "id": 500,
+                      "name": "Hot Sauce Committee Part Two",
+                      "detail": "Beastie Boys",
+                      "playcount": 534,
+                      "image": null,
+                      "url": "https://www.last.fm/music/Beastie+Boys/Hot+Sauce+Committee+Part+Two",
+                      "apple_music_url": null
+                    },
+                    {
+                      "rank": 3,
+                      "id": 20,
+                      "name": "GUTS",
+                      "detail": "Olivia Rodrigo",
+                      "playcount": 32,
+                      "image": null,
+                      "url": "https://www.last.fm/music/Olivia+Rodrigo/GUTS",
+                      "apple_music_url": null
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 29,
+                    "total_pages": 2
+                  }
                 }
               }
             }
@@ -1267,6 +1421,50 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "period": "overall",
+                  "data": [
+                    {
+                      "rank": 1,
+                      "id": 595,
+                      "name": "Come as You Are",
+                      "detail": "Nirvana",
+                      "playcount": 101,
+                      "image": null,
+                      "url": "https://www.last.fm/music/Nirvana/_/Come+as+You+Are",
+                      "apple_music_url": "https://music.apple.com/us/album/come-as-you-are/1440783617?i=1440783636&uo=4",
+                      "preview_url": null
+                    },
+                    {
+                      "rank": 2,
+                      "id": 1050,
+                      "name": "bad idea right?",
+                      "detail": "Olivia Rodrigo",
+                      "playcount": 82,
+                      "image": null,
+                      "url": "https://www.last.fm/music/Olivia+Rodrigo/_/bad+idea+right%3F",
+                      "apple_music_url": null,
+                      "preview_url": null
+                    },
+                    {
+                      "rank": 3,
+                      "id": 2001,
+                      "name": "Espresso",
+                      "detail": "Sabrina Carpenter",
+                      "playcount": 68,
+                      "image": null,
+                      "url": "https://www.last.fm/music/Sabrina+Carpenter/_/Espresso",
+                      "apple_music_url": null,
+                      "preview_url": null
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 13,
+                    "total_pages": 1
+                  }
                 }
               }
             }
@@ -1380,6 +1578,15 @@
                     "years_tracking",
                     "scrobbles_per_day"
                   ]
+                },
+                "example": {
+                  "total_scrobbles": 123867,
+                  "unique_artists": 5278,
+                  "unique_albums": 11168,
+                  "unique_tracks": 28405,
+                  "registered_date": "2012-02-09T16:01:17.000Z",
+                  "years_tracking": 14,
+                  "scrobbles_per_day": 24
                 }
               }
             }
@@ -1572,6 +1779,40 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "track": {
+                        "id": 1001,
+                        "name": "bad idea right?",
+                        "url": "https://www.last.fm/music/Olivia+Rodrigo/_/bad+idea+right%3F",
+                        "apple_music_url": null,
+                        "preview_url": null
+                      },
+                      "artist": {
+                        "id": 37,
+                        "name": "Olivia Rodrigo"
+                      },
+                      "album": {
+                        "id": 20,
+                        "name": "GUTS",
+                        "image": {
+                          "url": "https://cdn.rewind.rest/listening/albums/20/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                          "thumbhash": "HBkKHQi694WIeIiAh3Z3d2eAd4B3",
+                          "dominant_color": "#5c4a6d",
+                          "accent_color": "#c4a8d4"
+                        }
+                      },
+                      "scrobbled_at": "2026-03-18T22:14:04.000Z"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 50,
+                    "total": 123867,
+                    "total_pages": 2478
+                  }
                 }
               }
             }
@@ -1719,6 +1960,48 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 130,
+                      "name": "Beastie Boys",
+                      "playcount": 4011,
+                      "genre": "Hip-Hop",
+                      "url": "https://www.last.fm/music/Beastie+Boys",
+                      "apple_music_url": null,
+                      "image": {
+                        "url": "https://cdn.rewind.rest/listening/artists/130/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "GggGBwDN+CSBp7VXcmVmlyZ2BgAAAAAA",
+                        "dominant_color": "#191919",
+                        "accent_color": "#7e7e7e"
+                      }
+                    },
+                    {
+                      "id": 189,
+                      "name": "Nirvana",
+                      "playcount": 2179,
+                      "genre": "Grunge",
+                      "url": "https://www.last.fm/music/Nirvana",
+                      "apple_music_url": "https://music.apple.com/us/artist/nirvana/112018?uo=4",
+                      "image": null
+                    },
+                    {
+                      "id": 92,
+                      "name": "Taylor Swift",
+                      "playcount": 2164,
+                      "genre": "Country",
+                      "url": "https://www.last.fm/music/Taylor+Swift",
+                      "apple_music_url": "https://music.apple.com/us/artist/taylor-swift/159260351?uo=4",
+                      "image": null
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 5278,
+                    "total_pages": 264
+                  }
                 }
               }
             }
@@ -1885,6 +2168,40 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 300,
+                      "name": "Nevermind",
+                      "artist": {
+                        "id": 189,
+                        "name": "Nirvana"
+                      },
+                      "playcount": 333,
+                      "url": "https://www.last.fm/music/Nirvana/Nevermind",
+                      "apple_music_url": null,
+                      "image": null
+                    },
+                    {
+                      "id": 20,
+                      "name": "GUTS",
+                      "artist": {
+                        "id": 37,
+                        "name": "Olivia Rodrigo"
+                      },
+                      "playcount": 32,
+                      "url": "https://www.last.fm/music/Olivia+Rodrigo/GUTS",
+                      "apple_music_url": null,
+                      "image": null
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 11168,
+                    "total_pages": 559
+                  }
                 }
               }
             }
@@ -2069,6 +2386,51 @@
                     "top_albums",
                     "top_tracks"
                   ]
+                },
+                "example": {
+                  "id": 189,
+                  "name": "Nirvana",
+                  "mbid": null,
+                  "url": "https://www.last.fm/music/Nirvana",
+                  "apple_music_url": "https://music.apple.com/us/artist/nirvana/112018?uo=4",
+                  "playcount": 2179,
+                  "scrobble_count": 2193,
+                  "first_scrobbled_at": "2012-05-02T18:32:15.000Z",
+                  "genre": "Grunge",
+                  "tags": [
+                    {
+                      "name": "Grunge",
+                      "count": 100
+                    },
+                    {
+                      "name": "Rock",
+                      "count": 49
+                    }
+                  ],
+                  "image": {
+                    "url": "https://cdn.rewind.rest/listening/artists/189/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                    "thumbhash": "GggGBwDN+CSBp7VXcmVmlyZ2BgAAAAAA",
+                    "dominant_color": "#191919",
+                    "accent_color": "#7e7e7e"
+                  },
+                  "top_albums": [
+                    {
+                      "id": 300,
+                      "name": "MTV Unplugged in New York",
+                      "playcount": 428,
+                      "apple_music_url": null,
+                      "image": null
+                    }
+                  ],
+                  "top_tracks": [
+                    {
+                      "id": 595,
+                      "name": "Come as You Are",
+                      "scrobble_count": 101,
+                      "apple_music_url": "https://music.apple.com/us/album/come-as-you-are/1440783617?i=1440783636&uo=4",
+                      "preview_url": null
+                    }
+                  ]
                 }
               }
             }
@@ -2223,6 +2585,40 @@
                     "artist",
                     "tracks"
                   ]
+                },
+                "example": {
+                  "id": 20,
+                  "name": "GUTS",
+                  "mbid": null,
+                  "artist": {
+                    "id": 37,
+                    "name": "Olivia Rodrigo"
+                  },
+                  "playcount": 32,
+                  "url": "https://www.last.fm/music/Olivia+Rodrigo/GUTS",
+                  "apple_music_url": null,
+                  "image": {
+                    "url": "https://cdn.rewind.rest/listening/albums/20/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                    "thumbhash": "HBkKHQi694WIeIiAh3Z3d2eAd4B3",
+                    "dominant_color": "#5c4a6d",
+                    "accent_color": "#c4a8d4"
+                  },
+                  "tracks": [
+                    {
+                      "id": 1001,
+                      "name": "bad idea right?",
+                      "scrobble_count": 82,
+                      "apple_music_url": null,
+                      "preview_url": null
+                    },
+                    {
+                      "id": 1002,
+                      "name": "vampire",
+                      "scrobble_count": 57,
+                      "apple_music_url": null,
+                      "preview_url": null
+                    }
+                  ]
                 }
               }
             }
@@ -2336,6 +2732,28 @@
                     "total",
                     "max_day"
                   ]
+                },
+                "example": {
+                  "year": 2026,
+                  "days": [
+                    {
+                      "date": "2026-03-01",
+                      "count": 15
+                    },
+                    {
+                      "date": "2026-03-02",
+                      "count": 22
+                    },
+                    {
+                      "date": "2026-03-03",
+                      "count": 8
+                    }
+                  ],
+                  "total": 45,
+                  "max_day": {
+                    "date": "2026-03-02",
+                    "count": 22
+                  }
                 }
               }
             }
@@ -2441,6 +2859,23 @@
                     "metric",
                     "data"
                   ]
+                },
+                "example": {
+                  "metric": "scrobbles",
+                  "data": [
+                    {
+                      "period": "2026-01",
+                      "value": 552
+                    },
+                    {
+                      "period": "2026-02",
+                      "value": 501
+                    },
+                    {
+                      "period": "2026-03",
+                      "value": 387
+                    }
+                  ]
                 }
               }
             }
@@ -2540,6 +2975,19 @@
                     "current",
                     "longest"
                   ]
+                },
+                "example": {
+                  "current": {
+                    "days": 3,
+                    "start_date": "2026-03-16",
+                    "total_scrobbles": 65
+                  },
+                  "longest": {
+                    "days": 62,
+                    "start_date": "2017-01-02",
+                    "end_date": "2017-03-04",
+                    "total_scrobbles": 3535
+                  }
                 }
               }
             }
@@ -2757,6 +3205,79 @@
                     "top_tracks",
                     "monthly"
                   ]
+                },
+                "example": {
+                  "year": 2025,
+                  "total_scrobbles": 8500,
+                  "unique_artists": 420,
+                  "unique_albums": 890,
+                  "unique_tracks": 3200,
+                  "top_artists": [
+                    {
+                      "id": 92,
+                      "name": "Taylor Swift",
+                      "scrobbles": 350,
+                      "apple_music_url": "https://music.apple.com/us/artist/taylor-swift/159260351?uo=4",
+                      "image": null
+                    },
+                    {
+                      "id": 189,
+                      "name": "Nirvana",
+                      "scrobbles": 280,
+                      "apple_music_url": "https://music.apple.com/us/artist/nirvana/112018?uo=4",
+                      "image": null
+                    }
+                  ],
+                  "top_albums": [
+                    {
+                      "id": 20,
+                      "name": "GUTS",
+                      "artist": "Olivia Rodrigo",
+                      "scrobbles": 120,
+                      "apple_music_url": null,
+                      "image": null
+                    },
+                    {
+                      "id": 300,
+                      "name": "MTV Unplugged in New York",
+                      "artist": "Nirvana",
+                      "scrobbles": 95,
+                      "apple_music_url": null,
+                      "image": null
+                    }
+                  ],
+                  "top_tracks": [
+                    {
+                      "id": 2001,
+                      "name": "Espresso",
+                      "artist": "Sabrina Carpenter",
+                      "scrobbles": 68,
+                      "apple_music_url": null,
+                      "preview_url": null
+                    },
+                    {
+                      "id": 1001,
+                      "name": "bad idea right?",
+                      "artist": "Olivia Rodrigo",
+                      "scrobbles": 55,
+                      "apple_music_url": null,
+                      "preview_url": null
+                    }
+                  ],
+                  "monthly": [
+                    {
+                      "month": "2025-01",
+                      "scrobbles": 720,
+                      "unique_artists": 85,
+                      "unique_albums": 140
+                    },
+                    {
+                      "month": "2025-02",
+                      "scrobbles": 680,
+                      "unique_artists": 78,
+                      "unique_albums": 125
+                    }
+                  ]
                 }
               }
             }
@@ -2902,6 +3423,40 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "period": "2026-01",
+                      "genres": {
+                        "Rock": 245,
+                        "Hip-Hop": 112,
+                        "Electronic": 87,
+                        "Other": 89
+                      },
+                      "total": 533
+                    },
+                    {
+                      "period": "2026-02",
+                      "genres": {
+                        "Pop": 180,
+                        "Rock": 150,
+                        "Hip-Hop": 95,
+                        "Other": 76
+                      },
+                      "total": 501
+                    },
+                    {
+                      "period": "2026-03",
+                      "genres": {
+                        "Grunge": 120,
+                        "Rock": 110,
+                        "Pop": 90,
+                        "Other": 67
+                      },
+                      "total": 387
+                    }
+                  ]
                 }
               }
             }
@@ -2922,6 +3477,7 @@
     "/v1/listening/admin/filters": {
       "get": {
         "operationId": "listListeningFilters",
+        "x-hidden": true,
         "tags": [
           "Listening",
           "Admin"
@@ -2998,6 +3554,7 @@
       },
       "post": {
         "operationId": "createListeningFilter",
+        "x-hidden": true,
         "tags": [
           "Listening",
           "Admin"
@@ -3117,6 +3674,7 @@
     "/v1/listening/admin/filters/{id}": {
       "delete": {
         "operationId": "deleteListeningFilter",
+        "x-hidden": true,
         "tags": [
           "Listening",
           "Admin"
@@ -3193,6 +3751,7 @@
     "/v1/listening/admin/listening/backfill-images": {
       "post": {
         "operationId": "backfillListeningImages",
+        "x-hidden": true,
         "tags": [
           "Listening",
           "Admin"
@@ -3277,6 +3836,7 @@
     "/v1/listening/admin/listening/enrich-apple-music": {
       "post": {
         "operationId": "enrichListeningAppleMusic",
+        "x-hidden": true,
         "tags": [
           "Listening",
           "Admin"
@@ -3498,6 +4058,30 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "year": 2025,
+                      "total_runs": 120,
+                      "total_distance_mi": 540.2,
+                      "total_elevation_ft": 18500,
+                      "total_duration_s": 257400,
+                      "avg_pace": "7:55/mi",
+                      "longest_run_mi": 13.1,
+                      "race_count": 3
+                    },
+                    {
+                      "year": 2024,
+                      "total_runs": 105,
+                      "total_distance_mi": 470.8,
+                      "total_elevation_ft": 15200,
+                      "total_duration_s": 231600,
+                      "avg_pace": "8:10/mi",
+                      "longest_run_mi": 10.5,
+                      "race_count": 2
+                    }
+                  ]
                 }
               }
             }
@@ -3587,6 +4171,18 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": {
+                    "year": 2025,
+                    "total_runs": 120,
+                    "total_distance_mi": 540.2,
+                    "total_elevation_ft": 18500,
+                    "total_duration_s": 257400,
+                    "avg_pace": "7:55/mi",
+                    "longest_run_mi": 13.1,
+                    "race_count": 3
+                  }
                 }
               }
             }
@@ -3685,6 +4281,40 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "distance": "5K",
+                      "distance_label": "5K",
+                      "time": "22:45",
+                      "time_s": 1365,
+                      "pace": "7:20/mi",
+                      "date": "2024-09-15",
+                      "activity_id": 12345,
+                      "activity_name": "Fall 5K Race"
+                    },
+                    {
+                      "distance": "10K",
+                      "distance_label": "10K",
+                      "time": "48:30",
+                      "time_s": 2910,
+                      "pace": "7:49/mi",
+                      "date": "2024-06-01",
+                      "activity_id": 12346,
+                      "activity_name": "Summer 10K"
+                    },
+                    {
+                      "distance": "Half Marathon",
+                      "distance_label": "Half Marathon",
+                      "time": "1:45:00",
+                      "time_s": 6300,
+                      "pace": "8:01/mi",
+                      "date": "2023-10-08",
+                      "activity_id": 12347,
+                      "activity_name": "Portland Half Marathon"
+                    }
                   ]
                 }
               }
@@ -3886,6 +4516,32 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 17748681520,
+                      "strava_id": 17748681520,
+                      "name": "Monday Evening Run",
+                      "date": "2026-03-16T17:00:05Z",
+                      "distance_mi": 4.49,
+                      "duration": "36:02",
+                      "duration_s": 2162,
+                      "pace": "8:02/mi",
+                      "elevation_ft": 370.73,
+                      "heartrate_avg": null,
+                      "heartrate_max": null,
+                      "cadence": 75.2,
+                      "calories": 525,
+                      "suffer_score": null,
+                      "city": null,
+                      "state": null,
+                      "polyline": "_wfbHb|niVD_@TEd@...",
+                      "is_race": false,
+                      "workout_type": "default",
+                      "strava_url": "https://www.strava.com/activities/17748681520"
+                    }
                   ]
                 }
               }
@@ -4365,6 +5021,28 @@
                     "workout_type",
                     "strava_url"
                   ]
+                },
+                "example": {
+                  "id": 17748681520,
+                  "strava_id": 17748681520,
+                  "name": "Monday Evening Run",
+                  "date": "2026-03-16T17:00:05Z",
+                  "distance_mi": 4.49,
+                  "duration": "36:02",
+                  "duration_s": 2162,
+                  "pace": "8:02/mi",
+                  "elevation_ft": 370.73,
+                  "heartrate_avg": null,
+                  "heartrate_max": null,
+                  "cadence": 75.2,
+                  "calories": 525,
+                  "suffer_score": null,
+                  "city": null,
+                  "state": null,
+                  "polyline": "_wfbHb|niVD_@TEd@...",
+                  "is_race": false,
+                  "workout_type": "default",
+                  "strava_url": "https://www.strava.com/activities/17748681520"
                 }
               }
             }
@@ -4473,6 +5151,37 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "split": 1,
+                      "distance_mi": 1,
+                      "moving_time_s": 495,
+                      "elapsed_time_s": 500,
+                      "elevation_ft": 85,
+                      "pace": "8:15/mi",
+                      "heartrate": null
+                    },
+                    {
+                      "split": 2,
+                      "distance_mi": 1,
+                      "moving_time_s": 470,
+                      "elapsed_time_s": 475,
+                      "elevation_ft": 120,
+                      "pace": "7:50/mi",
+                      "heartrate": null
+                    },
+                    {
+                      "split": 3,
+                      "distance_mi": 1,
+                      "moving_time_s": 482,
+                      "elapsed_time_s": 488,
+                      "elevation_ft": 95,
+                      "pace": "8:02/mi",
+                      "heartrate": null
+                    }
+                  ]
                 }
               }
             }
@@ -4574,6 +5283,28 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "g12345",
+                      "name": "Nike Pegasus 40",
+                      "brand": "Nike",
+                      "model": "Pegasus 40",
+                      "distance_mi": 342.5,
+                      "is_retired": false,
+                      "activity_count": 85
+                    },
+                    {
+                      "id": "g12346",
+                      "name": "Brooks Ghost 15",
+                      "brand": "Brooks",
+                      "model": "Ghost 15",
+                      "distance_mi": 512.3,
+                      "is_retired": true,
+                      "activity_count": 130
+                    }
+                  ]
                 }
               }
             }
@@ -4647,6 +5378,26 @@
                     "year",
                     "data"
                   ]
+                },
+                "example": {
+                  "year": 2026,
+                  "data": [
+                    {
+                      "date": "2026-03-01",
+                      "count": 1,
+                      "total_distance_mi": 5.2
+                    },
+                    {
+                      "date": "2026-03-03",
+                      "count": 1,
+                      "total_distance_mi": 4.1
+                    },
+                    {
+                      "date": "2026-03-05",
+                      "count": 1,
+                      "total_distance_mi": 6.8
+                    }
+                  ]
                 }
               }
             }
@@ -4715,6 +5466,34 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": {
+                    "2025": [
+                      {
+                        "day": 2,
+                        "cumulative_mi": 4.8
+                      },
+                      {
+                        "day": 5,
+                        "cumulative_mi": 12.6
+                      }
+                    ],
+                    "2026": [
+                      {
+                        "day": 1,
+                        "cumulative_mi": 5.2
+                      },
+                      {
+                        "day": 3,
+                        "cumulative_mi": 9.3
+                      },
+                      {
+                        "day": 5,
+                        "cumulative_mi": 16.1
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -4816,6 +5595,25 @@
                     "window",
                     "data"
                   ]
+                },
+                "example": {
+                  "window": 30,
+                  "data": [
+                    {
+                      "date": "2026-03-01",
+                      "pace": "8:02/mi",
+                      "pace_min_per_mile": 8.03,
+                      "rolling_avg": "8:05/mi",
+                      "rolling_avg_min_per_mile": 8.08
+                    },
+                    {
+                      "date": "2026-03-03",
+                      "pace": "8:15/mi",
+                      "pace_min_per_mile": 8.25,
+                      "rolling_avg": "8:07/mi",
+                      "rolling_avg_min_per_mile": 8.12
+                    }
+                  ]
                 }
               }
             }
@@ -4880,6 +5678,26 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "hour": 6,
+                      "count": 45
+                    },
+                    {
+                      "hour": 7,
+                      "count": 82
+                    },
+                    {
+                      "hour": 17,
+                      "count": 120
+                    },
+                    {
+                      "hour": 18,
+                      "count": 95
+                    }
                   ]
                 }
               }
@@ -4953,6 +5771,22 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "date": "2026-03-01",
+                      "elevation_ft": 350,
+                      "distance_mi": 5.2,
+                      "cumulative_elevation_ft": 350
+                    },
+                    {
+                      "date": "2026-03-03",
+                      "elevation_ft": 280,
+                      "distance_mi": 4.1,
+                      "cumulative_elevation_ft": 630
+                    }
                   ]
                 }
               }
@@ -5029,6 +5863,24 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "city": "Portland",
+                      "state": "OR",
+                      "country": "United States",
+                      "run_count": 450,
+                      "total_distance_mi": 1800
+                    },
+                    {
+                      "city": "Seattle",
+                      "state": "WA",
+                      "country": "United States",
+                      "run_count": 120,
+                      "total_distance_mi": 480
+                    }
                   ]
                 }
               }
@@ -5126,6 +5978,20 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": {
+                    "current": {
+                      "days": 0,
+                      "start": null,
+                      "end": null
+                    },
+                    "longest": {
+                      "days": 8,
+                      "start": "2020-05-09",
+                      "end": "2020-05-16"
+                    }
+                  }
                 }
               }
             }
@@ -5290,6 +6156,32 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 12345,
+                      "strava_id": 12345,
+                      "name": "Portland Marathon",
+                      "date": "2024-10-06",
+                      "distance_mi": 26.2,
+                      "duration": "3:45:00",
+                      "duration_s": 13500,
+                      "pace": "8:35/mi",
+                      "elevation_ft": 450,
+                      "heartrate_avg": 165,
+                      "heartrate_max": 182,
+                      "cadence": 78.5,
+                      "calories": 2800,
+                      "suffer_score": 250,
+                      "city": "Portland",
+                      "state": "OR",
+                      "polyline": null,
+                      "is_race": true,
+                      "workout_type": "race",
+                      "strava_url": "https://www.strava.com/activities/12345"
+                    }
+                  ]
                 }
               }
             }
@@ -5354,6 +6246,15 @@
                     "explanation",
                     "progress"
                   ]
+                },
+                "example": {
+                  "number": 11,
+                  "explanation": "You have run at least 11 miles on at least 11 days",
+                  "progress": {
+                    "target": 12,
+                    "days_completed": 9,
+                    "runs_needed": 3
+                  }
                 }
               }
             }
@@ -5580,6 +6481,56 @@
                     "race_count",
                     "monthly",
                     "top_runs"
+                  ]
+                },
+                "example": {
+                  "year": 2025,
+                  "total_runs": 120,
+                  "total_distance_mi": 540.2,
+                  "total_elevation_ft": 18500,
+                  "total_duration_s": 257400,
+                  "avg_pace": "7:55/mi",
+                  "longest_run_mi": 13.1,
+                  "race_count": 3,
+                  "monthly": [
+                    {
+                      "month": "2025-01",
+                      "runs": 8,
+                      "distance_mi": 35.2,
+                      "duration_s": 17100,
+                      "elevation_ft": 1200
+                    },
+                    {
+                      "month": "2025-02",
+                      "runs": 10,
+                      "distance_mi": 42.1,
+                      "duration_s": 20400,
+                      "elevation_ft": 1500
+                    }
+                  ],
+                  "top_runs": [
+                    {
+                      "id": 12345,
+                      "strava_id": 12345,
+                      "name": "Portland Half Marathon",
+                      "date": "2025-10-06",
+                      "distance_mi": 13.1,
+                      "duration": "1:45:00",
+                      "duration_s": 6300,
+                      "pace": "8:01/mi",
+                      "elevation_ft": 320,
+                      "heartrate_avg": 160,
+                      "heartrate_max": 178,
+                      "cadence": 77,
+                      "calories": 1400,
+                      "suffer_score": 120,
+                      "city": "Portland",
+                      "state": "OR",
+                      "polyline": null,
+                      "is_race": true,
+                      "workout_type": "race",
+                      "strava_url": "https://www.strava.com/activities/12345"
+                    }
                   ]
                 }
               }
@@ -5840,32 +6791,31 @@
                   "data": [
                     {
                       "movie": {
-                        "id": 220,
-                        "title": "The French Dispatch",
-                        "year": 2021,
-                        "director": "Wes Anderson",
+                        "id": 15,
+                        "title": "Ferris Bueller's Day Off",
+                        "year": 1986,
+                        "director": "John Hughes",
                         "directors": [
-                          "Wes Anderson"
+                          "John Hughes"
                         ],
                         "genres": [
-                          "Comedy",
-                          "Drama"
+                          "Comedy"
                         ],
-                        "duration_min": 108,
-                        "rating": "R",
+                        "duration_min": 103,
+                        "rating": "PG-13",
                         "image": {
-                          "url": "https://cdn.rewind.rest/watching/movies/220/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
-                          "thumbhash": "KPgFHQiHdZWZeZY4lZbX976AxApI",
-                          "dominant_color": "#a29c93",
-                          "accent_color": "#81c4c7"
+                          "url": "https://cdn.rewind.rest/watching/movies/15/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                          "thumbhash": "YRcKDQKadZh4d3Z4d3aHeAeAh4B3",
+                          "dominant_color": "#2a2a2a",
+                          "accent_color": "#c8a882"
                         },
-                        "imdb_id": "tt8847712",
-                        "tmdb_id": 542178,
-                        "tmdb_rating": 7.011,
-                        "tagline": null,
-                        "summary": "The staff of an American magazine based in France puts out its last issue, with stories featuring an artist sentenced to life imprisonment, student riots, and a kidnapping resolved by a chef."
+                        "imdb_id": "tt0091042",
+                        "tmdb_id": 9377,
+                        "tmdb_rating": 7.6,
+                        "tagline": "One man's struggle to take it easy.",
+                        "summary": "A high school wise guy is determined to have a day off from school, despite what the Principal thinks of that."
                       },
-                      "watched_at": "2026-03-18T20:11:30.214Z",
+                      "watched_at": "2026-03-10T02:30:00.000Z",
                       "source": "plex",
                       "user_rating": null,
                       "percent_complete": 100,
@@ -6091,31 +7041,52 @@
                 "example": {
                   "data": [
                     {
-                      "id": 220,
-                      "title": "The French Dispatch",
-                      "year": 2021,
-                      "director": "Wes Anderson",
+                      "id": 15,
+                      "title": "Ferris Bueller's Day Off",
+                      "year": 1986,
+                      "director": "John Hughes",
                       "directors": [
-                        "Wes Anderson"
+                        "John Hughes"
                       ],
                       "genres": [
-                        "Comedy",
+                        "Comedy"
+                      ],
+                      "duration_min": 103,
+                      "rating": "PG-13",
+                      "image": {
+                        "url": "https://cdn.rewind.rest/watching/movies/15/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "YRcKDQKadZh4d3Z4d3aHeAeAh4B3",
+                        "dominant_color": "#2a2a2a",
+                        "accent_color": "#c8a882"
+                      },
+                      "imdb_id": "tt0091042",
+                      "tmdb_id": 9377,
+                      "tmdb_rating": 7.6,
+                      "tagline": "One man's struggle to take it easy.",
+                      "summary": "A high school wise guy is determined to have a day off from school, despite what the Principal thinks of that.",
+                      "last_watched_at": "2026-03-10T02:30:00.000Z"
+                    },
+                    {
+                      "id": 200,
+                      "title": "Interstellar",
+                      "year": 2014,
+                      "director": "Christopher Nolan",
+                      "directors": [
+                        "Christopher Nolan"
+                      ],
+                      "genres": [
+                        "Science Fiction",
                         "Drama"
                       ],
-                      "duration_min": 108,
-                      "rating": "R",
-                      "image": {
-                        "url": "https://cdn.rewind.rest/watching/movies/220/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
-                        "thumbhash": "KPgFHQiHdZWZeZY4lZbX976AxApI",
-                        "dominant_color": "#a29c93",
-                        "accent_color": "#81c4c7"
-                      },
-                      "imdb_id": "tt8847712",
-                      "tmdb_id": 542178,
-                      "tmdb_rating": 7.011,
+                      "duration_min": 169,
+                      "rating": "PG-13",
+                      "image": null,
+                      "imdb_id": "tt0816692",
+                      "tmdb_id": 157336,
+                      "tmdb_rating": 8.4,
                       "tagline": null,
-                      "summary": "The staff of an American magazine based in France puts out its last issue.",
-                      "last_watched_at": "2026-03-18T20:11:30.214Z"
+                      "summary": null,
+                      "last_watched_at": "2024-12-20T20:00:00.000Z"
                     }
                   ],
                   "pagination": {
@@ -6317,6 +7288,43 @@
                     "summary",
                     "watch_history"
                   ]
+                },
+                "example": {
+                  "id": 15,
+                  "title": "Ferris Bueller's Day Off",
+                  "year": 1986,
+                  "director": "John Hughes",
+                  "directors": [
+                    "John Hughes"
+                  ],
+                  "genres": [
+                    "Comedy"
+                  ],
+                  "duration_min": 103,
+                  "rating": "PG-13",
+                  "image": {
+                    "url": "https://cdn.rewind.rest/watching/movies/15/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                    "thumbhash": "YRcKDQKadZh4d3Z4d3aHeAeAh4B3",
+                    "dominant_color": "#2a2a2a",
+                    "accent_color": "#c8a882"
+                  },
+                  "imdb_id": "tt0091042",
+                  "tmdb_id": 9377,
+                  "tmdb_rating": 7.6,
+                  "tagline": "One man's struggle to take it easy.",
+                  "summary": "A high school wise guy is determined to have a day off from school, despite what the Principal thinks of that.",
+                  "watch_history": [
+                    {
+                      "id": 1,
+                      "watched_at": "2026-03-10T02:30:00.000Z",
+                      "source": "plex",
+                      "user_rating": null,
+                      "percent_complete": 100,
+                      "rewatch": false,
+                      "review": null,
+                      "review_url": null
+                    }
+                  ]
                 }
               }
             }
@@ -6466,6 +7474,20 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": {
+                    "total_movies": 773,
+                    "total_watch_time_hours": 1507,
+                    "movies_this_year": 27,
+                    "avg_per_month": 8.1,
+                    "top_genre": "Drama",
+                    "top_decade": 2000,
+                    "top_director": "Martin Scorsese",
+                    "total_shows": 98,
+                    "total_episodes_watched": 1572,
+                    "episodes_this_year": 106
+                  }
                 }
               }
             }
@@ -6525,6 +7547,25 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "name": "Drama",
+                      "count": 280,
+                      "percentage": 36.2
+                    },
+                    {
+                      "name": "Comedy",
+                      "count": 195,
+                      "percentage": 25.2
+                    },
+                    {
+                      "name": "Action",
+                      "count": 142,
+                      "percentage": 18.4
+                    }
+                  ]
                 }
               }
             }
@@ -6579,6 +7620,22 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "decade": 2020,
+                      "count": 185
+                    },
+                    {
+                      "decade": 2010,
+                      "count": 210
+                    },
+                    {
+                      "decade": 2000,
+                      "count": 145
+                    }
                   ]
                 }
               }
@@ -6648,6 +7705,22 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "name": "Martin Scorsese",
+                      "count": 18
+                    },
+                    {
+                      "name": "Steven Spielberg",
+                      "count": 14
+                    },
+                    {
+                      "name": "Christopher Nolan",
+                      "count": 12
+                    }
+                  ]
                 }
               }
             }
@@ -6716,6 +7789,23 @@
                   "required": [
                     "year",
                     "data"
+                  ]
+                },
+                "example": {
+                  "year": 2026,
+                  "data": [
+                    {
+                      "date": "2026-03-10",
+                      "count": 1
+                    },
+                    {
+                      "date": "2026-03-12",
+                      "count": 2
+                    },
+                    {
+                      "date": "2026-03-14",
+                      "count": 1
+                    }
                   ]
                 }
               }
@@ -6820,6 +7910,23 @@
                   "required": [
                     "period",
                     "data"
+                  ]
+                },
+                "example": {
+                  "period": "monthly",
+                  "data": [
+                    {
+                      "period": "2026-01",
+                      "count": 8
+                    },
+                    {
+                      "period": "2026-02",
+                      "count": 10
+                    },
+                    {
+                      "period": "2026-03",
+                      "count": 9
+                    }
                   ]
                 }
               }
@@ -6978,6 +8085,60 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 1,
+                      "title": "Band of Brothers",
+                      "year": 2001,
+                      "tmdb_id": 4613,
+                      "tmdb_rating": 8.5,
+                      "content_rating": "TV-MA",
+                      "summary": "The story of Easy Company during WWII.",
+                      "image": {
+                        "url": "https://cdn.rewind.rest/watching/shows/1/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "YRcKDQKadZh4d3Z4d3aHeAeAh4B3",
+                        "dominant_color": "#2a2a2a",
+                        "accent_color": "#c8a882"
+                      },
+                      "total_seasons": 1,
+                      "total_episodes": 10,
+                      "episodes_watched": 10
+                    },
+                    {
+                      "id": 2,
+                      "title": "Mad Men",
+                      "year": 2007,
+                      "tmdb_id": 1104,
+                      "tmdb_rating": 8.2,
+                      "content_rating": "TV-14",
+                      "summary": null,
+                      "image": null,
+                      "total_seasons": 7,
+                      "total_episodes": 92,
+                      "episodes_watched": 89
+                    },
+                    {
+                      "id": 3,
+                      "title": "Fallout",
+                      "year": 2024,
+                      "tmdb_id": 106379,
+                      "tmdb_rating": 8,
+                      "content_rating": "TV-MA",
+                      "summary": null,
+                      "image": null,
+                      "total_seasons": 1,
+                      "total_episodes": 8,
+                      "episodes_watched": 8
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 98,
+                    "total_pages": 5
+                  }
                 }
               }
             }
@@ -7138,6 +8299,44 @@
                     "episodes_watched",
                     "seasons"
                   ]
+                },
+                "example": {
+                  "id": 1,
+                  "title": "Band of Brothers",
+                  "year": 2001,
+                  "tmdb_id": 4613,
+                  "tmdb_rating": 8.5,
+                  "content_rating": "TV-MA",
+                  "summary": "The story of Easy Company during WWII.",
+                  "image": {
+                    "url": "https://cdn.rewind.rest/watching/shows/1/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                    "thumbhash": "YRcKDQKadZh4d3Z4d3aHeAeAh4B3",
+                    "dominant_color": "#2a2a2a",
+                    "accent_color": "#c8a882"
+                  },
+                  "total_seasons": 1,
+                  "total_episodes": 10,
+                  "episodes_watched": 10,
+                  "seasons": [
+                    {
+                      "season_number": 1,
+                      "episodes_watched": 10,
+                      "episodes": [
+                        {
+                          "season": 1,
+                          "episode": 1,
+                          "title": "Currahee",
+                          "watched_at": "2024-01-15T20:00:00Z"
+                        },
+                        {
+                          "season": 1,
+                          "episode": 2,
+                          "title": "Day of Days",
+                          "watched_at": "2024-01-16T20:00:00Z"
+                        }
+                      ]
+                    }
+                  ]
                 }
               }
             }
@@ -7253,6 +8452,25 @@
                     "show_title",
                     "season_number",
                     "episodes"
+                  ]
+                },
+                "example": {
+                  "show_id": 1,
+                  "show_title": "Band of Brothers",
+                  "season_number": 1,
+                  "episodes": [
+                    {
+                      "season": 1,
+                      "episode": 1,
+                      "title": "Currahee",
+                      "watched_at": "2024-01-15T20:00:00Z"
+                    },
+                    {
+                      "season": 1,
+                      "episode": 2,
+                      "title": "Day of Days",
+                      "watched_at": "2024-01-16T20:00:00Z"
+                    }
                   ]
                 }
               }
@@ -7425,6 +8643,44 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "movie": {
+                        "id": 50,
+                        "title": "The Great Escape",
+                        "year": 1963,
+                        "tmdb_id": 5925,
+                        "tmdb_rating": 7.9,
+                        "image": null
+                      },
+                      "user_rating": 5,
+                      "review_url": null,
+                      "watched_at": "2025-08-10T20:00:00Z",
+                      "source": "letterboxd"
+                    },
+                    {
+                      "movie": {
+                        "id": 200,
+                        "title": "Interstellar",
+                        "year": 2014,
+                        "tmdb_id": 157336,
+                        "tmdb_rating": 8.4,
+                        "image": null
+                      },
+                      "user_rating": 5,
+                      "review_url": null,
+                      "watched_at": "2024-12-20T20:00:00Z",
+                      "source": "letterboxd"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 150,
+                    "total_pages": 8
+                  }
                 }
               }
             }
@@ -7558,6 +8814,30 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "movie": {
+                        "id": 50,
+                        "title": "The Great Escape",
+                        "year": 1963,
+                        "tmdb_id": 5925,
+                        "image": null
+                      },
+                      "user_rating": 5,
+                      "review": "An absolute masterpiece of tension and camaraderie.",
+                      "review_url": "https://letterboxd.com/user/film/the-great-escape/",
+                      "watched_at": "2025-08-10T20:00:00Z",
+                      "source": "letterboxd"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 25,
+                    "total_pages": 2
+                  }
                 }
               }
             }
@@ -7725,6 +9005,57 @@
                     "monthly",
                     "top_rated"
                   ]
+                },
+                "example": {
+                  "year": 2025,
+                  "total_movies": 95,
+                  "genres": [
+                    {
+                      "name": "Drama",
+                      "count": 35
+                    },
+                    {
+                      "name": "Action",
+                      "count": 20
+                    }
+                  ],
+                  "decades": [
+                    {
+                      "decade": 2020,
+                      "count": 30
+                    },
+                    {
+                      "decade": 1960,
+                      "count": 8
+                    }
+                  ],
+                  "monthly": [
+                    {
+                      "month": "2025-01",
+                      "count": 8
+                    },
+                    {
+                      "month": "2025-02",
+                      "count": 10
+                    },
+                    {
+                      "month": "2025-03",
+                      "count": 9
+                    }
+                  ],
+                  "top_rated": [
+                    {
+                      "movie": {
+                        "id": 50,
+                        "title": "The Great Escape",
+                        "year": 1963,
+                        "tmdb_id": 5925,
+                        "image": null
+                      },
+                      "user_rating": 5,
+                      "watched_at": "2025-08-10T20:00:00Z"
+                    }
+                  ]
                 }
               }
             }
@@ -7755,6 +9086,7 @@
     "/v1/watching/admin/watching/movies": {
       "post": {
         "operationId": "adminWatchingCreateMovie",
+        "x-hidden": true,
         "tags": [
           "Watching",
           "Admin"
@@ -7871,6 +9203,7 @@
     "/v1/watching/admin/watching/movies/{id}": {
       "put": {
         "operationId": "adminWatchingUpdateMovie",
+        "x-hidden": true,
         "tags": [
           "Watching",
           "Admin"
@@ -7986,6 +9319,7 @@
       },
       "delete": {
         "operationId": "adminWatchingDeleteMovie",
+        "x-hidden": true,
         "tags": [
           "Watching",
           "Admin"
@@ -8061,6 +9395,7 @@
     "/v1/watching/admin/watching/backfill-images": {
       "post": {
         "operationId": "adminWatchingBackfillImages",
+        "x-hidden": true,
         "tags": [
           "Watching",
           "Admin"
@@ -8143,6 +9478,7 @@
     "/v1/webhooks/strava": {
       "get": {
         "operationId": "validateStravaWebhook",
+        "x-hidden": true,
         "tags": [
           "Webhooks"
         ],
@@ -8208,6 +9544,7 @@
       },
       "post": {
         "operationId": "receiveStravaWebhook",
+        "x-hidden": true,
         "tags": [
           "Webhooks"
         ],
@@ -8294,6 +9631,7 @@
     "/v1/webhooks/plex": {
       "post": {
         "operationId": "receivePlexWebhook",
+        "x-hidden": true,
         "tags": [
           "Webhooks"
         ],
@@ -8501,6 +9839,7 @@
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}/alternatives": {
       "get": {
         "operationId": "getImageAlternatives",
+        "x-hidden": true,
         "tags": [
           "Images",
           "Admin"
@@ -8622,6 +9961,7 @@
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}": {
       "put": {
         "operationId": "setImageOverride",
+        "x-hidden": true,
         "tags": [
           "Images",
           "Admin"
@@ -8717,6 +10057,7 @@
     "/v1/admin/images/{domain}/{entity_type}/{entity_id}/override": {
       "delete": {
         "operationId": "deleteImageOverride",
+        "x-hidden": true,
         "tags": [
           "Images",
           "Admin"
@@ -8858,6 +10199,7 @@
     "/v1/admin/images/regenerate-thumbhashes": {
       "post": {
         "operationId": "regenerateThumbhashes",
+        "x-hidden": true,
         "tags": [
           "Admin",
           "Images"
@@ -9156,11 +10498,11 @@
                     {
                       "id": 1,
                       "discogs_id": 6872464,
-                      "title": "Strange Trails",
+                      "title": "Nevermind",
                       "artists": [
-                        "Lord Huron"
+                        "Nirvana"
                       ],
-                      "year": 2015,
+                      "year": 1991,
                       "format": "Vinyl",
                       "format_detail": "[\"LP\",\"Album\",\"Stereo\"]",
                       "label": "[{\"name\":\"IAmSound Records\",\"catno\":\"IAM066L\"}]",
@@ -9325,6 +10667,26 @@
                     "newest_release_year",
                     "added_this_year"
                   ]
+                },
+                "example": {
+                  "total_items": 284,
+                  "by_format": {
+                    "vinyl": 253,
+                    "cd": 29,
+                    "cassette": 0,
+                    "other": 2
+                  },
+                  "wantlist_count": 1,
+                  "unique_artists": 107,
+                  "estimated_value": 7394.51,
+                  "top_genre": "Rock",
+                  "oldest_release_year": 1957,
+                  "newest_release_year": 2025,
+                  "most_collected_artist": {
+                    "name": "Taylor Swift",
+                    "count": 24
+                  },
+                  "added_this_year": 139
                 }
               }
             }
@@ -9506,6 +10868,43 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 1,
+                      "discogs_id": 6872464,
+                      "title": "Nevermind",
+                      "artists": [
+                        "Nirvana"
+                      ],
+                      "year": 1991,
+                      "format": "Vinyl",
+                      "format_detail": "[\"LP\",\"Album\"]",
+                      "label": "[{\"name\":\"DGC\",\"catno\":\"DGC-24425\"}]",
+                      "genres": [
+                        "Rock"
+                      ],
+                      "styles": [
+                        "Grunge"
+                      ],
+                      "image": {
+                        "url": "https://cdn.rewind.rest/collecting/releases/6872464/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "GncKRwaU9niFd3dShlaJSFeJlYCYhGYA",
+                        "dominant_color": "#222229",
+                        "accent_color": "#9b31ed"
+                      },
+                      "date_added": "2026-03-11T16:05:58-07:00",
+                      "rating": 0,
+                      "discogs_url": "https://www.discogs.com/release/6872464"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 284,
+                    "total_pages": 15
+                  }
                 }
               }
             }
@@ -9680,6 +11079,46 @@
                     "lowest_price",
                     "num_for_sale"
                   ]
+                },
+                "example": {
+                  "id": 1,
+                  "discogs_id": 6872464,
+                  "title": "Nevermind",
+                  "artists": [
+                    "Nirvana"
+                  ],
+                  "year": 1991,
+                  "format": "Vinyl",
+                  "format_detail": "[\"LP\",\"Album\"]",
+                  "label": "[{\"name\":\"DGC\",\"catno\":\"DGC-24425\"}]",
+                  "genres": [
+                    "Rock"
+                  ],
+                  "styles": [
+                    "Grunge"
+                  ],
+                  "image": {
+                    "url": "https://cdn.rewind.rest/collecting/releases/6872464/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                    "thumbhash": "GncKRwaU9niFd3dShlaJSFeJlYCYhGYA",
+                    "dominant_color": "#222229",
+                    "accent_color": "#9b31ed"
+                  },
+                  "date_added": "2026-03-11T16:05:58-07:00",
+                  "rating": 0,
+                  "discogs_url": "https://www.discogs.com/release/6872464",
+                  "tracklist": [
+                    {
+                      "position": "1",
+                      "title": "Smells Like Teen Spirit",
+                      "duration": "5:01"
+                    }
+                  ],
+                  "country": "US",
+                  "community_have": 45000,
+                  "community_want": 12000,
+                  "lowest_price": 25.99,
+                  "num_for_sale": 350,
+                  "notes": null
                 }
               }
             }
@@ -9874,6 +11313,36 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 100,
+                      "discogs_id": 9999999,
+                      "title": "In Utero",
+                      "artists": [
+                        "Nirvana"
+                      ],
+                      "year": 1993,
+                      "formats": [
+                        "Vinyl"
+                      ],
+                      "genres": [
+                        "Rock"
+                      ],
+                      "image": null,
+                      "discogs_url": "https://www.discogs.com/release/9999999",
+                      "notes": null,
+                      "rating": null,
+                      "date_added": "2026-01-10T12:00:00Z"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 1,
+                    "total_pages": 1
+                  }
                 }
               }
             }
@@ -9939,6 +11408,22 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "name": "Vinyl",
+                      "count": 253
+                    },
+                    {
+                      "name": "CD",
+                      "count": 29
+                    },
+                    {
+                      "name": "Other",
+                      "count": 2
+                    }
+                  ]
                 }
               }
             }
@@ -10003,6 +11488,22 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "name": "Rock",
+                      "count": 120
+                    },
+                    {
+                      "name": "Pop",
+                      "count": 45
+                    },
+                    {
+                      "name": "Hip Hop",
+                      "count": 38
+                    }
                   ]
                 }
               }
@@ -10092,6 +11593,28 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "name": "Taylor Swift",
+                      "discogs_id": 123456,
+                      "image_url": null,
+                      "release_count": 24
+                    },
+                    {
+                      "name": "Nirvana",
+                      "discogs_id": 125246,
+                      "image_url": null,
+                      "release_count": 5
+                    },
+                    {
+                      "name": "Beastie Boys",
+                      "discogs_id": 19943,
+                      "image_url": null,
+                      "release_count": 3
+                    }
                   ]
                 }
               }
@@ -10342,6 +11865,51 @@
                     "summary",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "collection": {
+                        "id": 1,
+                        "discogs_id": 6872464,
+                        "title": "Nevermind",
+                        "artists": [
+                          "Nirvana"
+                        ],
+                        "year": 1991,
+                        "format": "Vinyl",
+                        "genres": [
+                          "Rock"
+                        ],
+                        "styles": [
+                          "Grunge"
+                        ],
+                        "image": null,
+                        "date_added": "2026-03-11T16:05:58-07:00",
+                        "rating": 0,
+                        "discogs_url": "https://www.discogs.com/release/6872464"
+                      },
+                      "listening": {
+                        "album_name": "Nevermind",
+                        "artist_name": "Nirvana",
+                        "play_count": 333,
+                        "last_played": "2026-02-15T20:00:00Z",
+                        "match_type": "exact",
+                        "match_confidence": 1
+                      }
+                    }
+                  ],
+                  "summary": {
+                    "total_matches": 50,
+                    "listen_rate": 0.72,
+                    "unlistened_count": 14
+                  },
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 50,
+                    "total_pages": 3
+                  }
                 }
               }
             }
@@ -10441,6 +12009,24 @@
                     "total",
                     "max_day"
                   ]
+                },
+                "example": {
+                  "year": 2026,
+                  "days": [
+                    {
+                      "date": "2026-01-15",
+                      "count": 3
+                    },
+                    {
+                      "date": "2026-02-01",
+                      "count": 5
+                    }
+                  ],
+                  "total": 139,
+                  "max_day": {
+                    "date": "2026-02-01",
+                    "count": 5
+                  }
                 }
               }
             }
@@ -10471,6 +12057,7 @@
     "/v1/admin/sync/collecting": {
       "post": {
         "operationId": "adminSyncDiscogsCollection",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -10513,6 +12100,7 @@
     "/v1/admin/collecting/backfill-images": {
       "post": {
         "operationId": "adminCollectingBackfillImages",
+        "x-hidden": true,
         "tags": [
           "Collecting",
           "Admin"
@@ -10795,6 +12383,69 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 1,
+                      "title": "Top Gun: Maverick",
+                      "year": 2022,
+                      "tmdb_id": 361743,
+                      "imdb_id": "tt1745960",
+                      "image": {
+                        "url": "https://cdn.rewind.rest/collecting/media/1/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+                        "thumbhash": "YRcKDQKadZh4d3Z4d3aHeAeAh4B3",
+                        "dominant_color": "#2a2a2a",
+                        "accent_color": "#c8a882"
+                      },
+                      "runtime": 131,
+                      "tmdb_rating": 8.2,
+                      "media_type": "bluray",
+                      "resolution": "1080p",
+                      "hdr": null,
+                      "audio": "Dolby Atmos",
+                      "audio_channels": "7.1",
+                      "collected_at": "2026-01-15T00:00:00Z"
+                    },
+                    {
+                      "id": 2,
+                      "title": "The Great Escape",
+                      "year": 1963,
+                      "tmdb_id": 5925,
+                      "imdb_id": "tt0057115",
+                      "image": null,
+                      "runtime": 172,
+                      "tmdb_rating": 8,
+                      "media_type": "bluray_4k",
+                      "resolution": "2160p",
+                      "hdr": "HDR10",
+                      "audio": "DTS-HD MA",
+                      "audio_channels": "5.1",
+                      "collected_at": "2025-12-25T00:00:00Z"
+                    },
+                    {
+                      "id": 3,
+                      "title": "Interstellar",
+                      "year": 2014,
+                      "tmdb_id": 157336,
+                      "imdb_id": "tt0816692",
+                      "image": null,
+                      "runtime": 169,
+                      "tmdb_rating": 8.4,
+                      "media_type": "bluray_4k",
+                      "resolution": "2160p",
+                      "hdr": "HDR10",
+                      "audio": "DTS-HD MA",
+                      "audio_channels": "5.1",
+                      "collected_at": "2025-11-10T00:00:00Z"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 45,
+                    "total_pages": 3
+                  }
                 }
               }
             }
@@ -10857,6 +12508,35 @@
                     "total_items",
                     "added_this_year"
                   ]
+                },
+                "example": {
+                  "total_items": 45,
+                  "by_format": {
+                    "Blu-ray": 25,
+                    "4K UHD": 15,
+                    "DVD": 5
+                  },
+                  "by_resolution": {
+                    "1080p": 25,
+                    "2160p": 15,
+                    "480p": 5
+                  },
+                  "by_hdr": {
+                    "HDR10": 10,
+                    "Dolby Vision": 5,
+                    "none": 30
+                  },
+                  "by_genre": {
+                    "Action": 15,
+                    "Drama": 12,
+                    "Science Fiction": 8
+                  },
+                  "by_decade": {
+                    "2020s": 10,
+                    "2010s": 15,
+                    "2000s": 8
+                  },
+                  "added_this_year": 12
                 }
               }
             }
@@ -11033,6 +12713,24 @@
                   "required": [
                     "data"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 1,
+                      "title": "Top Gun: Maverick",
+                      "year": 2022,
+                      "tmdb_id": 361743,
+                      "image": null,
+                      "tmdb_rating": 8.2,
+                      "media_type": "bluray",
+                      "resolution": "1080p",
+                      "hdr": null,
+                      "audio": "Dolby Atmos",
+                      "audio_channels": "7.1",
+                      "collected_at": "2026-01-15T00:00:00Z"
+                    }
+                  ]
                 }
               }
             }
@@ -11097,6 +12795,22 @@
                   },
                   "required": [
                     "data"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "name": "Blu-ray",
+                      "count": 25
+                    },
+                    {
+                      "name": "4K UHD",
+                      "count": 15
+                    },
+                    {
+                      "name": "DVD",
+                      "count": 5
+                    }
                   ]
                 }
               }
@@ -11290,6 +13004,39 @@
                     "summary",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "collection": {
+                        "id": 2,
+                        "title": "The Great Escape",
+                        "year": 1963,
+                        "tmdb_id": 5925,
+                        "image": null,
+                        "media_type": "bluray_4k",
+                        "resolution": "2160p",
+                        "collected_at": "2025-12-25T00:00:00Z"
+                      },
+                      "watching": {
+                        "watched": true,
+                        "watch_count": 3,
+                        "last_watched": "2025-08-10T20:00:00Z"
+                      }
+                    }
+                  ],
+                  "summary": {
+                    "total_owned": 45,
+                    "total_watched": 30,
+                    "total_unwatched": 15,
+                    "watch_rate": 0.67
+                  },
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 30,
+                    "total_pages": 2
+                  }
                 }
               }
             }
@@ -11485,6 +13232,32 @@
                     "collected_at",
                     "watch_history"
                   ]
+                },
+                "example": {
+                  "id": 2,
+                  "title": "The Great Escape",
+                  "year": 1963,
+                  "tmdb_id": 5925,
+                  "imdb_id": "tt0057115",
+                  "tagline": "No prison can hold them!",
+                  "summary": "Allied prisoners of war plan for several hundred of their number to escape from a German camp during World War II.",
+                  "image": null,
+                  "runtime": 172,
+                  "tmdb_rating": 8,
+                  "content_rating": "NR",
+                  "media_type": "bluray_4k",
+                  "resolution": "2160p",
+                  "hdr": "HDR10",
+                  "audio": "DTS-HD MA",
+                  "audio_channels": "5.1",
+                  "collected_at": "2025-12-25T00:00:00Z",
+                  "watch_history": [
+                    {
+                      "watched_at": "2025-08-10T20:00:00Z",
+                      "source": "plex",
+                      "user_rating": null
+                    }
+                  ]
                 }
               }
             }
@@ -11535,6 +13308,7 @@
     "/v1/admin/collecting/media": {
       "post": {
         "operationId": "adminAddCollectingMedia",
+        "x-hidden": true,
         "tags": [
           "Collecting",
           "Admin"
@@ -11694,6 +13468,7 @@
     "/v1/admin/collecting/media/{id}/remove": {
       "post": {
         "operationId": "adminRemoveCollectingMedia",
+        "x-hidden": true,
         "tags": [
           "Collecting",
           "Admin"
@@ -11779,6 +13554,7 @@
     "/v1/admin/sync/trakt": {
       "post": {
         "operationId": "adminSyncTraktCollection",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -11821,6 +13597,7 @@
     "/v1/admin/collecting/media/backfill-images": {
       "post": {
         "operationId": "adminCollectingMediaBackfillImages",
+        "x-hidden": true,
         "tags": [
           "Collecting",
           "Admin"
@@ -12046,7 +13823,7 @@
                       "domain": "watching",
                       "event_type": "movie_watched",
                       "occurred_at": "2026-03-18T20:11:30.741Z",
-                      "title": "Watched The French Dispatch (2021)",
+                      "title": "Watched Ferris Bueller's Day Off (1986)",
                       "subtitle": null,
                       "image_key": null,
                       "source_id": "plex:webhook:27504-2026-03-18",
@@ -12247,6 +14024,27 @@
                     "data",
                     "pagination"
                   ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 2491,
+                      "domain": "watching",
+                      "event_type": "movie_watched",
+                      "occurred_at": "2026-03-18T20:11:30.741Z",
+                      "title": "Watched Ferris Bueller's Day Off (1986)",
+                      "subtitle": null,
+                      "image_key": null,
+                      "source_id": "plex:webhook:123",
+                      "metadata": null,
+                      "created_at": "2026-03-18T20:11:30.762Z"
+                    }
+                  ],
+                  "pagination": {
+                    "next_cursor": "2491",
+                    "has_more": true,
+                    "limit": 20
+                  }
                 }
               }
             }
@@ -12389,6 +14187,28 @@
                     "month",
                     "day",
                     "years"
+                  ]
+                },
+                "example": {
+                  "month": 3,
+                  "day": 18,
+                  "years": [
+                    {
+                      "year": 2024,
+                      "items": [
+                        {
+                          "id": 500,
+                          "domain": "listening",
+                          "event_type": "artist_discovered",
+                          "occurred_at": "2024-03-18T15:00:00.000Z",
+                          "title": "Discovered Sabrina Carpenter",
+                          "subtitle": null,
+                          "image_key": null,
+                          "source_id": "lastfm:sync:abc",
+                          "metadata": null
+                        }
+                      ]
+                    }
                   ]
                 }
               }
@@ -12535,8 +14355,8 @@
                     {
                       "domain": "listening",
                       "entity_type": "artist",
-                      "entity_id": "636",
-                      "title": "Radiohead",
+                      "entity_id": "189",
+                      "title": "Nirvana",
                       "subtitle": null,
                       "image_key": null
                     }
@@ -12577,6 +14397,7 @@
     "/v1/admin/export/{domain}": {
       "get": {
         "operationId": "exportDomain",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -12636,6 +14457,7 @@
     "/v1/admin/keys": {
       "post": {
         "operationId": "createAdminKey",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -12729,6 +14551,7 @@
       },
       "get": {
         "operationId": "listAdminKeys",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -12832,6 +14655,7 @@
     "/v1/admin/keys/{id}": {
       "delete": {
         "operationId": "deleteAdminKey",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -12906,6 +14730,7 @@
     "/v1/admin/sync/listening": {
       "post": {
         "operationId": "adminSyncListening",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -12983,6 +14808,7 @@
     "/v1/admin/sync/running": {
       "post": {
         "operationId": "adminSyncRunning",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -13025,6 +14851,7 @@
     "/v1/admin/sync/watching": {
       "post": {
         "operationId": "adminSyncWatching",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -13083,6 +14910,7 @@
     "/v1/admin/running/activities/{id}": {
       "delete": {
         "operationId": "adminDeleteRunningActivity",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
@@ -13148,6 +14976,7 @@
     "/v1/admin/running/recompute": {
       "post": {
         "operationId": "adminRecomputeRunningStats",
+        "x-hidden": true,
         "tags": [
           "Admin"
         ],
