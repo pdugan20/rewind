@@ -1519,4 +1519,68 @@ reading.openapi(yearRoute, async (c) => {
   });
 });
 
+// ─── Admin: Backfill images ─────────────────────────────────────────
+
+import { processReadingImages } from '../services/images/sync-images.js';
+import { requireAuth } from '../lib/auth.js';
+
+const backfillImagesRoute = createRoute({
+  method: 'post',
+  path: '/admin/backfill-images',
+  operationId: 'backfillReadingImages',
+  'x-hidden': true,
+  tags: ['Reading', 'Admin'],
+  summary: 'Backfill article images',
+  description: 'Process missing article thumbnail images from OG metadata.',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            limit: z.number().optional(),
+          }),
+        },
+      },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Backfill results',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            results: z.record(z.string(), z.unknown()),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+reading.use('/admin/*', requireAuth('admin'));
+
+reading.openapi(backfillImagesRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const body = await c.req
+    .json<{ limit?: number }>()
+    .catch(() => ({ limit: undefined }));
+  const limit = body.limit ?? 50;
+
+  try {
+    const results = await processReadingImages(db, c.env, limit);
+    return c.json({
+      success: true,
+      results: {
+        articles: results[0] ?? { total: 0, processed: 0 },
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
 export default reading;
