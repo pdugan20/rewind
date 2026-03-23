@@ -32,6 +32,10 @@
       "description": "Vinyl/CD collection from Discogs and physical media from Trakt."
     },
     {
+      "name": "Reading",
+      "description": "Articles, highlights, and reading stats from Instapaper."
+    },
+    {
       "name": "Feed",
       "description": "Cross-domain activity feed with cursor-based pagination."
     },
@@ -12023,6 +12027,1894 @@
         }
       }
     },
+    "/v1/reading/recent": {
+      "get": {
+        "operationId": "getReadingRecent",
+        "tags": ["Reading"],
+        "summary": "Recent articles",
+        "description": "Returns recently saved or finished articles, ordered by most recent activity.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10,
+              "example": 10
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent articles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "author": {
+                            "type": ["string", "null"]
+                          },
+                          "url": {
+                            "type": ["string", "null"]
+                          },
+                          "domain": {
+                            "type": ["string", "null"]
+                          },
+                          "site_name": {
+                            "type": ["string", "null"]
+                          },
+                          "description": {
+                            "type": ["string", "null"]
+                          },
+                          "word_count": {
+                            "type": ["number", "null"]
+                          },
+                          "estimated_read_min": {
+                            "type": ["number", "null"]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "progress": {
+                            "type": "number"
+                          },
+                          "starred": {
+                            "type": "boolean"
+                          },
+                          "rating": {
+                            "type": ["number", "null"]
+                          },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "image": {},
+                          "saved_at": {
+                            "type": "string"
+                          },
+                          "started_at": {
+                            "type": ["string", "null"]
+                          },
+                          "finished_at": {
+                            "type": ["string", "null"]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "author",
+                          "url",
+                          "domain",
+                          "site_name",
+                          "description",
+                          "word_count",
+                          "estimated_read_min",
+                          "status",
+                          "progress",
+                          "starred",
+                          "rating",
+                          "tags",
+                          "source",
+                          "saved_at",
+                          "started_at",
+                          "finished_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["data"]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 42,
+                      "title": "The Age of AI",
+                      "author": "Derek Thompson",
+                      "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                      "domain": "theatlantic.com",
+                      "site_name": "The Atlantic",
+                      "description": "How artificial intelligence is reshaping every industry.",
+                      "word_count": 3200,
+                      "estimated_read_min": 13,
+                      "status": "finished",
+                      "progress": 1,
+                      "starred": true,
+                      "rating": null,
+                      "tags": ["technology", "ai"],
+                      "source": "instapaper",
+                      "image": null,
+                      "saved_at": "2026-03-18T14:30:00.000Z",
+                      "started_at": "2026-03-19T08:00:00.000Z",
+                      "finished_at": "2026-03-19T08:15:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/currently-reading": {
+      "get": {
+        "operationId": "getReadingCurrentlyReading",
+        "tags": ["Reading"],
+        "summary": "Currently reading",
+        "description": "Returns articles currently being read (progress > 0 and < 0.75).",
+        "responses": {
+          "200": {
+            "description": "Currently reading articles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "author": {
+                            "type": ["string", "null"]
+                          },
+                          "url": {
+                            "type": ["string", "null"]
+                          },
+                          "domain": {
+                            "type": ["string", "null"]
+                          },
+                          "site_name": {
+                            "type": ["string", "null"]
+                          },
+                          "description": {
+                            "type": ["string", "null"]
+                          },
+                          "word_count": {
+                            "type": ["number", "null"]
+                          },
+                          "estimated_read_min": {
+                            "type": ["number", "null"]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "progress": {
+                            "type": "number"
+                          },
+                          "starred": {
+                            "type": "boolean"
+                          },
+                          "rating": {
+                            "type": ["number", "null"]
+                          },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "image": {},
+                          "saved_at": {
+                            "type": "string"
+                          },
+                          "started_at": {
+                            "type": ["string", "null"]
+                          },
+                          "finished_at": {
+                            "type": ["string", "null"]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "author",
+                          "url",
+                          "domain",
+                          "site_name",
+                          "description",
+                          "word_count",
+                          "estimated_read_min",
+                          "status",
+                          "progress",
+                          "starred",
+                          "rating",
+                          "tags",
+                          "source",
+                          "saved_at",
+                          "started_at",
+                          "finished_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["data"]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 87,
+                      "title": "Why the Internet Isn't Working",
+                      "author": "Maxwell Zeff",
+                      "url": "https://www.wired.com/story/why-the-internet-isnt-working",
+                      "domain": "wired.com",
+                      "site_name": "Wired",
+                      "description": "The web was supposed to connect us. What went wrong?",
+                      "word_count": 4500,
+                      "estimated_read_min": 18,
+                      "status": "reading",
+                      "progress": 0.45,
+                      "starred": false,
+                      "rating": null,
+                      "tags": ["technology", "internet"],
+                      "source": "instapaper",
+                      "image": null,
+                      "saved_at": "2026-03-20T10:00:00.000Z",
+                      "started_at": "2026-03-21T07:30:00.000Z",
+                      "finished_at": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/articles": {
+      "get": {
+        "operationId": "listReadingArticles",
+        "tags": ["Reading"],
+        "summary": "List articles",
+        "description": "Returns a paginated list of articles, filterable by status, tag, domain, and starred.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "example": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "example": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["unread", "reading", "finished"],
+              "example": "finished"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "technology"
+            },
+            "required": false,
+            "name": "tag",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "theatlantic.com"
+            },
+            "required": false,
+            "name": "domain",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "maximum": 1,
+              "example": 1,
+              "description": "1 for starred only, 0 for unstarred only"
+            },
+            "required": false,
+            "description": "1 for starred only, 0 for unstarred only",
+            "name": "starred",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["saved_at", "finished_at", "title"],
+              "default": "saved_at",
+              "example": "saved_at"
+            },
+            "required": false,
+            "name": "sort",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "desc",
+              "example": "desc"
+            },
+            "required": false,
+            "name": "order",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated articles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "author": {
+                            "type": ["string", "null"]
+                          },
+                          "url": {
+                            "type": ["string", "null"]
+                          },
+                          "domain": {
+                            "type": ["string", "null"]
+                          },
+                          "site_name": {
+                            "type": ["string", "null"]
+                          },
+                          "description": {
+                            "type": ["string", "null"]
+                          },
+                          "word_count": {
+                            "type": ["number", "null"]
+                          },
+                          "estimated_read_min": {
+                            "type": ["number", "null"]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "progress": {
+                            "type": "number"
+                          },
+                          "starred": {
+                            "type": "boolean"
+                          },
+                          "rating": {
+                            "type": ["number", "null"]
+                          },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "image": {},
+                          "saved_at": {
+                            "type": "string"
+                          },
+                          "started_at": {
+                            "type": ["string", "null"]
+                          },
+                          "finished_at": {
+                            "type": ["string", "null"]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "author",
+                          "url",
+                          "domain",
+                          "site_name",
+                          "description",
+                          "word_count",
+                          "estimated_read_min",
+                          "status",
+                          "progress",
+                          "starred",
+                          "rating",
+                          "tags",
+                          "source",
+                          "saved_at",
+                          "started_at",
+                          "finished_at"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": ["data", "pagination"]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 42,
+                      "title": "The Age of AI",
+                      "author": "Derek Thompson",
+                      "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                      "domain": "theatlantic.com",
+                      "site_name": "The Atlantic",
+                      "description": "How artificial intelligence is reshaping every industry.",
+                      "word_count": 3200,
+                      "estimated_read_min": 13,
+                      "status": "finished",
+                      "progress": 1,
+                      "starred": true,
+                      "rating": null,
+                      "tags": ["technology", "ai"],
+                      "source": "instapaper",
+                      "image": null,
+                      "saved_at": "2026-03-18T14:30:00.000Z",
+                      "started_at": "2026-03-19T08:00:00.000Z",
+                      "finished_at": "2026-03-19T08:15:00.000Z"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 1523,
+                    "total_pages": 77
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/articles/{id}": {
+      "get": {
+        "operationId": "getReadingArticle",
+        "tags": ["Reading"],
+        "summary": "Article detail",
+        "description": "Returns a single article with its embedded highlights.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "42"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Article detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "author": {
+                      "type": ["string", "null"]
+                    },
+                    "url": {
+                      "type": ["string", "null"]
+                    },
+                    "domain": {
+                      "type": ["string", "null"]
+                    },
+                    "site_name": {
+                      "type": ["string", "null"]
+                    },
+                    "description": {
+                      "type": ["string", "null"]
+                    },
+                    "word_count": {
+                      "type": ["number", "null"]
+                    },
+                    "estimated_read_min": {
+                      "type": ["number", "null"]
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "progress": {
+                      "type": "number"
+                    },
+                    "starred": {
+                      "type": "boolean"
+                    },
+                    "rating": {
+                      "type": ["number", "null"]
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "image": {},
+                    "saved_at": {
+                      "type": "string"
+                    },
+                    "started_at": {
+                      "type": ["string", "null"]
+                    },
+                    "finished_at": {
+                      "type": ["string", "null"]
+                    },
+                    "highlights": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": ["string", "null"]
+                          },
+                          "position": {
+                            "type": ["number", "null"]
+                          },
+                          "chapter": {
+                            "type": ["string", "null"]
+                          },
+                          "page": {
+                            "type": ["number", "null"]
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "text",
+                          "note",
+                          "position",
+                          "chapter",
+                          "page",
+                          "created_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "author",
+                    "url",
+                    "domain",
+                    "site_name",
+                    "description",
+                    "word_count",
+                    "estimated_read_min",
+                    "status",
+                    "progress",
+                    "starred",
+                    "rating",
+                    "tags",
+                    "source",
+                    "saved_at",
+                    "started_at",
+                    "finished_at",
+                    "highlights"
+                  ]
+                },
+                "example": {
+                  "id": 42,
+                  "title": "The Age of AI",
+                  "author": "Derek Thompson",
+                  "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                  "domain": "theatlantic.com",
+                  "site_name": "The Atlantic",
+                  "description": "How artificial intelligence is reshaping every industry.",
+                  "word_count": 3200,
+                  "estimated_read_min": 13,
+                  "status": "finished",
+                  "progress": 1,
+                  "starred": true,
+                  "rating": null,
+                  "tags": ["technology", "ai"],
+                  "source": "instapaper",
+                  "image": null,
+                  "saved_at": "2026-03-18T14:30:00.000Z",
+                  "started_at": "2026-03-19T08:00:00.000Z",
+                  "finished_at": "2026-03-19T08:15:00.000Z",
+                  "highlights": [
+                    {
+                      "id": 1,
+                      "text": "The question is not whether AI will transform society, but how quickly institutions can adapt.",
+                      "note": "Key thesis",
+                      "position": 1,
+                      "chapter": null,
+                      "page": null,
+                      "created_at": "2026-03-19T08:10:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/archive": {
+      "get": {
+        "operationId": "getReadingArchive",
+        "tags": ["Reading"],
+        "summary": "Archived articles",
+        "description": "Returns finished articles, paginated.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "example": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "example": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived articles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "author": {
+                            "type": ["string", "null"]
+                          },
+                          "url": {
+                            "type": ["string", "null"]
+                          },
+                          "domain": {
+                            "type": ["string", "null"]
+                          },
+                          "site_name": {
+                            "type": ["string", "null"]
+                          },
+                          "description": {
+                            "type": ["string", "null"]
+                          },
+                          "word_count": {
+                            "type": ["number", "null"]
+                          },
+                          "estimated_read_min": {
+                            "type": ["number", "null"]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "progress": {
+                            "type": "number"
+                          },
+                          "starred": {
+                            "type": "boolean"
+                          },
+                          "rating": {
+                            "type": ["number", "null"]
+                          },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "image": {},
+                          "saved_at": {
+                            "type": "string"
+                          },
+                          "started_at": {
+                            "type": ["string", "null"]
+                          },
+                          "finished_at": {
+                            "type": ["string", "null"]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "author",
+                          "url",
+                          "domain",
+                          "site_name",
+                          "description",
+                          "word_count",
+                          "estimated_read_min",
+                          "status",
+                          "progress",
+                          "starred",
+                          "rating",
+                          "tags",
+                          "source",
+                          "saved_at",
+                          "started_at",
+                          "finished_at"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": ["data", "pagination"]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 42,
+                      "title": "The Age of AI",
+                      "author": "Derek Thompson",
+                      "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                      "domain": "theatlantic.com",
+                      "site_name": "The Atlantic",
+                      "description": "How artificial intelligence is reshaping every industry.",
+                      "word_count": 3200,
+                      "estimated_read_min": 13,
+                      "status": "finished",
+                      "progress": 1,
+                      "starred": true,
+                      "rating": null,
+                      "tags": ["technology", "ai"],
+                      "source": "instapaper",
+                      "image": null,
+                      "saved_at": "2026-03-18T14:30:00.000Z",
+                      "started_at": "2026-03-19T08:00:00.000Z",
+                      "finished_at": "2026-03-19T08:15:00.000Z"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 890,
+                    "total_pages": 45
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/highlights": {
+      "get": {
+        "operationId": "listReadingHighlights",
+        "tags": ["Reading"],
+        "summary": "List highlights",
+        "description": "Returns all highlights newest first, with parent article context.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "example": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "example": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated highlights",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": ["string", "null"]
+                          },
+                          "position": {
+                            "type": ["number", "null"]
+                          },
+                          "chapter": {
+                            "type": ["string", "null"]
+                          },
+                          "page": {
+                            "type": ["number", "null"]
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "article": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "number"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "author": {
+                                "type": ["string", "null"]
+                              },
+                              "domain": {
+                                "type": ["string", "null"]
+                              },
+                              "url": {
+                                "type": ["string", "null"]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "author",
+                              "domain",
+                              "url"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "text",
+                          "note",
+                          "position",
+                          "chapter",
+                          "page",
+                          "created_at",
+                          "article"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": ["data", "pagination"]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 1,
+                      "text": "The question is not whether AI will transform society, but how quickly institutions can adapt.",
+                      "note": "Key thesis",
+                      "position": 1,
+                      "chapter": null,
+                      "page": null,
+                      "created_at": "2026-03-19T08:10:00.000Z",
+                      "article": {
+                        "id": 42,
+                        "title": "The Age of AI",
+                        "author": "Derek Thompson",
+                        "domain": "theatlantic.com",
+                        "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai"
+                      }
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 312,
+                    "total_pages": 16
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/highlights/random": {
+      "get": {
+        "operationId": "getReadingHighlightRandom",
+        "tags": ["Reading"],
+        "summary": "Random highlight",
+        "description": "Returns a single random highlight with article context.",
+        "responses": {
+          "200": {
+            "description": "Random highlight",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "note": {
+                      "type": ["string", "null"]
+                    },
+                    "position": {
+                      "type": ["number", "null"]
+                    },
+                    "chapter": {
+                      "type": ["string", "null"]
+                    },
+                    "page": {
+                      "type": ["number", "null"]
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "article": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "author": {
+                          "type": ["string", "null"]
+                        },
+                        "domain": {
+                          "type": ["string", "null"]
+                        },
+                        "url": {
+                          "type": ["string", "null"]
+                        }
+                      },
+                      "required": ["id", "title", "author", "domain", "url"]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "text",
+                    "note",
+                    "position",
+                    "chapter",
+                    "page",
+                    "created_at",
+                    "article"
+                  ]
+                },
+                "example": {
+                  "id": 77,
+                  "text": "We have built a world where distraction is the default and attention is the exception.",
+                  "note": null,
+                  "position": 3,
+                  "chapter": null,
+                  "page": null,
+                  "created_at": "2026-02-14T12:30:00.000Z",
+                  "article": {
+                    "id": 87,
+                    "title": "Why the Internet Isn't Working",
+                    "author": "Maxwell Zeff",
+                    "domain": "wired.com",
+                    "url": "https://www.wired.com/story/why-the-internet-isnt-working"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/stats": {
+      "get": {
+        "operationId": "getReadingStats",
+        "tags": ["Reading"],
+        "summary": "Reading stats",
+        "description": "Returns aggregate reading statistics: total articles, finished count, currently reading, total highlights, word count, and average read time.",
+        "responses": {
+          "200": {
+            "description": "Reading statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_articles": {
+                      "type": "number"
+                    },
+                    "finished_count": {
+                      "type": "number"
+                    },
+                    "currently_reading_count": {
+                      "type": "number"
+                    },
+                    "total_highlights": {
+                      "type": "number"
+                    },
+                    "total_word_count": {
+                      "type": "number"
+                    },
+                    "avg_estimated_read_min": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "total_articles",
+                    "finished_count",
+                    "currently_reading_count",
+                    "total_highlights",
+                    "total_word_count",
+                    "avg_estimated_read_min"
+                  ]
+                },
+                "example": {
+                  "total_articles": 1523,
+                  "finished_count": 891,
+                  "currently_reading_count": 3,
+                  "total_highlights": 312,
+                  "total_word_count": 4892000,
+                  "avg_estimated_read_min": 11
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/calendar": {
+      "get": {
+        "operationId": "getReadingCalendar",
+        "tags": ["Reading"],
+        "summary": "Reading calendar",
+        "description": "Returns daily counts of saved and finished articles for a given year.",
+        "parameters": [
+          {
+            "schema": {
+              "type": ["integer", "null"],
+              "example": 2025
+            },
+            "required": false,
+            "name": "year",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendar data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "year": {
+                      "type": "number"
+                    },
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string"
+                          },
+                          "saved": {
+                            "type": "number"
+                          },
+                          "finished": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["date", "saved", "finished"]
+                      }
+                    },
+                    "total_saved": {
+                      "type": "number"
+                    },
+                    "total_finished": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["year", "days", "total_saved", "total_finished"]
+                },
+                "example": {
+                  "year": 2026,
+                  "days": [
+                    {
+                      "date": "2026-03-01",
+                      "saved": 3,
+                      "finished": 1
+                    },
+                    {
+                      "date": "2026-03-02",
+                      "saved": 5,
+                      "finished": 2
+                    },
+                    {
+                      "date": "2026-03-03",
+                      "saved": 1,
+                      "finished": 0
+                    }
+                  ],
+                  "total_saved": 9,
+                  "total_finished": 3
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/streaks": {
+      "get": {
+        "operationId": "getReadingStreaks",
+        "tags": ["Reading"],
+        "summary": "Reading streaks",
+        "description": "Returns current and longest reading streaks (consecutive days with a finished article).",
+        "responses": {
+          "200": {
+            "description": "Streak data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "current": {
+                      "type": "object",
+                      "properties": {
+                        "days": {
+                          "type": "number"
+                        },
+                        "start_date": {
+                          "type": ["string", "null"]
+                        },
+                        "total_finished": {
+                          "type": "number"
+                        }
+                      },
+                      "required": ["days", "start_date", "total_finished"]
+                    },
+                    "longest": {
+                      "type": "object",
+                      "properties": {
+                        "days": {
+                          "type": "number"
+                        },
+                        "start_date": {
+                          "type": ["string", "null"]
+                        },
+                        "end_date": {
+                          "type": ["string", "null"]
+                        },
+                        "total_finished": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "days",
+                        "start_date",
+                        "end_date",
+                        "total_finished"
+                      ]
+                    }
+                  },
+                  "required": ["current", "longest"]
+                },
+                "example": {
+                  "current": {
+                    "days": 5,
+                    "start_date": "2026-03-18",
+                    "total_finished": 8
+                  },
+                  "longest": {
+                    "days": 21,
+                    "start_date": "2025-12-01",
+                    "end_date": "2025-12-21",
+                    "total_finished": 34
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/tags": {
+      "get": {
+        "operationId": "listReadingTags",
+        "tags": ["Reading"],
+        "summary": "Tag breakdown",
+        "description": "Returns tags with article counts, sorted by count descending.",
+        "responses": {
+          "200": {
+            "description": "Tag list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tag": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["tag", "count"]
+                      }
+                    }
+                  },
+                  "required": ["data"]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "tag": "technology",
+                      "count": 312
+                    },
+                    {
+                      "tag": "culture",
+                      "count": 187
+                    },
+                    {
+                      "tag": "science",
+                      "count": 145
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/domains": {
+      "get": {
+        "operationId": "listReadingDomains",
+        "tags": ["Reading"],
+        "summary": "Top domains",
+        "description": "Returns top source domains with article counts, sorted by count descending.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["domain", "count"]
+                      }
+                    }
+                  },
+                  "required": ["data"]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "domain": "theatlantic.com",
+                      "count": 98
+                    },
+                    {
+                      "domain": "wired.com",
+                      "count": 76
+                    },
+                    {
+                      "domain": "nytimes.com",
+                      "count": 65
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reading/year/{year}": {
+      "get": {
+        "operationId": "getReadingYearInReview",
+        "tags": ["Reading"],
+        "summary": "Year in review",
+        "description": "Returns year-in-review reading data.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "2025"
+            },
+            "required": true,
+            "name": "year",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Year in review data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "year": {
+                      "type": "number"
+                    },
+                    "total_articles": {
+                      "type": "number"
+                    },
+                    "finished_count": {
+                      "type": "number"
+                    },
+                    "total_highlights": {
+                      "type": "number"
+                    },
+                    "total_word_count": {
+                      "type": "number"
+                    },
+                    "top_domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["domain", "count"]
+                      }
+                    },
+                    "top_tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tag": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["tag", "count"]
+                      }
+                    },
+                    "monthly": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "month": {
+                            "type": "string"
+                          },
+                          "saved": {
+                            "type": "number"
+                          },
+                          "finished": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["month", "saved", "finished"]
+                      }
+                    }
+                  },
+                  "required": [
+                    "year",
+                    "total_articles",
+                    "finished_count",
+                    "total_highlights",
+                    "total_word_count",
+                    "top_domains",
+                    "top_tags",
+                    "monthly"
+                  ]
+                },
+                "example": {
+                  "year": 2025,
+                  "total_articles": 482,
+                  "finished_count": 301,
+                  "total_highlights": 128,
+                  "total_word_count": 1540000,
+                  "top_domains": [
+                    {
+                      "domain": "theatlantic.com",
+                      "count": 32
+                    },
+                    {
+                      "domain": "wired.com",
+                      "count": 28
+                    }
+                  ],
+                  "top_tags": [
+                    {
+                      "tag": "technology",
+                      "count": 89
+                    },
+                    {
+                      "tag": "culture",
+                      "count": 54
+                    }
+                  ],
+                  "monthly": [
+                    {
+                      "month": "2025-01",
+                      "saved": 45,
+                      "finished": 28
+                    },
+                    {
+                      "month": "2025-02",
+                      "saved": 38,
+                      "finished": 22
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/feed": {
       "get": {
         "operationId": "getFeed",
@@ -13213,6 +15105,47 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SyncStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sync/reading": {
+      "post": {
+        "operationId": "adminSyncReading",
+        "x-hidden": true,
+        "tags": ["Admin"],
+        "summary": "Trigger Instapaper sync",
+        "description": "Manually trigger an Instapaper reading sync.",
+        "responses": {
+          "200": {
+            "description": "Sync completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncCompletedResponse"
                 }
               }
             }

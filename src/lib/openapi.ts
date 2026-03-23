@@ -105,6 +105,10 @@ Common status codes: 400 (bad request), 401 (unauthorized), 404 (not found), 500
         'Vinyl/CD collection from Discogs and physical media from Trakt.',
     },
     {
+      name: 'Reading',
+      description: 'Articles, highlights, and reading stats from Instapaper.',
+    },
+    {
       name: 'Feed',
       description: 'Cross-domain activity feed with cursor-based pagination.',
     },

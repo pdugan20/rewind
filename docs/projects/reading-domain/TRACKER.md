@@ -60,38 +60,38 @@ Build the REST endpoints for the Reading domain.
 
 **3.1 -- Route Setup**
 
-- [ ] **3.1.1** Create `src/routes/reading.ts` with OpenAPI app
-- [ ] **3.1.2** Register route in `src/index.ts` at `/reading`
-- [ ] **3.1.3** Add `Reading` tag to OpenAPI config in `src/lib/openapi.ts`
+- [x] **3.1.1** Create `src/routes/reading.ts` with OpenAPI app (13 endpoints)
+- [x] **3.1.2** Register route in `src/index.ts` at `/reading`
+- [x] **3.1.3** Add `Reading` tag to OpenAPI config in `src/lib/openapi.ts`
 
 **3.2 -- Core Endpoints**
 
-- [ ] **3.2.1** `GET /reading/recent` -- recently saved or finished, with date filtering
-- [ ] **3.2.2** `GET /reading/currently-reading` -- items with status 'reading'
-- [ ] **3.2.3** `GET /reading/articles` -- paginated, filterable by status, tag, domain, starred, with sort/order
-- [ ] **3.2.4** `GET /reading/articles/{id}` -- detail with embedded highlights
-- [ ] **3.2.5** `GET /reading/archive` -- finished articles
+- [x] **3.2.1** `GET /reading/recent` -- recently saved or finished, with date filtering
+- [x] **3.2.2** `GET /reading/currently-reading` -- items with status 'reading'
+- [x] **3.2.3** `GET /reading/articles` -- paginated, filterable by status, tag, domain, starred, with sort/order
+- [x] **3.2.4** `GET /reading/articles/{id}` -- detail with embedded highlights
+- [x] **3.2.5** `GET /reading/archive` -- finished articles
 
 **3.3 -- Highlights Endpoints**
 
-- [ ] **3.3.1** `GET /reading/highlights` -- all highlights, newest first, with pagination
-- [ ] **3.3.2** `GET /reading/highlights/random` -- single random highlight with article context
+- [x] **3.3.1** `GET /reading/highlights` -- all highlights, newest first, with pagination
+- [x] **3.3.2** `GET /reading/highlights/random` -- single random highlight with article context
 
 **3.4 -- Stats & Discovery Endpoints**
 
-- [ ] **3.4.1** `GET /reading/stats` -- total articles, finished count, reading pace, avg read time, highlight count
-- [ ] **3.4.2** `GET /reading/calendar` -- daily reading activity (saved + finished counts per day)
-- [ ] **3.4.3** `GET /reading/streaks` -- current and longest reading streaks
-- [ ] **3.4.4** `GET /reading/tags` -- tag breakdown with counts
-- [ ] **3.4.5** `GET /reading/domains` -- top source domains with article counts
-- [ ] **3.4.6** `GET /reading/year/{year}` -- year in review (articles read, top domains, top tags, highlights)
+- [x] **3.4.1** `GET /reading/stats` -- total articles, finished count, reading pace, avg read time, highlight count
+- [x] **3.4.2** `GET /reading/calendar` -- daily reading activity
+- [x] **3.4.3** `GET /reading/streaks` -- current and longest reading streaks
+- [x] **3.4.4** `GET /reading/tags` -- tag breakdown with counts
+- [x] **3.4.5** `GET /reading/domains` -- top source domains with article counts
+- [x] **3.4.6** `GET /reading/year/{year}` -- year in review
 
 **3.5 -- OpenAPI Quality**
 
-- [ ] **3.5.1** Add operationId to all reading endpoints
-- [ ] **3.5.2** Add response examples with curated data
-- [ ] **3.5.3** Add Zod schemas for all request/response shapes
-- [ ] **3.5.4** Update OpenAPI snapshot, verify 0 Spectral errors
+- [x] **3.5.1** operationIds on all 13 reading endpoints
+- [x] **3.5.2** Response examples with curated data on all endpoints
+- [x] **3.5.3** Zod schemas for all request/response shapes
+- [x] **3.5.4** OpenAPI snapshot updated, 0 Spectral errors
 
 ## Phase 4: Integration
 
