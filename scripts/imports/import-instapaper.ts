@@ -468,9 +468,9 @@ async function main() {
           let content: string | null = null;
           try {
             await sleep(GET_TEXT_DELAY_MS);
-            const html = await instapaperRequest(
-              `/1/bookmarks/${bm.bookmark_id}/get_text`
-            );
+            const html = await instapaperRequest('/1/bookmarks/get_text', {
+              bookmark_id: String(bm.bookmark_id),
+            });
             const wc = computeWordCount(html);
             wordCount = wc.wordCount;
             estimatedReadMin = wc.estimatedReadMin;

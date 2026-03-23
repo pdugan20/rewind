@@ -28,6 +28,12 @@ export const readingItems = sqliteTable(
     content: text('content'),
     wordCount: integer('word_count'),
     estimatedReadMin: integer('estimated_read_min'),
+    publishedAt: text('published_at'),
+    ogImageUrl: text('og_image_url'),
+    ogDescription: text('og_description'),
+    articleTags: text('article_tags'),
+    enrichmentStatus: text('enrichment_status').default('pending'),
+    enrichmentError: text('enrichment_error'),
 
     // Book-specific (future)
     isbn: text('isbn'),

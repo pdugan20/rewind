@@ -26,6 +26,12 @@ CREATE TABLE reading_items (
   content TEXT,                                 -- processed HTML from get_text (for full-text search, word count)
   word_count INTEGER,                           -- derived from content
   estimated_read_min INTEGER,                   -- ceil(word_count / 238)
+  published_at TEXT,                            -- article:published_time from OG
+  og_image_url TEXT,                            -- og:image URL (for image pipeline)
+  og_description TEXT,                          -- og:description fallback
+  article_tags TEXT,                            -- JSON: article:section + article:tag
+  enrichment_status TEXT DEFAULT 'pending',     -- pending | completed | failed
+  enrichment_error TEXT,                        -- error message if failed
 
   -- Book-specific (future)
   isbn TEXT,

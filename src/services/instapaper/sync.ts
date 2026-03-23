@@ -260,13 +260,17 @@ async function syncHighlights(
   }
 
   let count = 0;
+  const returnedSourceIds: string[] = [];
+
   for (const h of highlights) {
+    const sourceId = String(h.highlight_id);
+    returnedSourceIds.push(sourceId);
     await db
       .insert(readingHighlights)
       .values({
         userId: 1,
         itemId,
-        sourceId: String(h.highlight_id),
+        sourceId,
         text: h.text,
         position: h.position,
         createdAt: new Date(h.time * 1000).toISOString(),
@@ -274,6 +278,25 @@ async function syncHighlights(
       .onConflictDoNothing();
     count++;
   }
+
+  // Remove highlights deleted from Instapaper
+  if (returnedSourceIds.length > 0) {
+    await db.delete(readingHighlights).where(
+      and(
+        eq(readingHighlights.itemId, itemId),
+        sql`${readingHighlights.sourceId} NOT IN (${sql.join(
+          returnedSourceIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`
+      )
+    );
+  } else {
+    // No highlights returned — delete all for this item
+    await db
+      .delete(readingHighlights)
+      .where(eq(readingHighlights.itemId, itemId));
+  }
+
   return count;
 }
 

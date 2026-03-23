@@ -87,7 +87,9 @@ export class InstapaperClient {
    * Get processed article text (HTML).
    */
   async getText(bookmarkId: number): Promise<string> {
-    return this.request(`/1/bookmarks/${bookmarkId}/get_text`, {});
+    return this.request('/1/bookmarks/get_text', {
+      bookmark_id: String(bookmarkId),
+    });
   }
 
   /**

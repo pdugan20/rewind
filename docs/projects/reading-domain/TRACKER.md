@@ -46,7 +46,7 @@ Build the sync worker that pulls data from Instapaper into D1.
 
 - [x] **2.3.1** Fetch highlights per bookmark from Instapaper API
 - [x] **2.3.2** Upsert into `reading_highlights` table (onConflictDoNothing)
-- [ ] **2.3.3** Handle highlight deletions (remove highlights not returned by API)
+- [x] **2.3.3** Handle highlight deletions (remove highlights not returned by API)
 
 **2.4 -- Cron Registration**
 
@@ -140,13 +140,13 @@ Import historical Instapaper data.
 - [x] **5.3.1** Migration applied to remote D1
 - [x] **5.3.2** Deployed to production
 - [x] **5.3.3** Verified: 1,047 articles, 323 finished, 69 reading, 126 highlights
-- [ ] **5.3.4** Run enrichment pass (get_text + OG metadata) -- separate long-running job
+- [x] **5.3.4** Enrichment pass: 557 enriched, 473 got article text, 490 failed (paywalled: NYT 349, WSJ 52, Bloomberg 31)
 - [ ] **5.3.5** Run image pipeline for articles with OG images
 
 ## Phase 6: Tests
 
-- [ ] **6.1** Unit tests for Instapaper client (mocked API responses)
-- [ ] **6.2** Unit tests for transforms (status derivation, domain extraction, word count)
+- [x] **6.1** Unit tests for Instapaper client (5 tests — mocked fetch, OAuth header validation)
+- [x] **6.2** Unit tests for transforms (20 tests — status derivation, domain extraction, word count, bookmark transform)
 - [ ] **6.3** Integration tests for reading endpoints (response shapes, pagination, filtering)
 - [ ] **6.4** Contract tests (responses match OpenAPI spec)
-- [ ] **6.5** E2E route shape test (all expected routes registered)
+- [x] **6.5** E2E route shape test (4 tests — all 13 routes registered, GET methods verified)
