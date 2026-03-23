@@ -29,6 +29,7 @@ import {
   processListeningImages,
   processWatchingImages,
   processCollectingImages,
+  processReadingImages,
 } from './services/images/sync-images.js';
 import { shouldRetry } from './lib/sync-retry.js';
 import { shouldSkipWatchingImages } from './services/images/sync-images.js';
@@ -252,11 +253,16 @@ export default {
         }
         console.log('[SYNC] Instapaper bookmarks');
         ctx.waitUntil(
-          syncReading(db, env).catch((error) =>
-            console.log(
-              `[ERROR] Instapaper sync failed: ${error instanceof Error ? error.message : String(error)}`
-            )
-          )
+          (async () => {
+            try {
+              await syncReading(db, env);
+              await processReadingImages(db, env);
+            } catch (error) {
+              console.log(
+                `[ERROR] Instapaper sync failed: ${error instanceof Error ? error.message : String(error)}`
+              );
+            }
+          })()
         );
         break;
       }

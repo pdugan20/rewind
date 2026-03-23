@@ -32,4 +32,6 @@ export interface SourceSearchParams {
   plexThumbPath?: string;
   /** Article URL for OG image extraction */
   articleUrl?: string;
+  /** Pre-resolved image URL (skips source client lookup) */
+  directImageUrl?: string;
 }

@@ -14,6 +14,18 @@ export class OgImageClient implements SourceClient {
       return [];
     }
 
+    // Use pre-resolved image URL if available (from enrichment)
+    if (params.directImageUrl) {
+      return [
+        {
+          source: this.name,
+          url: params.directImageUrl,
+          width: null,
+          height: null,
+        },
+      ];
+    }
+
     const articleUrl = params.articleUrl;
     if (!articleUrl) {
       console.log(

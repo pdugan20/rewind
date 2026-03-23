@@ -295,17 +295,18 @@ export async function processReadingImages(
   env: PipelineEnv,
   maxItems = DEFAULT_MAX_ITEMS
 ): Promise<SyncImageResult[]> {
-  // Articles without images that have a URL to fetch og:image from
+  // Articles without images that have an og_image_url from enrichment
   const articleRows = await db
     .select({
       id: readingItems.id,
       url: readingItems.url,
+      ogImageUrl: readingItems.ogImageUrl,
     })
     .from(readingItems)
     .where(
       and(
         eq(readingItems.itemType, 'article'),
-        sql`${readingItems.url} IS NOT NULL AND ${readingItems.id} NOT IN (
+        sql`(${readingItems.ogImageUrl} IS NOT NULL OR ${readingItems.url} IS NOT NULL) AND ${readingItems.id} NOT IN (
           SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
           WHERE ${images.domain} = 'reading' AND ${images.entityType} = 'articles'
         )`
@@ -317,6 +318,7 @@ export async function processReadingImages(
     domain: 'reading',
     entityType: 'articles',
     entityId: String(a.id),
+    directImageUrl: a.ogImageUrl ?? undefined,
     articleUrl: a.url ?? undefined,
   }));
 
