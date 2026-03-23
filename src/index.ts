@@ -23,6 +23,7 @@ import { syncWatching } from './services/plex/sync.js';
 import { syncLetterboxd } from './services/letterboxd/sync.js';
 import { syncCollecting } from './services/discogs/sync.js';
 import { syncTraktCollection } from './services/trakt/sync.js';
+import { syncReading } from './services/instapaper/sync.js';
 import {
   processListeningImages,
   processWatchingImages,
@@ -238,6 +239,22 @@ export default {
               );
             }
           })()
+        );
+
+        // Reading sync (Instapaper)
+        const readingRetry = await shouldRetry(db, 'reading');
+        if (readingRetry.shouldRetry) {
+          console.log(
+            `[SYNC] Retrying failed reading sync (${readingRetry.consecutiveFailures} consecutive failures)`
+          );
+        }
+        console.log('[SYNC] Instapaper bookmarks');
+        ctx.waitUntil(
+          syncReading(db, env).catch((error) =>
+            console.log(
+              `[ERROR] Instapaper sync failed: ${error instanceof Error ? error.message : String(error)}`
+            )
+          )
         );
         break;
       }

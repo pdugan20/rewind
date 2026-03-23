@@ -35,6 +35,12 @@ export interface Env {
   TRAKT_CLIENT_ID: string;
   TRAKT_CLIENT_SECRET: string;
 
+  // Instapaper
+  INSTAPAPER_CONSUMER_KEY: string;
+  INSTAPAPER_CONSUMER_SECRET: string;
+  INSTAPAPER_ACCESS_TOKEN: string;
+  INSTAPAPER_ACCESS_TOKEN_SECRET: string;
+
   // Images
   APPLE_MUSIC_DEVELOPER_TOKEN: string;
   FANART_TV_API_KEY: string;

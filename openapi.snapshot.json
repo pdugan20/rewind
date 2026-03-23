@@ -14907,6 +14907,49 @@
         }
       }
     },
+    "/v1/admin/sync/reading": {
+      "post": {
+        "operationId": "adminSyncReading",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Trigger Instapaper sync",
+        "description": "Manually trigger an Instapaper reading sync.",
+        "responses": {
+          "200": {
+            "description": "Sync completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncCompletedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/running/activities/{id}": {
       "delete": {
         "operationId": "adminDeleteRunningActivity",

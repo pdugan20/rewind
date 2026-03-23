@@ -1,6 +1,6 @@
 # Rewind
 
-Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, and Letterboxd into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`.
+Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, Letterboxd, and Instapaper into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`.
 
 ## Development Commands
 
@@ -21,7 +21,7 @@ npm test             # Vitest
 
 Hono on Cloudflare Workers with D1 (SQLite) for structured data, R2 for image storage, and Cloudflare Images for on-the-fly transforms. Drizzle ORM for type-safe database access. Hono RPC for end-to-end type inference with consuming clients. All routes prefixed with `/v1/`. API key authentication on all endpoints (Bearer token). Multi-user ready (`user_id` on all tables).
 
-Four data domains: listening (Last.fm + Apple Music), running (Strava), watching (Plex + Letterboxd + manual), collecting (Discogs + Trakt). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
+Five data domains: listening (Last.fm + Apple Music), running (Strava), watching (Plex + Letterboxd + manual), collecting (Discogs + Trakt), reading (Instapaper). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
 
 ## Project Structure
 
@@ -54,6 +54,7 @@ src/
     watching/              -- Shared TMDB client for all watching sources
     discogs/               -- Discogs API client, transforms, cross-ref, sync
     trakt/                 -- Trakt OAuth, API client, sync
+    instapaper/            -- Instapaper OAuth 1.0a client, transforms, sync
     images/                -- Image pipeline (sources, storage, thumbhash, color extraction)
   lib/
     auth.ts                -- API key authentication middleware (Bearer token, in-memory cache, rate limiting)
@@ -84,25 +85,29 @@ docs/                      -- Project documentation
 
 ## Environment Variables
 
-| Variable                      | Domain     | Description                                                                 |
-| ----------------------------- | ---------- | --------------------------------------------------------------------------- |
-| `ALLOWED_ORIGINS`             | System     | CORS allowed origins (comma-separated, default: patdugan.me,localhost:3000) |
-| `LASTFM_API_KEY`              | Listening  | Last.fm API key                                                             |
-| `LASTFM_USERNAME`             | Listening  | Last.fm username (pdugan20)                                                 |
-| `STRAVA_CLIENT_ID`            | Running    | Strava OAuth app client ID                                                  |
-| `STRAVA_CLIENT_SECRET`        | Running    | Strava OAuth app client secret                                              |
-| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Running    | Strava webhook validation token                                             |
-| `PLEX_URL`                    | Watching   | Plex server URL                                                             |
-| `PLEX_TOKEN`                  | Watching   | Plex authentication token                                                   |
-| `PLEX_WEBHOOK_SECRET`         | Watching   | Webhook source verification                                                 |
-| `TMDB_API_KEY`                | Watching   | TMDB API read access token                                                  |
-| `LETTERBOXD_USERNAME`         | Watching   | Letterboxd username for RSS feed sync                                       |
-| `DISCOGS_PERSONAL_TOKEN`      | Collecting | Discogs personal access token                                               |
-| `DISCOGS_USERNAME`            | Collecting | Discogs username (patdugan)                                                 |
-| `TRAKT_CLIENT_ID`             | Collecting | Trakt OAuth app client ID                                                   |
-| `TRAKT_CLIENT_SECRET`         | Collecting | Trakt OAuth app client secret                                               |
-| `APPLE_MUSIC_DEVELOPER_TOKEN` | Images     | Apple Music JWT                                                             |
-| `FANART_TV_API_KEY`           | Images     | Fanart.tv project API key                                                   |
+| Variable                         | Domain     | Description                                                                 |
+| -------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| `ALLOWED_ORIGINS`                | System     | CORS allowed origins (comma-separated, default: patdugan.me,localhost:3000) |
+| `LASTFM_API_KEY`                 | Listening  | Last.fm API key                                                             |
+| `LASTFM_USERNAME`                | Listening  | Last.fm username (pdugan20)                                                 |
+| `STRAVA_CLIENT_ID`               | Running    | Strava OAuth app client ID                                                  |
+| `STRAVA_CLIENT_SECRET`           | Running    | Strava OAuth app client secret                                              |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN`    | Running    | Strava webhook validation token                                             |
+| `PLEX_URL`                       | Watching   | Plex server URL                                                             |
+| `PLEX_TOKEN`                     | Watching   | Plex authentication token                                                   |
+| `PLEX_WEBHOOK_SECRET`            | Watching   | Webhook source verification                                                 |
+| `TMDB_API_KEY`                   | Watching   | TMDB API read access token                                                  |
+| `LETTERBOXD_USERNAME`            | Watching   | Letterboxd username for RSS feed sync                                       |
+| `DISCOGS_PERSONAL_TOKEN`         | Collecting | Discogs personal access token                                               |
+| `DISCOGS_USERNAME`               | Collecting | Discogs username (patdugan)                                                 |
+| `TRAKT_CLIENT_ID`                | Collecting | Trakt OAuth app client ID                                                   |
+| `TRAKT_CLIENT_SECRET`            | Collecting | Trakt OAuth app client secret                                               |
+| `INSTAPAPER_CONSUMER_KEY`        | Reading    | Instapaper OAuth consumer key                                               |
+| `INSTAPAPER_CONSUMER_SECRET`     | Reading    | Instapaper OAuth consumer secret                                            |
+| `INSTAPAPER_ACCESS_TOKEN`        | Reading    | Instapaper OAuth access token (from xAuth)                                  |
+| `INSTAPAPER_ACCESS_TOKEN_SECRET` | Reading    | Instapaper OAuth token secret                                               |
+| `APPLE_MUSIC_DEVELOPER_TOKEN`    | Images     | Apple Music JWT                                                             |
+| `FANART_TV_API_KEY`              | Images     | Fanart.tv project API key                                                   |
 
 Cloudflare bindings (D1, R2) are configured in `wrangler.toml`, not as env vars.
 

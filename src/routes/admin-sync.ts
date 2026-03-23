@@ -19,6 +19,7 @@ import { syncWatching } from '../services/plex/sync.js';
 import { syncLetterboxd } from '../services/letterboxd/sync.js';
 import { syncCollecting } from '../services/discogs/sync.js';
 import { syncTraktCollection } from '../services/trakt/sync.js';
+import { syncReading } from '../services/instapaper/sync.js';
 import { badRequest } from '../lib/errors.js';
 
 const adminSync = createOpenAPIApp();
@@ -306,6 +307,39 @@ adminSync.openapi(syncTraktRoute, async (c) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.log(`[ERROR] POST /admin/sync/trakt: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// POST /v1/admin/sync/reading
+const syncReadingRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/reading',
+  operationId: 'adminSyncReading',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Trigger Instapaper sync',
+  description: 'Manually trigger an Instapaper reading sync.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: SyncCompletedResponse } },
+      description: 'Sync completed successfully',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminSync.openapi(syncReadingRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  try {
+    const result = await syncReading(db, c.env);
+    return c.json({
+      status: 'completed' as const,
+      items_synced: result.itemsSynced,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return c.json({ error: message, status: 500 }, 500) as any;
   }
 });
