@@ -75,13 +75,27 @@ interface OgMetadata {
   ogImage: string | null;
   siteName: string | null;
   author: string | null;
+  publishedAt: string | null;
+  ogDescription: string | null;
+  articleTags: string | null;
 }
 
 async function fetchOgMetadata(url: string): Promise<OgMetadata> {
-  const result: OgMetadata = { ogImage: null, siteName: null, author: null };
+  const result: OgMetadata = {
+    ogImage: null,
+    siteName: null,
+    author: null,
+    publishedAt: null,
+    ogDescription: null,
+    articleTags: null,
+  };
   try {
     const response = await fetch(url, {
-      headers: { Accept: 'text/html' },
+      headers: {
+        Accept: 'text/html',
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
       redirect: 'follow',
     });
     if (!response.ok) return result;
@@ -100,36 +114,40 @@ async function fetchOgMetadata(url: string): Promise<OgMetadata> {
     }
     reader.cancel();
 
-    const ogImage =
-      html.match(
-        /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i
-      )?.[1] ??
-      html.match(
-        /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i
-      )?.[1] ??
-      null;
+    // Helper to extract meta content
+    const getMeta = (property: string): string | null => {
+      const re1 = new RegExp(
+        `<meta[^>]*(?:property|name)=["']${property}["'][^>]*content=["']([^"']+)["']`,
+        'i'
+      );
+      const re2 = new RegExp(
+        `<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${property}["']`,
+        'i'
+      );
+      return html.match(re1)?.[1] ?? html.match(re2)?.[1] ?? null;
+    };
 
-    const siteName =
-      html.match(
-        /<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i
-      )?.[1] ??
-      html.match(
-        /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:site_name["']/i
-      )?.[1] ??
-      null;
+    result.ogImage = getMeta('og:image');
+    result.siteName = getMeta('og:site_name');
+    result.ogDescription = getMeta('og:description');
+    result.publishedAt =
+      getMeta('article:published_time') ??
+      getMeta('datePublished') ??
+      getMeta('date');
+    result.author =
+      getMeta('author') ?? getMeta('article:author') ?? getMeta('byl');
 
-    const author =
-      html.match(
-        /<meta[^>]*(?:name|property)=["'](?:author|article:author)["'][^>]*content=["']([^"']+)["']/i
-      )?.[1] ??
-      html.match(
-        /<meta[^>]*content=["']([^"']+)["'][^>]*(?:name|property)=["'](?:author|article:author)["']/i
-      )?.[1] ??
-      null;
-
-    result.ogImage = ogImage;
-    result.siteName = siteName;
-    result.author = author;
+    // Article tags/section
+    const section = getMeta('article:section');
+    const tags: string[] = [];
+    if (section) tags.push(section);
+    const tagRegex =
+      /<meta[^>]*(?:property|name)=["']article:tag["'][^>]*content=["']([^"']+)["']/gi;
+    let tagMatch;
+    while ((tagMatch = tagRegex.exec(html)) !== null) {
+      tags.push(tagMatch[1]);
+    }
+    result.articleTags = tags.length > 0 ? JSON.stringify(tags) : null;
   } catch {
     // Non-fatal — article may be behind a paywall or unavailable
   }
@@ -218,7 +236,10 @@ async function enrichArticle(
     const og = await fetchOgMetadata(url);
     if (og.siteName) updates.siteName = og.siteName;
     if (og.author) updates.author = og.author;
-    // og.ogImage is handled by the image pipeline separately
+    if (og.ogImage) updates.ogImageUrl = og.ogImage;
+    if (og.publishedAt) updates.publishedAt = og.publishedAt;
+    if (og.ogDescription) updates.ogDescription = og.ogDescription;
+    if (og.articleTags) updates.articleTags = og.articleTags;
   }
 
   // Fetch article text for word count
@@ -235,10 +256,22 @@ async function enrichArticle(
   }
 
   if (Object.keys(updates).length > 0) {
+    updates.enrichmentStatus = 'completed';
+    updates.enrichmentError = null;
     updates.updatedAt = new Date().toISOString();
     await db
       .update(readingItems)
       .set(updates)
+      .where(eq(readingItems.id, itemId));
+  } else if (url) {
+    // OG fetch returned nothing — mark as failed
+    await db
+      .update(readingItems)
+      .set({
+        enrichmentStatus: 'failed',
+        enrichmentError: 'No OG metadata found',
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(readingItems.id, itemId));
   }
 }
