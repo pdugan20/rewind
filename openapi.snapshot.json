@@ -9703,7 +9703,8 @@
               "enum": [
                 "listening",
                 "watching",
-                "collecting"
+                "collecting",
+                "reading"
               ],
               "example": "listening"
             },
@@ -9719,7 +9720,8 @@
                 "artists",
                 "movies",
                 "shows",
-                "releases"
+                "releases",
+                "articles"
               ],
               "example": "albums"
             },
@@ -9857,7 +9859,8 @@
               "enum": [
                 "listening",
                 "watching",
-                "collecting"
+                "collecting",
+                "reading"
               ],
               "example": "listening"
             },
@@ -9873,7 +9876,8 @@
                 "artists",
                 "movies",
                 "shows",
-                "releases"
+                "releases",
+                "articles"
               ],
               "example": "albums"
             },
@@ -9979,7 +9983,8 @@
               "enum": [
                 "listening",
                 "watching",
-                "collecting"
+                "collecting",
+                "reading"
               ],
               "example": "listening"
             },
@@ -9995,7 +10000,8 @@
                 "artists",
                 "movies",
                 "shows",
-                "releases"
+                "releases",
+                "articles"
               ],
               "example": "albums"
             },
@@ -10075,7 +10081,8 @@
               "enum": [
                 "listening",
                 "watching",
-                "collecting"
+                "collecting",
+                "reading"
               ],
               "example": "listening"
             },
@@ -10091,7 +10098,8 @@
                 "artists",
                 "movies",
                 "shows",
-                "releases"
+                "releases",
+                "articles"
               ],
               "example": "albums"
             },

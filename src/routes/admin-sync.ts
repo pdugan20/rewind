@@ -20,6 +20,7 @@ import { syncLetterboxd } from '../services/letterboxd/sync.js';
 import { syncCollecting } from '../services/discogs/sync.js';
 import { syncTraktCollection } from '../services/trakt/sync.js';
 import { syncReading } from '../services/instapaper/sync.js';
+import { processReadingImages } from '../services/images/sync-images.js';
 import { badRequest } from '../lib/errors.js';
 
 const adminSync = createOpenAPIApp();
@@ -333,6 +334,14 @@ adminSync.openapi(syncReadingRoute, async (c) => {
   const db = createDb(c.env.DB);
   try {
     const result = await syncReading(db, c.env);
+    // Process images in the background
+    c.executionCtx.waitUntil(
+      processReadingImages(db, c.env).catch((err) =>
+        console.log(
+          `[ERROR] Reading image processing failed: ${err instanceof Error ? err.message : String(err)}`
+        )
+      )
+    );
     return c.json({
       status: 'completed' as const,
       items_synced: result.itemsSynced,

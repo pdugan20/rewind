@@ -28,8 +28,15 @@ import {
 } from '../services/images/pipeline.js';
 import type { SourceSearchParams } from '../services/images/sources/types.js';
 
-const VALID_DOMAINS = ['listening', 'watching', 'collecting'];
-const VALID_ENTITY_TYPES = ['albums', 'artists', 'movies', 'shows', 'releases'];
+const VALID_DOMAINS = ['listening', 'watching', 'collecting', 'reading'];
+const VALID_ENTITY_TYPES = [
+  'albums',
+  'artists',
+  'movies',
+  'shows',
+  'releases',
+  'articles',
+];
 
 const imagesRoute = createOpenAPIApp();
 
@@ -39,11 +46,11 @@ imagesRoute.use('/images/*', requireAuth('read'));
 // ─── Schemas ────────────────────────────────────────────────────────
 
 const DomainParam = z
-  .enum(['listening', 'watching', 'collecting'])
+  .enum(['listening', 'watching', 'collecting', 'reading'])
   .openapi({ example: 'listening' });
 
 const EntityTypeParam = z
-  .enum(['albums', 'artists', 'movies', 'shows', 'releases'])
+  .enum(['albums', 'artists', 'movies', 'shows', 'releases', 'articles'])
   .openapi({ example: 'albums' });
 
 const EntityIdParam = z.string().min(1).openapi({ example: 'album-123' });

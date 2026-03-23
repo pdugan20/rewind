@@ -141,7 +141,7 @@ Import historical Instapaper data.
 - [x] **5.3.2** Deployed to production
 - [x] **5.3.3** Verified: 1,047 articles, 323 finished, 69 reading, 126 highlights
 - [x] **5.3.4** Enrichment pass: 557 enriched, 473 got article text, 490 failed (paywalled: NYT 349, WSJ 52, Bloomberg 31)
-- [ ] **5.3.5** Run image pipeline for articles with OG images
+- [x] **5.3.5** Image pipeline wired up: uses pre-resolved og_image_url, runs after sync, secrets deployed to production
 
 ## Phase 6: Tests
 
