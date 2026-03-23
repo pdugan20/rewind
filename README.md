@@ -5,7 +5,7 @@
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
 
-Rewind is a personal API that pulls together data from the services that track my life -- what I'm listening to, where I'm running, what I'm watching, and what I'm collecting -- into a single queryable backend.
+Rewind is a personal API that pulls together data from the services that track my life -- what I'm listening to, where I'm running, what I'm watching, what I'm collecting, and what I'm reading -- into a single queryable backend.
 
 ## What it does
 
@@ -15,6 +15,7 @@ Rewind syncs data on a schedule, normalizes everything into a unified schema, an
 - **Running** -- Strava activities since 2010 with splits, personal records, gear tracking, and year-over-year summaries.
 - **Watching** -- Plex watch history, Letterboxd diary/ratings/reviews, and TMDB metadata. Covers both movies and TV shows.
 - **Collecting** -- Discogs vinyl/CD collection with cross-referenced MusicBrainz data. Trakt physical media catalog.
+- **Reading** -- Instapaper articles with reading progress, highlights, word count, and article metadata. OG image thumbnails via image pipeline.
 
 A unified activity feed combines all domains into a single chronological stream.
 

@@ -34,10 +34,11 @@ src/
     running.ts             -- Running endpoints (activities, stats, charts, year-in-review)
     watching.ts            -- Watching endpoints (movies, TV shows, manual entry, ratings/reviews, year-in-review)
     collecting.ts          -- Collection endpoints (vinyl, media, calendar, cross-reference)
+    reading.ts             -- Reading endpoints (articles, highlights, stats, streaks, domains)
     feed.ts                -- Cross-domain feed endpoints (feed, on-this-day)
-    images.ts              -- 4 image endpoints (proxy + admin overrides)
+    images.ts              -- Image endpoints (proxy + admin overrides)
     webhooks.ts            -- Strava + Plex webhook receivers
-    search.ts              -- 1 cross-domain search endpoint
+    search.ts              -- Cross-domain search endpoint
   db/
     client.ts              -- Drizzle D1 client setup
     schema/
@@ -46,6 +47,7 @@ src/
       strava.ts            -- Strava domain tables + strava_tokens
       watching.ts           -- Watching domain tables (movies, watch_history, shows, episodes)
       discogs.ts           -- Discogs domain tables
+      reading.ts           -- Reading domain tables (reading_items, reading_highlights)
   services/
     lastfm/                -- Last.fm API client, transforms, filters, sync
     strava/                -- Strava OAuth, API client, transforms, sync
