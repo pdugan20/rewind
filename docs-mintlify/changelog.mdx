@@ -3,6 +3,23 @@ title: Changelog
 description: API updates and new features.
 ---
 
+<Update label="March 22, 2026" tags={["New features"]}>
+
+## Reading domain
+
+New Reading domain powered by Instapaper. Track articles, reading progress, and highlights.
+
+- `GET /reading/articles` -- browse and filter articles by status, domain, tag
+- `GET /reading/currently-reading` -- articles in progress
+- `GET /reading/highlights` -- highlighted passages across all articles
+- `GET /reading/highlights/random` -- random highlight for daily quote
+- `GET /reading/stats` -- reading statistics and streaks
+- `GET /reading/year/{year}` -- year in review
+
+Articles include metadata extracted from OG tags: author, site name, word count, estimated read time, and thumbnail images.
+
+</Update>
+
 <Update label="March 18, 2026" tags={["New releases"]}>
 
 ## Public API documentation

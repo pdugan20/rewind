@@ -30,4 +30,6 @@ export interface SourceSearchParams {
   imdbId?: string;
   /** Plex thumb path for Plex fallback */
   plexThumbPath?: string;
+  /** Article URL for OG image extraction */
+  articleUrl?: string;
 }

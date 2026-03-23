@@ -13,6 +13,7 @@ import {
   discogsArtists,
   discogsReleaseArtists,
 } from '../../db/schema/discogs.js';
+import { readingItems } from '../../db/schema/reading.js';
 import { images, syncRuns } from '../../db/schema/system.js';
 import { insertNoSourcePlaceholder } from './placeholder.js';
 import type { PipelineEnv } from './pipeline.js';
@@ -283,6 +284,43 @@ export async function processCollectingImages(
   }));
 
   return [await processItems(db, env, 'collecting', 'releases', releaseItems)];
+}
+
+/**
+ * Process images for reading entities (articles) missing images.
+ * Extracts og:image from article URLs for thumbnails.
+ */
+export async function processReadingImages(
+  db: Database,
+  env: PipelineEnv,
+  maxItems = DEFAULT_MAX_ITEMS
+): Promise<SyncImageResult[]> {
+  // Articles without images that have a URL to fetch og:image from
+  const articleRows = await db
+    .select({
+      id: readingItems.id,
+      url: readingItems.url,
+    })
+    .from(readingItems)
+    .where(
+      and(
+        eq(readingItems.itemType, 'article'),
+        sql`${readingItems.url} IS NOT NULL AND ${readingItems.id} NOT IN (
+          SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+          WHERE ${images.domain} = 'reading' AND ${images.entityType} = 'articles'
+        )`
+      )
+    )
+    .limit(maxItems);
+
+  const articleItems: SourceSearchParams[] = articleRows.map((a) => ({
+    domain: 'reading',
+    entityType: 'articles',
+    entityId: String(a.id),
+    articleUrl: a.url ?? undefined,
+  }));
+
+  return [await processItems(db, env, 'reading', 'articles', articleItems)];
 }
 
 const IMAGE_SYNC_DEDUP_HOURS = 6;

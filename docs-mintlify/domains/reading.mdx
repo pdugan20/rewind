@@ -1,0 +1,66 @@
+---
+title: Reading
+icon: book-open
+description: Instapaper articles, reading progress, and highlights
+---
+
+## Overview
+
+The Reading domain tracks articles and reading activity from Instapaper, including reading progress, starred items, and highlighted passages.
+
+Data syncs every 6 hours via cron. Each sync fetches bookmarks from unread, starred, and archive folders, derives reading status from progress data, and pulls highlights.
+
+Future: books from Goodreads or Literal will be added as a second source under the same domain.
+
+## Key endpoints
+
+| Endpoint                                                                   | Description                            |
+| -------------------------------------------------------------------------- | -------------------------------------- |
+| [GET /reading/recent](/api-reference/reading/recent-articles)              | Recently saved or finished articles    |
+| [GET /reading/currently-reading](/api-reference/reading/currently-reading) | Articles you're in the middle of       |
+| [GET /reading/articles](/api-reference/reading/list-articles)              | Browse all articles with filters       |
+| [GET /reading/articles/:id](/api-reference/reading/article-detail)         | Article detail with highlights         |
+| [GET /reading/archive](/api-reference/reading/archived-articles)           | Finished articles                      |
+| [GET /reading/highlights](/api-reference/reading/list-highlights)          | All highlights across articles         |
+| [GET /reading/highlights/random](/api-reference/reading/random-highlight)  | Random highlight with article context  |
+| [GET /reading/stats](/api-reference/reading/reading-stats)                 | Reading statistics                     |
+| [GET /reading/streaks](/api-reference/reading/reading-streaks)             | Consecutive days with reading activity |
+| [GET /reading/domains](/api-reference/reading/top-domains)                 | Top source domains                     |
+
+## Reading status
+
+Status is derived from Instapaper folder and reading progress:
+
+| Status      | Meaning                                           |
+| ----------- | ------------------------------------------------- |
+| `unread`    | Saved but never opened (progress = 0)             |
+| `reading`   | Started but not finished (0 < progress < 0.75)    |
+| `finished`  | Read most of the article (progress >= 0.75)       |
+| `skipped`   | Archived without reading (progress = 0, archived) |
+| `abandoned` | Started but gave up (progress > 0, archived)      |
+
+The 0.75 threshold accounts for article footers, author bios, and related links that you don't typically scroll through.
+
+## Highlights
+
+Highlighted passages from articles are stored with their position and timestamp. The highlights endpoint returns each highlight with its parent article context (title, author, domain, URL), making it useful for building a highlights collection or daily quote feature.
+
+## Article metadata
+
+Each article includes metadata extracted during sync:
+
+- **Title, description** -- from Instapaper
+- **Author, site name** -- from the article's OG meta tags
+- **Domain** -- parsed from the URL (e.g., "wired.com", "theatlantic.com")
+- **Word count, estimated read time** -- computed from the article's processed text
+- **Thumbnail** -- from the article's `og:image`, stored in the image pipeline
+
+## Filtering
+
+Articles can be filtered by:
+
+- `status` -- unread, reading, finished, skipped, abandoned
+- `domain` -- source domain (wired.com, theatlantic.com, etc.)
+- `tag` -- Instapaper tags
+- `starred` -- true/false
+- Standard date filters (`date`, `from`, `to`)

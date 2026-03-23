@@ -47,6 +47,7 @@
               "domains/listening",
               "domains/running",
               "domains/watching",
+              "domains/reading",
               "domains/collecting",
               "domains/images"
             ]
@@ -123,6 +124,24 @@
               "api-reference/watching/rated-movies",
               "api-reference/watching/movie-reviews",
               "api-reference/watching/year-in-review"
+            ]
+          },
+          {
+            "group": "Reading",
+            "pages": [
+              "api-reference/reading/recent-articles",
+              "api-reference/reading/currently-reading",
+              "api-reference/reading/list-articles",
+              "api-reference/reading/article-detail",
+              "api-reference/reading/archived-articles",
+              "api-reference/reading/list-highlights",
+              "api-reference/reading/random-highlight",
+              "api-reference/reading/reading-stats",
+              "api-reference/reading/reading-calendar",
+              "api-reference/reading/reading-streaks",
+              "api-reference/reading/tag-breakdown",
+              "api-reference/reading/top-domains",
+              "api-reference/reading/year-in-review"
             ]
           },
           {

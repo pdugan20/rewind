@@ -23,6 +23,7 @@ import {
   FanartTvClient,
   TmdbClient,
   PlexClient,
+  OgImageClient,
 } from './sources/index.js';
 
 export interface PipelineEnv {
@@ -76,6 +77,7 @@ function serializeSearchHints(params: SourceSearchParams): string | null {
   if (params.albumName) hints.albumName = params.albumName;
   if (params.mbid) hints.mbid = params.mbid;
   if (params.tmdbId) hints.tmdbId = params.tmdbId;
+  if (params.articleUrl) hints.articleUrl = params.articleUrl;
   return Object.keys(hints).length > 0 ? JSON.stringify(hints) : null;
 }
 
@@ -96,6 +98,7 @@ export function deserializeSearchHints(
     if (hints.albumName) params.albumName = hints.albumName;
     if (hints.mbid) params.mbid = hints.mbid;
     if (hints.tmdbId) params.tmdbId = hints.tmdbId;
+    if (hints.articleUrl) params.articleUrl = hints.articleUrl;
   } catch {
     // Ignore malformed hints
   }
@@ -145,6 +148,9 @@ function getSourceClients(
 
     case 'collecting/releases':
       return [new CoverArtArchiveClient(), new ITunesClient()];
+
+    case 'reading/articles':
+      return [new OgImageClient()];
 
     default:
       return [];

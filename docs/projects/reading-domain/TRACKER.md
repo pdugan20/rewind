@@ -99,24 +99,24 @@ Connect the Reading domain to cross-domain features and docs.
 
 **4.1 -- Image Pipeline**
 
-- [ ] **4.1.1** Add `reading/articles` as entity type in image pipeline
-- [ ] **4.1.2** Create OG image source client -- fetches `og:image` URL from article
-- [ ] **4.1.3** Process images during sync (R2 upload, thumbhash, color extraction)
-- [ ] **4.1.4** Integrate with `processReadingImages()` in sync-images.ts
+- [x] **4.1.1** Add `reading/articles` as entity type in image pipeline with `articleUrl` search hint
+- [x] **4.1.2** Create OG image source client (`src/services/images/sources/og-image.ts`)
+- [x] **4.1.3** Process images via standard pipeline (R2 upload, thumbhash, color extraction)
+- [x] **4.1.4** Add `processReadingImages()` in sync-images.ts
 
 **4.2 -- Feed Integration**
 
-- [ ] **4.2.1** Add `article_saved` feed event on new bookmarks
-- [ ] **4.2.2** Add `article_finished` feed event when status changes to finished
-- [ ] **4.2.3** Add reading items to search index via `afterSync`
+- [x] **4.2.1** Add `article_saved` feed event on new bookmarks _(done in sync.ts Phase 2)_
+- [x] **4.2.2** Add `article_finished` feed event when status changes to finished _(done in sync.ts Phase 2)_
+- [x] **4.2.3** Add reading items to search index via `afterSync` _(done in sync.ts Phase 2)_
 
 **4.3 -- Documentation**
 
-- [ ] **4.3.1** Generate MDX endpoint pages via `@mintlify/scraping`
-- [ ] **4.3.2** Add Reading section to docs.json navigation
-- [ ] **4.3.3** Write Reading domain overview page (`domains/reading.mdx`)
-- [ ] **4.3.4** Add changelog entry
-- [ ] **4.3.5** Update openapi.json in docs-mintlify
+- [x] **4.3.1** Generate 13 MDX endpoint pages via `@mintlify/scraping`
+- [x] **4.3.2** Add Reading section to docs.json navigation (Guides + API Reference)
+- [x] **4.3.3** Write Reading domain overview page with icon, status table, endpoint links
+- [x] **4.3.4** Add changelog entry for March 22, 2026
+- [x] **4.3.5** Update openapi.json in docs-mintlify
 
 ## Phase 5: Backfill
 
