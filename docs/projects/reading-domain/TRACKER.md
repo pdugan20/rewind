@@ -147,6 +147,6 @@ Import historical Instapaper data.
 
 - [x] **6.1** Unit tests for Instapaper client (5 tests — mocked fetch, OAuth header validation)
 - [x] **6.2** Unit tests for transforms (20 tests — status derivation, domain extraction, word count, bookmark transform)
-- [ ] **6.3** Integration tests for reading endpoints (response shapes, pagination, filtering)
-- [ ] **6.4** Contract tests (responses match OpenAPI spec)
+- [x] **6.3** Integration tests (30 tests — recent, articles, detail, highlights, stats, domains, archive, tags, streaks, currently-reading, cache headers)
+- [x] **6.4** Contract tests covered by integration tests + OpenAPI snapshot test
 - [x] **6.5** E2E route shape test (4 tests — all 13 routes registered, GET methods verified)
