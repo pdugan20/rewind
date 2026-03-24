@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
-import { movies } from '../../db/schema/watching.js';
+import { movies, movieDirectors } from '../../db/schema/watching.js';
 import { TmdbClient } from './tmdb.js';
 import { upsertGenres, upsertDirectors } from '../plex/webhook.js';
 
@@ -41,10 +41,15 @@ export async function resolveMovie(
   if (params.tmdbId) {
     const existing = await findByTmdbId(db, params.tmdbId);
     if (existing) {
-      // Back-fill plexRatingKey if we have one and the row doesn't
       if (params.plexRatingKey) {
         await backfillPlexRatingKey(db, existing.id, params.plexRatingKey);
       }
+      await backfillTmdbDataIfMissing(
+        db,
+        tmdbClient,
+        existing.id,
+        params.tmdbId
+      );
       return { id: existing.id, created: false };
     }
   }
@@ -53,13 +58,25 @@ export async function resolveMovie(
   if (params.plexRatingKey) {
     const existing = await findByPlexRatingKey(db, params.plexRatingKey);
     if (existing) {
-      // Back-fill tmdbId if the row doesn't have one
       if (!existing.tmdbId) {
         const resolvedTmdbId =
           params.tmdbId ?? (await searchTmdbId(tmdbClient, params));
         if (resolvedTmdbId) {
           await backfillTmdbId(db, existing.id, resolvedTmdbId);
+          await backfillTmdbDataIfMissing(
+            db,
+            tmdbClient,
+            existing.id,
+            resolvedTmdbId
+          );
         }
+      } else {
+        await backfillTmdbDataIfMissing(
+          db,
+          tmdbClient,
+          existing.id,
+          existing.tmdbId
+        );
       }
       return { id: existing.id, created: false };
     }
@@ -182,6 +199,76 @@ async function backfillTmdbId(
   tmdbId: number
 ): Promise<void> {
   await db.update(movies).set({ tmdbId }).where(eq(movies.id, movieId));
+}
+
+/**
+ * Backfill missing TMDB data (directors, genres, metadata) for an existing movie.
+ * Only fetches from TMDB if the movie is actually missing data.
+ */
+async function backfillTmdbDataIfMissing(
+  db: Database,
+  tmdbClient: TmdbClient,
+  movieId: number,
+  tmdbId: number
+): Promise<void> {
+  // Check if directors are missing
+  const [directorCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(movieDirectors)
+    .where(eq(movieDirectors.movieId, movieId));
+
+  // Check if key metadata is missing
+  const [movie] = await db
+    .select({
+      contentRating: movies.contentRating,
+      tmdbRating: movies.tmdbRating,
+    })
+    .from(movies)
+    .where(eq(movies.id, movieId))
+    .limit(1);
+
+  const needsDirectors = directorCount.count === 0;
+  const needsMetadata = !movie?.contentRating || !movie?.tmdbRating;
+
+  if (!needsDirectors && !needsMetadata) return;
+
+  try {
+    const detail = await tmdbClient.getMovieDetail(tmdbId);
+
+    if (needsDirectors && detail.directors.length > 0) {
+      await upsertDirectors(db, movieId, detail.directors);
+    }
+
+    if (needsDirectors && detail.genres.length > 0) {
+      // Also backfill genres if directors were missing (same creation path)
+      const [genreCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(sql`movie_genres`)
+        .where(sql`movie_id = ${movieId}`);
+      if (genreCount.count === 0) {
+        await upsertGenres(db, movieId, detail.genres);
+      }
+    }
+
+    if (needsMetadata) {
+      const updates: Record<string, unknown> = {};
+      if (!movie?.contentRating && detail.content_rating)
+        updates.contentRating = detail.content_rating;
+      if (!movie?.tmdbRating && detail.vote_average)
+        updates.tmdbRating = detail.vote_average;
+      if (Object.keys(updates).length > 0) {
+        await db.update(movies).set(updates).where(eq(movies.id, movieId));
+      }
+    }
+
+    console.log(
+      `[INFO] Backfilled TMDB data for movie ${movieId} (tmdb:${tmdbId})`
+    );
+  } catch (error) {
+    console.log(
+      `[ERROR] TMDB backfill failed for movie ${movieId}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 async function createMovieFromTmdb(
