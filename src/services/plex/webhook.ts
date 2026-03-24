@@ -442,6 +442,17 @@ export async function handlePlexWebhook(
   payload: PlexWebhookPayload,
   tmdbClient: TmdbClient
 ): Promise<PlexWebhookResult> {
+  // Only process events from the server owner
+  if (!payload.owner) {
+    console.log(
+      `[INFO] Ignoring Plex webhook from non-owner: ${payload.Account?.title ?? 'unknown'}`
+    );
+    return {
+      success: true,
+      message: `Ignored: non-owner user ${payload.Account?.title ?? 'unknown'}`,
+    };
+  }
+
   // Only handle media.scrobble events
   if (payload.event !== 'media.scrobble') {
     return { success: true, message: `Ignored event: ${payload.event}` };
