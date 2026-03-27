@@ -1,6 +1,6 @@
 # Collecting Domain
 
-Physical vinyl and CD collection from Discogs with wantlist tracking and cross-reference to Last.fm listening data to show which records you own and listen to most.
+Physical vinyl, CD, and movie collection. Music from Discogs with wantlist tracking and cross-reference to Last.fm listening data. Movies from Trakt with cross-reference to Plex watch history. Admin endpoints allow adding items to both collections directly.
 
 ## Data Source
 
@@ -19,14 +19,16 @@ Physical vinyl and CD collection from Discogs with wantlist tracking and cross-r
 
 ### Key Endpoints
 
-| Method | Endpoint                                        | Description               | Key Params                       |
-| ------ | ----------------------------------------------- | ------------------------- | -------------------------------- |
-| GET    | /users/{username}/collection/folders/0/releases | All collection items      | page, per_page, sort, sort_order |
-| GET    | /users/{username}/collection/folders            | Collection folders        | none                             |
-| GET    | /users/{username}/wants                         | Wantlist items            | page, per_page                   |
-| GET    | /releases/{id}                                  | Release detail            | none                             |
-| GET    | /artists/{id}                                   | Artist detail             | none                             |
-| GET    | /users/{username}/collection/value              | Collection value estimate | none                             |
+| Method | Endpoint                                                        | Description               | Key Params                       |
+| ------ | --------------------------------------------------------------- | ------------------------- | -------------------------------- |
+| GET    | /users/{username}/collection/folders/0/releases                 | All collection items      | page, per_page, sort, sort_order |
+| GET    | /users/{username}/collection/folders                            | Collection folders        | none                             |
+| GET    | /users/{username}/wants                                         | Wantlist items            | page, per_page                   |
+| GET    | /releases/{id}                                                  | Release detail            | none                             |
+| GET    | /artists/{id}                                                   | Artist detail             | none                             |
+| GET    | /users/{username}/collection/value                              | Collection value estimate | none                             |
+| GET    | /database/search                                                | Search releases           | q, type, artist, year, per_page  |
+| POST   | /users/{username}/collection/folders/{id}/releases/{release_id} | Add to collection         | none                             |
 
 ### Release Fields
 
@@ -81,20 +83,23 @@ Physical vinyl and CD collection from Discogs with wantlist tracking and cross-r
 
 All endpoints require `Authorization: Bearer rw_...` header.
 
-| Method | Path                           | Description                          | Cache  | Query Params                                                       |
-| ------ | ------------------------------ | ------------------------------------ | ------ | ------------------------------------------------------------------ |
-| GET    | /v1/collection                 | Full collection                      | 86400s | page, limit, format, genre, artist, sort, order, q, date, from, to |
-| GET    | /v1/collection/stats           | Collection statistics                | 86400s | date, from, to                                                     |
-| GET    | /v1/collection/recent          | Recently added items                 | 3600s  | limit, date, from, to                                              |
-| GET    | /v1/collection/:id             | Single release detail                | 86400s | none                                                               |
-| GET    | /v1/collection/wantlist        | Wantlist items                       | 86400s | page, limit, sort, order                                           |
-| GET    | /v1/collection/formats         | Format breakdown                     | 86400s | none                                                               |
-| GET    | /v1/collection/genres          | Genre breakdown                      | 86400s | none                                                               |
-| GET    | /v1/collection/artists         | Top artists in collection            | 86400s | limit (default 20)                                                 |
-| GET    | /v1/collection/cross-reference | Collection matched to listening data | 86400s | sort (plays/added), filter (listened/unlistened/all)               |
-| GET    | /v1/collecting/calendar        | Daily addition counts (vinyl+media)  | 3600s  | year (default current)                                             |
-| GET    | /v1/collecting/media           | Physical media collection            | 86400s | page, limit, format, genre, sort, order, q, date, from, to         |
-| GET    | /v1/collecting/media/recent    | Recently added media                 | 3600s  | limit, date, from, to                                              |
+| Method | Path                                  | Description                          | Cache  | Query Params                                                       |
+| ------ | ------------------------------------- | ------------------------------------ | ------ | ------------------------------------------------------------------ |
+| GET    | /v1/collection                        | Full collection                      | 86400s | page, limit, format, genre, artist, sort, order, q, date, from, to |
+| GET    | /v1/collection/stats                  | Collection statistics                | 86400s | date, from, to                                                     |
+| GET    | /v1/collection/recent                 | Recently added items                 | 3600s  | limit, date, from, to                                              |
+| GET    | /v1/collection/:id                    | Single release detail                | 86400s | none                                                               |
+| GET    | /v1/collection/wantlist               | Wantlist items                       | 86400s | page, limit, sort, order                                           |
+| GET    | /v1/collection/formats                | Format breakdown                     | 86400s | none                                                               |
+| GET    | /v1/collection/genres                 | Genre breakdown                      | 86400s | none                                                               |
+| GET    | /v1/collection/artists                | Top artists in collection            | 86400s | limit (default 20)                                                 |
+| GET    | /v1/collection/cross-reference        | Collection matched to listening data | 86400s | sort (plays/added), filter (listened/unlistened/all)               |
+| GET    | /v1/collecting/calendar               | Daily addition counts (vinyl+media)  | 3600s  | year (default current)                                             |
+| GET    | /v1/collecting/media                  | Physical media collection            | 86400s | page, limit, format, genre, sort, order, q, date, from, to         |
+| GET    | /v1/collecting/media/recent           | Recently added media                 | 3600s  | limit, date, from, to                                              |
+| POST   | /v1/admin/collecting/vinyl            | Add music release to collection      | --     | discogs_id or title/artist/year                                    |
+| POST   | /v1/admin/collecting/media            | Add movie to physical media          | --     | tmdb_id/imdb_id/title, media_type                                  |
+| POST   | /v1/admin/collecting/media/:id/remove | Remove movie from physical media     | --     | none                                                               |
 
 All tables include `user_id` for multi-user support (default 1).
 
@@ -193,7 +198,7 @@ Trakt API provides physical movie media collection tracking (Blu-ray, 4K UHD, HD
 ### Sync Strategy
 
 - **Weekly full sync** (Sunday 3 AM UTC): fetch entire collection via `GET /users/{username}/collection/movies`. Compare with local `trakt_collection` table -- insert new, update changed, soft-delete removed items.
-- **Write-through**: items added or removed via admin endpoints (`POST /v1/admin/collecting/media`, `POST /v1/admin/collecting/media/:id/remove`) are pushed to Trakt in real-time via `POST /sync/collection` and `POST /sync/collection/remove`.
+- **Write-through**: movie items added or removed via admin endpoints (`POST /v1/admin/collecting/media`, `POST /v1/admin/collecting/media/:id/remove`) are pushed to Trakt in real-time. Music items added via `POST /v1/admin/collecting/vinyl` are pushed to Discogs in real-time.
 - **Collection stats**: recompute after each sync (format, resolution, HDR, genre, decade breakdowns).
 - **Image backfill**: after sync, queue items missing poster images for processing through the image pipeline using `tmdb_id`.
 

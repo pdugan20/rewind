@@ -85,6 +85,21 @@ export interface DiscogsRelease {
   num_for_sale: number;
 }
 
+export interface DiscogsSearchResult {
+  id: number;
+  title: string;
+  year: string;
+  format: string[];
+  label: string[];
+  genre: string[];
+  style: string[];
+  country: string;
+  thumb: string;
+  cover_image: string;
+  resource_url: string;
+  type: string;
+}
+
 export interface DiscogsPaginatedResponse<T> {
   pagination: {
     page: number;
@@ -94,6 +109,12 @@ export interface DiscogsPaginatedResponse<T> {
   };
   releases?: T[];
   wants?: T[];
+  results?: T[];
+}
+
+export interface DiscogsAddToCollectionResponse {
+  instance_id: number;
+  resource_url: string;
 }
 
 export class DiscogsClient {
@@ -106,7 +127,10 @@ export class DiscogsClient {
     this.username = username;
   }
 
-  private async rateLimitedFetch(url: string): Promise<Response> {
+  private async rateLimitedFetch(
+    url: string,
+    method: 'GET' | 'POST' = 'GET'
+  ): Promise<Response> {
     const now = Date.now();
     const timeSinceLast = now - this.lastRequestTime;
     if (timeSinceLast < RATE_LIMIT_INTERVAL_MS) {
@@ -117,6 +141,7 @@ export class DiscogsClient {
     this.lastRequestTime = Date.now();
 
     const response = await fetch(url, {
+      method,
       headers: {
         Authorization: `Discogs token=${this.token}`,
         'User-Agent': USER_AGENT,
@@ -131,7 +156,7 @@ export class DiscogsClient {
         `[INFO] Discogs rate limited, waiting ${waitMs}ms before retry`
       );
       await new Promise((resolve) => setTimeout(resolve, waitMs));
-      return this.rateLimitedFetch(url);
+      return this.rateLimitedFetch(url, method);
     }
 
     if (!response.ok) {
@@ -204,6 +229,34 @@ export class DiscogsClient {
   async getReleaseDetail(releaseId: number): Promise<DiscogsRelease> {
     const url = `${BASE_URL}/releases/${releaseId}`;
     const response = await this.rateLimitedFetch(url);
+    return response.json();
+  }
+
+  async searchReleases(
+    query: string,
+    artist?: string,
+    year?: number
+  ): Promise<DiscogsSearchResult[]> {
+    const params = new URLSearchParams({
+      q: query,
+      type: 'release',
+      per_page: '10',
+    });
+    if (artist) params.set('artist', artist);
+    if (year) params.set('year', String(year));
+    const url = `${BASE_URL}/database/search?${params}`;
+    const response = await this.rateLimitedFetch(url);
+    const data: DiscogsPaginatedResponse<DiscogsSearchResult> =
+      await response.json();
+    return data.results || [];
+  }
+
+  async addToCollection(
+    releaseId: number,
+    folderId: number = 1
+  ): Promise<DiscogsAddToCollectionResponse> {
+    const url = `${BASE_URL}/users/${this.username}/collection/folders/${folderId}/releases/${releaseId}`;
+    const response = await this.rateLimitedFetch(url, 'POST');
     return response.json();
   }
 }

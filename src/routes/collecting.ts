@@ -32,6 +32,7 @@ import { notFound, badRequest, serverError } from '../lib/errors.js';
 import { TraktClient } from '../services/trakt/client.js';
 import { getAccessToken } from '../services/trakt/auth.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
+import { DiscogsClient } from '../services/discogs/client.js';
 import { backfillImages } from '../services/images/backfill.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { runPipeline } from '../services/images/pipeline.js';
@@ -267,6 +268,28 @@ const AddMediaResponseSchema = z.object({
 const RemoveMediaResponseSchema = z.object({
   status: z.string(),
   message: z.string(),
+});
+
+const AddVinylBodySchema = z.object({
+  discogs_id: z.number().optional(),
+  title: z.string().optional(),
+  artist: z.string().optional(),
+  year: z.number().optional(),
+});
+
+const AddVinylResponseSchema = z.object({
+  status: z.string(),
+  release: z.object({
+    title: z.string(),
+    artist: z.string(),
+    year: z.number().nullable(),
+    discogs_id: z.number(),
+    format: z.string(),
+  }),
+  discogs: z.object({
+    instance_id: z.number(),
+  }),
+  image_processed: z.boolean(),
 });
 
 const BackfillLimitBodySchema = z.object({
@@ -1198,6 +1221,34 @@ const mediaBackfillImagesRoute = createRoute({
       description: 'Backfill results',
     },
     ...errorResponses(401, 500),
+  },
+});
+
+// POST /admin/collecting/vinyl
+const addVinylRoute = createRoute({
+  method: 'post',
+  path: '/admin/collecting/vinyl',
+  operationId: 'adminAddCollectingVinyl',
+  'x-hidden': true,
+  tags: ['Collecting', 'Admin'],
+  summary: 'Add music to collection',
+  description:
+    'Add a release to the Discogs collection. Searches Discogs by title/artist or accepts a discogs_id directly. Adds to Discogs, stores locally, and processes cover image.',
+  request: {
+    body: {
+      content: {
+        'application/json': { schema: AddVinylBodySchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: AddVinylResponseSchema },
+      },
+      description: 'Release added successfully',
+    },
+    ...errorResponses(400, 401, 404, 500),
   },
 });
 
@@ -2990,6 +3041,230 @@ collecting.openapi(mediaBackfillImagesRoute, async (c) => {
       `[ERROR] POST /admin/collecting/media/backfill-images: ${errorMsg}`
     );
     return serverError(c, `Backfill failed: ${errorMsg}`) as any;
+  }
+});
+
+// POST /admin/collecting/vinyl
+collecting.openapi(addVinylRoute, async (c) => {
+  try {
+    const body = await c.req.json<{
+      discogs_id?: number;
+      title?: string;
+      artist?: string;
+      year?: number;
+    }>();
+
+    const db = createDb(c.env.DB);
+    const client = new DiscogsClient(
+      c.env.DISCOGS_PERSONAL_TOKEN,
+      c.env.DISCOGS_USERNAME
+    );
+
+    let discogsId: number | null = body.discogs_id || null;
+
+    if (!discogsId) {
+      if (!body.title && !body.artist) {
+        return badRequest(
+          c,
+          'Provide discogs_id, or title/artist to search'
+        ) as any;
+      }
+
+      const query = [body.artist, body.title].filter(Boolean).join(' - ');
+      const results = await client.searchReleases(
+        query,
+        body.artist,
+        body.year
+      );
+
+      if (results.length === 0) {
+        return notFound(c, `No Discogs release found for "${query}"`) as any;
+      }
+
+      if (results.length > 1 && !body.year) {
+        return c.json(
+          {
+            status: 'ambiguous',
+            message: 'Multiple results found. Specify year or discogs_id.',
+            candidates: results.slice(0, 5).map((r) => ({
+              discogs_id: r.id,
+              title: r.title,
+              year: r.year,
+              format: r.format,
+              country: r.country,
+            })),
+          },
+          422
+        ) as any;
+      }
+
+      discogsId = results[0].id;
+    }
+
+    // Get release detail from Discogs
+    const detail = await client.getReleaseDetail(discogsId);
+    const artistName = detail.artists?.[0]?.name ?? 'Unknown';
+    const formatName = detail.formats?.[0]?.name ?? 'Vinyl';
+
+    // Add to Discogs collection (folder 1 = "Uncategorized")
+    const addResult = await client.addToCollection(discogsId);
+
+    // Upsert release locally
+    const formatNames = (detail.formats || []).map((f) => f.name);
+    const formatDetails = (detail.formats || []).flatMap(
+      (f) => f.descriptions || []
+    );
+
+    const primaryImage = detail.images?.find((i) => i.type === 'primary');
+    const coverUrl = primaryImage
+      ? primaryImage.uri
+      : detail.images?.[0]?.uri || null;
+
+    await db
+      .insert(discogsReleases)
+      .values({
+        userId: 1,
+        discogsId,
+        title: detail.title,
+        year: detail.year || null,
+        coverUrl,
+        thumbUrl: null,
+        discogsUrl: `https://www.discogs.com/release/${discogsId}`,
+        genres: JSON.stringify(detail.genres || []),
+        styles: JSON.stringify(detail.styles || []),
+        formats: JSON.stringify(formatNames),
+        formatDetails: JSON.stringify(formatDetails),
+        labels: JSON.stringify(detail.labels || []),
+        tracklist: JSON.stringify(detail.tracklist || []),
+        country: detail.country || null,
+        communityHave: detail.community?.have ?? null,
+        communityWant: detail.community?.want ?? null,
+        lowestPrice: detail.lowest_price ?? null,
+        numForSale: detail.num_for_sale ?? null,
+        updatedAt: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: [discogsReleases.userId, discogsReleases.discogsId],
+        set: {
+          title: sql`excluded.title`,
+          year: sql`excluded.year`,
+          coverUrl: sql`excluded.cover_url`,
+          genres: sql`excluded.genres`,
+          styles: sql`excluded.styles`,
+          formats: sql`excluded.formats`,
+          formatDetails: sql`excluded.format_details`,
+          labels: sql`excluded.labels`,
+          tracklist: sql`excluded.tracklist`,
+          country: sql`excluded.country`,
+          communityHave: sql`excluded.community_have`,
+          communityWant: sql`excluded.community_want`,
+          lowestPrice: sql`excluded.lowest_price`,
+          numForSale: sql`excluded.num_for_sale`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
+
+    // Get the local release ID
+    const [release] = await db
+      .select({ id: discogsReleases.id })
+      .from(discogsReleases)
+      .where(
+        and(
+          eq(discogsReleases.userId, 1),
+          eq(discogsReleases.discogsId, discogsId)
+        )
+      );
+
+    // Upsert artists
+    for (const artist of detail.artists || []) {
+      await db
+        .insert(discogsArtists)
+        .values({
+          userId: 1,
+          discogsId: artist.id,
+          name: artist.name,
+          profileUrl: `https://www.discogs.com/artist/${artist.id}`,
+        })
+        .onConflictDoUpdate({
+          target: [discogsArtists.userId, discogsArtists.discogsId],
+          set: { name: sql`excluded.name` },
+        });
+
+      const [artistRow] = await db
+        .select({ id: discogsArtists.id })
+        .from(discogsArtists)
+        .where(
+          and(
+            eq(discogsArtists.userId, 1),
+            eq(discogsArtists.discogsId, artist.id)
+          )
+        );
+
+      if (artistRow) {
+        await db
+          .insert(discogsReleaseArtists)
+          .values({ releaseId: release.id, artistId: artistRow.id })
+          .onConflictDoNothing();
+      }
+    }
+
+    // Upsert collection entry
+    await db
+      .insert(discogsCollection)
+      .values({
+        userId: 1,
+        releaseId: release.id,
+        instanceId: addResult.instance_id,
+        folderId: 1,
+        rating: 0,
+        notes: null,
+        dateAdded: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: [discogsCollection.userId, discogsCollection.instanceId],
+        set: {
+          releaseId: sql`excluded.release_id`,
+          dateAdded: sql`excluded.date_added`,
+        },
+      });
+
+    // Process cover image
+    let imageProcessed = false;
+    try {
+      const imageParams: SourceSearchParams = {
+        domain: 'collecting',
+        entityType: 'releases',
+        entityId: String(release.id),
+        artistName,
+        albumName: detail.title,
+        directImageUrl: coverUrl || undefined,
+      };
+      const imageResult = await runPipeline(db, c.env, imageParams);
+      imageProcessed = !!imageResult;
+    } catch (imgErr) {
+      console.log(
+        `[ERROR] Image pipeline failed for release ${discogsId}: ${imgErr instanceof Error ? imgErr.message : String(imgErr)}`
+      );
+    }
+
+    return c.json({
+      status: 'ok',
+      release: {
+        title: detail.title,
+        artist: artistName,
+        year: detail.year || null,
+        discogs_id: discogsId,
+        format: formatName,
+      },
+      discogs: {
+        instance_id: addResult.instance_id,
+      },
+      image_processed: imageProcessed,
+    });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.log(`[ERROR] POST /admin/collecting/vinyl: ${errorMsg}`);
+    return serverError(c, `Failed to add release: ${errorMsg}`) as any;
   }
 });
 

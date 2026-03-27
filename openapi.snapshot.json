@@ -13587,6 +13587,148 @@
         }
       }
     },
+    "/v1/admin/collecting/vinyl": {
+      "post": {
+        "operationId": "adminAddCollectingVinyl",
+        "x-hidden": true,
+        "tags": [
+          "Collecting",
+          "Admin"
+        ],
+        "summary": "Add music to collection",
+        "description": "Add a release to the Discogs collection. Searches Discogs by title/artist or accepts a discogs_id directly. Adds to Discogs, stores locally, and processes cover image.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "discogs_id": {
+                    "type": "number"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "artist": {
+                    "type": "string"
+                  },
+                  "year": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Release added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "release": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "artist": {
+                          "type": "string"
+                        },
+                        "year": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "discogs_id": {
+                          "type": "number"
+                        },
+                        "format": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "artist",
+                        "year",
+                        "discogs_id",
+                        "format"
+                      ]
+                    },
+                    "discogs": {
+                      "type": "object",
+                      "properties": {
+                        "instance_id": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "instance_id"
+                      ]
+                    },
+                    "image_processed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "release",
+                    "discogs",
+                    "image_processed"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/reading/recent": {
       "get": {
         "operationId": "getReadingRecent",
