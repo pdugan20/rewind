@@ -66,6 +66,7 @@
     "hono": "^4.12.7",
     "jpeg-js": "^0.4.4",
     "thumbhash": "^0.1.1",
+    "yaml": "^2.8.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
