@@ -3,11 +3,15 @@
  * Syncs bookmarks, highlights, and metadata from Instapaper into D1.
  */
 
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { readingItems, readingHighlights } from '../../db/schema/reading.js';
 import { syncRuns } from '../../db/schema/system.js';
-import { InstapaperClient, type InstapaperBookmark } from './client.js';
+import {
+  InstapaperClient,
+  type InstapaperBookmark,
+  type InstapaperHighlight,
+} from './client.js';
 import {
   transformBookmark,
   computeWordCount,
@@ -171,7 +175,6 @@ async function upsertBookmark(
   const [existing] = await db
     .select({
       id: readingItems.id,
-      hash: sql<string>`${readingItems.source}`, // just need the row
       startedAt: readingItems.startedAt,
       finishedAt: readingItems.finishedAt,
     })
@@ -198,6 +201,7 @@ async function upsertBookmark(
         starred: transformed.starred,
         folder: transformed.folder,
         tags: transformed.tags,
+        sourceHash: bookmark.hash,
         startedAt: existing.startedAt ?? transformed.startedAt,
         finishedAt: existing.finishedAt ?? transformed.finishedAt,
         updatedAt: new Date().toISOString(),
@@ -212,6 +216,7 @@ async function upsertBookmark(
     .insert(readingItems)
     .values({
       ...transformed,
+      sourceHash: bookmark.hash,
       userId: 1,
     })
     .returning({ id: readingItems.id });
@@ -277,21 +282,13 @@ async function enrichArticle(
 }
 
 /**
- * Sync highlights for a bookmark.
+ * Upsert highlights for a bookmark from a pre-fetched list.
  */
-async function syncHighlights(
+async function upsertHighlights(
   db: Database,
-  client: InstapaperClient,
   itemId: number,
-  bookmarkId: number
+  highlights: InstapaperHighlight[]
 ): Promise<number> {
-  let highlights;
-  try {
-    highlights = await client.listHighlights(bookmarkId);
-  } catch {
-    return 0;
-  }
-
   let count = 0;
   const returnedSourceIds: string[] = [];
 
@@ -333,6 +330,63 @@ async function syncHighlights(
   return count;
 }
 
+/**
+ * Sync highlights for a bookmark by fetching from the API.
+ * Used as a fallback when highlights aren't included inline.
+ */
+async function syncHighlights(
+  db: Database,
+  client: InstapaperClient,
+  itemId: number,
+  bookmarkId: number
+): Promise<number> {
+  let highlights;
+  try {
+    highlights = await client.listHighlights(bookmarkId);
+  } catch {
+    return 0;
+  }
+  return upsertHighlights(db, itemId, highlights);
+}
+
+/**
+ * Build the `have` parameter string from existing bookmarks in DB.
+ * Format: "bookmarkId:hash,bookmarkId:hash,..."
+ */
+async function buildHaveParam(db: Database): Promise<string> {
+  const existing = await db
+    .select({
+      sourceId: readingItems.sourceId,
+      sourceHash: readingItems.sourceHash,
+    })
+    .from(readingItems)
+    .where(
+      and(eq(readingItems.source, 'instapaper'), eq(readingItems.userId, 1))
+    );
+
+  return existing
+    .map((row) =>
+      row.sourceHash ? `${row.sourceId}:${row.sourceHash}` : row.sourceId
+    )
+    .join(',');
+}
+
+/**
+ * Build the `highlights` parameter string from existing highlights in DB.
+ * Format: "highlightId-highlightId-..."
+ */
+async function buildHighlightsParam(db: Database): Promise<string> {
+  const existing = await db
+    .select({ sourceId: readingHighlights.sourceId })
+    .from(readingHighlights)
+    .where(eq(readingHighlights.userId, 1));
+
+  return existing
+    .filter((row) => row.sourceId !== null)
+    .map((row) => row.sourceId)
+    .join('-');
+}
+
 // ─── Main sync function ─────────────────────────────────────────────
 
 export async function syncReading(
@@ -360,6 +414,13 @@ export async function syncReading(
   const searchItems: SearchItem[] = [];
 
   try {
+    // Build delta sync params from existing data
+    const haveParam = await buildHaveParam(db);
+    const highlightsParam = await buildHighlightsParam(db);
+    console.log(
+      `[SYNC] Delta sync: ${haveParam ? haveParam.split(',').length : 0} known bookmarks, ${highlightsParam ? highlightsParam.split('-').length : 0} known highlights`
+    );
+
     // Sync each folder
     const folders: { id: string; limit: number }[] = [
       { id: 'unread', limit: 500 },
@@ -371,10 +432,42 @@ export async function syncReading(
       console.log(
         `[SYNC] Fetching ${folder.id} bookmarks (limit ${folder.limit})`
       );
-      const bookmarks = await client.listBookmarks(folder.id, folder.limit);
-      console.log(`[SYNC] Got ${bookmarks.length} bookmarks from ${folder.id}`);
+      const result = await client.listBookmarks({
+        folderId: folder.id,
+        limit: folder.limit,
+        have: haveParam || undefined,
+        highlights: highlightsParam || undefined,
+      });
+      console.log(
+        `[SYNC] Got ${result.bookmarks.length} bookmarks, ${result.highlights.length} highlights, ${result.deleteIds.length} deletes from ${folder.id}`
+      );
 
-      for (const bookmark of bookmarks) {
+      // Group inline highlights by bookmark_id for efficient lookup
+      const highlightsByBookmark = new Map<number, InstapaperHighlight[]>();
+      for (const h of result.highlights) {
+        const existing = highlightsByBookmark.get(h.bookmark_id) ?? [];
+        existing.push(h);
+        highlightsByBookmark.set(h.bookmark_id, existing);
+      }
+
+      // Handle deleted bookmarks
+      if (result.deleteIds.length > 0) {
+        const deleteSourceIds = result.deleteIds.map(String);
+        await db
+          .delete(readingItems)
+          .where(
+            and(
+              eq(readingItems.source, 'instapaper'),
+              eq(readingItems.userId, 1),
+              inArray(readingItems.sourceId, deleteSourceIds)
+            )
+          );
+        console.log(
+          `[SYNC] Deleted ${result.deleteIds.length} bookmarks removed from Instapaper`
+        );
+      }
+
+      for (const bookmark of result.bookmarks) {
         const { id, isNew } = await upsertBookmark(db, bookmark, folder.id);
         itemsSynced++;
 
@@ -420,13 +513,11 @@ export async function syncReading(
           });
         }
 
-        // Sync highlights for all bookmarks (not just new)
-        const hCount = await syncHighlights(
-          db,
-          client,
-          id,
-          bookmark.bookmark_id
-        );
+        // Sync highlights — use inline highlights if available, otherwise fetch individually
+        const inlineHighlights = highlightsByBookmark.get(bookmark.bookmark_id);
+        const hCount = inlineHighlights
+          ? await upsertHighlights(db, id, inlineHighlights)
+          : await syncHighlights(db, client, id, bookmark.bookmark_id);
         highlightsSynced += hCount;
       }
     }

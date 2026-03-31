@@ -38,11 +38,35 @@ export interface InstapaperFolder {
   position: number;
 }
 
+export interface InstapaperUser {
+  type: 'user';
+  user_id: number;
+  username: string;
+}
+
 type InstapaperItem =
   | InstapaperBookmark
-  | { type: 'user'; user_id: number; username: string }
+  | InstapaperUser
   | { type: 'meta' }
   | { type: 'error'; error_code: number; message: string };
+
+export interface BookmarkListOptions {
+  folderId?: string;
+  limit?: number;
+  /** Comma-separated list of "bookmarkId:hash" pairs the client already has */
+  have?: string;
+  /** Dash-separated list of highlight IDs the client already has */
+  highlights?: string;
+  /** Filter by tag name (only when folderId is not provided) */
+  tag?: string;
+}
+
+export interface BookmarkListResult {
+  bookmarks: InstapaperBookmark[];
+  highlights: InstapaperHighlight[];
+  deleteIds: number[];
+  user: InstapaperUser | null;
+}
 
 export class InstapaperClient {
   private consumerKey: string;
@@ -65,22 +89,57 @@ export class InstapaperClient {
 
   /**
    * List bookmarks in a folder.
-   * @param folderId - 'unread' | 'starred' | 'archive' | numeric folder ID
-   * @param limit - 1-500 (default 500)
+   * Supports delta sync via `have` (bookmark hashes) and `highlights` (known highlight IDs).
    */
   async listBookmarks(
+    options: BookmarkListOptions = {}
+  ): Promise<BookmarkListResult> {
+    const { folderId = 'unread', limit = 500, have, highlights, tag } = options;
+
+    const body: Record<string, string> = {
+      folder_id: folderId,
+      limit: String(limit),
+    };
+    if (have) body.have = have;
+    if (highlights) body.highlights = highlights;
+    if (tag) body.tag = tag;
+
+    const response = await this.request('/1/bookmarks/list', body);
+    const items = JSON.parse(response) as (
+      | InstapaperItem
+      | InstapaperHighlight
+      | { type: 'delete'; id: number }
+    )[];
+
+    const bookmarks: InstapaperBookmark[] = [];
+    const returnedHighlights: InstapaperHighlight[] = [];
+    const deleteIds: number[] = [];
+    let user: InstapaperUser | null = null;
+
+    for (const item of items) {
+      if ('type' in item) {
+        if (item.type === 'bookmark')
+          bookmarks.push(item as InstapaperBookmark);
+        else if (item.type === 'user') user = item as InstapaperUser;
+        else if (item.type === 'delete') deleteIds.push(item.id);
+      } else if ('highlight_id' in item) {
+        returnedHighlights.push(item as InstapaperHighlight);
+      }
+    }
+
+    return { bookmarks, highlights: returnedHighlights, deleteIds, user };
+  }
+
+  /**
+   * List bookmarks in a folder (simple version, returns bookmarks only).
+   * @deprecated Use listBookmarks() with BookmarkListOptions instead.
+   */
+  async listBookmarksSimple(
     folderId: string = 'unread',
     limit: number = 500
   ): Promise<InstapaperBookmark[]> {
-    const response = await this.request('/1/bookmarks/list', {
-      folder_id: folderId,
-      limit: String(limit),
-    });
-
-    const items = JSON.parse(response) as InstapaperItem[];
-    return items.filter(
-      (item): item is InstapaperBookmark => item.type === 'bookmark'
-    );
+    const result = await this.listBookmarks({ folderId, limit });
+    return result.bookmarks;
   }
 
   /**
@@ -101,6 +160,21 @@ export class InstapaperClient {
       {}
     );
     return JSON.parse(response) as InstapaperHighlight[];
+  }
+
+  /**
+   * Verify the current OAuth credentials are valid.
+   * Returns the authenticated user on success.
+   */
+  async verifyCredentials(): Promise<InstapaperUser> {
+    const response = await this.request('/1/account/verify_credentials', {});
+    const items = JSON.parse(response) as InstapaperItem[];
+    const user = items.find(
+      (item): item is InstapaperUser => item.type === 'user'
+    );
+    if (!user)
+      throw new Error('Instapaper verify_credentials returned no user');
+    return user;
   }
 
   /**

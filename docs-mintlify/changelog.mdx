@@ -3,6 +3,16 @@ title: Changelog
 description: API updates and new features.
 ---
 
+<Update label="March 31, 2026" tags={["Improvements"]}>
+
+## Reading domain: delta sync
+
+Instapaper sync now uses the `have` and `highlights` API parameters for delta syncing. Instead of re-fetching all bookmarks and highlights every cycle, the sync sends known bookmark hashes and highlight IDs so the API only returns new or changed data. Also handles `delete_ids` to remove bookmarks deleted from Instapaper.
+
+Added `verify_credentials` method to the Instapaper client for credential health checks. Fixed the `/health/sync` endpoint to include the Reading domain.
+
+</Update>
+
 <Update label="March 22, 2026" tags={["New features"]}>
 
 ## Reading domain

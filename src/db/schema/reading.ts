@@ -15,6 +15,7 @@ export const readingItems = sqliteTable(
     itemType: text('item_type').notNull().default('article'),
     source: text('source').notNull().default('instapaper'),
     sourceId: text('source_id').notNull(),
+    sourceHash: text('source_hash'),
 
     // Core metadata
     url: text('url'),
