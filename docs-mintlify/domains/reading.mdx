@@ -8,7 +8,7 @@ description: Instapaper articles, reading progress, and highlights
 
 The Reading domain tracks articles and reading activity from Instapaper, including reading progress, starred items, and highlighted passages.
 
-Data syncs every 6 hours via cron. Each sync fetches bookmarks from unread, starred, and archive folders, derives reading status from progress data, and pulls highlights.
+Data syncs every 6 hours via cron using **delta sync** -- each sync sends known bookmark hashes and highlight IDs to the Instapaper API, so only new or changed data is returned. The sync also handles bookmarks deleted from Instapaper. Reading status is derived from progress data.
 
 Future: books from Goodreads or Literal will be added as a second source under the same domain.
 

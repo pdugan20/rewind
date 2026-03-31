@@ -5,7 +5,7 @@ import { createOpenAPIApp } from '../lib/openapi.js';
 import { syncRuns } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
 
-const DOMAINS = ['listening', 'running', 'watching', 'collecting'];
+const DOMAINS = ['listening', 'running', 'watching', 'collecting', 'reading'];
 
 const system = createOpenAPIApp();
 

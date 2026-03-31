@@ -14,9 +14,10 @@ Instapaper articles, reading progress, highlights, and enrichment metadata.
 ## Sync
 
 - Cron: every 6 hours (alongside Letterboxd)
-- Fetches unread, starred, and archive folders
+- **Delta sync** via Instapaper `have` parameter: sends known bookmark ID:hash pairs so the API only returns new or changed bookmarks
+- **Inline highlights** via `highlights` parameter: sends known highlight IDs so the API returns only new highlights alongside bookmarks, reducing per-bookmark API calls
+- Handles `delete_ids` from the API to remove bookmarks deleted in Instapaper
 - Enriches new articles with OG metadata (author, site_name, published_at, og_image_url) and word count via get_text
-- Syncs highlights per article, removes deleted highlights
 - Processes article thumbnail images via image pipeline
 
 ## Status Derivation
@@ -73,8 +74,23 @@ Each article is enriched with metadata from two sources:
 
 Enrichment status tracked per article: `pending`, `completed`, `failed` with error reason.
 
+## API Client
+
+The `InstapaperClient` (`src/services/instapaper/client.ts`) wraps the Instapaper Full API v1 with OAuth 1.0a signing.
+
+Key methods:
+
+- `listBookmarks(options)` — delta-aware bookmark listing with `have`, `highlights`, and `tag` params; returns `{ bookmarks, highlights, deleteIds, user }`
+- `listBookmarksSimple(folderId, limit)` — backward-compatible wrapper returning only bookmarks array
+- `getText(bookmarkId)` — fetch processed article HTML (restricted to personal use as of Sept 2026)
+- `listHighlights(bookmarkId)` — fetch highlights for a single bookmark (fallback when not using inline highlights)
+- `verifyCredentials()` — validate OAuth credentials, returns authenticated user
+- `listFolders()` — list user-created folders
+
 ## Known Limitations
 
 - Paywalled sites (NYT, WSJ, Bloomberg) block OG metadata scraping (~490 of 1047 articles)
 - Instapaper API returns max 500 bookmarks per folder per call
 - Article thumbnails depend on `og:image` being present on the source page
+- `get_text` endpoint restricted to personal use after Sept 30, 2026 (our usage is personal, so no impact)
+- Instapaper API v2 with OAuth 2.0 is planned; current OAuth 1.0a will need migration when v1 is deprecated

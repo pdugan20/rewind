@@ -68,15 +68,20 @@ describe('InstapaperClient', () => {
         text: () => Promise.resolve(JSON.stringify(mixedResponse)),
       } as unknown as Response);
 
-      const bookmarks = await client.listBookmarks('unread', 25);
+      const result = await client.listBookmarks({
+        folderId: 'unread',
+        limit: 25,
+      });
 
-      expect(bookmarks).toHaveLength(2);
-      expect(bookmarks[0].type).toBe('bookmark');
-      expect(bookmarks[0].bookmark_id).toBe(100);
-      expect(bookmarks[1].bookmark_id).toBe(200);
+      expect(result.bookmarks).toHaveLength(2);
+      expect(result.bookmarks[0].type).toBe('bookmark');
+      expect(result.bookmarks[0].bookmark_id).toBe(100);
+      expect(result.bookmarks[1].bookmark_id).toBe(200);
+      expect(result.user).not.toBeNull();
+      expect(result.user?.username).toBe('testuser');
     });
 
-    it('returns empty array when response has no bookmarks', async () => {
+    it('returns empty arrays when response has no bookmarks', async () => {
       const noBookmarks = [
         { type: 'user', user_id: 1, username: 'testuser' },
         { type: 'meta' },
@@ -87,8 +92,193 @@ describe('InstapaperClient', () => {
         text: () => Promise.resolve(JSON.stringify(noBookmarks)),
       } as unknown as Response);
 
-      const bookmarks = await client.listBookmarks();
-      expect(bookmarks).toHaveLength(0);
+      const result = await client.listBookmarks();
+      expect(result.bookmarks).toHaveLength(0);
+      expect(result.highlights).toHaveLength(0);
+      expect(result.deleteIds).toHaveLength(0);
+    });
+
+    it('passes have parameter in request body', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            JSON.stringify([{ type: 'user', user_id: 1, username: 'testuser' }])
+          ),
+      } as unknown as Response);
+
+      await client.listBookmarks({
+        folderId: 'unread',
+        have: '100:abc,200:def',
+      });
+
+      const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = call[1].body as string;
+      expect(body).toContain('have=100%3Aabc%2C200%3Adef');
+    });
+
+    it('passes highlights parameter in request body', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            JSON.stringify([{ type: 'user', user_id: 1, username: 'testuser' }])
+          ),
+      } as unknown as Response);
+
+      await client.listBookmarks({
+        folderId: 'unread',
+        highlights: '1001-1002-1003',
+      });
+
+      const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = call[1].body as string;
+      expect(body).toContain('highlights=1001-1002-1003');
+    });
+
+    it('parses delete_ids from response', async () => {
+      const responseWithDeletes = [
+        { type: 'user', user_id: 1, username: 'testuser' },
+        { type: 'meta' },
+        { type: 'delete', id: 300 },
+        { type: 'delete', id: 400 },
+      ];
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify(responseWithDeletes)),
+      } as unknown as Response);
+
+      const result = await client.listBookmarks();
+      expect(result.deleteIds).toEqual([300, 400]);
+      expect(result.bookmarks).toHaveLength(0);
+    });
+
+    it('parses inline highlights from response', async () => {
+      const responseWithHighlights = [
+        { type: 'user', user_id: 1, username: 'testuser' },
+        {
+          type: 'bookmark',
+          bookmark_id: 100,
+          url: 'https://example.com/1',
+          title: 'Article',
+          description: '',
+          time: 1704067200,
+          starred: '0',
+          private_source: '',
+          hash: 'abc',
+          progress: 0,
+          progress_timestamp: 0,
+          tags: [],
+        },
+        {
+          highlight_id: 5001,
+          bookmark_id: 100,
+          text: 'Highlighted text',
+          position: 0,
+          time: 1704067200,
+        },
+      ];
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify(responseWithHighlights)),
+      } as unknown as Response);
+
+      const result = await client.listBookmarks();
+      expect(result.bookmarks).toHaveLength(1);
+      expect(result.highlights).toHaveLength(1);
+      expect(result.highlights[0].highlight_id).toBe(5001);
+      expect(result.highlights[0].bookmark_id).toBe(100);
+    });
+  });
+
+  describe('listBookmarksSimple', () => {
+    let client: InstapaperClient;
+    const originalFetch = globalThis.fetch;
+
+    beforeEach(() => {
+      client = new InstapaperClient(
+        'consumer-key',
+        'consumer-secret',
+        'access-token',
+        'access-token-secret'
+      );
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it('returns only bookmarks array for backward compatibility', async () => {
+      const response = [
+        { type: 'user', user_id: 1, username: 'testuser' },
+        {
+          type: 'bookmark',
+          bookmark_id: 100,
+          url: 'https://example.com/1',
+          title: 'Article',
+          description: '',
+          time: 1704067200,
+          starred: '0',
+          private_source: '',
+          hash: 'abc',
+          progress: 0,
+          progress_timestamp: 0,
+          tags: [],
+        },
+      ];
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify(response)),
+      } as unknown as Response);
+
+      const bookmarks = await client.listBookmarksSimple('unread', 25);
+      expect(bookmarks).toHaveLength(1);
+      expect(bookmarks[0].bookmark_id).toBe(100);
+    });
+  });
+
+  describe('verifyCredentials', () => {
+    let client: InstapaperClient;
+    const originalFetch = globalThis.fetch;
+
+    beforeEach(() => {
+      client = new InstapaperClient(
+        'consumer-key',
+        'consumer-secret',
+        'access-token',
+        'access-token-secret'
+      );
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it('returns user object on success', async () => {
+      const response = [{ type: 'user', user_id: 42, username: 'testuser' }];
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify(response)),
+      } as unknown as Response);
+
+      const user = await client.verifyCredentials();
+      expect(user.user_id).toBe(42);
+      expect(user.username).toBe('testuser');
+    });
+
+    it('throws when no user in response', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify([])),
+      } as unknown as Response);
+
+      await expect(client.verifyCredentials()).rejects.toThrow(
+        'Instapaper verify_credentials returned no user'
+      );
     });
   });
 
