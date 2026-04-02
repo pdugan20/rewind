@@ -3784,6 +3784,17 @@
                     "maximum": 200,
                     "default": 50,
                     "example": 50
+                  },
+                  "retry": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Retry albums/artists that previously failed (source=none placeholders)",
+                    "example": true
+                  },
+                  "artist": {
+                    "type": "string",
+                    "description": "Filter to a specific artist name (case-insensitive partial match)",
+                    "example": "Beastie Boys"
                   }
                 }
               }

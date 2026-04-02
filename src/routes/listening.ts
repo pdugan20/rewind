@@ -1416,6 +1416,16 @@ const backfillImagesRoute = createRoute({
               .optional()
               .default(50)
               .openapi({ example: 50 }),
+            retry: z.boolean().optional().default(false).openapi({
+              description:
+                'Retry albums/artists that previously failed (source=none placeholders)',
+              example: true,
+            }),
+            artist: z.string().optional().openapi({
+              description:
+                'Filter to a specific artist name (case-insensitive partial match)',
+              example: 'Beastie Boys',
+            }),
           }),
         },
       },
@@ -3004,37 +3014,100 @@ listening.openapi(deleteFilterRoute, async (c) => {
 listening.openapi(backfillImagesRoute, async (c) => {
   const db = createDb(c.env.DB);
   const body = await c.req
-    .json<{ type?: string; limit?: number }>()
-    .catch(() => ({ type: undefined, limit: undefined }));
+    .json<{
+      type?: string;
+      limit?: number;
+      retry?: boolean;
+      artist?: string;
+    }>()
+    .catch(() => ({
+      type: undefined,
+      limit: undefined,
+      retry: undefined,
+      artist: undefined,
+    }));
 
   const entityType = body.type || 'albums';
   if (!['albums', 'artists', 'all'].includes(entityType)) {
     return badRequest(c, 'Invalid type. Valid: albums, artists, all') as any;
   }
   const maxItems = Math.min(body.limit || 50, 200);
+  const retry = body.retry === true;
+  const artistFilter = body.artist?.trim();
 
   const results: Record<string, unknown> = {};
 
   if (entityType === 'albums' || entityType === 'all') {
-    const albumRows = await db
-      .select({
-        id: lastfmAlbums.id,
-        name: lastfmAlbums.name,
-        mbid: lastfmAlbums.mbid,
-        artistName: lastfmArtists.name,
-      })
-      .from(lastfmAlbums)
-      .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
-      .where(
-        and(
-          eq(lastfmAlbums.isFiltered, 0),
-          sql`${lastfmAlbums.id} NOT IN (
-            SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
-            WHERE ${images.domain} = 'listening' AND ${images.entityType} = 'albums'
-          )`
-        )
-      )
-      .limit(maxItems);
+    let albumRows;
+
+    if (retry) {
+      // Find albums whose image lookup previously failed (source='none' placeholder)
+      const conditions = [
+        eq(lastfmAlbums.isFiltered, 0),
+        sql`${lastfmAlbums.id} IN (
+          SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+          WHERE ${images.domain} = 'listening' AND ${images.entityType} = 'albums'
+            AND ${images.source} = 'none'
+        )`,
+      ];
+      if (artistFilter) {
+        conditions.push(
+          sql`LOWER(${lastfmArtists.name}) LIKE ${`%${artistFilter.toLowerCase()}%`}`
+        );
+      }
+      albumRows = await db
+        .select({
+          id: lastfmAlbums.id,
+          name: lastfmAlbums.name,
+          mbid: lastfmAlbums.mbid,
+          artistName: lastfmArtists.name,
+        })
+        .from(lastfmAlbums)
+        .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
+        .where(and(...conditions))
+        .limit(maxItems);
+
+      // Delete the 'none' placeholders so the pipeline can insert fresh records
+      if (albumRows.length > 0) {
+        const entityIds = albumRows.map((a) => String(a.id));
+        await db.delete(images).where(
+          and(
+            eq(images.domain, 'listening'),
+            eq(images.entityType, 'albums'),
+            eq(images.source, 'none'),
+            sql`${images.entityId} IN (${sql.join(
+              entityIds.map((id) => sql`${id}`),
+              sql`, `
+            )})`
+          )
+        );
+      }
+    } else {
+      // Normal backfill: find albums with no image record at all
+      const conditions = [
+        eq(lastfmAlbums.isFiltered, 0),
+        sql`${lastfmAlbums.id} NOT IN (
+          SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+          WHERE ${images.domain} = 'listening' AND ${images.entityType} = 'albums'
+        )`,
+      ];
+      if (artistFilter) {
+        conditions.push(
+          sql`LOWER(${lastfmArtists.name}) LIKE ${`%${artistFilter.toLowerCase()}%`}`
+        );
+      }
+      albumRows = await db
+        .select({
+          id: lastfmAlbums.id,
+          name: lastfmAlbums.name,
+          mbid: lastfmAlbums.mbid,
+          artistName: lastfmArtists.name,
+        })
+        .from(lastfmAlbums)
+        .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
+        .where(and(...conditions))
+        .limit(maxItems);
+    }
 
     const albumItems: BackfillItem[] = albumRows.map((a) => ({
       entityId: String(a.id),
@@ -3055,23 +3128,69 @@ listening.openapi(backfillImagesRoute, async (c) => {
   }
 
   if (entityType === 'artists' || entityType === 'all') {
-    const artistRows = await db
-      .select({
-        id: lastfmArtists.id,
-        name: lastfmArtists.name,
-        mbid: lastfmArtists.mbid,
-      })
-      .from(lastfmArtists)
-      .where(
-        and(
-          eq(lastfmArtists.isFiltered, 0),
-          sql`${lastfmArtists.id} NOT IN (
-            SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
-            WHERE ${images.domain} = 'listening' AND ${images.entityType} = 'artists'
-          )`
-        )
-      )
-      .limit(maxItems);
+    let artistRows;
+
+    if (retry) {
+      const conditions = [
+        eq(lastfmArtists.isFiltered, 0),
+        sql`${lastfmArtists.id} IN (
+          SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+          WHERE ${images.domain} = 'listening' AND ${images.entityType} = 'artists'
+            AND ${images.source} = 'none'
+        )`,
+      ];
+      if (artistFilter) {
+        conditions.push(
+          sql`LOWER(${lastfmArtists.name}) LIKE ${`%${artistFilter.toLowerCase()}%`}`
+        );
+      }
+      artistRows = await db
+        .select({
+          id: lastfmArtists.id,
+          name: lastfmArtists.name,
+          mbid: lastfmArtists.mbid,
+        })
+        .from(lastfmArtists)
+        .where(and(...conditions))
+        .limit(maxItems);
+
+      if (artistRows.length > 0) {
+        const entityIds = artistRows.map((a) => String(a.id));
+        await db.delete(images).where(
+          and(
+            eq(images.domain, 'listening'),
+            eq(images.entityType, 'artists'),
+            eq(images.source, 'none'),
+            sql`${images.entityId} IN (${sql.join(
+              entityIds.map((id) => sql`${id}`),
+              sql`, `
+            )})`
+          )
+        );
+      }
+    } else {
+      const conditions = [
+        eq(lastfmArtists.isFiltered, 0),
+        sql`${lastfmArtists.id} NOT IN (
+          SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+          WHERE ${images.domain} = 'listening' AND ${images.entityType} = 'artists'
+        )`,
+      ];
+      if (artistFilter) {
+        conditions.push(
+          sql`LOWER(${lastfmArtists.name}) LIKE ${`%${artistFilter.toLowerCase()}%`}`
+        );
+      }
+      artistRows = await db
+        .select({
+          id: lastfmArtists.id,
+          name: lastfmArtists.name,
+          mbid: lastfmArtists.mbid,
+        })
+        .from(lastfmArtists)
+        .where(and(...conditions))
+        .limit(maxItems);
+    }
 
     const artistItems: BackfillItem[] = artistRows.map((a) => ({
       entityId: String(a.id),

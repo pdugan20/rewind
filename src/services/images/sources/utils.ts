@@ -15,16 +15,52 @@ export function cleanArtistName(name: string): string {
 }
 
 /**
+ * Clean an album name for search queries.
+ * Strips parenthetical/bracketed suffixes (deluxe, remastered, bonus, EP, single)
+ * and version suffixes that confuse search APIs without affecting matching accuracy.
+ */
+export function cleanAlbumName(name: string): string {
+  return name
+    .replace(
+      /\s*[([][^)\]]*(?:deluxe|remaster|bonus|expanded|anniversary|edition|version|ep|single)[^)\]]*[)\]]/gi,
+      ''
+    )
+    .replace(/\s*-\s*(?:EP|Single)$/i, '')
+    .trim();
+}
+
+/** Map of number words to digits for title normalization. */
+const NUMBER_WORDS: Record<string, string> = {
+  one: '1',
+  two: '2',
+  three: '3',
+  four: '4',
+  five: '5',
+  six: '6',
+  seven: '7',
+  eight: '8',
+  nine: '9',
+  ten: '10',
+};
+
+/**
  * Normalize a name for comparison.
- * Strips punctuation, extra whitespace, and lowercases.
+ * Strips punctuation, extra whitespace, lowercases, and standardizes
+ * number words and common abbreviations (pt/part, vol/volume).
  */
 function normalize(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[''`]/g, '')
+    .replace(/['\u2018\u2019`]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .replace(/\b(?:part|pt)\b/g, 'pt')
+    .replace(/\b(?:volume|vol)\b/g, 'vol')
+    .replace(
+      /\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/g,
+      (m) => NUMBER_WORDS[m] ?? m
+    );
 }
 
 /**
@@ -59,29 +95,48 @@ export function artistMatches(requested: string, returned: string): boolean {
 }
 
 /**
+ * Check if two normalized names match at a word boundary (one starts with the other).
+ */
+function wordBoundaryMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (b.startsWith(a) && (b.length === a.length || b[a.length] === ' ')) {
+    return true;
+  }
+  if (a.startsWith(b) && (a.length === b.length || a[b.length] === ' ')) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Check if a returned album/collection name is a reasonable match.
  * The returned name must start with the requested name (allowing
  * suffixes like "(Deluxe Edition)"). Exact word boundary required.
  * "GUTS" matches "GUTS (Deluxe)" but "Gold" does NOT match "Golden Greats".
+ *
+ * When artistName is provided, also tries stripping the artist name prefix
+ * from the requested album. Last.fm sometimes stores albums as
+ * "Beastie Boys Anthology: The Sounds of Science" while sources return
+ * "Anthology: The Sounds of Science".
  */
-export function albumMatches(requested: string, returned: string): boolean {
+export function albumMatches(
+  requested: string,
+  returned: string,
+  artistName?: string
+): boolean {
   const req = stripThe(normalize(requested));
   const ret = stripThe(normalize(returned));
   if (!req || !ret) return false;
-  if (req === ret) return true;
-  // Returned must start with requested at a word boundary
-  if (
-    ret.startsWith(req) &&
-    (ret.length === req.length || ret[req.length] === ' ')
-  ) {
-    return true;
+  if (wordBoundaryMatch(req, ret)) return true;
+
+  // Try stripping artist name prefix from requested album
+  if (artistName) {
+    const normArtist = stripThe(normalize(cleanArtistName(artistName)));
+    if (normArtist && req.startsWith(normArtist + ' ')) {
+      const stripped = req.slice(normArtist.length + 1);
+      if (stripped && wordBoundaryMatch(stripped, ret)) return true;
+    }
   }
-  // Requested might have extra subtitle: "Garden State: Music from..." matches "Garden State"
-  if (
-    req.startsWith(ret) &&
-    (req.length === ret.length || req[ret.length] === ' ')
-  ) {
-    return true;
-  }
+
   return false;
 }

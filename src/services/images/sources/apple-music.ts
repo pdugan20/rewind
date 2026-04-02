@@ -5,7 +5,12 @@
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
-import { cleanArtistName, artistMatches, albumMatches } from './utils.js';
+import {
+  cleanArtistName,
+  cleanAlbumName,
+  artistMatches,
+  albumMatches,
+} from './utils.js';
 
 const BASE_URL = 'https://api.music.apple.com/v1';
 
@@ -95,7 +100,10 @@ export class AppleMusicClient implements SourceClient {
     const artist = params.artistName
       ? cleanArtistName(params.artistName)
       : undefined;
-    const term = artist ? `${artist} ${params.albumName}` : params.albumName;
+    const album = params.albumName
+      ? cleanAlbumName(params.albumName)
+      : undefined;
+    const term = artist && album ? `${artist} ${album}` : (album ?? artist);
     if (!term) return [];
 
     const url = new URL(`${BASE_URL}/catalog/us/search`);
@@ -136,7 +144,11 @@ export class AppleMusicClient implements SourceClient {
       if (
         params.albumName &&
         album.attributes?.name &&
-        !albumMatches(params.albumName, album.attributes.name)
+        !albumMatches(
+          params.albumName,
+          album.attributes.name,
+          params.artistName
+        )
       ) {
         continue;
       }

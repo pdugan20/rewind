@@ -5,7 +5,12 @@
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
-import { cleanArtistName, artistMatches, albumMatches } from './utils.js';
+import {
+  cleanArtistName,
+  cleanAlbumName,
+  artistMatches,
+  albumMatches,
+} from './utils.js';
 
 const BASE_URL = 'https://itunes.apple.com/search';
 
@@ -19,7 +24,7 @@ export class ITunesClient implements SourceClient {
 
     try {
       const artist = cleanArtistName(params.artistName);
-      const term = `${artist} ${params.albumName}`;
+      const term = `${artist} ${cleanAlbumName(params.albumName)}`;
       const url = new URL(BASE_URL);
       url.searchParams.set('term', term);
       url.searchParams.set('media', 'music');
@@ -47,7 +52,11 @@ export class ITunesClient implements SourceClient {
         }
         if (
           result.collectionName &&
-          !albumMatches(params.albumName, result.collectionName)
+          !albumMatches(
+            params.albumName,
+            result.collectionName,
+            params.artistName
+          )
         ) {
           continue;
         }

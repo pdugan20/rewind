@@ -5,7 +5,12 @@
  */
 
 import type { ImageResult, SourceClient, SourceSearchParams } from './types.js';
-import { cleanArtistName, artistMatches, albumMatches } from './utils.js';
+import {
+  cleanArtistName,
+  cleanAlbumName,
+  artistMatches,
+  albumMatches,
+} from './utils.js';
 
 const ALBUM_URL = 'https://api.deezer.com/search/album';
 const ARTIST_URL = 'https://api.deezer.com/search/artist';
@@ -35,7 +40,7 @@ export class DeezerClient implements SourceClient {
     }
 
     const artist = cleanArtistName(params.artistName);
-    const term = `${artist} ${params.albumName}`;
+    const term = `${artist} ${cleanAlbumName(params.albumName)}`;
     const url = new URL(ALBUM_URL);
     url.searchParams.set('q', term);
     url.searchParams.set('limit', '5');
@@ -59,7 +64,10 @@ export class DeezerClient implements SourceClient {
       ) {
         continue;
       }
-      if (album.title && !albumMatches(params.albumName, album.title)) {
+      if (
+        album.title &&
+        !albumMatches(params.albumName, album.title, params.artistName)
+      ) {
         continue;
       }
 
