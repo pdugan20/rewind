@@ -12,7 +12,7 @@ routes = [
 # KV namespace for OAuth token storage (encrypted by workers-oauth-provider)
 [[kv_namespaces]]
 binding = "OAUTH_KV"
-id = "placeholder"  # TODO: Create with `npx wrangler kv namespace create OAUTH_KV` and fill in ID
+id = "78305332b9b44b138ad56dcad3d6d569"
 
 [vars]
 REWIND_API_URL = "https://api.rewind.rest"
