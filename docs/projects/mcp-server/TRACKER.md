@@ -169,3 +169,19 @@ Verification:
 - [ ] **6.5.14** Test full OAuth flow with Claude Desktop (should trigger browser auth via GitHub, then connect)
 - [ ] **6.5.15** Test full OAuth flow with claude.ai Integrations
 - [ ] **6.5.16** Verify stdio transport (Claude Code / local Desktop) still works with `REWIND_API_KEY` -- OAuth does not apply to stdio
+
+## Phase 7: Developer Tooling & Testing
+
+**7.1 -- MCP Inspector**
+
+- [ ] **7.1.1** Add `"inspect"` script to package.json: `npx @modelcontextprotocol/inspector node dist/index.js`
+- [ ] **7.1.2** Validate all tools, resources, and prompts via Inspector UI
+- [ ] **7.1.3** Document Inspector usage in project docs
+
+**7.2 -- Unit Tests**
+
+- [ ] **7.2.1** Set up test framework (Vitest) for mcp-server
+- [ ] **7.2.2** Write tests using MCP SDK client classes with in-memory stdio transport
+- [ ] **7.2.3** Test each tool returns well-formed responses (text content, no raw JSON, isError on failures)
+- [ ] **7.2.4** Test error handling (bad IDs, API timeouts, missing params)
+- [ ] **7.2.5** Add test step to CI workflow

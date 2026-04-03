@@ -35,14 +35,14 @@ Requires a [Rewind API key](https://docs.rewind.rest/authentication). `REWIND_AP
 
 ## Tools
 
-| Domain                         | Tools                                                                                              |
-| ------------------------------ | -------------------------------------------------------------------------------------------------- |
-| **Listening** (Last.fm)        | Now playing, recent scrobbles, stats, top artists/albums/tracks, streaks, artist and album details |
-| **Running** (Strava)           | Stats, recent runs, personal records, streaks, activity details, per-mile splits                   |
-| **Watching** (Plex/Letterboxd) | Recent watches, movie details, browse movies by genre/decade/director, stats                       |
-| **Collecting** (Discogs/Trakt) | Browse vinyl collection, physical media (Blu-ray/4K/HD DVD), collection stats                      |
-| **Reading** (Instapaper)       | Recent articles, highlights, random highlight, stats                                               |
-| **Cross-domain**               | Full-text search, unified feed, on-this-day, health check                                          |
+| Domain           | Source           | Tools                                                                                              |
+| ---------------- | ---------------- | -------------------------------------------------------------------------------------------------- |
+| **Listening**    | Last.fm          | Now playing, recent scrobbles, stats, top artists/albums/tracks, streaks, artist and album details |
+| **Running**      | Strava           | Stats, recent runs, personal records, streaks, activity details, per-mile splits                   |
+| **Watching**     | Plex, Letterboxd | Recent watches, movie details, browse by genre/decade/director, stats                              |
+| **Collecting**   | Discogs, Trakt   | Vinyl collection, physical media (Blu-ray/4K/HD DVD), collection stats                             |
+| **Reading**      | Instapaper       | Recent articles, highlights, random highlight, stats                                               |
+| **Cross-domain** | All              | Full-text search, unified feed, on-this-day, health check                                          |
 
 ## Example Queries
 
