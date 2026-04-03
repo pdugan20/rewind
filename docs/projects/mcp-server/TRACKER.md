@@ -88,15 +88,18 @@ All 26 tools implemented with Zod input schemas, formatted text responses, and `
 
 ## Phase 5: Publish & Distribution
 
-- [x] **5.1** Write README with installation instructions for all platforms (Desktop, Code, iOS, web)
+- [x] **5.1** Write README (compact: badges, one config block, tool summary table, example queries)
 - [x] **5.2** GitHub Actions workflow (`.github/workflows/mcp-server.yml`) -- builds on PR/push, publishes to npm on `mcp-server-v*` tag, deploys Worker on main push
-- [ ] **5.3** Add `NPM_TOKEN` secret to GitHub repo settings (npmjs.com > Access Tokens > Automation)
-- [ ] **5.4** First publish: `git tag mcp-server-v0.1.0 && git push origin mcp-server-v0.1.0`
-- [ ] **5.5** List on mcp.so (community directory)
-- [ ] **5.6** List on smithery.ai (registry with one-click install)
-- [x] **5.7** Add `.mcp.json` to this repo (production config)
-- [x] **5.8** Add MCP server section to docs.rewind.rest (Mintlify MDX page with install tabs, tool tables, example conversations)
-- [ ] **5.9** Tag GitHub repo with `mcp-server` topic
+- [x] **5.3** Add `NPM_TOKEN` secret to GitHub repo settings
+- [x] **5.4** First publish: `rewind-mcp-server@0.1.0` live on npm
+- [ ] **5.5** Set up npm Trusted Publishing (replace token with OIDC -- now that package exists on npm)
+- [ ] **5.6** Set up release-please for automated versioning and changelog from conventional commits
+- [ ] **5.7** Update README with iOS/web instructions after OAuth is tested end-to-end
+- [ ] **5.8** List on mcp.so (community directory)
+- [ ] **5.9** List on smithery.ai (registry with one-click install)
+- [x] **5.10** Add `.mcp.json` to this repo (production config)
+- [x] **5.11** Add MCP server section to docs.rewind.rest (Mintlify MDX page with install tabs, tool tables, example conversations)
+- [ ] **5.12** Tag GitHub repo with `mcp-server` topic
 
 ## Phase 6: Connectors Directory Readiness
 
@@ -115,7 +118,7 @@ Non-OAuth requirements for Anthropic Connectors Directory submission.
 
 - [x] **6.3.1** MCP connector section added to existing privacy policy at `rewind.rest/privacy` (covers data flow, OAuth tokens, Anthropic data handling, disconnecting)
 - [x] **6.3.2** Data Processing Agreement written at `rewind.rest/dpa` (data categories, sub-processors, security measures, data subject rights, retention, breach notification)
-- [ ] **6.3.3** Deploy updated landing site (`npm run www:deploy`) to publish privacy policy and DPA changes
+- [x] **6.3.3** Deploy updated landing site -- privacy policy and DPA live at rewind.rest/privacy and rewind.rest/dpa
 
 **6.4 -- QA & Submission Prep**
 
@@ -129,9 +132,9 @@ Infrastructure:
 
 - [x] **6.5.1** Add `@cloudflare/workers-oauth-provider` dependency to mcp-server
 - [x] **6.5.2** Add KV namespace `OAUTH_KV` binding to wrangler.toml (ID needs to be filled after `npx wrangler kv namespace create OAUTH_KV`)
-- [ ] **6.5.3** Create KV namespace: `npx wrangler kv namespace create OAUTH_KV` and update wrangler.toml with returned ID
-- [ ] **6.5.4** Create GitHub OAuth App (github.com/settings/developers), set callback URL to `https://mcp.rewind.rest/callback`
-- [ ] **6.5.5** Store secrets: `npx wrangler secret put GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `REWIND_API_KEY`, `USER_ALLOWLIST`
+- [x] **6.5.3** Create KV namespace and update wrangler.toml with ID `78305332b9b44b138ad56dcad3d6d569`
+- [x] **6.5.4** Create GitHub OAuth App (https://github.com/settings/applications/3506939), callback: `https://mcp.rewind.rest/callback`
+- [x] **6.5.5** Store secrets: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, REWIND_API_KEY, USER_ALLOWLIST (pdugan20 -> user_id 1)
 
 Implementation:
 
@@ -147,6 +150,7 @@ Implementation:
 
 Depends on logo/favicon work tracked in `docs/projects/docs-site-improvements/TRACKER.md` (Phase 4.1-4.4). These tasks cover MCP-specific design and ensuring new pages match the site.
 
+- [ ] **6.6.0** Add logo to GitHub OAuth App (https://github.com/settings/applications/3506939)
 - [ ] **6.6.1** Polish OAuth consent page (`consent.ts`): add logo, match landing site colors/typography, test on mobile
 - [ ] **6.6.2** Style privacy policy MCP section and DPA page: review layout in landing site context, ensure consistent formatting with existing legal pages
 - [ ] **6.6.3** Add logo to Mintlify MCP server docs page header
