@@ -1,0 +1,153 @@
+---
+title: "MCP Server"
+description: "Connect Claude to your Rewind data using the Model Context Protocol"
+---
+
+The Rewind MCP server gives Claude direct access to your personal data across all five domains. Ask Claude about your listening history, running stats, movie ratings, vinyl collection, or reading highlights using natural language.
+
+## What is MCP?
+
+[Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is an open standard created by Anthropic that allows AI applications to connect to external tools and data sources. The Rewind MCP server exposes your data as tools that Claude can call.
+
+## Installation
+
+<Tabs>
+  <Tab title="Claude Desktop (Mac)">
+    Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "rewind": {
+          "command": "npx",
+          "args": ["-y", "rewind-mcp-server"],
+          "env": {
+            "REWIND_API_KEY": "rw_live_your_key_here"
+          }
+        }
+      }
+    }
+    ```
+
+    Restart Claude Desktop after saving. The server appears in Settings > Developer.
+  </Tab>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add rewind -- npx -y rewind-mcp-server
+    ```
+
+    Or add `.mcp.json` to your project root:
+
+    ```json
+    {
+      "mcpServers": {
+        "rewind": {
+          "command": "npx",
+          "args": ["-y", "rewind-mcp-server"],
+          "env": {
+            "REWIND_API_KEY": "rw_live_your_key_here"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Claude iOS / Web">
+    Go to **Settings > Integrations** and add:
+
+    - **URL**: `https://mcp.rewind.rest/mcp`
+    - **Authorization**: `Bearer rw_live_your_key_here`
+
+    Integrations sync across iOS and web automatically.
+  </Tab>
+</Tabs>
+
+## Available Tools
+
+### Listening (Last.fm)
+
+| Tool | Description |
+|------|-------------|
+| `get_now_playing` | Currently playing track |
+| `get_recent_listens` | Recent scrobbles |
+| `get_listening_stats` | Overall listening statistics |
+| `get_top_artists` | Top artists by period |
+| `get_top_albums` | Top albums by period |
+| `get_top_tracks` | Top tracks by period |
+| `get_listening_streaks` | Current and longest streaks |
+| `get_artist_details` | Artist info by ID |
+| `get_album_details` | Album info by ID |
+
+### Running (Strava)
+
+| Tool | Description |
+|------|-------------|
+| `get_running_stats` | Overall running statistics |
+| `get_recent_runs` | Recent activities |
+| `get_personal_records` | PRs at standard distances |
+| `get_running_streaks` | Current and longest streaks |
+| `get_activity_details` | Single run details by ID |
+
+### Watching (Plex / Letterboxd)
+
+| Tool | Description |
+|------|-------------|
+| `get_recent_watches` | Recently watched movies/TV |
+| `get_movie_details` | Movie info by ID |
+| `get_watching_stats` | Overall watching statistics |
+
+### Collecting (Discogs)
+
+| Tool | Description |
+|------|-------------|
+| `get_vinyl_collection` | Browse vinyl records |
+| `get_collecting_stats` | Collection statistics |
+
+### Reading (Instapaper)
+
+| Tool | Description |
+|------|-------------|
+| `get_recent_reads` | Recently saved articles |
+| `get_reading_highlights` | Saved highlights |
+| `get_random_highlight` | Random highlight |
+| `get_reading_stats` | Reading statistics |
+
+### Cross-Domain
+
+| Tool | Description |
+|------|-------------|
+| `search` | Full-text search across all domains |
+| `get_feed` | Unified activity feed |
+| `get_on_this_day` | Historical "on this day" items |
+| `get_health` | API and sync health status |
+
+## Prompt Templates
+
+The MCP server includes built-in prompt templates for common queries:
+
+- **Weekly Summary** -- Summarize activity across all domains for the past week
+- **Year in Review** -- Generate a comprehensive year-in-review
+- **Compare Periods** -- Compare activity between two time periods
+
+## Example Conversations
+
+Once connected, you can ask Claude things like:
+
+- "What have I been listening to this week?"
+- "How does my running mileage this month compare to last month?"
+- "What's my longest listening streak?"
+- "Show me a random reading highlight"
+- "What happened on this day in previous years?"
+- "What movies did I watch in March?"
+- "Search my data for 'Radiohead'"
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `REWIND_API_KEY` | Yes | -- | Your Rewind API key |
+| `REWIND_API_URL` | No | `https://api.rewind.rest` | API base URL |
+
+## Source Code
+
+The MCP server is open source: [github.com/pdugan20/rewind/tree/main/mcp-server](https://github.com/pdugan20/rewind/tree/main/mcp-server)

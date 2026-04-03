@@ -1,0 +1,88 @@
+---
+layout: ../layouts/Legal.astro
+title: Data Processing Agreement
+lastUpdated: April 3, 2026
+---
+
+## 1. Introduction
+
+This Data Processing Agreement ("DPA") forms part of the terms under which Rewind ("Processor") processes personal data on behalf of users ("Controller") through the Rewind API and MCP connector service.
+
+## 2. Definitions
+
+- **Personal Data**: Any data relating to an identified or identifiable person, as processed through the Rewind service.
+- **Processing**: Any operation performed on Personal Data, including collection, storage, retrieval, transmission, and deletion.
+- **Sub-processor**: A third party engaged by the Processor to process Personal Data.
+
+## 3. Scope of Processing
+
+Rewind processes Personal Data solely to provide the Rewind API service, which includes:
+
+- Syncing activity data from third-party services (Last.fm, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper)
+- Storing synced data in Cloudflare D1 databases and R2 object storage
+- Serving data via the Rewind REST API
+- Providing data access via the MCP connector for Claude (Anthropic)
+
+## 4. Data Categories
+
+| Category | Examples | Source |
+|----------|----------|--------|
+| Listening history | Scrobbles, artist/album metadata | Last.fm |
+| Activity data | Runs, routes, heart rate, pace | Strava |
+| Watch history | Movies, TV episodes, ratings, reviews | Plex, Letterboxd |
+| Collection data | Vinyl records, physical media | Discogs, Trakt |
+| Reading data | Articles, highlights, reading progress | Instapaper |
+| Authentication data | GitHub user ID, OAuth tokens | GitHub (via MCP connector) |
+
+## 5. Sub-processors
+
+| Sub-processor | Purpose | Data location |
+|---------------|---------|---------------|
+| Cloudflare | Infrastructure (Workers, D1, R2, KV) | Global edge network |
+| Anthropic | AI assistant (when MCP connector is used) | Anthropic's infrastructure |
+| GitHub | OAuth authentication (when MCP connector is used) | GitHub's infrastructure |
+
+## 6. Security Measures
+
+- All data is transmitted over HTTPS/TLS
+- API keys are hashed (SHA-256) before storage
+- OAuth tokens are stored encrypted in Cloudflare KV
+- Access is authenticated on every request (API key or OAuth token)
+- Rate limiting is enforced per key and per IP
+- No plaintext credentials are stored at rest
+
+## 7. Data Subject Rights
+
+Users may exercise the following rights by contacting the Processor:
+
+- **Access**: Export all personal data via the API export endpoints
+- **Rectification**: Request correction of inaccurate data
+- **Erasure**: Request deletion of all personal data
+- **Portability**: Receive data in JSON or CSV format via export endpoints
+- **Restriction**: Request temporary restriction of processing
+- **Objection**: Object to specific processing activities
+
+Requests will be responded to within 30 days.
+
+## 8. Data Retention
+
+- Synced data is retained indefinitely unless deletion is requested
+- OAuth access tokens expire after 1 hour
+- OAuth refresh tokens expire after 90 days of inactivity
+- Deleted data is permanently removed from all storage within 30 days
+
+## 9. Data Breach Notification
+
+In the event of a personal data breach, the Processor will notify the Controller without undue delay and no later than 72 hours after becoming aware of the breach, providing details of the nature of the breach, categories of data affected, and measures taken.
+
+## 10. International Transfers
+
+Data is processed on Cloudflare's global edge network. Cloudflare maintains appropriate safeguards for international data transfers in compliance with GDPR, including Standard Contractual Clauses where applicable.
+
+## 11. Term and Termination
+
+This DPA remains in effect for as long as the Processor processes Personal Data on behalf of the Controller. Upon termination, all Personal Data will be deleted within 30 days upon request.
+
+## 12. Contact
+
+Questions about this DPA? Contact [Pat Dugan](https://patdugan.me).

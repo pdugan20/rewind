@@ -1,0 +1,59 @@
+{
+  "name": "rewind-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for the Rewind personal data API",
+  "type": "module",
+  "bin": {
+    "rewind-mcp-server": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "rewind",
+    "personal-data",
+    "lastfm",
+    "strava",
+    "plex",
+    "discogs",
+    "instapaper",
+    "claude",
+    "anthropic"
+  ],
+  "author": "Patrick Dugan",
+  "license": "MIT",
+  "homepage": "https://rewind.rest",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pdugan20/rewind.git",
+    "directory": "mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/pdugan20/rewind/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^0.4.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260403.1",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,7 +1,7 @@
 ---
 layout: ../layouts/Legal.astro
 title: Privacy Policy
-lastUpdated: March 12, 2026
+lastUpdated: April 3, 2026
 ---
 
 ## 1. Overview
@@ -16,6 +16,7 @@ Rewind syncs data from third-party services on behalf of the account owner. This
 - **Running data** from Strava (activities, splits, gear, personal records)
 - **Watching data** from Plex and Letterboxd (watch history, ratings, reviews)
 - **Collecting data** from Discogs and Trakt (collection items, wantlist)
+- **Reading data** from Instapaper (articles, highlights, reading progress)
 
 ## 3. How Data is Stored
 
@@ -27,7 +28,18 @@ Data is used solely to power the Rewind API. We do not sell, share, or transfer 
 
 ## 5. Third-Party Services
 
-Rewind connects to third-party APIs (Last.fm, Strava, Plex, Letterboxd, Discogs, Trakt, TMDB) to sync data. Your use of those services is governed by their respective privacy policies.
+Rewind connects to third-party APIs (Last.fm, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, TMDB) to sync data. Your use of those services is governed by their respective privacy policies.
+
+## 5a. MCP Connector (Claude Integration)
+
+Rewind provides an MCP (Model Context Protocol) server that allows Claude (by Anthropic) to access your Rewind data. When you connect Claude to Rewind:
+
+- **Authentication**: You authenticate via GitHub OAuth. Rewind does not store your GitHub password. We receive a GitHub user ID which is mapped to your Rewind account.
+- **Data accessed**: Claude can read your listening, running, watching, collecting, and reading data through the Rewind API. All access is read-only.
+- **Data transmitted to Anthropic**: When you use Claude with the Rewind connector, your data is sent to Anthropic's servers as part of tool call results. Anthropic's handling of this data is governed by [Anthropic's privacy policy](https://www.anthropic.com/privacy) and your Claude plan terms.
+- **OAuth tokens**: Access tokens (1 hour) and refresh tokens (90 days, sliding) are stored encrypted in Cloudflare KV. Tokens are hashed before storage and are automatically deleted upon expiration or when you disconnect the integration.
+- **No additional data collection**: The MCP server is a stateless passthrough. It does not log, store, or analyze your queries or the data returned to Claude beyond what is necessary for the OAuth token lifecycle.
+- **Disconnecting**: You can disconnect the Rewind connector from Claude at any time via Claude's settings. This removes Anthropic's stored tokens. Server-side tokens expire naturally or can be revoked by contacting us.
 
 ## 6. Data Retention
 

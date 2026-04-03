@@ -53,6 +53,10 @@
             ]
           },
           {
+            "group": "Integrations",
+            "pages": ["mcp-server"]
+          },
+          {
             "group": "Updates",
             "pages": ["changelog"]
           }

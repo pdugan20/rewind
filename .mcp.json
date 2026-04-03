@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "rewind": {
+      "command": "node",
+      "args": ["./mcp-server/dist/index.js"],
+      "env": {
+        "REWIND_API_KEY": "",
+        "REWIND_API_URL": "https://api.rewind.rest"
+      }
+    }
+  }
+}

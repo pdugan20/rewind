@@ -1,0 +1,28 @@
+name = "rewind-mcp"
+main = "src/worker.ts"
+compatibility_date = "2026-03-12"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Custom domain
+routes = [
+  { pattern = "mcp.rewind.rest", custom_domain = true }
+]
+
+# KV namespace for OAuth token storage (encrypted by workers-oauth-provider)
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "placeholder"  # TODO: Create with `npx wrangler kv namespace create OAUTH_KV` and fill in ID
+
+[vars]
+REWIND_API_URL = "https://api.rewind.rest"
+# USER_ALLOWLIST is a JSON map of GitHub user ID -> Rewind user_id
+# e.g. {"12345": 1}
+# Set via: npx wrangler secret put USER_ALLOWLIST
+# Or as a var here for non-sensitive allowlists:
+# USER_ALLOWLIST = '{"YOUR_GITHUB_USER_ID": 1}'
+
+# Secrets (set via `npx wrangler secret put <NAME>`):
+# - REWIND_API_KEY: Static API key for server-to-server calls to api.rewind.rest
+# - GITHUB_CLIENT_ID: GitHub OAuth App client ID
+# - GITHUB_CLIENT_SECRET: GitHub OAuth App client secret
