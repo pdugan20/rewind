@@ -38,6 +38,7 @@ export default tseslint.config(
     ignores: [
       'node_modules/',
       'dist/',
+      'mcp-server/',
       '.wrangler/',
       'migrations/',
       'docs-site/',
