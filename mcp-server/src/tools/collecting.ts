@@ -175,4 +175,113 @@ export function registerCollectingTools(
         return lines.join('\n');
       })
   );
+
+  // get_physical_media
+  server.tool(
+    'get_physical_media',
+    'Browse the physical media collection (Blu-ray, 4K UHD, HD DVD). Search by title, filter by format. Supports pagination.',
+    {
+      query: z
+        .string()
+        .optional()
+        .describe(
+          "Optional: search by title (e.g. 'Princess Bride', 'Kubrick')"
+        ),
+      media_type: z
+        .enum(['bluray', 'uhd_bluray', 'hddvd'])
+        .optional()
+        .describe('Optional: filter by format (bluray, uhd_bluray, hddvd)'),
+      limit: z
+        .number()
+        .min(1)
+        .max(50)
+        .default(10)
+        .describe('Number of items to return'),
+      page: z.number().min(1).default(1).describe('Page number for pagination'),
+    },
+    READ_ONLY_ANNOTATIONS,
+    async ({ query, media_type, limit, page }) =>
+      withErrorHandling(async () => {
+        const data = await client.get<{
+          data: Array<{
+            id: number;
+            title: string;
+            year: number | null;
+            media_type: string;
+            tmdb_rating: number | null;
+            collected_at: string | null;
+          }>;
+          pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            total_pages: number;
+          };
+        }>('/collecting/media', { q: query, media_type, limit, page });
+
+        if (!data.data.length) return 'No physical media found.';
+
+        const formatLabel: Record<string, string> = {
+          bluray: 'Blu-ray',
+          uhd_bluray: '4K UHD',
+          hddvd: 'HD DVD',
+        };
+
+        const header = media_type
+          ? `${formatLabel[media_type] ?? media_type} Collection`
+          : 'Physical Media Collection';
+
+        const lines = [
+          `${header} (page ${data.pagination.page} of ${data.pagination.total_pages}, ${fmt(data.pagination.total)} total):`,
+        ];
+
+        for (const [i, m] of data.data.entries()) {
+          const num =
+            (data.pagination.page - 1) * data.pagination.limit + i + 1;
+          const year = m.year ? ` (${m.year})` : '';
+          const format = ` [${formatLabel[m.media_type] ?? m.media_type}]`;
+          const rating = m.tmdb_rating ? ` -- ${m.tmdb_rating}/10` : '';
+          lines.push(`${num}. ${m.title}${year}${format}${rating}`);
+        }
+
+        return lines.join('\n');
+      })
+  );
+
+  // get_physical_media_stats
+  server.tool(
+    'get_physical_media_stats',
+    'Get statistics for the physical media collection including total items and breakdown by format (Blu-ray, 4K UHD, HD DVD).',
+    {},
+    READ_ONLY_ANNOTATIONS,
+    async () =>
+      withErrorHandling(async () => {
+        const { data } = await client.get<{
+          data: Array<{
+            name: string;
+            count: number;
+          }>;
+        }>('/collecting/media/formats');
+
+        const formatLabel: Record<string, string> = {
+          bluray: 'Blu-ray',
+          uhd_bluray: '4K UHD',
+          hddvd: 'HD DVD',
+        };
+
+        const total = data.reduce((sum, f) => sum + f.count, 0);
+        const lines = [
+          'Physical Media Stats:',
+          `- Total items: ${fmt(total)}`,
+          '',
+          'By format:',
+        ];
+
+        for (const f of data) {
+          lines.push(`  ${formatLabel[f.name] ?? f.name}: ${fmt(f.count)}`);
+        }
+
+        return lines.join('\n');
+      })
+  );
 }
