@@ -3,7 +3,6 @@
 [![CI](https://github.com/pdugan20/rewind/actions/workflows/mcp-server.yml/badge.svg)](https://github.com/pdugan20/rewind/actions/workflows/mcp-server.yml)
 [![npm version](https://img.shields.io/npm/v/rewind-mcp-server?logo=npm)](https://www.npmjs.com/package/rewind-mcp-server)
 [![docs](https://img.shields.io/badge/docs-docs.rewind.rest-blue)](https://docs.rewind.rest/mcp-server)
-[![Node.js](https://img.shields.io/node/v/rewind-mcp-server?logo=node.js)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
 
 MCP server for the [Rewind](https://rewind.rest) personal data API. Gives Claude access to your listening, running, watching, collecting, and reading data.
@@ -44,8 +43,6 @@ Requires a [Rewind API key](https://docs.rewind.rest/authentication). `REWIND_AP
 | **Collecting** (Discogs)       | Browse vinyl collection, collection stats                                                          |
 | **Reading** (Instapaper)       | Recent articles, highlights, random highlight, stats                                               |
 | **Cross-domain**               | Full-text search, unified feed, on-this-day, health check                                          |
-
-[Full documentation →](https://docs.rewind.rest/mcp-server)
 
 ## Example Queries
 
