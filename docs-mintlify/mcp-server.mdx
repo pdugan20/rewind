@@ -1,6 +1,6 @@
 ---
-title: "MCP Server"
-description: "Connect AI assistants to your Rewind data using the Model Context Protocol"
+title: 'MCP Server'
+description: 'Connect AI assistants to your Rewind data using the Model Context Protocol'
 ---
 
 The Rewind MCP server gives AI assistants direct access to your personal data across all five domains. Ask about your listening history, running stats, movie collection, vinyl records, or reading highlights using natural language.
@@ -47,6 +47,7 @@ The Rewind MCP server gives AI assistants direct access to your personal data ac
     ```
 
     Restart Claude Desktop after saving. The server appears in Settings > Developer.
+
   </Tab>
   <Tab title="Claude Code">
     ```bash
@@ -68,6 +69,7 @@ The Rewind MCP server gives AI assistants direct access to your personal data ac
       }
     }
     ```
+
   </Tab>
   <Tab title="Claude iOS / Web">
     Go to **Settings > Integrations** and add:
@@ -76,6 +78,7 @@ The Rewind MCP server gives AI assistants direct access to your personal data ac
     - **Authorization**: `Bearer rw_live_your_key_here`
 
     Integrations sync across iOS and web automatically.
+
   </Tab>
 </Tabs>
 
@@ -85,63 +88,63 @@ Requires a [Rewind API key](/authentication). `REWIND_API_URL` defaults to `http
 
 ### Listening
 
-| Tool | Description |
-|------|-------------|
-| `get_now_playing` | Currently playing track |
-| `get_recent_listens` | Recent scrobbles with date filtering |
-| `get_listening_stats` | Total scrobbles, unique artists/albums/tracks, daily average |
-| `get_top_artists` | Top artists by period (7d, 1m, 3m, 6m, 12m, all-time) |
-| `get_top_albums` | Top albums by period |
-| `get_top_tracks` | Top tracks by period |
-| `get_listening_streaks` | Current and longest consecutive listening streaks |
-| `get_artist_details` | Artist info, play count, top albums and tracks |
-| `get_album_details` | Album info, play count, track listing |
+| Tool                    | Description                                                  |
+| ----------------------- | ------------------------------------------------------------ |
+| `get_now_playing`       | Currently playing track                                      |
+| `get_recent_listens`    | Recent scrobbles with date filtering                         |
+| `get_listening_stats`   | Total scrobbles, unique artists/albums/tracks, daily average |
+| `get_top_artists`       | Top artists by period (7d, 1m, 3m, 6m, 12m, all-time)        |
+| `get_top_albums`        | Top albums by period                                         |
+| `get_top_tracks`        | Top tracks by period                                         |
+| `get_listening_streaks` | Current and longest consecutive listening streaks            |
+| `get_artist_details`    | Artist info, play count, top albums and tracks               |
+| `get_album_details`     | Album info, play count, track listing                        |
 
 ### Running
 
-| Tool | Description |
-|------|-------------|
-| `get_running_stats` | Total runs, distance, elevation, pace, Eddington number |
-| `get_recent_runs` | Recent activities with distance, pace, duration, location |
-| `get_personal_records` | Fastest times at mile, 5K, 10K, half marathon, marathon |
-| `get_running_streaks` | Current and longest consecutive running streaks |
+| Tool                   | Description                                                     |
+| ---------------------- | --------------------------------------------------------------- |
+| `get_running_stats`    | Total runs, distance, elevation, pace, Eddington number         |
+| `get_recent_runs`      | Recent activities with distance, pace, duration, location       |
+| `get_personal_records` | Fastest times at mile, 5K, 10K, half marathon, marathon         |
+| `get_running_streaks`  | Current and longest consecutive running streaks                 |
 | `get_activity_details` | Full details for a single run (heart rate, elevation, calories) |
-| `get_activity_splits` | Per-mile splits with pace, elevation, and heart rate |
+| `get_activity_splits`  | Per-mile splits with pace, elevation, and heart rate            |
 
 ### Watching
 
-| Tool | Description |
-|------|-------------|
-| `get_recent_watches` | Recently watched movies and TV shows |
-| `get_movie_details` | Director, genres, rating, summary, watch history |
-| `browse_movies` | Browse by genre, decade, director, or year with sorting |
-| `get_watching_stats` | Total movies, watch time, top genre/director, TV stats |
+| Tool                 | Description                                             |
+| -------------------- | ------------------------------------------------------- |
+| `get_recent_watches` | Recently watched movies and TV shows                    |
+| `get_movie_details`  | Director, genres, rating, summary, watch history        |
+| `browse_movies`      | Browse by genre, decade, director, or year with sorting |
+| `get_watching_stats` | Total movies, watch time, top genre/director, TV stats  |
 
 ### Collecting
 
-| Tool | Description |
-|------|-------------|
-| `get_vinyl_collection` | Browse vinyl records with search, format/genre/artist filters |
-| `get_collecting_stats` | Total items, format breakdown, unique artists, genre data |
-| `get_physical_media` | Browse Blu-ray, 4K UHD, and HD DVD collection |
-| `get_physical_media_stats` | Physical media totals and format breakdown |
+| Tool                       | Description                                                   |
+| -------------------------- | ------------------------------------------------------------- |
+| `get_vinyl_collection`     | Browse vinyl records with search, format/genre/artist filters |
+| `get_collecting_stats`     | Total items, format breakdown, unique artists, genre data     |
+| `get_physical_media`       | Browse Blu-ray, 4K UHD, and HD DVD collection                 |
+| `get_physical_media_stats` | Physical media totals and format breakdown                    |
 
 ### Reading
 
-| Tool | Description |
-|------|-------------|
-| `get_recent_reads` | Recently saved articles with title, author, domain, reading time |
-| `get_reading_highlights` | Saved highlights with text, notes, and source article |
-| `get_random_highlight` | A single random highlight for inspiration or reflection |
-| `get_reading_stats` | Total articles, finished count, highlights, word count |
+| Tool                     | Description                                                      |
+| ------------------------ | ---------------------------------------------------------------- |
+| `get_recent_reads`       | Recently saved articles with title, author, domain, reading time |
+| `get_reading_highlights` | Saved highlights with text, notes, and source article            |
+| `get_random_highlight`   | A single random highlight for inspiration or reflection          |
+| `get_reading_stats`      | Total articles, finished count, highlights, word count           |
 
 ### Cross-Domain
 
-| Tool | Description |
-|------|-------------|
-| `search` | Full-text search across all domains (or filter to one) |
-| `get_feed` | Unified chronological feed of all activity |
-| `get_on_this_day` | What happened on this date in previous years |
+| Tool              | Description                                            |
+| ----------------- | ------------------------------------------------------ |
+| `search`          | Full-text search across all domains (or filter to one) |
+| `get_feed`        | Unified chronological feed of all activity             |
+| `get_on_this_day` | What happened on this date in previous years           |
 
 ## Example Queries
 
@@ -157,11 +160,11 @@ Requires a [Rewind API key](/authentication). `REWIND_API_URL` defaults to `http
 
 The server includes built-in prompt templates for common multi-step queries:
 
-| Prompt | Description |
-|--------|-------------|
-| `weekly-summary` | Summarize activity across all domains for the past week |
-| `year-in-review` | Generate a comprehensive year-in-review for a given year |
-| `compare-periods` | Compare activity between two time periods for a domain |
+| Prompt            | Description                                              |
+| ----------------- | -------------------------------------------------------- |
+| `weekly-summary`  | Summarize activity across all domains for the past week  |
+| `year-in-review`  | Generate a comprehensive year-in-review for a given year |
+| `compare-periods` | Compare activity between two time periods for a domain   |
 
 ## Environment Variables
 
@@ -171,7 +174,8 @@ The server includes built-in prompt templates for common multi-step queries:
 ## Security
 
 <Info>
-The MCP server has **read-only access** to your data. No write or admin operations are exposed.
+  The MCP server has **read-only access** to your data. No write or admin
+  operations are exposed.
 </Info>
 
 - **Local mode**: Your API key stays on your machine in the local config file. The server runs as a child process and communicates over stdin/stdout.
@@ -185,10 +189,18 @@ The MCP server has **read-only access** to your data. No write or admin operatio
 ## Links
 
 <CardGroup cols={2}>
-  <Card title="Source Code" icon="github" href="https://github.com/pdugan20/rewind/tree/main/mcp-server">
+  <Card
+    title="Source Code"
+    icon="github"
+    href="https://github.com/pdugan20/rewind/tree/main/mcp-server"
+  >
     Browse on GitHub
   </Card>
-  <Card title="npm Package" icon="npm" href="https://www.npmjs.com/package/rewind-mcp-server">
+  <Card
+    title="npm Package"
+    icon="npm"
+    href="https://www.npmjs.com/package/rewind-mcp-server"
+  >
     rewind-mcp-server
   </Card>
 </CardGroup>
