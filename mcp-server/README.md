@@ -9,7 +9,7 @@ MCP server for the [Rewind](https://rewind.rest) personal data API. Gives Claude
 
 ## Setup
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your [Claude Desktop config](https://modelcontextprotocol.io/quickstart/user):
 
 ```json
 {
