@@ -4,6 +4,7 @@
 [![docs](https://img.shields.io/badge/docs-docs.rewind.rest-blue)](https://docs.rewind.rest)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
+[![npm: rewind-mcp-server](https://img.shields.io/npm/v/rewind-mcp-server?logo=npm&label=mcp-server)](https://www.npmjs.com/package/rewind-mcp-server)
 
 Rewind is a personal API that pulls together data from the services that track my life -- what I'm listening to, where I'm running, what I'm watching, what I'm collecting, and what I'm reading -- into a single queryable backend.
 
@@ -21,11 +22,12 @@ A unified activity feed combines all domains into a single chronological stream.
 
 ## Live endpoints
 
-| Service   | URL                                                  |
-| --------- | ---------------------------------------------------- |
-| API       | [api.rewind.rest](https://api.rewind.rest/v1/health) |
-| API Docs  | [docs.rewind.rest](https://docs.rewind.rest)         |
-| Image CDN | [cdn.rewind.rest](https://cdn.rewind.rest)           |
+| Service    | URL                                                                |
+| ---------- | ------------------------------------------------------------------ |
+| API        | [api.rewind.rest](https://api.rewind.rest/v1/health)               |
+| API Docs   | [docs.rewind.rest](https://docs.rewind.rest)                       |
+| MCP Server | [docs.rewind.rest/mcp-server](https://docs.rewind.rest/mcp-server) |
+| Image CDN  | [cdn.rewind.rest](https://cdn.rewind.rest)                         |
 
 ## Built with
 

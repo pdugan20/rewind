@@ -1,6 +1,6 @@
 # Rewind
 
-Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, Letterboxd, and Instapaper into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`.
+Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, Letterboxd, and Instapaper into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`. MCP server published as `rewind-mcp-server` on npm, deployed as a Cloudflare Worker at `mcp.rewind.rest`.
 
 ## Development Commands
 
@@ -69,6 +69,13 @@ src/
   types/
     env.ts                 -- Cloudflare bindings (Env interface)
 migrations/                -- D1 SQL migration files
+mcp-server/                -- MCP server (npm: rewind-mcp-server), separate package
+  src/
+    tools/                 -- Tool definitions per domain
+    server.ts              -- MCP server setup, tool/resource/prompt registration
+    client.ts              -- HTTP client for api.rewind.rest
+    worker.ts              -- Cloudflare Worker entry (remote transport)
+    index.ts               -- CLI entry (stdio transport)
 docs/                      -- Project documentation
 ```
 
