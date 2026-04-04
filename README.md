@@ -6,19 +6,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
 [![npm: rewind-mcp-server](https://img.shields.io/npm/v/rewind-mcp-server?logo=npm&label=mcp-server)](https://www.npmjs.com/package/rewind-mcp-server)
 
-Rewind is a personal API that pulls together data from the services that track my life -- what I'm listening to, where I'm running, what I'm watching, what I'm collecting, and what I'm reading -- into a single queryable backend.
+Personal data aggregation API. Syncs data from multiple services on a schedule, normalizes everything into a unified schema, and serves it through a REST API with a cross-domain activity feed.
 
-## What it does
+## Domains
 
-Rewind syncs data on a schedule, normalizes everything into a unified schema, and serves it through a REST API:
-
-- **Listening** -- Last.fm scrobble history, top artists/albums/tracks, listening streaks, and stats. Apple Music catalog data for metadata enrichment.
-- **Running** -- Strava activities since 2010 with splits, personal records, gear tracking, and year-over-year summaries.
-- **Watching** -- Plex watch history, Letterboxd diary/ratings/reviews, and TMDB metadata. Covers both movies and TV shows.
-- **Collecting** -- Discogs vinyl/CD collection with cross-referenced MusicBrainz data. Trakt physical media catalog.
-- **Reading** -- Instapaper articles with reading progress, highlights, word count, and article metadata. OG image thumbnails via image pipeline.
-
-A unified activity feed combines all domains into a single chronological stream.
+| Domain         | Sources              | Description                                                          |
+| -------------- | -------------------- | -------------------------------------------------------------------- |
+| **Listening**  | Last.fm, Apple Music | Scrobble history, top artists/albums/tracks, streaks, stats          |
+| **Running**    | Strava               | Activities with splits, personal records, gear, yearly summaries     |
+| **Watching**   | Plex, Letterboxd     | Watch history, ratings, reviews, movies and TV shows via TMDB        |
+| **Collecting** | Discogs, Trakt       | Vinyl/CD collection, physical media (Blu-ray/4K UHD/HD DVD)          |
+| **Reading**    | Instapaper           | Articles, reading progress, highlights, word count, article metadata |
 
 ## Live endpoints
 
