@@ -25,22 +25,22 @@ Rewind processes Personal Data solely to provide the Rewind API service, which i
 
 ## 4. Data Categories
 
-| Category | Examples | Source |
-|----------|----------|--------|
-| Listening history | Scrobbles, artist/album metadata | Last.fm |
-| Activity data | Runs, routes, heart rate, pace | Strava |
-| Watch history | Movies, TV episodes, ratings, reviews | Plex, Letterboxd |
-| Collection data | Vinyl records, physical media | Discogs, Trakt |
-| Reading data | Articles, highlights, reading progress | Instapaper |
-| Authentication data | GitHub user ID, OAuth tokens | GitHub (via MCP connector) |
+| Category            | Examples                               | Source                     |
+| ------------------- | -------------------------------------- | -------------------------- |
+| Listening history   | Scrobbles, artist/album metadata       | Last.fm                    |
+| Activity data       | Runs, routes, heart rate, pace         | Strava                     |
+| Watch history       | Movies, TV episodes, ratings, reviews  | Plex, Letterboxd           |
+| Collection data     | Vinyl records, physical media          | Discogs, Trakt             |
+| Reading data        | Articles, highlights, reading progress | Instapaper                 |
+| Authentication data | GitHub user ID, OAuth tokens           | GitHub (via MCP connector) |
 
 ## 5. Sub-processors
 
-| Sub-processor | Purpose | Data location |
-|---------------|---------|---------------|
-| Cloudflare | Infrastructure (Workers, D1, R2, KV) | Global edge network |
-| Anthropic | AI assistant (when MCP connector is used) | Anthropic's infrastructure |
-| GitHub | OAuth authentication (when MCP connector is used) | GitHub's infrastructure |
+| Sub-processor | Purpose                                           | Data location              |
+| ------------- | ------------------------------------------------- | -------------------------- |
+| Cloudflare    | Infrastructure (Workers, D1, R2, KV)              | Global edge network        |
+| Anthropic     | AI assistant (when MCP connector is used)         | Anthropic's infrastructure |
+| GitHub        | OAuth authentication (when MCP connector is used) | GitHub's infrastructure    |
 
 ## 6. Security Measures
 

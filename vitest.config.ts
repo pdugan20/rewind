@@ -17,7 +17,7 @@ export default defineWorkersConfig(async () => {
   return {
     test: {
       testTimeout: 15000,
-      exclude: ['**/node_modules/**', '**/.claude/**'],
+      exclude: ['**/node_modules/**', '**/.claude/**', 'mcp-server/**'],
       poolOptions: {
         workers: {
           wrangler: { configPath: './wrangler.toml' },
