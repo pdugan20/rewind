@@ -3,7 +3,7 @@
 ## Connectors Directory Submission
 
 - [ ] Create read-only test account with sample data across all 5 domains for Anthropic QA
-- [ ] Run pre-submission checklist (audit completed 2026-04-06, see TRACKER.md Phase 6.4)
+- [ ] Run pre-submission checklist (audit completed 2026-04-06, see archived TRACKER.md)
 - [ ] Submit to [Connectors Directory review form](https://docs.google.com/forms/d/e/1FAIpQLSeafJF2NDI7oYx1r8o0ycivCSVLNq92Mpc1FPxMKSw1CzDkqA/viewform)
 
 ## Visual Design (blocked on logo)
