@@ -8,8 +8,8 @@
 - [x] **1.4** **Remote transport spike:** `WebStandardStreamableHTTPServerTransport` confirmed compatible with CF Workers -- uses Web Standard `Request`/`Response`, includes Hono example in SDK docs
 - [x] **1.5** Add build script (tsc), verify `npx .` works locally
 - [x] **1.6** Add `.mcp.json` to repo root for local development/testing with Claude Code
-- [ ] **1.7** Verify server connects and `get_health` tool works in Claude Desktop
-- [ ] **1.8** Create dedicated MCP API key with higher rate limit (120+ RPM) via admin endpoint
+- [x] **1.7** Verify server connects and `get_health` tool works in Claude Desktop
+- [x] **1.8** Create dedicated MCP API key (`mcp-server`, read scope) -- stored in `.dev.vars` as `REWIND_MCP_KEY`
 
 ## Phase 2: Core Tools -- COMPLETE
 
@@ -78,7 +78,7 @@
 - [x] **3.2.2** `year-in-review` prompt template
 - [x] **3.2.3** `compare-periods` prompt template
 
-## Phase 4: Remote Transport & Deployment -- COMPLETE
+## Phase 4: Remote Transport & Deployment
 
 - [x] **4.1** Implement dual transport entry points (stdio for local, Streamable HTTP for remote)
 - [x] **4.2** Create Cloudflare Worker project for hosting (`mcp.rewind.rest`) -- wrangler.toml, worker.ts, dry-run verified (155KB gzipped)
@@ -86,9 +86,9 @@
 - [x] **4.4** Handle multi-tenancy (each request creates a fresh RewindClient with the caller's API key -- stateless, no server-side state)
 - [x] **4.5** Deploy to Cloudflare Workers (automated via CI on main push and tag)
 - [x] **4.6** Configure DNS for `mcp.rewind.rest` (live, returns 200)
-- [ ] **4.7** Test with claude.ai Integrations (web)
-- [ ] **4.8** Test with Claude iOS app
-- [ ] **4.9** Test with Claude Desktop (stdio path, end-to-end)
+- [ ] **4.7** Test with claude.ai Integrations (web) -- blocked: OAuth callback redirect bug in worker.ts
+- [ ] **4.8** Test with Claude iOS app -- blocked: depends on 4.7
+- [x] **4.9** Test with Claude Desktop (stdio path, end-to-end) -- works with nvm full path workaround
 
 ## Phase 5: Publish & Distribution
 
@@ -152,9 +152,9 @@ Implementation:
 
 Verification:
 
-- [ ] **6.5.14** Test full OAuth flow with Claude Desktop
-- [ ] **6.5.15** Test full OAuth flow with claude.ai Integrations
-- [ ] **6.5.16** Verify stdio transport (Claude Code / local Desktop) still works with `REWIND_API_KEY`
+- [ ] **6.5.14** Test full OAuth flow with Claude Desktop -- blocked: OAuth callback redirect bug
+- [ ] **6.5.15** Test full OAuth flow with claude.ai Integrations -- blocked: OAuth callback redirect bug
+- [x] **6.5.16** Verify stdio transport (Claude Code / local Desktop) still works with `REWIND_API_KEY`
 
 **6.6 -- Visual Design & Polish**
 
@@ -173,7 +173,7 @@ Depends on logo/favicon work tracked in `docs/projects/docs-site-improvements/TR
 **7.1 -- MCP Inspector**
 
 - [x] **7.1.1** Add `"inspect"` script to package.json (`npx @modelcontextprotocol/inspector node dist/index.js`)
-- [ ] **7.1.2** Validate all tools, resources, and prompts via Inspector UI
+- [x] **7.1.2** Validate all tools, resources, and prompts via Inspector UI
 - [ ] **7.1.3** Document Inspector usage in project docs
 
 **7.2 -- Unit Tests -- COMPLETE**

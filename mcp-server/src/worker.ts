@@ -7,7 +7,10 @@
  * local stdio transport (Claude Desktop, Claude Code) uses REWIND_API_KEY directly.
  */
 
-import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
+import {
+  OAuthProvider,
+  type OAuthHelpers,
+} from '@cloudflare/workers-oauth-provider';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { RewindClient } from './client.js';
 import { createServer } from './server.js';
@@ -16,6 +19,7 @@ import { getGitHubAuthorizeUrl, exchangeGitHubCode } from './github-auth.js';
 
 interface Env {
   OAUTH_KV: KVNamespace;
+  OAUTH_PROVIDER: OAuthHelpers;
   REWIND_API_URL: string;
   REWIND_API_KEY: string;
   GITHUB_CLIENT_ID: string;
@@ -112,20 +116,17 @@ const defaultHandler: ExportedHandler<Env> = {
 
     // Authorization page -- user sees consent screen, clicks "Sign in with GitHub"
     if (url.pathname === '/authorize') {
-      // Parse the MCP OAuth authorization request from query params
+      // Parse the OAuth authorization request from the MCP client
+      const oauthReqInfo = await env.OAUTH_PROVIDER.parseAuthRequest(request);
+
       const clientName = url.searchParams.get('client_name') ?? 'Claude';
       const scopes = (url.searchParams.get('scope') ?? 'read').split(' ');
-      const state = url.searchParams.get('state') ?? '';
 
-      // Store the original OAuth params in a short-lived KV key so we can
-      // retrieve them after GitHub redirects back
+      // Store the parsed auth request in KV so /callback can complete authorization
       const oauthState = crypto.randomUUID();
       await env.OAUTH_KV.put(
         `github_state:${oauthState}`,
-        JSON.stringify({
-          originalUrl: request.url,
-          state,
-        }),
+        JSON.stringify({ oauthReqInfo }),
         { expirationTtl: 600 } // 10 minutes
       );
 
@@ -159,7 +160,7 @@ const defaultHandler: ExportedHandler<Env> = {
         );
       }
 
-      // Retrieve the original OAuth params
+      // Retrieve the stored OAuth request info
       const storedState = await env.OAUTH_KV.get(`github_state:${githubState}`);
       if (!storedState) {
         return Response.json(
@@ -170,10 +171,7 @@ const defaultHandler: ExportedHandler<Env> = {
       // eslint-disable-next-line drizzle/enforce-delete-with-where -- KV.delete(), not Drizzle
       await env.OAUTH_KV.delete(`github_state:${githubState}`);
 
-      const { originalUrl } = JSON.parse(storedState) as {
-        originalUrl: string;
-        state: string;
-      };
+      const { oauthReqInfo } = JSON.parse(storedState);
 
       // Exchange GitHub code for user info
       let gitHubUser;
@@ -208,19 +206,20 @@ const defaultHandler: ExportedHandler<Env> = {
         );
       }
 
-      // Complete the OAuth authorization using the workers-oauth-provider helpers.
-      // We need to redirect back to the original authorize URL with the approval.
-      // The OAuthProvider handles the actual code generation and redirect.
-      // We pass the user info as props that will be available in the API handler.
-      // Redirect to the original authorize URL with an approval indicator
-      // The OAuthProvider's authorize flow will pick this up
-      const approveUrl = new URL(originalUrl);
-      approveUrl.searchParams.set('github_user_id', String(gitHubUser.id));
-      approveUrl.searchParams.set('github_login', gitHubUser.login);
-      approveUrl.searchParams.set('rewind_user_id', String(rewindUserId));
-      approveUrl.searchParams.set('approved', 'true');
+      // Complete the OAuth grant and redirect back to the MCP client with the auth code
+      const { redirectTo } = await env.OAUTH_PROVIDER.completeAuthorization({
+        request: oauthReqInfo,
+        userId: String(rewindUserId),
+        metadata: { label: gitHubUser.login },
+        scope: oauthReqInfo.scope,
+        props: {
+          rewindUserId,
+          rewindApiKey: env.REWIND_API_KEY,
+          gitHubLogin: gitHubUser.login,
+        } as GrantProps,
+      });
 
-      return Response.redirect(approveUrl.toString(), 302);
+      return Response.redirect(redirectTo, 302);
     }
 
     return Response.json(
