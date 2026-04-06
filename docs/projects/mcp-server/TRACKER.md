@@ -86,8 +86,8 @@
 - [x] **4.4** Handle multi-tenancy (each request creates a fresh RewindClient with the caller's API key -- stateless, no server-side state)
 - [x] **4.5** Deploy to Cloudflare Workers (automated via CI on main push and tag)
 - [x] **4.6** Configure DNS for `mcp.rewind.rest` (live, returns 200)
-- [ ] **4.7** Test with claude.ai Integrations (web) -- blocked: OAuth callback redirect bug in worker.ts
-- [ ] **4.8** Test with Claude iOS app -- blocked: depends on 4.7
+- [x] **4.7** Test with claude.ai Integrations (web) -- OAuth flow via GitHub, remote server at mcp.rewind.rest
+- [ ] **4.8** Test with Claude iOS app -- should sync from web automatically
 - [x] **4.9** Test with Claude Desktop (stdio path, end-to-end) -- works with nvm full path workaround
 
 ## Phase 5: Publish & Distribution
@@ -152,8 +152,8 @@ Implementation:
 
 Verification:
 
-- [ ] **6.5.14** Test full OAuth flow with Claude Desktop -- blocked: OAuth callback redirect bug
-- [ ] **6.5.15** Test full OAuth flow with claude.ai Integrations -- blocked: OAuth callback redirect bug
+- [ ] **6.5.14** Test full OAuth flow with Claude Desktop
+- [x] **6.5.15** Test full OAuth flow with claude.ai Integrations
 - [x] **6.5.16** Verify stdio transport (Claude Code / local Desktop) still works with `REWIND_API_KEY`
 
 **6.6 -- Visual Design & Polish**

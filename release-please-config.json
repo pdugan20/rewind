@@ -1,0 +1,11 @@
+{
+  "packages": {
+    "mcp-server": {
+      "release-type": "node",
+      "component": "mcp-server",
+      "include-component-in-tag": true,
+      "include-v-in-tag": true,
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
