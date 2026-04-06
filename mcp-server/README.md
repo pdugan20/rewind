@@ -9,7 +9,9 @@ MCP server for the [Rewind](https://rewind.rest) personal data API. Gives Claude
 
 ## Setup
 
-Add to your [Claude Desktop config](https://modelcontextprotocol.io/quickstart/user):
+### Desktop Apps
+
+Add to your MCP client config (Claude Desktop, ChatGPT, Gemini, etc.):
 
 ```json
 {
@@ -25,11 +27,21 @@ Add to your [Claude Desktop config](https://modelcontextprotocol.io/quickstart/u
 }
 ```
 
-Or with Claude Code:
+### Mobile & Web
+
+Add as a remote integration in your client's settings:
+
+- **URL**: `https://mcp.rewind.rest/mcp`
+- **Authorization**: `Bearer rw_live_your_key_here`
+
+<details>
+<summary>Claude Code</summary>
 
 ```bash
 claude mcp add rewind -- npx -y rewind-mcp-server
 ```
+
+</details>
 
 Requires a [Rewind API key](https://docs.rewind.rest/authentication). `REWIND_API_URL` defaults to `https://api.rewind.rest`.
 

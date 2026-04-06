@@ -29,8 +29,8 @@ The Rewind MCP server gives AI assistants direct access to your personal data ac
 ## Installation
 
 <Tabs>
-  <Tab title="Claude Desktop">
-    Add to your [Claude Desktop config](https://modelcontextprotocol.io/quickstart/user):
+  <Tab title="Desktop Apps">
+    Add to your MCP client config (Claude Desktop, ChatGPT, Gemini, etc.):
 
     ```json
     {
@@ -46,7 +46,16 @@ The Rewind MCP server gives AI assistants direct access to your personal data ac
     }
     ```
 
-    Restart Claude Desktop after saving. The server appears in Settings > Developer.
+    Restart the app after saving.
+
+  </Tab>
+  <Tab title="Mobile & Web">
+    Add as a remote integration in your client's settings:
+
+    - **URL**: `https://mcp.rewind.rest/mcp`
+    - **Authorization**: `Bearer rw_live_your_key_here`
+
+    Works with any MCP client that supports remote servers.
 
   </Tab>
   <Tab title="Claude Code">
@@ -69,15 +78,6 @@ The Rewind MCP server gives AI assistants direct access to your personal data ac
       }
     }
     ```
-
-  </Tab>
-  <Tab title="Claude iOS / Web">
-    Go to **Settings > Integrations** and add:
-
-    - **URL**: `https://mcp.rewind.rest/mcp`
-    - **Authorization**: `Bearer rw_live_your_key_here`
-
-    Integrations sync across iOS and web automatically.
 
   </Tab>
 </Tabs>
