@@ -65,7 +65,7 @@ const mcpHandler: ExportedHandler<Env> = {
   async fetch(
     request: Request,
     env: Env,
-    _ctx: ExecutionContext
+    ctx: ExecutionContext
   ): Promise<Response> {
     // Rate limit by IP
     const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
@@ -77,8 +77,8 @@ const mcpHandler: ExportedHandler<Env> = {
       );
     }
 
-    // Get user props from OAuth context
-    const props = (request as Request & { props?: GrantProps }).props;
+    // Get user props from OAuth context (set by OAuthProvider on ctx, not request)
+    const props = (ctx as ExecutionContext & { props?: GrantProps }).props;
     if (!props?.rewindApiKey) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
