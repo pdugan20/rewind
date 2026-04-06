@@ -1,4 +1,6 @@
-# MCP Server -- Task Tracker
+# MCP Server -- Task Tracker (Archived)
+
+> **Status**: Implementation complete as of 2026-04-06. Remaining tasks tracked in [DEFERRED.md](DEFERRED.md).
 
 ## Phase 1: Project Scaffold & Transport Validation -- COMPLETE
 
