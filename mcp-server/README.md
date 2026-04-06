@@ -5,7 +5,7 @@
 [![docs](https://img.shields.io/badge/docs-docs.rewind.rest-blue)](https://docs.rewind.rest/mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
 
-MCP server for the [Rewind](https://rewind.rest) personal data API. Gives Claude access to your listening, running, watching, collecting, and reading data.
+MCP server for the [Rewind](https://rewind.rest) personal data API. Gives AI assistants access to your listening, running, watching, collecting, and reading data.
 
 ## Setup
 
@@ -64,3 +64,22 @@ Requires a [Rewind API key](https://docs.rewind.rest/authentication). `REWIND_AP
 - "What Beastie Boys records are missing from my vinyl collection?"
 - "How many articles did I read last year and stack-rank the top 10 sources"
 - "Can you give me a quick summary of everything I did last week?"
+
+## Authentication
+
+**Desktop apps** use the `REWIND_API_KEY` environment variable passed directly to the server process. The server authenticates with the Rewind API using this key as a Bearer token.
+
+**Mobile and web clients** connect to the remote server at `mcp.rewind.rest`, which uses OAuth 2.1 with GitHub as the identity provider. The flow:
+
+1. Client discovers endpoints via `/.well-known/oauth-authorization-server`
+2. Client dynamically registers via `/register`
+3. User authenticates with GitHub and approves access
+4. Client receives scoped tokens (1h access, 90d refresh, PKCE S256)
+
+The server has **read-only access** to your data. No write or admin operations are exposed.
+
+## Privacy & Support
+
+- [Privacy Policy](https://rewind.rest/privacy)
+- [Documentation](https://docs.rewind.rest/mcp-server)
+- [Report an issue](https://github.com/pdugan20/rewind/issues)

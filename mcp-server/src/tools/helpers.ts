@@ -66,6 +66,7 @@ export const dateFilterParams = {
 export const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true as const,
   destructiveHint: false as const,
+  idempotentHint: true as const,
   openWorldHint: true as const,
 };
 
