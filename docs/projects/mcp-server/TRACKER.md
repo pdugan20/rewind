@@ -87,7 +87,7 @@
 - [x] **4.5** Deploy to Cloudflare Workers (automated via CI on main push and tag)
 - [x] **4.6** Configure DNS for `mcp.rewind.rest` (live, returns 200)
 - [x] **4.7** Test with claude.ai Integrations (web) -- OAuth flow via GitHub, remote server at mcp.rewind.rest
-- [ ] **4.8** Test with Claude iOS app -- should sync from web automatically
+- [x] **4.8** Test with Claude iOS app -- synced from web automatically
 - [x] **4.9** Test with Claude Desktop (stdio path, end-to-end) -- works with nvm full path workaround
 
 ## Phase 5: Publish & Distribution
@@ -97,7 +97,7 @@
 - [x] **5.3** npm Trusted Publishing via OIDC (no stored NPM_TOKEN -- uses GitHub Actions id-token)
 - [x] **5.4** First publish: `rewind-mcp-server@0.1.0` live on npm
 - [x] **5.5** Publish `rewind-mcp-server@0.1.1` with provenance via trusted publishing (Node 24 required for npm 11+ OIDC support)
-- [ ] **5.6** Set up release-please for automated versioning and changelog from conventional commits
+- [x] **5.6** Set up release-please for automated versioning and changelog from conventional commits (PAT stored as RELEASE_PLEASE_TOKEN)
 - [x] **5.7** Update README with mobile/web instructions and broader MCP client framing (Desktop Apps, Mobile & Web, Claude Code)
 - [ ] ~~**5.8** List on mcp.so (community directory)~~ -- deferred
 - [ ] ~~**5.9** List on smithery.ai (registry with one-click install)~~ -- deferred
