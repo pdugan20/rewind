@@ -174,7 +174,7 @@ Depends on logo/favicon work tracked in `docs/projects/docs-site-improvements/TR
 
 - [x] **7.1.1** Add `"inspect"` script to package.json (`npx @modelcontextprotocol/inspector node dist/index.js`)
 - [x] **7.1.2** Validate all tools, resources, and prompts via Inspector UI
-- [ ] **7.1.3** Document Inspector usage in project docs
+- [x] **7.1.3** Document Inspector usage in INSTALLATION.md
 
 **7.2 -- Unit Tests -- COMPLETE**
 

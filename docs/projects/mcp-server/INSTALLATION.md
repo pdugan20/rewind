@@ -128,6 +128,36 @@ Claude <--Streamable HTTP--> mcp.rewind.rest <--HTTPS--> api.rewind.rest
 - The remote server forwards requests to the Rewind API
 - Hosted on Cloudflare Workers at `mcp.rewind.rest`
 
+## MCP Inspector
+
+The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) provides a browser UI for testing tools, resources, and prompts interactively.
+
+### Running
+
+From the `mcp-server/` directory:
+
+```bash
+REWIND_API_KEY=rw_... REWIND_API_URL=https://api.rewind.rest npm run inspect
+```
+
+Or using the key from `.dev.vars`:
+
+```bash
+REWIND_API_KEY=$(grep REWIND_MCP_KEY ../.dev.vars | cut -d= -f2) \
+  REWIND_API_URL=https://api.rewind.rest \
+  npm run inspect
+```
+
+This opens the Inspector at `http://localhost:6274`. If the env vars don't appear automatically, expand "Environment Variables" in the left panel and add `REWIND_API_KEY` and `REWIND_API_URL` manually, then click Connect.
+
+### What to Validate
+
+- **Tools tab**: Click each tool and Run to verify it returns formatted text (not raw JSON)
+- **Resources tab**: Test `rewind://sync/status` and the year-in-review templates
+- **Prompts tab**: Test `weekly-summary`, `year-in-review`, `compare-periods`
+
+The `inspect` script is defined in `package.json` and uses `@modelcontextprotocol/inspector`.
+
 ## Security Notes
 
 - Your API key is only used server-side to authenticate with `api.rewind.rest`
