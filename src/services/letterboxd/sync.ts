@@ -110,12 +110,44 @@ export async function syncLetterboxd(
 
       // Dedup 1: GUID check — same diary entry already imported
       if (entry.guid) {
-        const guidExists = await db
-          .select({ id: watchHistory.id })
+        const [existing] = await db
+          .select({
+            id: watchHistory.id,
+            userRating: watchHistory.userRating,
+            review: watchHistory.review,
+            watchedAt: watchHistory.watchedAt,
+          })
           .from(watchHistory)
           .where(eq(watchHistory.letterboxdGuid, entry.guid))
           .limit(1);
-        if (guidExists.length > 0) {
+        if (existing) {
+          // Update review/rating on recent entries (last 30 days) if changed
+          const watchAge = Date.now() - new Date(existing.watchedAt).getTime();
+          const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+          if (watchAge <= thirtyDays) {
+            const updates: Record<string, unknown> = {};
+            if (
+              entry.memberRating !== undefined &&
+              entry.memberRating !== existing.userRating
+            ) {
+              updates.userRating = entry.memberRating;
+            }
+            if (
+              entry.review !== undefined &&
+              entry.review !== existing.review
+            ) {
+              updates.review = entry.review ?? null;
+            }
+            if (Object.keys(updates).length > 0) {
+              await db
+                .update(watchHistory)
+                .set(updates)
+                .where(eq(watchHistory.id, existing.id));
+              console.log(
+                `[SYNC] Updated Letterboxd entry ${entry.guid}: ${Object.keys(updates).join(', ')}`
+              );
+            }
+          }
           skipped++;
           continue;
         }
