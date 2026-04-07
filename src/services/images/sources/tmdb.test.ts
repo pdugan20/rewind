@@ -49,7 +49,8 @@ describe('TmdbClient', () => {
     const results = await client.search({
       domain: 'watching',
       entityType: 'movies',
-      entityId: '27205',
+      entityId: '1',
+      tmdbId: '27205',
     });
 
     expect(results).toHaveLength(2);
@@ -79,11 +80,21 @@ describe('TmdbClient', () => {
     const results = await client.search({
       domain: 'watching',
       entityType: 'movies',
-      entityId: '27205',
+      entityId: '1',
+      tmdbId: '27205',
     });
 
     expect(results).toHaveLength(2);
     expect(results[0].url).toContain('/fallback-poster.jpg');
+  });
+
+  it('returns empty when no tmdbId is provided', async () => {
+    const results = await client.search({
+      domain: 'watching',
+      entityType: 'movies',
+      entityId: '706',
+    });
+    expect(results).toEqual([]);
   });
 
   it('returns empty array on total failure', async () => {
@@ -95,7 +106,8 @@ describe('TmdbClient', () => {
     const results = await client.search({
       domain: 'watching',
       entityType: 'movies',
-      entityId: '99999',
+      entityId: '1',
+      tmdbId: '99999',
     });
 
     expect(results).toEqual([]);

@@ -24,7 +24,13 @@ export class TmdbClient implements SourceClient {
     }
 
     try {
-      const tmdbId = params.tmdbId || params.entityId;
+      const tmdbId = params.tmdbId;
+      if (!tmdbId) {
+        console.log(
+          `[INFO] TMDB source skipped for ${params.entityType}/${params.entityId}: no tmdbId provided`
+        );
+        return [];
+      }
 
       if (params.entityType === 'movies') {
         return this.searchMovieImages(tmdbId);
