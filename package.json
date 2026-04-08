@@ -76,7 +76,7 @@
     "@stoplight/spectral-cli": "^6.15.0",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "@typescript-eslint/parser": "^8.57.0",
-    "claude-code-lint": "^0.2.3",
+    "claude-code-lint": "^0.2.4",
     "drizzle-kit": "^0.31.9",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
