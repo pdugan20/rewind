@@ -1,4 +1,4 @@
-import { eq, and, sql, count } from 'drizzle-orm';
+import { eq, sql, count } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
   movies,
@@ -168,15 +168,16 @@ async function syncMovies(
       .limit(1);
 
     if (existing.length > 0) {
-      // Check if a watch history entry exists
-      const watchExists = await db
-        .select({ id: watchHistory.id })
+      // Count existing watch history entries for this movie
+      const [watchCount] = await db
+        .select({ count: count() })
         .from(watchHistory)
-        .where(eq(watchHistory.movieId, existing[0].id))
-        .limit(1);
+        .where(eq(watchHistory.movieId, existing[0].id));
 
-      if (watchExists.length > 0) {
-        continue; // Already have this watch recorded
+      // Only insert a new watch if Plex viewCount exceeds recorded watches
+      const plexViewCount = item.viewCount ?? 1;
+      if (watchCount.count >= plexViewCount) {
+        continue; // All watches already recorded
       }
     }
 
@@ -209,33 +210,31 @@ async function syncMovies(
       ? new Date(detail.lastViewedAt * 1000).toISOString()
       : new Date().toISOString();
 
-    // Check for duplicate watch within 48 hours
-    const dupCheck = await db
-      .select({ id: watchHistory.id })
+    // Count existing watches for the resolved movie (may differ from
+    // plex_rating_key lookup above if the movie was matched via TMDB)
+    const [existingWatchCount] = await db
+      .select({ count: count() })
       .from(watchHistory)
-      .where(
-        and(
-          eq(watchHistory.movieId, movieId),
-          sql`abs(julianday(${watchHistory.watchedAt}) - julianday(${watchedAt})) <= 2`
-        )
-      )
-      .limit(1);
+      .where(eq(watchHistory.movieId, movieId));
 
-    if (dupCheck.length === 0) {
-      await db.insert(watchHistory).values({
-        movieId,
-        watchedAt,
-        source: 'plex',
-        percentComplete: 100,
-      });
-      syncedItems.push({
-        movieId,
-        title: detail.title,
-        year: detail.year ?? null,
-        watchedAt,
-      });
-      synced++;
+    const plexViewCount = item.viewCount ?? 1;
+    if (existingWatchCount.count >= plexViewCount) {
+      continue; // All watches already recorded
     }
+
+    await db.insert(watchHistory).values({
+      movieId,
+      watchedAt,
+      source: 'plex',
+      percentComplete: 100,
+    });
+    syncedItems.push({
+      movieId,
+      title: detail.title,
+      year: detail.year ?? null,
+      watchedAt,
+    });
+    synced++;
   }
 
   return { count: synced, items: syncedItems };
