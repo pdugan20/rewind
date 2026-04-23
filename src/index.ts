@@ -17,6 +17,7 @@ import search from './routes/search.js';
 import exportRoute from './routes/export.js';
 import keys from './routes/keys.js';
 import adminSync from './routes/admin-sync.js';
+import adminReindex from './routes/admin-reindex.js';
 import { LastfmClient } from './services/lastfm/client.js';
 import { syncListening } from './services/lastfm/sync.js';
 import { syncRunning } from './services/strava/sync.js';
@@ -82,6 +83,7 @@ const routes = app
   .route('/search', search)
   .route('/admin/export', exportRoute)
   .route('/admin/keys', keys)
+  .route('/admin', adminReindex)
   .route('/', adminSync);
 
 // Register OpenAPI security scheme

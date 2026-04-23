@@ -31,6 +31,7 @@ export interface SearchItem {
   entityId: string;
   title: string;
   subtitle?: string;
+  body?: string;
   imageKey?: string;
 }
 

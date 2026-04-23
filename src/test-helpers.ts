@@ -11,10 +11,13 @@ export async function setupTestDb() {
 
 export async function setupTestDbWithFts5() {
   await setupTestDb();
-  // Apply FTS5 migration manually since readD1Migrations may not pick it up
+  // Apply FTS5 schema manually since applyD1Migrations skips CREATE VIRTUAL TABLE.
+  // Matches migrations/0026_search_index_v2.sql. Drop-and-recreate is safe here
+  // because each test file calls this from beforeAll and wipes between tests.
   try {
+    await env.DB.exec('DROP TABLE IF EXISTS search_index');
     await env.DB.exec(
-      "CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(domain, entity_type, entity_id, title, subtitle, image_key, tokenize='unicode61')"
+      "CREATE VIRTUAL TABLE search_index USING fts5(domain UNINDEXED, entity_type UNINDEXED, entity_id UNINDEXED, title, subtitle, body, image_key UNINDEXED, tokenize='unicode61')"
     );
   } catch {
     // Table might already exist

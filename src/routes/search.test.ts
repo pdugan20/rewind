@@ -161,5 +161,46 @@ describe('search routes', () => {
       const res = await SELF.fetch('http://localhost/v1/search?q=test');
       expect(res.status).toBe(401);
     });
+
+    it('matches dotted acronyms after normalization (S.N.L. -> SNL)', async () => {
+      const db = drizzle(env.DB);
+      await upsertSearchIndex(db, {
+        domain: 'reading',
+        entityType: 'article',
+        entityId: 'a-1',
+        title: "The Secret Weapon of 'S.N.L.' Finally Gets the Spotlight",
+        subtitle:
+          'A documentary about the writer Jim Downey is streaming just as he can be seen in One Battle After Another.',
+      });
+
+      const res = await SELF.fetch(
+        'http://localhost/v1/search?q=SNL+writer&domain=reading',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as any;
+      expect(body.data.length).toBe(1);
+      expect(body.data[0].entity_id).toBe('a-1');
+    });
+
+    it('matches content in the body column', async () => {
+      const db = drizzle(env.DB);
+      await upsertSearchIndex(db, {
+        domain: 'reading',
+        entityType: 'article',
+        entityId: 'a-2',
+        title: 'Some Unrelated Headline',
+        subtitle: 'Nothing matches here',
+        body: 'deep inside the article text Tim Robinson is mentioned once',
+      });
+
+      const res = await SELF.fetch(
+        'http://localhost/v1/search?q=Tim+Robinson&domain=reading',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const body = (await res.json()) as any;
+      expect(body.data.length).toBe(1);
+      expect(body.data[0].entity_id).toBe('a-2');
+    });
   });
 });
