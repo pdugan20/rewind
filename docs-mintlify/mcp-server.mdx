@@ -3,7 +3,7 @@ title: 'MCP Server'
 description: 'Connect AI assistants to your Rewind data using the Model Context Protocol'
 ---
 
-The Rewind MCP server gives AI assistants direct access to your personal data across all five domains. Ask about your listening history, running stats, movie collection, vinyl records, or reading highlights using natural language.
+The Rewind MCP server gives AI assistants direct access to your personal data across all five domains. Ask about your listening history, running stats, movie collection, vinyl records, or reading highlights using natural language. Built on [Model Context Protocol](https://modelcontextprotocol.io/), an open standard from Anthropic; works with any MCP-compatible client (Claude, Cursor, VS Code, Windsurf, etc.).
 
 <CardGroup cols={2}>
   <Card title="Listening" icon="headphones">
@@ -13,7 +13,7 @@ The Rewind MCP server gives AI assistants direct access to your personal data ac
     Recent runs, per-mile splits, PRs, streaks, stats
   </Card>
   <Card title="Watching" icon="film">
-    Recent watches, browse by genre/decade/director, stats
+    Recent watches, browse by genre, decade, or director, stats
   </Card>
   <Card title="Collecting" icon="record-vinyl">
     Vinyl records, Blu-ray/4K UHD/HD DVD, collection stats
@@ -86,79 +86,83 @@ Requires a [Rewind API key](/authentication). `REWIND_API_URL` defaults to `http
 
 ## Available Tools
 
-### Listening
+<AccordionGroup>
+  <Accordion title="Listening">
+    | Tool                    | Description                                                         |
+    | ----------------------- | ------------------------------------------------------------------- |
+    | `get_now_playing`       | Currently playing track (with album cover + Apple Music link)       |
+    | `get_recent_listens`    | Recent scrobbles with date filtering + pagination                   |
+    | `get_listening_stats`   | Total scrobbles, unique artists/albums/tracks, daily average        |
+    | `get_top_artists`       | Top artists by period (7d, 1m, 3m, 6m, 12m, all-time) + top-N images |
+    | `get_top_albums`        | Top albums by period + top-N covers                                 |
+    | `get_top_tracks`        | Top tracks by period                                                |
+    | `get_listening_streaks` | Current and longest consecutive listening streaks                   |
+    | `get_artist_details`    | Artist info, play count, top albums and tracks, artist image        |
+    | `get_album_details`     | Album info, play count, track listing, cover art                    |
+    | `get_listening_genres`  | Genre breakdown over time (week / month / year grouping)            |
+  </Accordion>
 
-| Tool                    | Description                                                         |
-| ----------------------- | ------------------------------------------------------------------- |
-| `get_now_playing`       | Currently playing track (with album cover + Apple Music link)       |
-| `get_recent_listens`    | Recent scrobbles with date filtering + pagination                   |
-| `get_listening_stats`   | Total scrobbles, unique artists/albums/tracks, daily average        |
-| `get_top_artists`       | Top artists by period (7d, 1m, 3m, 6m, 12m, all-time) + top-N images |
-| `get_top_albums`        | Top albums by period + top-N covers                                 |
-| `get_top_tracks`        | Top tracks by period                                                |
-| `get_listening_streaks` | Current and longest consecutive listening streaks                   |
-| `get_artist_details`    | Artist info, play count, top albums and tracks, artist image        |
-| `get_album_details`     | Album info, play count, track listing, cover art                    |
-| `get_listening_genres`  | Genre breakdown over time (week / month / year grouping)            |
+  <Accordion title="Running">
+    | Tool                   | Description                                                     |
+    | ---------------------- | --------------------------------------------------------------- |
+    | `get_running_stats`    | Total runs, distance, elevation, pace, Eddington number         |
+    | `get_recent_runs`      | Recent activities with distance, pace, duration, location + pagination |
+    | `get_personal_records` | Fastest times at mile, 5K, 10K, half marathon, marathon         |
+    | `get_running_streaks`  | Current and longest consecutive running streaks                 |
+    | `get_activity_details` | Full details for a single run (heart rate, elevation, calories) |
+    | `get_activity_splits`  | Per-mile splits with pace, elevation, and heart rate            |
+    | `get_running_years`    | Per-year summary: total runs, distance, elevation, pace, race count |
+  </Accordion>
 
-### Running
+  <Accordion title="Watching">
+    | Tool                      | Description                                                |
+    | ------------------------- | ---------------------------------------------------------- |
+    | `get_recent_watches`      | Recently watched movies + posters + Letterboxd review links; renders as an interactive poster grid in MCP Apps clients |
+    | `get_movie_details`       | Director, genres, rating, summary, watch history, poster   |
+    | `browse_movies`           | Browse by genre, decade, director, or year with sorting    |
+    | `get_watching_stats`      | Total movies, watch time, top genre/director, TV stats     |
+    | `get_watching_genres`     | Genre breakdown across all watched movies                  |
+    | `get_watching_decades`    | Decade breakdown across all watched movies                 |
+    | `get_watching_directors`  | Top directors by watched-movie count                       |
+  </Accordion>
 
-| Tool                   | Description                                                     |
-| ---------------------- | --------------------------------------------------------------- |
-| `get_running_stats`    | Total runs, distance, elevation, pace, Eddington number         |
-| `get_recent_runs`      | Recent activities with distance, pace, duration, location + pagination |
-| `get_personal_records` | Fastest times at mile, 5K, 10K, half marathon, marathon         |
-| `get_running_streaks`  | Current and longest consecutive running streaks                 |
-| `get_activity_details` | Full details for a single run (heart rate, elevation, calories) |
-| `get_activity_splits`  | Per-mile splits with pace, elevation, and heart rate            |
-| `get_running_years`    | Per-year summary: total runs, distance, elevation, pace, race count |
+  <Accordion title="Collecting">
+    | Tool                       | Description                                                   |
+    | -------------------------- | ------------------------------------------------------------- |
+    | `get_vinyl_collection`     | Browse vinyl records with search, format/genre/artist filters |
+    | `get_collecting_stats`     | Total items, format breakdown, unique artists, genre data     |
+    | `get_physical_media`       | Browse Blu-ray, 4K UHD, and HD DVD collection                 |
+    | `get_physical_media_stats` | Physical media totals and format breakdown                    |
+  </Accordion>
 
-### Watching
+  <Accordion title="Reading">
+    | Tool                     | Description                                                                     |
+    | ------------------------ | ------------------------------------------------------------------------------- |
+    | `get_recent_reads`       | Recently saved articles with title, author, domain, reading time, description   |
+    | `get_article`            | Full plain-text article body + metadata + highlights for one article by id. Use this to read past the excerpt (including paywalled sources) instead of falling back to web search. |
+    | `get_reading_highlights` | Saved highlights with text, notes, and source article                           |
+    | `get_random_highlight`   | A single random highlight for inspiration or reflection                         |
+    | `get_reading_stats`      | Total articles, finished count, highlights, word count                          |
+    | `find_similar_articles`  | Thematically related articles via cosine similarity over stored Voyage vectors  |
 
-| Tool                      | Description                                                |
-| ------------------------- | ---------------------------------------------------------- |
-| `get_recent_watches`      | Recently watched movies + posters + Letterboxd review links; renders as an interactive poster grid in MCP Apps clients |
-| `get_movie_details`       | Director, genres, rating, summary, watch history, poster   |
-| `browse_movies`           | Browse by genre, decade, director, or year with sorting    |
-| `get_watching_stats`      | Total movies, watch time, top genre/director, TV stats     |
-| `get_watching_genres`     | Genre breakdown across all watched movies                  |
-| `get_watching_decades`    | Decade breakdown across all watched movies                 |
-| `get_watching_directors`  | Top directors by watched-movie count                       |
+    Reading articles are embedded into a Cloudflare Vectorize index at sync time using Voyage AI (voyage-3-lite, 512 dim). `semantic_search` and `search` with `mode=semantic|hybrid` let the model recall articles by gist rather than exact words; hybrid fuses FTS + vectors via reciprocal rank fusion.
+  </Accordion>
 
-### Collecting
+  <Accordion title="Cross-Domain">
+    | Tool              | Description                                                                                  |
+    | ----------------- | -------------------------------------------------------------------------------------------- |
+    | `search`          | Search across all domains. `mode=keyword` (default, FTS), `semantic` or `hybrid` (reading)   |
+    | `semantic_search` | Paraphrased / meaning-based article recall via Voyage embeddings (reading only, returns scores) |
+    | `get_feed`        | Unified chronological feed of all activity                                                   |
+    | `get_on_this_day` | What happened on this date in previous years                                                 |
+  </Accordion>
 
-| Tool                       | Description                                                   |
-| -------------------------- | ------------------------------------------------------------- |
-| `get_vinyl_collection`     | Browse vinyl records with search, format/genre/artist filters |
-| `get_collecting_stats`     | Total items, format breakdown, unique artists, genre data     |
-| `get_physical_media`       | Browse Blu-ray, 4K UHD, and HD DVD collection                 |
-| `get_physical_media_stats` | Physical media totals and format breakdown                    |
-
-### Reading
-
-| Tool                     | Description                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------- |
-| `get_recent_reads`       | Recently saved articles with title, author, domain, reading time, description   |
-| `get_article`            | Full plain-text article body + metadata + highlights for one article by id. Use this to read past the excerpt (including paywalled sources) instead of falling back to web search. |
-| `get_reading_highlights` | Saved highlights with text, notes, and source article                           |
-| `get_random_highlight`   | A single random highlight for inspiration or reflection                         |
-| `get_reading_stats`      | Total articles, finished count, highlights, word count                          |
-| `find_similar_articles`  | Thematically related articles via cosine similarity over stored Voyage vectors  |
-
-### Cross-Domain
-
-| Tool              | Description                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| `search`          | Search across all domains. `mode=keyword` (default, FTS), `semantic` or `hybrid` (reading)   |
-| `semantic_search` | Paraphrased / meaning-based article recall via Voyage embeddings (reading only, returns scores) |
-| `get_feed`        | Unified chronological feed of all activity                                                   |
-| `get_on_this_day` | What happened on this date in previous years                                                 |
-
-### System
-
-| Tool         | Description                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------------- |
-| `get_health` | API health + last-sync timestamps per domain. Useful first call when diagnosing stale data. |
+  <Accordion title="System">
+    | Tool         | Description                                                                                 |
+    | ------------ | ------------------------------------------------------------------------------------------- |
+    | `get_health` | API health + last-sync timestamps per domain. Useful first call when diagnosing stale data. |
+  </Accordion>
+</AccordionGroup>
 
 ## Example Queries
 
@@ -172,16 +176,6 @@ Requires a [Rewind API key](/authentication). `REWIND_API_URL` defaults to `http
 - "Find that article I read about a former SNL writer" — uses `semantic_search` to recall the article by meaning rather than keywords
 - "What else was I reading like that piece?" — chains into `find_similar_articles`
 
-## Semantic search (reading)
-
-Reading articles are embedded into a Cloudflare Vectorize index at sync time using Voyage AI (voyage-3-lite, 512 dim). Three query paths are available:
-
-- **`search` with `mode="semantic"` or `mode="hybrid"`** — keyword by default; opt in to vector-backed ranking when the user describes the gist of an article rather than quoting it. Hybrid combines FTS + semantic via reciprocal rank fusion.
-- **`semantic_search`** — a dedicated tool for pure semantic recall. Returns cosine scores alongside `rewind://article/{id}` resource links. Reading domain only.
-- **`find_similar_articles(article_id)`** — once an article is surfaced, fetch 3-10 thematically related pieces without re-embedding the query (uses the article's own stored vector). No Voyage call at query time.
-
-See the [`/v1/reading/articles/{id}/related`](#) endpoint and the `mode` parameter on `/v1/search` in the API reference for the raw shape.
-
 ## Rich Responses
 
 Tool responses follow the MCP 2025-06-18 content model and include more than plain text:
@@ -189,6 +183,7 @@ Tool responses follow the MCP 2025-06-18 content model and include more than pla
 - **Images.** Detail tools (`get_movie_details`, `get_album_details`, `get_artist_details`) and list tools (`get_recent_watches`, `get_recent_listens`, `get_top_albums`, `get_vinyl_collection`, etc.) return cover art / posters / artist imagery as `image` content blocks (top-N on lists, default N=5). Pass `include_images: false` to skip them when keeping responses compact matters.
 - **Resource links.** External platform URLs come back as `resource_link` content blocks -- Letterboxd reviews, Strava activities, Discogs releases, Apple Music pages, original article URLs, Last.fm pages.
 - **Structured content.** Every tool also returns `structuredContent` with a JSON shape that mirrors the underlying API response, so the model can reason over exact numbers without re-parsing prose.
+- **Interactive UI.** `get_recent_watches` advertises an [MCP Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/) UI resource -- clients that support MCP Apps (Claude Desktop, Claude web, VS Code GitHub Copilot, Goose) render an interactive poster grid inline; other clients get the standard text + image + resource_link + structuredContent response unchanged.
 
 ## Entity Resources
 
@@ -209,10 +204,6 @@ The server exposes `@`-mentionable resources for fetching full detail on any ent
 | Year in review | `rewind://{domain}/year/{year}`   | `/v1/{domain}/year/{year}` (listening, running, watching) |
 
 In Claude Code you can reference any of these with `@rewind:<uri>` to pull the full record into the conversation. `search` returns `resource_link`s pointing at these URIs so clients can drill from a match straight into the full record.
-
-## Interactive UI (MCP Apps)
-
-`get_recent_watches` advertises a [MCP Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/) UI resource. On clients that render MCP Apps (Claude Desktop, Claude web, VS Code GitHub Copilot, Goose) the tool returns an interactive poster grid inline in the conversation: thumbhash placeholders, theme-aware cards, clickable Letterboxd reviews, hover states. On clients that do not yet render MCP Apps -- including Claude iOS -- the text + image + resource_link + structuredContent response is unchanged, so no caller regresses.
 
 ## Prompt Templates
 
@@ -243,12 +234,6 @@ The server includes built-in prompt templates for common multi-step queries:
 - **Local mode**: Your API key stays on your machine in the local config file. The server runs as a child process and communicates over stdin/stdout.
 - **Remote mode**: Your API key is sent to `mcp.rewind.rest`, a Cloudflare Worker you control. All communication is over HTTPS.
 - The server is stateless -- no data is cached or stored locally.
-
-## What is MCP?
-
-[Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is an open standard created by Anthropic that allows AI applications to connect to external tools and data sources. Any MCP-compatible client -- Claude, Cursor, VS Code, Windsurf, and others -- can use the Rewind MCP server to access your data directly during a conversation.
-
-## Links
 
 <CardGroup cols={2}>
   <Card

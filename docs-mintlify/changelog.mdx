@@ -3,104 +3,29 @@ title: Changelog
 description: API updates and new features.
 ---
 
-<Update label="April 23, 2026" tags={["Improvements"]}>
-
-## MCP server v0.4.3 -- reading-search polish across three cycles
-
-Three iteration passes on top of the v0.4.0 semantic-recall shipment, driven by real-session testing. Bundled into a single release.
-
-### Full article content for deep reading
-
-New `get_article(id)` MCP tool returns the full plain-text article body (HTML-stripped from the stored Instapaper `get_text` capture). Claude calls it autonomously whenever it needs content past the first ~3000 chars of excerpt — "summarize this," "what did it say about X," "compare these three articles." Before, anything past the excerpt was a blind spot; Claude would fall back to web search and hit paywalls. Rewind has the full text for paywalled sources (NYT, WSJ, Atlantic, etc.) and `get_article` serves it directly. Typical article is 5-30 KB; content is `null` for the 9 articles whose enrichment never succeeded.
-
-Also exposed as a `content` field on `GET /v1/reading/articles/{id}` so the `@rewind://article/{id}` resource carries the same data for user-initiated `@`-mentions.
-
-### Instapaper deep-links on every reading article
-
-- `instapaper_url` — `https://www.instapaper.com/read/{bookmark_id}`, the paywall-free archive copy with your highlights
-- `instapaper_app_url` — `instapaper://read/{bookmark_id}`, iOS deep-link to the Instapaper app
-
-Flows through `/v1/reading/recent`, `/v1/reading/articles/{id}`, `/v1/reading/articles/{id}/related`, `/v1/reading/highlights/*`, and `/v1/search` reading hits. MCP tools emit all three link variants (source, Instapaper web, Instapaper app) as distinct `resource_link` blocks. Ask Claude "give me the Instapaper link for that" and it can pull the Instapaper URL straight from the tool response.
-
-### Anti-hallucination server instructions
-
-Testing surfaced Claude fabricating biographical details ("X was a writer on SNL") to bridge a vague query to a retrieved article when the excerpt didn't support the claim. New `SERVER_INSTRUCTIONS` enforce:
-
-- Only assert facts present in the excerpt, description, or structured fields
-- Offer 2-3 candidates when the top match doesn't clearly fit, and ask which the user meant
-- Quote short phrases from the excerpt when citing a fact so the user can see sourcing
-- Fetch `@rewind://article/{id}` and read the excerpt before answering when in doubt
-
-The `find-article` prompt carries a matching anti-hallucination block.
-
-### Explicit tool routing nudge
-
-`SERVER_INSTRUCTIONS` now explicitly tells the model to prefer Rewind tools over conversation search / web search when the user references their own history ("that article I saved", "what was I listening to", etc.). Caught the case where Claude was reaching for its built-in conversation search instead of Rewind on "find that article I saved."
-
-### Click-through + output polish
-
-- `search`, `semantic_search`, and `find_similar_articles` emit the article's real URL (nytimes.com, etc.) as a `text/html` resource_link alongside the internal `rewind://` drill-in
-- Result text lines now read "The Secret Weapon of S.N.L. by Jason Zinoman (nytimes.com)" instead of the FTS-internal `[reading/article]` prefix
-- Stripped the `[ID: 42]` bracketed prefix from user-visible text across every list tool (`get_recent_reads`, `get_recent_runs`, `get_recent_watches`, `browse_movies`, `get_top_*`, `get_personal_records`, collecting browse tools). IDs still live in `structuredContent.items[i]` for model chaining
-- `browse_movies` and `get_personal_records` now emit per-row drill-in links (`rewind://movie/{id}`, `rewind://activity/{id}`)
-
-### Drift prevention (infrastructure)
-
-- New `manifest-snapshot.test.ts` snapshots every registered tool / prompt / resource / URI template — adds or renames surface as a reviewable diff in PR review (mirrors the existing `openapi-snapshot.test.ts` pattern)
-- New `scripts/check-docs.mjs` fails CI when a registered identifier is absent from the Mintlify docs
-- Tightened `server.test.ts` tool-count assertion from `toBeGreaterThanOrEqual(29)` to `toBe(39)` exact — the inequality is why `get_health` shipped undocumented in a prior release
-
-## API
-
-- **`/v1/search`** responses include `url`, `author`, `instapaper_url`, `instapaper_app_url` for reading-article hits (null on other domains). Semantic path fills them via the existing JOIN; FTS path does a single follow-up lookup in `reading_items`.
-- **`/v1/reading/articles/{id}`** gains `content` (full plain-text body), `instapaper_url`, and `instapaper_app_url`.
-- **`/v1/reading/highlights/*`** — the nested `article` object carries `instapaper_url` and `instapaper_app_url`.
-- **`/v1/reading/articles/{id}/related`** each result includes `instapaper_url` and `instapaper_app_url`.
-
-</Update>
-
 <Update label="April 23, 2026" tags={["New releases", "Improvements"]}>
 
-## MCP server v0.4.0 -- semantic recall for reading
+## MCP server v0.4.3
 
-Introduces meaning-based search over the reading domain. Ask about articles by what they were *about*, not just the words in them.
+Rolls up three releases (v0.3.0 → v0.4.3) into one changelog: interactive UI, semantic recall for reading, and full-text article fetch.
 
-- **`semantic_search` tool** — Paraphrased / meaning-based recall via Voyage AI embeddings (voyage-3-lite, 512 dim, cosine). Returns articles ranked by similarity with a score in [0,1]. Reading domain only.
-- **`search` tool gains `mode` param** — `keyword` (default, unchanged FTS behavior), `semantic`, or `hybrid`. Hybrid combines FTS + semantic via reciprocal rank fusion (k=60). Semantic and hybrid are reading-only.
-- **`find_similar_articles(article_id)` tool** — Thematically related articles via cosine similarity against the stored article vector. No Voyage API call at query time — reuses the stored embedding.
-- **`find-article` prompt** — Slash-command style template: "Find that article I vaguely remember about..." → runs hybrid search, falls back to pure semantic if needed, surfaces top match plus 3-5 related pieces.
-- **`rewind://highlight/{id}` entity resource** — New drill-in URI for saved highlights; search hits on highlight text become clickable resource_links.
-
-## API
-
-- **`GET /v1/search?mode=keyword|semantic|hybrid`** — Cross-domain search now supports three ranking modes. Semantic/hybrid require `domain=reading` and return a cosine `score` alongside each result.
-- **`GET /v1/reading/articles/{id}/related?limit=5`** — Related-articles endpoint backed by Cloudflare Vectorize.
-- **`POST /v1/admin/reembed-reading`** — Admin backfill: embeds all reading items into the `rewind-reading` Vectorize index via Voyage. Idempotent.
-- **`POST /v1/admin/reenrich-reading`** — Admin retry for Instapaper articles that previously failed enrichment (e.g. paywall 403s on the OG-fetch step). Rescues most by reading Instapaper's cached body text via `get_text`.
-- **`POST /v1/admin/backfill-body-excerpt`** — Derives `body_excerpt` from existing `reading_items.content` so the FTS index can match on article body.
-- **`POST /v1/admin/reindex-search`** — Rebuilds the FTS `search_index` from source tables (optional `{domains: [...]}` filter).
-- **`GET /v1/reading/highlights/{id}`** — Highlight detail endpoint with nested parent-article context.
-- **FTS tokenizer**: dotted acronyms like `S.N.L.`, `A.I.`, `U.S.A.` are now normalized at index and query time so `SNL` matches `S.N.L.` (and vice versa).
-- **`/v1/search` results** now include an `image` object (cdn_url, thumbhash, dominant_color) when the matched entity has an image row.
-
-</Update>
-
-<Update label="April 22, 2026" tags={["New releases", "Improvements"]}>
-
-## MCP server v0.3.0
-
-Rich responses, interactive UI, and new tools across all domains.
-
-- **Interactive poster grid** for `get_recent_watches` via [MCP Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/). Renders inline in Claude Desktop, Claude web, VS Code GitHub Copilot, and Goose with thumbhash placeholders, theme-aware cards, and clickable Letterboxd links. Other clients get the existing text + image + resource_link + structuredContent response unchanged.
-- **7 new tools**: `get_listening_genres`, `get_running_years`, `get_watching_genres`, `get_watching_decades`, `get_watching_directors`, plus `browse_movies` filtering by director and year.
-- **10 entity resources** exposed as `@`-mentionable URIs (`rewind://movie/{id}`, `rewind://album/{id}`, `rewind://artist/{id}`, `rewind://vinyl/{id}`, etc.) so clients can drill from a search hit straight into the full record.
-- **Richer responses**: detail and list tools now return cover art / posters / artist imagery as `image` content blocks (top-N, default 5, disable with `include_images: false`). External platform URLs (Letterboxd, Strava, Discogs, Apple Music, Last.fm) come back as `resource_link` blocks. Every tool also returns `structuredContent` for reliable numeric reasoning.
-- **3 new prompts**: `letterboxd-review-draft`, `training-report`, `film-diet`.
-- Fixed duplicate entries in `get_recent_watches` and corrected star-rating display (0-5 scale).
+- **Interactive poster grid** for `get_recent_watches` via [MCP Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/). Renders inline in Claude Desktop, Claude web, VS Code GitHub Copilot, and Goose with thumbhash placeholders, theme-aware cards, and clickable Letterboxd links.
+- **Semantic search for reading** via Voyage AI embeddings (voyage-3-lite, 512 dim, cosine). New `semantic_search` and `find_similar_articles` tools; `search` gains a `mode` param (`keyword` | `semantic` | `hybrid`, RRF k=60).
+- **Full article content** via new `get_article(id)` tool — returns the HTML-stripped Instapaper body (5-30 KB, including paywalled NYT / WSJ / Atlantic). Also exposed as a `content` field on `GET /v1/reading/articles/{id}`.
+- **Instapaper deep-links** on every reading article: `instapaper_url` (paywall-free web archive) and `instapaper_app_url` (iOS app).
+- **10 entity resources** (`rewind://movie/{id}`, `rewind://album/{id}`, `rewind://highlight/{id}`, etc.) and **3 new prompts** (`letterboxd-review-draft`, `training-report`, `film-diet`, `find-article`).
+- **Richer tool responses**: cover art / posters as `image` blocks, external platform URLs as `resource_link` blocks, `structuredContent` on every tool for reliable numeric reasoning.
+- **12 new tools** across domains including `get_listening_genres`, `get_watching_directors`, `get_article`, `semantic_search`, `find_similar_articles`.
+- Server instructions enforce anti-hallucination (quote from excerpt, offer candidates when ambiguous) and tool routing (prefer Rewind over web search for the user's own history).
 
 ## API
 
-- All `/recent` endpoints raised `limit` cap from 20 to 50 and gained a `page` parameter for offset pagination.
+- `GET /v1/search?mode=keyword|semantic|hybrid` — three ranking modes; semantic/hybrid are reading-only, return a cosine `score`.
+- `GET /v1/reading/articles/{id}` — gains `content`, `instapaper_url`, `instapaper_app_url`.
+- `GET /v1/reading/articles/{id}/related?limit=5` — related articles backed by Cloudflare Vectorize.
+- `GET /v1/reading/highlights/{id}` — highlight detail with nested parent-article context.
+- All `/recent` endpoints: `limit` cap raised from 20 to 50, new `page` param for offset pagination.
+- FTS tokenizer normalizes dotted acronyms (`S.N.L.` ↔ `SNL`) at index and query time.
 
 </Update>
 
