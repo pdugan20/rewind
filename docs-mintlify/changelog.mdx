@@ -3,6 +3,32 @@ title: Changelog
 description: API updates and new features.
 ---
 
+<Update label="April 23, 2026" tags={["New releases", "Improvements"]}>
+
+## MCP server v0.4.0 -- semantic recall for reading
+
+Introduces meaning-based search over the reading domain. Ask about articles by what they were *about*, not just the words in them.
+
+- **`semantic_search` tool** — Paraphrased / meaning-based recall via Voyage AI embeddings (voyage-3-lite, 512 dim, cosine). Returns articles ranked by similarity with a score in [0,1]. Reading domain only.
+- **`search` tool gains `mode` param** — `keyword` (default, unchanged FTS behavior), `semantic`, or `hybrid`. Hybrid combines FTS + semantic via reciprocal rank fusion (k=60). Semantic and hybrid are reading-only.
+- **`find_similar_articles(article_id)` tool** — Thematically related articles via cosine similarity against the stored article vector. No Voyage API call at query time — reuses the stored embedding.
+- **`find-article` prompt** — Slash-command style template: "Find that article I vaguely remember about..." → runs hybrid search, falls back to pure semantic if needed, surfaces top match plus 3-5 related pieces.
+- **`rewind://highlight/{id}` entity resource** — New drill-in URI for saved highlights; search hits on highlight text become clickable resource_links.
+
+## API
+
+- **`GET /v1/search?mode=keyword|semantic|hybrid`** — Cross-domain search now supports three ranking modes. Semantic/hybrid require `domain=reading` and return a cosine `score` alongside each result.
+- **`GET /v1/reading/articles/{id}/related?limit=5`** — Related-articles endpoint backed by Cloudflare Vectorize.
+- **`POST /v1/admin/reembed-reading`** — Admin backfill: embeds all reading items into the `rewind-reading` Vectorize index via Voyage. Idempotent.
+- **`POST /v1/admin/reenrich-reading`** — Admin retry for Instapaper articles that previously failed enrichment (e.g. paywall 403s on the OG-fetch step). Rescues most by reading Instapaper's cached body text via `get_text`.
+- **`POST /v1/admin/backfill-body-excerpt`** — Derives `body_excerpt` from existing `reading_items.content` so the FTS index can match on article body.
+- **`POST /v1/admin/reindex-search`** — Rebuilds the FTS `search_index` from source tables (optional `{domains: [...]}` filter).
+- **`GET /v1/reading/highlights/{id}`** — Highlight detail endpoint with nested parent-article context.
+- **FTS tokenizer**: dotted acronyms like `S.N.L.`, `A.I.`, `U.S.A.` are now normalized at index and query time so `SNL` matches `S.N.L.` (and vice versa).
+- **`/v1/search` results** now include an `image` object (cdn_url, thumbhash, dominant_color) when the matched entity has an image row.
+
+</Update>
+
 <Update label="April 22, 2026" tags={["New releases", "Improvements"]}>
 
 ## MCP server v0.3.0

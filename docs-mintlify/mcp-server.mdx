@@ -136,20 +136,22 @@ Requires a [Rewind API key](/authentication). `REWIND_API_URL` defaults to `http
 
 ### Reading
 
-| Tool                     | Description                                                      |
-| ------------------------ | ---------------------------------------------------------------- |
-| `get_recent_reads`       | Recently saved articles with title, author, domain, reading time |
-| `get_reading_highlights` | Saved highlights with text, notes, and source article            |
-| `get_random_highlight`   | A single random highlight for inspiration or reflection          |
-| `get_reading_stats`      | Total articles, finished count, highlights, word count           |
+| Tool                     | Description                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `get_recent_reads`       | Recently saved articles with title, author, domain, reading time, description   |
+| `get_reading_highlights` | Saved highlights with text, notes, and source article                           |
+| `get_random_highlight`   | A single random highlight for inspiration or reflection                         |
+| `get_reading_stats`      | Total articles, finished count, highlights, word count                          |
+| `find_similar_articles`  | Thematically related articles via cosine similarity over stored Voyage vectors  |
 
 ### Cross-Domain
 
-| Tool              | Description                                            |
-| ----------------- | ------------------------------------------------------ |
-| `search`          | Full-text search across all domains (or filter to one) |
-| `get_feed`        | Unified chronological feed of all activity             |
-| `get_on_this_day` | What happened on this date in previous years           |
+| Tool              | Description                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| `search`          | Search across all domains. `mode=keyword` (default, FTS), `semantic` or `hybrid` (reading)   |
+| `semantic_search` | Paraphrased / meaning-based article recall via Voyage embeddings (reading only, returns scores) |
+| `get_feed`        | Unified chronological feed of all activity                                                   |
+| `get_on_this_day` | What happened on this date in previous years                                                 |
 
 ## Example Queries
 
@@ -160,6 +162,18 @@ Requires a [Rewind API key](/authentication). `REWIND_API_URL` defaults to `http
 - "Show me a random reading highlight"
 - "Search my data for 'Radiohead'"
 - "What happened on this day in previous years?"
+- "Find that article I read about a former SNL writer" — uses `semantic_search` to recall the article by meaning rather than keywords
+- "What else was I reading like that piece?" — chains into `find_similar_articles`
+
+## Semantic search (reading)
+
+Reading articles are embedded into a Cloudflare Vectorize index at sync time using Voyage AI (voyage-3-lite, 512 dim). Three query paths are available:
+
+- **`search` with `mode="semantic"` or `mode="hybrid"`** — keyword by default; opt in to vector-backed ranking when the user describes the gist of an article rather than quoting it. Hybrid combines FTS + semantic via reciprocal rank fusion.
+- **`semantic_search`** — a dedicated tool for pure semantic recall. Returns cosine scores alongside `rewind://article/{id}` resource links. Reading domain only.
+- **`find_similar_articles(article_id)`** — once an article is surfaced, fetch 3-10 thematically related pieces without re-embedding the query (uses the article's own stored vector). No Voyage call at query time.
+
+See the [`/v1/reading/articles/{id}/related`](#) endpoint and the `mode` parameter on `/v1/search` in the API reference for the raw shape.
 
 ## Rich Responses
 
@@ -182,6 +196,7 @@ The server exposes `@`-mentionable resources for fetching full detail on any ent
 | Vinyl          | `rewind://vinyl/{id}`             | `/v1/collecting/vinyl/{id}`    |
 | Physical media | `rewind://physical-media/{id}`    | `/v1/collecting/media/{id}`    |
 | Article        | `rewind://article/{id}`           | `/v1/reading/articles/{id}`    |
+| Highlight      | `rewind://highlight/{id}`         | `/v1/reading/highlights/{id}`  |
 | Activity       | `rewind://activity/{id}`          | `/v1/running/activities/{id}`  |
 | Sync status    | `rewind://sync/status`            | `/v1/health/sync`              |
 | Year in review | `rewind://{domain}/year/{year}`   | `/v1/{domain}/year/{year}`     |
@@ -204,6 +219,7 @@ The server includes built-in prompt templates for common multi-step queries:
 | `letterboxd-review-draft` | Draft a Letterboxd-style review for a recently watched, unrated film |
 | `training-report`         | Coach-style running report for the last 7-14 days                  |
 | `film-diet`               | Portrait of your film-watching taste (genre mix, decades, directors) |
+| `find-article`            | Recover a half-remembered article via hybrid+semantic search, with related pieces |
 
 ## Environment Variables
 
