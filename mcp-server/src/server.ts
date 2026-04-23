@@ -59,7 +59,21 @@ export function createServer(client: RewindClient): McpServer {
   const server = new McpServer(
     {
       name: 'rewind',
+      title: 'Rewind',
       version: '0.4.3',
+      websiteUrl: 'https://rewind.rest',
+      icons: [
+        {
+          src: 'https://rewind.rest/favicon.svg',
+          mimeType: 'image/svg+xml',
+          sizes: ['any'],
+        },
+        {
+          src: 'https://rewind.rest/apple-touch-icon.png',
+          mimeType: 'image/png',
+          sizes: ['180x180'],
+        },
+      ],
     },
     {
       instructions: SERVER_INSTRUCTIONS,

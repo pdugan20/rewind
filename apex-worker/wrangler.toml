@@ -1,0 +1,7 @@
+name = "rewind-apex"
+main = "src/worker.ts"
+compatibility_date = "2025-04-01"
+
+routes = [
+  { pattern = "rewind.rest/*", zone_name = "rewind.rest" }
+]
