@@ -1,0 +1,13 @@
+/*
+ * Mintlify almond theme applies max-w-xl (36rem / 576px) to the article
+ * content column. That's narrow on wide displays and leaves significant
+ * unused space to the right of the TOC. Widen to ~1000px so long lines
+ * don't break mid-sentence and tables/cards have room to breathe,
+ * without going so wide that body text becomes hard to read.
+ *
+ * Scoped to <main> to avoid touching max-w-xl usages inside cards,
+ * callouts, or other Mintlify components.
+ */
+main .max-w-xl {
+  max-width: 64rem; /* 1024px */
+}
