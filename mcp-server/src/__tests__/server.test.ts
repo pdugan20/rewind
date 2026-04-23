@@ -829,7 +829,7 @@ describe('MCP Server', () => {
       expect(instructions).toBeTruthy();
       expect(instructions).toContain('Rewind');
       expect(instructions).toContain('listening');
-      expect(instructions).toContain('resource link');
+      expect(instructions).toContain('resource_link');
       // Keep under 2KB (Claude Code truncates above that)
       expect(instructions!.length).toBeLessThan(2048);
     });

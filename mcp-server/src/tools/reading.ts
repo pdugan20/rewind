@@ -171,27 +171,39 @@ export function registerReadingTools(
   );
 
   // get_recent_reads ───────────────────────────────────────────────
-  server.tool(
+  // Registered via the modern server.registerTool so we can attach
+  // `_meta.ui.resourceUri`. Hosts that support MCP Apps (Claude Desktop,
+  // Claude web, VS Code Copilot) render the article card list inline;
+  // others fall back to the text + image + resource_link response.
+  server.registerTool(
     'get_recent_reads',
-    'Get recently saved articles from Instapaper. Returns title, author, domain, read time, status, top-N site images where available, and article URLs as resource links.',
     {
-      limit: z
-        .number()
-        .min(1)
-        .max(50)
-        .default(10)
-        .describe('Number of recent articles to return (max 50)'),
-      page: z
-        .number()
-        .min(1)
-        .default(1)
-        .describe(
-          'Page number for pagination. Combine with limit to page through longer windows.'
-        ),
-      ...dateFilterParams,
-      ...includeImagesParam,
+      title: 'Recent reads',
+      description:
+        'Get recently saved articles from Instapaper. Returns title, author, domain, read time, status, top-N site images where available, and article URLs as resource links. In MCP Apps hosts, renders an interactive article card list inline.',
+      inputSchema: {
+        limit: z
+          .number()
+          .min(1)
+          .max(50)
+          .default(10)
+          .describe('Number of recent articles to return (max 50)'),
+        page: z
+          .number()
+          .min(1)
+          .default(1)
+          .describe(
+            'Page number for pagination. Combine with limit to page through longer windows.'
+          ),
+        ...dateFilterParams,
+        ...includeImagesParam,
+      },
+      annotations: READ_ONLY_ANNOTATIONS,
+      _meta: {
+        ui: { resourceUri: 'ui://rewind/recent-reads.html' },
+        'ui/resourceUri': 'ui://rewind/recent-reads.html',
+      },
     },
-    READ_ONLY_ANNOTATIONS,
     async ({ limit, page, date, from, to, include_images }) =>
       withRichResponse(async () => {
         const { data } = await client.get<{ data: Article[] }>(

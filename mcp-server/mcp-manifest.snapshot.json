@@ -536,7 +536,7 @@
     },
     {
       "name": "get_recent_reads",
-      "description": "Get recently saved articles from Instapaper. Returns title, author, domain, read time, status, top-N site images where available, and article URLs as resource links.",
+      "description": "Get recently saved articles from Instapaper. Returns title, author, domain, read time, status, top-N site images where available, and article URLs as resource links. In MCP Apps hosts, renders an interactive article card list inline.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1107,6 +1107,12 @@
       "uri": "ui://rewind/hello.html",
       "name": "Rewind -- Hello (debug)",
       "description": "Minimal diagnostic UI. Mirror of the Phase-1 app that rendered cleanly earlier today.",
+      "mimeType": "text/html;profile=mcp-app"
+    },
+    {
+      "uri": "ui://rewind/recent-reads.html",
+      "name": "Rewind -- Recent Reads",
+      "description": "Interactive article card list for recently saved reads. Consumes get_recent_reads structuredContent.",
       "mimeType": "text/html;profile=mcp-app"
     },
     {

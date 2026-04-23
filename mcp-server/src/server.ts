@@ -46,25 +46,13 @@ const SERVER_INSTRUCTIONS = [
   '   sources (nytimes, wsj, atlantic, etc.).',
   '4. Quote a short phrase from the content or excerpt when citing a fact.',
   '',
-  'External platform URLs (Letterboxd, Strava, Discogs, Apple Music, source URLs)',
-  'come back as clickable resource links; entity details include cover art /',
-  'posters as image content; every tool returns structured JSON for numeric',
-  'reasoning. Reading articles additionally include an `instapaper_url` (the',
-  "user's saved, paywall-free archive copy) and `instapaper_app_url` (iOS",
-  'deep-link). Mention the Instapaper options when relevant so the user can',
-  'choose between reading on the source or in their own archive.',
-  '',
-  'LINKING — Claude Desktop and Claude iOS do NOT render resource_link',
-  "blocks inline with your response; they're tucked away in the tool-use",
-  'accordion where most users never see them. To give users clickable',
-  'URLs, render titles as markdown links in your prose using the URL',
-  'fields from each item in structuredContent:',
-  '- Reading articles: `[title](url)`; if `url` is null, fall back to',
-  '  `instapaper_url`. Mention the Instapaper option when useful.',
-  '- Albums / artists / tracks: `[title](apple_music_url)`.',
-  '- Movies / shows: `[title](letterboxd_url)` or the relevant source URL.',
-  '- Runs / activities: `[title](strava_url)`.',
-  'Always prefer markdown links over bare titles when a URL is available.',
+  'LINKING — resource_link blocks are hidden in the tool-use accordion,',
+  'not inline with your response. When listing items, render each title as',
+  'a markdown link `[title](url)` in prose using the URL fields from',
+  'structuredContent: `url`, `apple_music_url`, `letterboxd_url`,',
+  '`strava_url`, or `instapaper_url` as appropriate. For reading, also',
+  "mention `instapaper_app_url` or the user's Instapaper archive when",
+  'useful. Images ship as image blocks; numbers live in structuredContent.',
 ].join('\n');
 
 export function createServer(client: RewindClient): McpServer {
@@ -181,6 +169,17 @@ export function createServer(client: RewindClient): McpServer {
       // Allow poster <img> loads from the Rewind CDN. Without this the
       // default sandbox CSP (`img-src 'self' data:`) blocks external
       // images and the cards render as broken-image placeholders.
+      resourceDomains: ['https://cdn.rewind.rest'],
+    },
+  });
+
+  registerUiResource(server, {
+    name: 'Rewind -- Recent Reads',
+    uri: 'ui://rewind/recent-reads.html',
+    html: UI_BUNDLES['recent-reads.html'],
+    description:
+      'Interactive article card list for recently saved reads. Consumes get_recent_reads structuredContent.',
+    csp: {
       resourceDomains: ['https://cdn.rewind.rest'],
     },
   });
