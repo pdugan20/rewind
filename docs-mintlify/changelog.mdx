@@ -5,6 +5,18 @@ description: API updates and new features.
 
 <Update label="April 23, 2026" tags={["Improvements"]}>
 
+## MCP server v0.4.2 -- Instapaper deep-links + anti-hallucination + drift prevention
+
+Three targeted improvements based on real-session testing of v0.4.1.
+
+- **Instapaper deep-links on every reading article.** The reading API response now carries two extra URL fields:
+  - `instapaper_url` — `https://www.instapaper.com/read/{bookmark_id}`, the paywall-free archive copy with your highlights
+  - `instapaper_app_url` — `instapaper://read/{bookmark_id}`, iOS deep-link to the Instapaper app
+  Flows through `/v1/reading/recent`, `/v1/reading/articles/{id}`, `/v1/reading/articles/{id}/related`, `/v1/reading/highlights/*`, and `/v1/search` reading hits. MCP tools emit all three link variants (source, Instapaper web, Instapaper app) as distinct `resource_link` blocks. Ask Claude "give me the Instapaper link for that" and it can pull the Instapaper URL straight from the tool response.
+- **Anti-hallucination server instructions.** Testing surfaced Claude fabricating biographical details ("X was a writer on SNL") to bridge a vague query to a retrieved article when the excerpt didn't support the claim. New `SERVER_INSTRUCTIONS` enforce: only assert facts present in the excerpt, offer candidates when the top match doesn't clearly fit, quote short phrases to show sourcing, and fetch `@rewind://article/{id}` for the excerpt when in doubt. The `find-article` prompt gets a matching anti-hallucination block.
+- **Explicit tool routing nudge.** `SERVER_INSTRUCTIONS` now explicitly tells the model to prefer Rewind tools over conversation search / web search when the user references their own history. Caught the routing case where Claude was reaching for its built-in conversation search instead of the Rewind MCP on "find that article I saved".
+- **Drift prevention (infrastructure).** New `manifest-snapshot.test.ts` snapshots every registered tool / prompt / resource / URI template — adds or renames show up as a reviewable diff. New `scripts/check-docs.mjs` fails CI when a registered identifier is absent from the Mintlify docs. Tightened `server.test.ts:774` from `toBeGreaterThanOrEqual(29)` to `toBe(39)` — the inequality assertion was the reason `get_health` shipped undocumented in a prior release.
+
 ## MCP server v0.4.1 -- click-through links + cleaner output
 
 Polish pass on the v0.4.0 reading-search shipment. No new capabilities; existing tools read better in chat and link out to the actual source.
