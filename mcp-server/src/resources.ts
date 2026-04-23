@@ -292,7 +292,7 @@ export function registerResources(
     new ResourceTemplate('rewind://article/{id}', { list: undefined }),
     {
       description:
-        'Full detail for a saved Instapaper article by internal Rewind id: title, author, domain, word count, read progress, tags, source URL, and embedded highlights.',
+        'Full detail for a saved Instapaper article: title, author, domain, word count, read progress, tags, source URL, Instapaper URLs, embedded highlights, AND the full article body. The `content` field is the complete plain-text body (HTML-stripped, typically 5-30 KB); `excerpt` is the first ~3000 chars. Fetch this resource whenever the user asks about article specifics past the excerpt — do NOT fall back to web search or try to fetch the source URL (often paywalled). The `content` field has the full article text including for paywalled sources.',
     },
     async (uri, params) => {
       const id = params.id as string;

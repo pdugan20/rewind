@@ -11,7 +11,9 @@ Three iteration passes on top of the v0.4.0 semantic-recall shipment, driven by 
 
 ### Full article content for deep reading
 
-`GET /v1/reading/articles/{id}` now returns a `content` field with the full plain-text body (HTML-stripped from the stored Instapaper `get_text` capture). Before, Claude only saw the first ~3000 chars of excerpt — anything past that was a blind spot, especially on paywalled sources where the source URL itself is unreadable by the model. With `content` exposed, fetching `@rewind://article/{id}` gives Claude the entire piece for "summarize this," "what did it say about X," or "compare these three articles" kinds of questions. Typical article is 5-30 KB; the field is `null` for the 9 articles that never had their content enriched successfully.
+New `get_article(id)` MCP tool returns the full plain-text article body (HTML-stripped from the stored Instapaper `get_text` capture). Claude calls it autonomously whenever it needs content past the first ~3000 chars of excerpt — "summarize this," "what did it say about X," "compare these three articles." Before, anything past the excerpt was a blind spot; Claude would fall back to web search and hit paywalls. Rewind has the full text for paywalled sources (NYT, WSJ, Atlantic, etc.) and `get_article` serves it directly. Typical article is 5-30 KB; content is `null` for the 9 articles whose enrichment never succeeded.
+
+Also exposed as a `content` field on `GET /v1/reading/articles/{id}` so the `@rewind://article/{id}` resource carries the same data for user-initiated `@`-mentions.
 
 ### Instapaper deep-links on every reading article
 

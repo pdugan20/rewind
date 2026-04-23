@@ -132,6 +132,23 @@
       }
     },
     {
+      "name": "get_article",
+      "description": "Fetch a single saved article by internal Rewind id. Returns the FULL article body (plain text, HTML-stripped, complete — typically 5-30 KB) plus metadata, highlights, and all URL variants. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Rewind has the full article text cached, including for paywalled sources (NYT, WSJ, Atlantic, etc.) — do NOT fall back to web search or web fetch for article content.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Internal Rewind article id (from a get_recent_reads, search, semantic_search, or find_similar_articles result)"
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
       "name": "get_artist_details",
       "description": "Get detailed information about a specific artist by ID: play count, top albums, top tracks, artist image, and Apple Music link.",
       "inputSchema": {
@@ -1077,7 +1094,7 @@
     {
       "uriTemplate": "rewind://article/{id}",
       "name": "article",
-      "description": "Full detail for a saved Instapaper article by internal Rewind id: title, author, domain, word count, read progress, tags, source URL, and embedded highlights."
+      "description": "Full detail for a saved Instapaper article: title, author, domain, word count, read progress, tags, source URL, Instapaper URLs, embedded highlights, AND the full article body. The `content` field is the complete plain-text body (HTML-stripped, typically 5-30 KB); `excerpt` is the first ~3000 chars. Fetch this resource whenever the user asks about article specifics past the excerpt — do NOT fall back to web search or try to fetch the source URL (often paywalled). The `content` field has the full article text including for paywalled sources."
     },
     {
       "uriTemplate": "rewind://artist/{id}",

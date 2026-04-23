@@ -69,6 +69,107 @@ export function registerReadingTools(
   server: McpServer,
   client: RewindClient
 ): void {
+  // get_article ────────────────────────────────────────────────────
+  server.tool(
+    'get_article',
+    'Fetch a single saved article by internal Rewind id. Returns the FULL article body (plain text, HTML-stripped, complete — typically 5-30 KB) plus metadata, highlights, and all URL variants. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Rewind has the full article text cached, including for paywalled sources (NYT, WSJ, Atlantic, etc.) — do NOT fall back to web search or web fetch for article content.',
+    {
+      id: z
+        .number()
+        .int()
+        .positive()
+        .describe(
+          'Internal Rewind article id (from a get_recent_reads, search, semantic_search, or find_similar_articles result)'
+        ),
+    },
+    READ_ONLY_ANNOTATIONS,
+    async ({ id }) =>
+      withRichResponse(async () => {
+        type ArticleDetail = {
+          id: number;
+          title: string;
+          author: string | null;
+          url: string | null;
+          instapaper_url: string | null;
+          instapaper_app_url: string | null;
+          domain: string | null;
+          description: string | null;
+          content: string | null;
+          excerpt: string | null;
+          word_count: number | null;
+          estimated_read_min: number | null;
+          status: string;
+          progress: number;
+          saved_at: string;
+          highlights: Array<{
+            id: number;
+            text: string;
+            note: string | null;
+            created_at: string;
+          }>;
+        };
+        const a = await client.get<ArticleDetail>(`/reading/articles/${id}`);
+
+        const header: string[] = [`# ${a.title}`];
+        if (a.author) header.push(`by ${a.author}`);
+        if (a.domain) header.push(a.domain);
+        if (a.word_count) header.push(`${fmt(a.word_count)} words`);
+
+        const body =
+          a.content ??
+          a.excerpt ??
+          '(Full article text not available — enrichment may have failed for this item.)';
+
+        const highlightLines: string[] = [];
+        if (a.highlights.length > 0) {
+          highlightLines.push(
+            '',
+            `## Your highlights (${a.highlights.length})`
+          );
+          for (const h of a.highlights) {
+            highlightLines.push('', `> ${h.text}`);
+            if (h.note) highlightLines.push(`  Note: ${h.note}`);
+          }
+        }
+
+        const lines = [header.join(' · '), '', body, ...highlightLines];
+
+        const links: ReturnType<typeof resourceLink>[] = [];
+        if (a.url) {
+          const host = hostOf(a.url);
+          links.push(
+            resourceLink(
+              a.url,
+              host ? `${a.title} — read on ${host}` : a.title,
+              { mimeType: 'text/html' }
+            )
+          );
+        }
+        if (a.instapaper_url) {
+          links.push(
+            resourceLink(a.instapaper_url, `${a.title} — read in Instapaper`, {
+              mimeType: 'text/html',
+            })
+          );
+        }
+        if (a.instapaper_app_url) {
+          links.push(
+            resourceLink(
+              a.instapaper_app_url,
+              `${a.title} — open in Instapaper app`
+            )
+          );
+        }
+
+        const content: ContentBlock[] = [
+          text(lines.join('\n')),
+          ...links.filter((b): b is NonNullable<typeof b> => b !== null),
+        ];
+
+        return { content, structuredContent: a };
+      })
+  );
+
   // get_recent_reads ───────────────────────────────────────────────
   server.tool(
     'get_recent_reads',

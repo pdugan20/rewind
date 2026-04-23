@@ -775,7 +775,7 @@ describe('MCP Server', () => {
       // an accompanying docs update. See manifest-snapshot.test.ts for
       // the structural snapshot and scripts/check-docs.mjs for the
       // MDX cross-check.
-      expect(tools.length).toBe(39);
+      expect(tools.length).toBe(40);
 
       const names = tools.map((t) => t.name);
       expect(names).toContain('get_health');
@@ -789,6 +789,7 @@ describe('MCP Server', () => {
       expect(names).toContain('search');
       expect(names).toContain('semantic_search');
       expect(names).toContain('find_similar_articles');
+      expect(names).toContain('get_article');
       expect(names).toContain('get_feed');
     });
 
