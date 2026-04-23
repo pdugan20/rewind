@@ -66,6 +66,7 @@ const HighlightSchema = z.object({
 });
 
 const ArticleDetailSchema = ArticleSchema.extend({
+  excerpt: z.string().nullable(),
   highlights: z.array(HighlightSchema),
 });
 
@@ -168,6 +169,13 @@ const recentRoute = createRoute({
           .optional()
           .default(10)
           .openapi({ example: 10 }),
+        page: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .default(1)
+          .openapi({ example: 1 }),
       })
       .merge(DateFilterQuery),
   },
@@ -391,6 +399,7 @@ const articleDetailRoute = createRoute({
             saved_at: '2026-03-18T14:30:00.000Z',
             started_at: '2026-03-19T08:00:00.000Z',
             finished_at: '2026-03-19T08:15:00.000Z',
+            excerpt: null,
             highlights: [
               {
                 id: 1,
@@ -829,7 +838,8 @@ function formatArticle(
 reading.openapi(recentRoute, async (c) => {
   setCache(c, 'short');
   const db = createDb(c.env.DB);
-  const { limit, date, from, to } = c.req.valid('query');
+  const { limit, page, date, from, to } = c.req.valid('query');
+  const offset = (page - 1) * limit;
 
   const conditions = [eq(readingItems.userId, 1)];
   const dateCondition = buildDateCondition(readingItems.savedAt, {
@@ -844,7 +854,8 @@ reading.openapi(recentRoute, async (c) => {
     .from(readingItems)
     .where(and(...conditions))
     .orderBy(desc(readingItems.savedAt))
-    .limit(limit);
+    .limit(limit)
+    .offset(offset);
 
   const imageMap = await getImageAttachmentBatch(
     db,
@@ -983,6 +994,7 @@ reading.openapi(articleDetailRoute, async (c) => {
 
   return c.json({
     ...formatArticle(article, image),
+    excerpt: article.bodyExcerpt ?? null,
     highlights: highlights.map((h) => ({
       id: h.id,
       text: h.text,
