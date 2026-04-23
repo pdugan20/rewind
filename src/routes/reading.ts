@@ -950,7 +950,7 @@ function formatArticle(
     instapaper_app_url: instapaperAppUrl(row.source, row.sourceId),
     domain: row.domain,
     site_name: row.siteName,
-    description: row.description,
+    description: row.description ?? row.ogDescription,
     word_count: row.wordCount,
     estimated_read_min: row.estimatedReadMin,
     status: row.status,
@@ -1197,6 +1197,7 @@ reading.openapi(relatedArticlesRoute, async (c) => {
       url: readingItems.url,
       domain: readingItems.domain,
       description: readingItems.description,
+      ogDescription: readingItems.ogDescription,
       source: readingItems.source,
       sourceId: readingItems.sourceId,
     })
@@ -1216,7 +1217,7 @@ reading.openapi(relatedArticlesRoute, async (c) => {
         instapaper_url: instapaperReadUrl(r.source, r.sourceId),
         instapaper_app_url: instapaperAppUrl(r.source, r.sourceId),
         domain: r.domain,
-        description: r.description,
+        description: r.description ?? r.ogDescription,
         score: scoreById.get(rid) ?? 0,
       };
     })
