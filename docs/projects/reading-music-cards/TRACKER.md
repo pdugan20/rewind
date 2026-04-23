@@ -1,84 +1,92 @@
 # Tracker
 
-## Phase 0 — `description` field mapping fix
+## Phase 0 — `description` field mapping fix ✅
 
-- [ ] Add `description ?? ogDescription` coalesce to `/reading/recent` response mapper
-- [ ] Same coalesce in `/reading/articles` (list endpoint)
-- [ ] Same coalesce in `/reading/articles/{id}` (detail endpoint)
-- [ ] Verify with local `npm test` — no regression
-- [ ] Regenerate `openapi.snapshot.json` via `npx vitest run src/__tests__/openapi-snapshot.test.ts --update`
-- [ ] Sample check: `curl /reading/recent?limit=50 | jq '[.data[].description != null] | length'` returns ≥ ~27 (54% of 50)
-- [ ] Commit: `fix(reading): serve og_description when editorial description is null`
+- [x] Add `description ?? ogDescription` coalesce to `formatArticle` helper (covers /recent, /articles list, /articles/{id}, /currently-reading, /archive)
+- [x] Same coalesce in `/reading/articles/{id}/related` inline mapper
+- [x] Verify with local `npm test` — no regression
+- [x] Regenerate `openapi.snapshot.json` via `npx vitest run ... --update` (no changes — schema type unchanged)
+- [x] Commit: 923466e `fix(reading): serve og_description when editorial description is null`
+- [ ] Post-deploy empirical sample: `curl /reading/recent?limit=50 | jq '[.data[] | select(.description != null)] | length'` returns ≥ ~27
 
-## Phase 1 — SERVER_INSTRUCTIONS prose-link rule
+## Phase 1 — SERVER_INSTRUCTIONS prose-link rule ✅
 
-- [ ] Add `LINKING` block to `SERVER_INSTRUCTIONS` in `mcp-server/src/server.ts`
-- [ ] Mirror condensed rule into `find-article` prompt (`mcp-server/src/prompts.ts`)
-- [ ] Run `npm run mcp:update` to refresh manifest snapshot
-- [ ] Local build (`cd mcp-server && npm run build`) + reload rewind-local in Claude Desktop
-- [ ] User test: "find articles about the simpsons" — verify titles come back as clickable markdown links
+- [x] Add `LINKING` block to `SERVER_INSTRUCTIONS` in `mcp-server/src/server.ts`
+- [x] Mirror condensed rule into `find-article` prompt (`mcp-server/src/prompts.ts`)
+- [x] Run `npm run mcp:update` to refresh manifest snapshot
+- [x] Commit: e1d6eaa `feat(mcp): prose-link rule for reading + music tool results`
+- [ ] User test: "find articles about the simpsons" — verify titles come back as clickable markdown links (pending rewind-local reload)
 - [ ] User test: "what are my top albums this month" — verify album/artist names come back as markdown links to Apple Music
-- [ ] Commit: `feat(mcp): prose-link rule for reading + music results (SERVER_INSTRUCTIONS)`
 
 ## Phase 2 — Reading card UI
 
-### 2a — Scaffold
+### 2a — Scaffold ✅
 
-- [ ] Create `mcp-server/web/recent-reads.html` (mirror `recent-watches.html`)
-- [ ] Create `mcp-server/web/recent-reads.tsx` entry component
-- [ ] Create `mcp-server/web/components/ArticleCard.tsx` (Instapaper-style row)
-- [ ] Create `mcp-server/web/lib/time-ago.ts` (ISO → "6d ago")
-- [ ] Create `mcp-server/web/lib/cdn-url.ts` (CDN transform URL builder)
+- [x] Create `mcp-server/web/recent-reads.html`
+- [x] Create `mcp-server/web/recent-reads.tsx` entry component
+- [x] Create `mcp-server/web/components/ArticleCard.tsx` (Instapaper-style row)
+- [x] Create `mcp-server/web/components/ArticleList.tsx`
+- [x] Create `mcp-server/web/lib/time-ago.ts` (ISO → "6d ago")
 
-### 2b — Card rendering
+### 2b — Card rendering ✅
 
-- [ ] Title row (2-line clamp, 16px bold)
-- [ ] Meta row (domain · N min read · time ago)
-- [ ] Excerpt row (2-line clamp, 14px, `description ?? excerpt`)
-- [ ] Right-column image (80×80 rounded, thumbhash fade-in via `lib/thumbhash.ts`)
-- [ ] No-image fallback tile (accent_color background + domain text)
-- [ ] Whole-card click → `instapaper_url` in new tab
-- [ ] Theme-aware styles (light/dark, read from host theme)
+- [x] Title row (2-line clamp, 16px bold)
+- [x] Meta row (domain · N min read · time ago)
+- [x] Excerpt row (2-line clamp, 14px, description)
+- [x] Right-column image (80×80 rounded, thumbhash fade-in)
+- [x] No-image fallback tile (accent_color background + domain text)
+- [x] Whole-card click → `instapaper_url` in new tab
+- [x] Theme-aware styles (CSS variables from host)
 
-### 2c — Wiring
+### 2c — Wiring ✅
 
-- [ ] Add `_meta.ui.resourceUri` to `get_recent_reads` registration in `mcp-server/src/tools/reading.ts`
-- [ ] Register `ui://rewind/recent-reads.html` in `mcp-server/src/server.ts`
-- [ ] Build: `INPUT=recent-reads.html npm run build:web`
-- [ ] Verify `scripts/inline-bundles.mjs` picks up the new file → re-inlines into `ui-bundles.ts`
-- [ ] `npm run mcp:update` (manifest snapshot regen)
+- [x] Add `_meta.ui.resourceUri` to `get_recent_reads` registration
+- [x] Register `ui://rewind/recent-reads.html` in `server.ts`
+- [x] Build: `INPUT=recent-reads.html npm run build:web` (468KB raw / 455KB inlined)
+- [x] `npm run mcp:update`
+- [x] All 99 tests pass
+- [x] Commit: 1864c65 `feat(mcp): interactive article card list UI for get_recent_reads`
 
-### 2d — Iteration (user-driven)
+### 2d — Iteration (user-driven) ⏳
 
 - [ ] User reloads Claude Desktop rewind-local entry
 - [ ] User runs `get_recent_reads`, screenshots result
 - [ ] Design review cycle 1: user feedback, I adjust
 - [ ] Design review cycle 2: user feedback, I adjust
 - [ ] Design review cycle N: until user says "ship it"
-- [ ] Commit: `feat(mcp): interactive article card UI for get_recent_reads`
 
 ## Phase 3 — Music card UIs
 
-### 3a — `get_top_albums` (album grid)
+### 3a — `get_top_albums` (album grid) ✅
 
-- [ ] Generalize `PosterCard.tsx` → `MediaCard.tsx` (accept generic cover + 3 text lines + URL)
-- [ ] `top-albums.html` + `top-albums.tsx`
-- [ ] Wire `_meta.ui.resourceUri` on `get_top_albums` in `tools/listening.ts`
-- [ ] Register in `server.ts`
-- [ ] Local test + iterate
+- [x] `components/AlbumCard.tsx` (square cover + name + artist + playcount)
+- [x] `components/AlbumGrid.tsx` (responsive grid wrapper)
+- [x] `top-albums.html` + `top-albums.tsx`
+- [x] Wire `_meta.ui.resourceUri` on `get_top_albums` (converted to `server.registerTool`)
+- [x] Register in `server.ts`
+- [x] Build: `INPUT=top-albums.html npm run build:web`
 
-### 3b — `get_top_artists` (portrait row)
+### 3b — `get_top_artists` (circular portrait grid) ✅
 
-- [ ] `components/ArtistCard.tsx` (circular portrait + name + play count)
-- [ ] `top-artists.html` + `top-artists.tsx`
-- [ ] Wire `_meta.ui.resourceUri` on `get_top_artists`
-- [ ] Register in `server.ts`
-- [ ] Local test + iterate
+- [x] `components/ArtistCard.tsx` (circular portrait + name + play count)
+- [x] `components/ArtistGrid.tsx`
+- [x] `top-artists.html` + `top-artists.tsx`
+- [x] Wire `_meta.ui.resourceUri` on `get_top_artists`
+- [x] Register in `server.ts`
+- [x] Build: `INPUT=top-artists.html npm run build:web`
 
-### 3c — Ship
+### 3c — Ship ✅
 
-- [ ] `npm run mcp:update` (manifest snapshot regen)
-- [ ] Commit: `feat(mcp): interactive card UIs for get_top_albums and get_top_artists`
+- [x] `npm run mcp:update` (manifest snapshot regen)
+- [x] All 99 tests pass
+- [x] Bundle sizes: top-albums 454KB, top-artists 454KB (well under 1MB per-resource cap)
+
+### 3d — Iteration (user-driven) ⏳
+
+- [ ] User reloads Claude Desktop rewind-local entry
+- [ ] User runs `get_top_albums`, screenshots result
+- [ ] User runs `get_top_artists`, screenshots result
+- [ ] Design review cycles until user says "ship it"
 
 ## Phase 4 — stretch (not committed)
 

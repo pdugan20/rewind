@@ -269,24 +269,39 @@ export function registerListeningTools(
   );
 
   // get_top_artists ────────────────────────────────────────────────
-  server.tool(
+  // Registered via server.registerTool so we can attach `_meta.ui.resourceUri`.
+  // MCP Apps hosts render an interactive artist portrait grid inline; others
+  // fall back to the text + image + resource_link response.
+  server.registerTool(
     'get_top_artists',
-    'Get top listened-to artists from Last.fm for a given time period, with top-N artist images and Apple Music links.',
     {
-      period: z
-        .enum(PERIOD_ENUM)
-        .default('1month')
-        .describe('Time period for rankings'),
-      limit: z
-        .number()
-        .min(1)
-        .max(50)
-        .default(10)
-        .describe('Number of artists to return'),
-      page: z.number().min(1).default(1).describe('Page number for pagination'),
-      ...includeImagesParam,
+      title: 'Top artists',
+      description:
+        'Get top listened-to artists from Last.fm for a given time period, with top-N artist images and Apple Music links. In MCP Apps hosts, renders an interactive artist portrait grid inline.',
+      inputSchema: {
+        period: z
+          .enum(PERIOD_ENUM)
+          .default('1month')
+          .describe('Time period for rankings'),
+        limit: z
+          .number()
+          .min(1)
+          .max(50)
+          .default(10)
+          .describe('Number of artists to return'),
+        page: z
+          .number()
+          .min(1)
+          .default(1)
+          .describe('Page number for pagination'),
+        ...includeImagesParam,
+      },
+      annotations: READ_ONLY_ANNOTATIONS,
+      _meta: {
+        ui: { resourceUri: 'ui://rewind/top-artists.html' },
+        'ui/resourceUri': 'ui://rewind/top-artists.html',
+      },
     },
-    READ_ONLY_ANNOTATIONS,
     async ({ period, limit, page, include_images }) =>
       withRichResponse(async () => {
         const data = await client.get<{ period: string; data: TopItem[] }>(
@@ -331,24 +346,39 @@ export function registerListeningTools(
   );
 
   // get_top_albums ─────────────────────────────────────────────────
-  server.tool(
+  // Registered via server.registerTool so we can attach `_meta.ui.resourceUri`.
+  // MCP Apps hosts render an interactive album cover grid inline; others
+  // fall back to the text + image + resource_link response.
+  server.registerTool(
     'get_top_albums',
-    'Get top listened-to albums from Last.fm for a given time period, with top-N covers and Apple Music links.',
     {
-      period: z
-        .enum(PERIOD_ENUM)
-        .default('1month')
-        .describe('Time period for rankings'),
-      limit: z
-        .number()
-        .min(1)
-        .max(50)
-        .default(10)
-        .describe('Number of albums to return'),
-      page: z.number().min(1).default(1).describe('Page number for pagination'),
-      ...includeImagesParam,
+      title: 'Top albums',
+      description:
+        'Get top listened-to albums from Last.fm for a given time period, with top-N covers and Apple Music links. In MCP Apps hosts, renders an interactive album cover grid inline.',
+      inputSchema: {
+        period: z
+          .enum(PERIOD_ENUM)
+          .default('1month')
+          .describe('Time period for rankings'),
+        limit: z
+          .number()
+          .min(1)
+          .max(50)
+          .default(10)
+          .describe('Number of albums to return'),
+        page: z
+          .number()
+          .min(1)
+          .default(1)
+          .describe('Page number for pagination'),
+        ...includeImagesParam,
+      },
+      annotations: READ_ONLY_ANNOTATIONS,
+      _meta: {
+        ui: { resourceUri: 'ui://rewind/top-albums.html' },
+        'ui/resourceUri': 'ui://rewind/top-albums.html',
+      },
     },
-    READ_ONLY_ANNOTATIONS,
     async ({ period, limit, page, include_images }) =>
       withRichResponse(async () => {
         const data = await client.get<{ period: string; data: TopItem[] }>(

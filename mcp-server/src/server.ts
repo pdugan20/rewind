@@ -184,6 +184,28 @@ export function createServer(client: RewindClient): McpServer {
     },
   });
 
+  registerUiResource(server, {
+    name: 'Rewind -- Top Albums',
+    uri: 'ui://rewind/top-albums.html',
+    html: UI_BUNDLES['top-albums.html'],
+    description:
+      'Interactive album cover grid for top listened-to albums. Consumes get_top_albums structuredContent.',
+    csp: {
+      resourceDomains: ['https://cdn.rewind.rest'],
+    },
+  });
+
+  registerUiResource(server, {
+    name: 'Rewind -- Top Artists',
+    uri: 'ui://rewind/top-artists.html',
+    html: UI_BUNDLES['top-artists.html'],
+    description:
+      'Interactive artist portrait grid for top listened-to artists. Consumes get_top_artists structuredContent.',
+    csp: {
+      resourceDomains: ['https://cdn.rewind.rest'],
+    },
+  });
+
   // Debug-only: reinstated alongside Phase 2 to A/B test whether Claude
   // Desktop's "Failed to set up MCP app" is specific to the new resource
   // or symptomatic of the whole rewind MCP server's sandbox state.

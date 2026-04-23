@@ -681,7 +681,7 @@
     },
     {
       "name": "get_top_albums",
-      "description": "Get top listened-to albums from Last.fm for a given time period, with top-N covers and Apple Music links.",
+      "description": "Get top listened-to albums from Last.fm for a given time period, with top-N covers and Apple Music links. In MCP Apps hosts, renders an interactive album cover grid inline.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -723,7 +723,7 @@
     },
     {
       "name": "get_top_artists",
-      "description": "Get top listened-to artists from Last.fm for a given time period, with top-N artist images and Apple Music links.",
+      "description": "Get top listened-to artists from Last.fm for a given time period, with top-N artist images and Apple Music links. In MCP Apps hosts, renders an interactive artist portrait grid inline.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1119,6 +1119,18 @@
       "uri": "ui://rewind/recent-watches.html",
       "name": "Rewind -- Recent Watches",
       "description": "Interactive poster grid for recently watched movies. Consumes get_recent_watches structuredContent.",
+      "mimeType": "text/html;profile=mcp-app"
+    },
+    {
+      "uri": "ui://rewind/top-albums.html",
+      "name": "Rewind -- Top Albums",
+      "description": "Interactive album cover grid for top listened-to albums. Consumes get_top_albums structuredContent.",
+      "mimeType": "text/html;profile=mcp-app"
+    },
+    {
+      "uri": "ui://rewind/top-artists.html",
+      "name": "Rewind -- Top Artists",
+      "description": "Interactive artist portrait grid for top listened-to artists. Consumes get_top_artists structuredContent.",
       "mimeType": "text/html;profile=mcp-app"
     }
   ],
