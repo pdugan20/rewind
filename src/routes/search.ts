@@ -1,5 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { sql } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { PaginationMeta, errorResponses } from '../lib/schemas/common.js';
@@ -8,6 +8,9 @@ import { requireAuth } from '../lib/auth.js';
 import { badRequest } from '../lib/errors.js';
 import { normalizeForSearch } from '../lib/search-normalize.js';
 import { buildCdnUrl } from '../services/images/presets.js';
+import { readingItems } from '../db/schema/reading.js';
+import { images } from '../db/schema/system.js';
+import { embedQuery } from '../services/embeddings/reading.js';
 
 const VALID_DOMAINS = [
   'listening',
@@ -35,6 +38,7 @@ const SearchResultSchema = z.object({
   subtitle: z.string().nullable(),
   image_key: z.string().nullable(),
   image: SearchImageSchema.nullable(),
+  score: z.number().optional(),
 });
 
 const SearchResponseSchema = z.object({
@@ -65,6 +69,10 @@ const searchRoute = createRoute({
         .string()
         .optional()
         .openapi({ description: 'Page number (default 1)' }),
+      mode: z.enum(['keyword', 'semantic', 'hybrid']).optional().openapi({
+        description:
+          'Ranking mode. keyword = FTS only (default). semantic = Vectorize only (reading domain). hybrid = FTS + semantic via reciprocal rank fusion (reading domain).',
+      }),
     }),
   },
   responses: {
@@ -94,7 +102,180 @@ const searchRoute = createRoute({
   },
 });
 
-// GET /v1/search -- cross-domain full-text search
+// Inner row shape returned from both FTS and semantic paths.
+type HitRow = {
+  domain: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  subtitle: string | null;
+  image_key: string | null;
+  r2_key: string | null;
+  image_version: number | null;
+  thumbhash: string | null;
+  dominant_color: string | null;
+  score?: number;
+};
+
+type FtsResult = { rows: HitRow[]; total: number };
+
+async function runFtsSearch(
+  db: ReturnType<typeof drizzle>,
+  opts: { ftsQuery: string; domain?: string; limit: number; offset: number }
+): Promise<FtsResult> {
+  const { ftsQuery, domain, limit, offset } = opts;
+  const rows = await db.all<HitRow>(
+    domain
+      ? sql`WITH matches AS (
+            SELECT domain, entity_type, entity_id, title, subtitle, image_key, rank
+            FROM search_index
+            WHERE search_index MATCH ${ftsQuery} AND domain = ${domain}
+            ORDER BY rank
+            LIMIT ${limit} OFFSET ${offset}
+          )
+          SELECT m.domain, m.entity_type, m.entity_id, m.title, m.subtitle, m.image_key,
+                 i.r2_key, i.image_version, i.thumbhash, i.dominant_color
+          FROM matches m
+          LEFT JOIN images i ON i.domain = m.domain AND i.entity_type = m.entity_type AND i.entity_id = m.entity_id
+          ORDER BY m.rank`
+      : sql`WITH matches AS (
+            SELECT domain, entity_type, entity_id, title, subtitle, image_key, rank
+            FROM search_index
+            WHERE search_index MATCH ${ftsQuery}
+            ORDER BY rank
+            LIMIT ${limit} OFFSET ${offset}
+          )
+          SELECT m.domain, m.entity_type, m.entity_id, m.title, m.subtitle, m.image_key,
+                 i.r2_key, i.image_version, i.thumbhash, i.dominant_color
+          FROM matches m
+          LEFT JOIN images i ON i.domain = m.domain AND i.entity_type = m.entity_type AND i.entity_id = m.entity_id
+          ORDER BY m.rank`
+  );
+  const countRows = await db.all<{ total: number }>(
+    domain
+      ? sql`SELECT count(*) as total FROM search_index WHERE search_index MATCH ${ftsQuery} AND domain = ${domain}`
+      : sql`SELECT count(*) as total FROM search_index WHERE search_index MATCH ${ftsQuery}`
+  );
+  return { rows, total: countRows[0]?.total ?? 0 };
+}
+
+/**
+ * Run a Voyage+Vectorize semantic search for reading articles.
+ * Returns the top-K articles by cosine similarity with the query embedding,
+ * enriched with image rows (same shape as FTS rows) and a `score` field.
+ */
+async function runSemanticSearch(
+  env: {
+    VECTORIZE_READING: VectorizeIndex;
+    VOYAGE_API_KEY: string;
+    DB: D1Database;
+  },
+  opts: { query: string; topK: number }
+): Promise<HitRow[]> {
+  const vec = await embedQuery(env, opts.query);
+  const matches = await env.VECTORIZE_READING.query(vec, {
+    topK: opts.topK,
+    returnMetadata: 'indexed',
+  });
+
+  if (matches.matches.length === 0) return [];
+
+  const articleIds = matches.matches
+    .map((m) => {
+      // id shape is reading:article:{id}; extract the numeric part.
+      const parts = m.id.split(':');
+      return Number(parts[parts.length - 1]);
+    })
+    .filter((n) => Number.isFinite(n));
+
+  const db = drizzle(env.DB);
+  const rows = await db
+    .select({
+      id: readingItems.id,
+      title: readingItems.title,
+      description: readingItems.description,
+      r2Key: images.r2Key,
+      imageVersion: images.imageVersion,
+      thumbhash: images.thumbhash,
+      dominantColor: images.dominantColor,
+    })
+    .from(readingItems)
+    .leftJoin(
+      images,
+      sql`${images.domain} = 'reading' AND ${images.entityType} = 'articles' AND ${images.entityId} = CAST(${readingItems.id} AS TEXT)`
+    )
+    .where(inArray(readingItems.id, articleIds));
+
+  const rowById = new Map(rows.map((r) => [r.id, r]));
+
+  return matches.matches
+    .map((m) => {
+      const parts = m.id.split(':');
+      const id = Number(parts[parts.length - 1]);
+      const r = rowById.get(id);
+      if (!r) return null;
+      const hit: HitRow = {
+        domain: 'reading',
+        entity_type: 'article',
+        entity_id: String(id),
+        title: r.title,
+        subtitle: r.description ?? null,
+        image_key: null,
+        r2_key: r.r2Key ?? null,
+        image_version: r.imageVersion ?? null,
+        thumbhash: r.thumbhash ?? null,
+        dominant_color: r.dominantColor ?? null,
+        score: m.score,
+      };
+      return hit;
+    })
+    .filter((x): x is HitRow => x !== null);
+}
+
+/**
+ * Reciprocal Rank Fusion.
+ * Combines two ranked lists by summing 1 / (k + rank) across retrievers.
+ * k=60 is the standard choice in the RRF paper.
+ */
+function rrfCombine(lists: HitRow[][], limit: number, k = 60): HitRow[] {
+  const scores = new Map<string, number>();
+  const rowByKey = new Map<string, HitRow>();
+
+  for (const list of lists) {
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      const key = `${r.domain}:${r.entity_type}:${r.entity_id}`;
+      scores.set(key, (scores.get(key) ?? 0) + 1 / (k + i + 1));
+      if (!rowByKey.has(key)) rowByKey.set(key, r);
+    }
+  }
+
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([key, score]) => ({ ...rowByKey.get(key)!, score }));
+}
+
+function toPayload(r: HitRow) {
+  return {
+    domain: r.domain,
+    entity_type: r.entity_type,
+    entity_id: r.entity_id,
+    title: r.title,
+    subtitle: r.subtitle,
+    image_key: r.image_key,
+    image: r.r2_key
+      ? {
+          cdn_url: buildCdnUrl(r.r2_key, 'medium', r.image_version ?? 1),
+          thumbhash: r.thumbhash,
+          dominant_color: r.dominant_color,
+        }
+      : null,
+    ...(typeof r.score === 'number' ? { score: r.score } : {}),
+  };
+}
+
+// GET /v1/search -- cross-domain full-text search (+ optional semantic/hybrid)
 search.openapi(searchRoute, async (c) => {
   setCache(c, 'short');
 
@@ -108,6 +289,22 @@ search.openapi(searchRoute, async (c) => {
     return badRequest(
       c,
       `Invalid domain: ${domain}. Must be one of: ${VALID_DOMAINS.join(', ')}`
+    ) as any;
+  }
+
+  const mode = (c.req.query('mode') ?? 'keyword') as
+    | 'keyword'
+    | 'semantic'
+    | 'hybrid';
+
+  if (
+    (mode === 'semantic' || mode === 'hybrid') &&
+    domain &&
+    domain !== 'reading'
+  ) {
+    return badRequest(
+      c,
+      `mode=${mode} is only supported for domain=reading (or no domain filter).`
     ) as any;
   }
 
@@ -136,85 +333,58 @@ search.openapi(searchRoute, async (c) => {
     .join(' ');
 
   try {
-    let results: {
-      domain: string;
-      entity_type: string;
-      entity_id: string;
-      title: string;
-      subtitle: string | null;
-      image_key: string | null;
-      r2_key: string | null;
-      image_version: number | null;
-      thumbhash: string | null;
-      dominant_color: string | null;
-    }[];
-    let total: number;
-
-    // Inner CTE selects FTS matches, outer LEFT JOIN enriches with the
-    // images row for (domain, entity_type, entity_id). Done as two steps
-    // because FTS5 tables can't appear on the right side of a JOIN directly.
-    if (domain) {
-      results = await db.all(
-        sql`WITH matches AS (
-              SELECT domain, entity_type, entity_id, title, subtitle, image_key, rank
-              FROM search_index
-              WHERE search_index MATCH ${ftsQuery} AND domain = ${domain}
-              ORDER BY rank
-              LIMIT ${limit} OFFSET ${offset}
-            )
-            SELECT m.domain, m.entity_type, m.entity_id, m.title, m.subtitle, m.image_key,
-                   i.r2_key, i.image_version, i.thumbhash, i.dominant_color
-            FROM matches m
-            LEFT JOIN images i ON i.domain = m.domain AND i.entity_type = m.entity_type AND i.entity_id = m.entity_id
-            ORDER BY m.rank`
-      );
-
-      const countRows = await db.all<{ total: number }>(
-        sql`SELECT count(*) as total
-            FROM search_index
-            WHERE search_index MATCH ${ftsQuery} AND domain = ${domain}`
-      );
-      total = countRows[0]?.total ?? 0;
-    } else {
-      results = await db.all(
-        sql`WITH matches AS (
-              SELECT domain, entity_type, entity_id, title, subtitle, image_key, rank
-              FROM search_index
-              WHERE search_index MATCH ${ftsQuery}
-              ORDER BY rank
-              LIMIT ${limit} OFFSET ${offset}
-            )
-            SELECT m.domain, m.entity_type, m.entity_id, m.title, m.subtitle, m.image_key,
-                   i.r2_key, i.image_version, i.thumbhash, i.dominant_color
-            FROM matches m
-            LEFT JOIN images i ON i.domain = m.domain AND i.entity_type = m.entity_type AND i.entity_id = m.entity_id
-            ORDER BY m.rank`
-      );
-
-      const countRows = await db.all<{ total: number }>(
-        sql`SELECT count(*) as total
-            FROM search_index
-            WHERE search_index MATCH ${ftsQuery}`
-      );
-      total = countRows[0]?.total ?? 0;
+    if (mode === 'semantic') {
+      const hits = await runSemanticSearch(c.env as any, {
+        query,
+        topK: limit + offset,
+      });
+      const paged = hits.slice(offset, offset + limit);
+      return c.json({
+        data: paged.map(toPayload),
+        pagination: {
+          page,
+          limit,
+          total: hits.length,
+          total_pages: Math.ceil(hits.length / limit),
+        },
+      });
     }
 
+    if (mode === 'hybrid') {
+      // Pull top-K from each retriever (twice the requested page size,
+      // capped at 50) and fuse. Pagination applied after fusion.
+      const poolSize = Math.min(Math.max(limit * 2, 20), 50);
+      const [fts, semantic] = await Promise.all([
+        runFtsSearch(db, {
+          ftsQuery,
+          domain: 'reading',
+          limit: poolSize,
+          offset: 0,
+        }).then((r) => r.rows),
+        runSemanticSearch(c.env as any, { query, topK: poolSize }),
+      ]);
+      const fused = rrfCombine([fts, semantic], limit + offset);
+      const paged = fused.slice(offset, offset + limit);
+      return c.json({
+        data: paged.map(toPayload),
+        pagination: {
+          page,
+          limit,
+          total: fused.length,
+          total_pages: Math.ceil(fused.length / limit),
+        },
+      });
+    }
+
+    // keyword (default)
+    const { rows, total } = await runFtsSearch(db, {
+      ftsQuery,
+      domain,
+      limit,
+      offset,
+    });
     return c.json({
-      data: results.map((r) => ({
-        domain: r.domain,
-        entity_type: r.entity_type,
-        entity_id: r.entity_id,
-        title: r.title,
-        subtitle: r.subtitle,
-        image_key: r.image_key,
-        image: r.r2_key
-          ? {
-              cdn_url: buildCdnUrl(r.r2_key, 'medium', r.image_version ?? 1),
-              thumbhash: r.thumbhash,
-              dominant_color: r.dominant_color,
-            }
-          : null,
-      })),
+      data: rows.map(toPayload),
       pagination: {
         page,
         limit,

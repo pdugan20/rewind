@@ -1,5 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { eq, and, desc, sql, gte, lte, asc, count } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, lte, asc, count, inArray } from 'drizzle-orm';
 import { createDb } from '../db/client.js';
 import { readingItems, readingHighlights } from '../db/schema/reading.js';
 import { setCache } from '../lib/cache.js';
@@ -8,6 +8,7 @@ import { notFound, badRequest } from '../lib/errors.js';
 import { getImageAttachment, getImageAttachmentBatch } from '../lib/images.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses, PaginationMeta } from '../lib/schemas/common.js';
+import { vectorIdForArticle } from '../services/embeddings/reading.js';
 
 const reading = createOpenAPIApp();
 
@@ -416,6 +417,66 @@ const articleDetailRoute = createRoute({
       },
     },
     ...errorResponses(401, 404),
+  },
+});
+
+// 4b. GET /articles/{id}/related
+const RelatedArticleSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  author: z.string().nullable(),
+  url: z.string().nullable(),
+  domain: z.string().nullable(),
+  description: z.string().nullable(),
+  score: z.number(),
+});
+
+const relatedArticlesRoute = createRoute({
+  method: 'get',
+  path: '/articles/{id}/related',
+  operationId: 'getReadingArticleRelated',
+  tags: ['Reading'],
+  summary: 'Related articles (semantic similarity)',
+  description:
+    'Returns articles thematically similar to the given one, ranked by cosine similarity against Voyage embeddings. Requires the article to have been embedded (run the admin reembed endpoint to backfill).',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ example: '42' }),
+    }),
+    query: z.object({
+      limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(25)
+        .optional()
+        .default(5)
+        .openapi({ example: 5 }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Related articles, scored',
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(RelatedArticleSchema) }),
+          example: {
+            data: [
+              {
+                id: 742,
+                title: "Tim Robinson broke my boyfriend's brain",
+                author: null,
+                url: 'https://...',
+                domain: 'nytimes.com',
+                description: 'A writer learns the hard way...',
+                score: 0.67,
+              },
+            ],
+          },
+        },
+      },
+    },
+    ...errorResponses(400, 401, 404),
   },
 });
 
@@ -1048,6 +1109,82 @@ reading.openapi(articleDetailRoute, async (c) => {
       created_at: h.createdAt,
     })),
   });
+});
+
+// 4b. GET /articles/{id}/related — semantic similarity via Vectorize
+reading.openapi(relatedArticlesRoute, async (c) => {
+  setCache(c, 'medium');
+  const db = createDb(c.env.DB);
+  const id = parseInt(c.req.param('id'));
+  if (isNaN(id)) return badRequest(c, 'Invalid article ID') as any;
+
+  const { limit } = c.req.valid('query');
+
+  // Confirm the article exists before we try Vectorize.
+  const [article] = await db
+    .select({ id: readingItems.id })
+    .from(readingItems)
+    .where(and(eq(readingItems.id, id), eq(readingItems.userId, 1)))
+    .limit(1);
+  if (!article) return notFound(c, 'Article not found') as any;
+
+  // Fetch the article's own vector (so we can query nearest neighbors
+  // without re-embedding its text).
+  const [selfVec] = await c.env.VECTORIZE_READING.getByIds([
+    vectorIdForArticle(id),
+  ]);
+  if (!selfVec || !selfVec.values) {
+    return c.json({ data: [] });
+  }
+
+  const matches = await c.env.VECTORIZE_READING.query(selfVec.values, {
+    topK: limit + 1, // +1 so we can drop the self match
+    returnMetadata: 'none',
+  });
+
+  const ids: number[] = [];
+  const scoreById = new Map<number, number>();
+  for (const m of matches.matches) {
+    const parts = m.id.split(':');
+    const mid = Number(parts[parts.length - 1]);
+    if (!Number.isFinite(mid) || mid === id) continue;
+    ids.push(mid);
+    scoreById.set(mid, m.score);
+    if (ids.length >= limit) break;
+  }
+
+  if (ids.length === 0) return c.json({ data: [] });
+
+  const rows = await db
+    .select({
+      id: readingItems.id,
+      title: readingItems.title,
+      author: readingItems.author,
+      url: readingItems.url,
+      domain: readingItems.domain,
+      description: readingItems.description,
+    })
+    .from(readingItems)
+    .where(inArray(readingItems.id, ids));
+
+  const rowById = new Map(rows.map((r) => [r.id, r]));
+  const data = ids
+    .map((rid) => {
+      const r = rowById.get(rid);
+      if (!r) return null;
+      return {
+        id: r.id,
+        title: r.title,
+        author: r.author,
+        url: r.url,
+        domain: r.domain,
+        description: r.description,
+        score: scoreById.get(rid) ?? 0,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  return c.json({ data });
 });
 
 // 5. GET /archive

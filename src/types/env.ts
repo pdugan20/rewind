@@ -3,6 +3,7 @@ export interface Env {
   DB: D1Database;
   IMAGES: R2Bucket;
   IMAGE_TRANSFORMS: ImagesBinding;
+  VECTORIZE_READING: VectorizeIndex;
 
   // System
   ALLOWED_ORIGINS: string;
@@ -20,6 +21,7 @@ export interface Env {
   PLEX_URL: string;
   PLEX_TOKEN: string;
   PLEX_WEBHOOK_SECRET: string;
+  PLEX_OWNER_ACCOUNT_TITLE: string;
 
   // TMDB (shared across watching sources)
   TMDB_API_KEY: string;
@@ -44,4 +46,7 @@ export interface Env {
   // Images
   APPLE_MUSIC_DEVELOPER_TOKEN: string;
   FANART_TV_API_KEY: string;
+
+  // Voyage AI (semantic search embeddings)
+  VOYAGE_API_KEY: string;
 }

@@ -21,6 +21,15 @@ migrations_dir = "migrations"
 binding = "IMAGES"
 bucket_name = "rewind-images"
 
+# Vectorize index for semantic search / related-articles (reading domain).
+# Dimensions match voyage-3-lite (512, cosine metric). Embeddings are
+# produced by the Voyage API — not Workers AI — because the quality
+# premium on paraphrased recall is worth the external dependency at
+# our scale.
+[[vectorize]]
+binding = "VECTORIZE_READING"
+index_name = "rewind-reading"
+
 # Cron Triggers
 [triggers]
 crons = [
@@ -38,3 +47,4 @@ binding = "IMAGE_TRANSFORMS"
 
 [vars]
 ALLOWED_ORIGINS = "patdugan.me,docs.rewind.rest,localhost:3000"
+PLEX_OWNER_ACCOUNT_TITLE = "patdugan"

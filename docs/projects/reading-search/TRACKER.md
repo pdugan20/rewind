@@ -129,29 +129,45 @@ Goal: search matches against article body content (first 3000 chars), so mention
 - [ ] **2.6.1** Search for a string that's only in an article body (e.g. "Tim Robinson") returns the NYT article
 - [ ] **2.6.2** BM25 weighting: a query whose exact phrase is in a title ranks that article above one where it's only in the body
 
-## Phase 3: Tier 3 -- highlight indexing -- BLOCKED on Phase 1
+## Phase 3: Tier 3 -- highlight indexing -- COMPLETE (API deployed)
 
 Goal: "find that quote I highlighted about X" works via `search`.
 
-**3.1 -- Highlight search items**
+**3.1 -- Highlight search items** -- COMPLETE
 
-- [ ] **3.1.1** `src/services/instapaper/sync.ts` `upsertHighlights` returns the highlight rows it touched
-- [ ] **3.1.2** Sync loop pushes highlight searchItems: `{ domain: 'reading', entityType: 'highlight', entityId, title: first80(text), subtitle: parentArticleTitle, imageKey: parentArticleImageKey }`
-- [ ] **3.1.3** Reindex endpoint extended to iterate `reading_highlights` with JOIN to parent
+- [x] **3.1.1** `upsertHighlights` now returns `{ count, rows }`; rows contain id, text, note for the current snapshot of highlights on the bookmark
+- [x] **3.1.2** Sync loop pushes a searchItem per highlight (title = first 80 chars, subtitle = bookmark title, body = full text + note when longer than title)
+- [x] **3.1.3** Reindex `buildReading` JOINs `reading_highlights` to `reading_items` and emits a searchItem per row
 
-**3.2 -- Highlight detail endpoint + entity resource**
+**3.2 -- Highlight detail endpoint + entity resource** -- COMPLETE
 
-- [ ] **3.2.1** `GET /v1/reading/highlights/{id}` returns highlight + article context
-- [ ] **3.2.2** MCP `resources.ts` registers `rewind://highlight/{id}` handler calling the new endpoint
-- [ ] **3.2.3** `cross-domain.ts:32` URI map gains `'reading:highlight': 'highlight'`
+- [x] **3.2.1** `GET /v1/reading/highlights/{id}` returns highlight + nested parent-article context; 3 new test cases (happy path, 404, invalid id)
+- [x] **3.2.2** MCP `resources.ts` registers `rewind://highlight/{id}` handler (not yet published to npm -- see MCP bundle notes below)
+- [x] **3.2.3** `cross-domain.ts` URI map gains `'reading:highlight': 'highlight'` (also pending npm publish)
 
-**3.3 -- Tests + smoke**
+**3.3 -- Deploy + smoke test** -- COMPLETE
 
-- [ ] **3.3.1** Test: search hits a highlight's text content and returns `rewind://highlight/{id}` resource link
-- [ ] **3.3.2** Test: `rewind://highlight/{id}` resource returns expected shape
-- [ ] **3.3.3** MCP smoke test in Claude Desktop -- highlight search returns + drill-in works
+- [x] **3.3.1** Commit 13edef0 deployed to prod (version 55ef8854)
+- [x] **3.3.2** Reading reindex picked up 129 highlights (1110 articles + 129 highlights = 1239 rows)
+- [x] **3.3.3** Smoke: `search?q=Altman+OpenAI` returns the matching highlight as the TOP result, with the parent article title as subtitle. `/v1/reading/highlights/2760` returns the full shape (text, note, parent-article context).
+- [ ] **3.3.4** MCP smoke test in Claude Desktop -- gated on publishing mcp-server v0.4.0 with the new highlight resource + URI map
 
-## Phase 4: Tier 4 -- vector embeddings + semantic search -- BLOCKED on Phase 2
+## Phase 4: Tier 4 -- vector embeddings + semantic search -- COMPLETE (API deployed)
+
+Shipped Voyage AI embeddings (voyage-3-lite, 512 dim) + Cloudflare Vectorize
+for semantic search and related-articles. All 1110 reading items embedded
+and queryable. Hybrid ranking via reciprocal rank fusion in place.
+
+Key smoke-test results:
+
+- `GET /v1/reading/articles/6/related` returns 5 thematically-related
+  comedy/SNL articles with cosine scores 0.52-0.60 and no keyword overlap
+  required.
+- `mode=semantic&q=article+about+a+former+SNL+writer` returns the
+  motivating NYT article in the top 3 despite "former" not appearing
+  in the text.
+- Total backfill cost: ~835K tokens (out of 200M monthly Voyage free
+  tier -- 0.4% of budget).
 
 Goal: paraphrased / semantic queries work; "related articles" is a real capability.
 

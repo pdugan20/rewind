@@ -27,6 +27,10 @@ import {
 import { InstapaperClient } from '../services/instapaper/client.js';
 import { enrichArticle } from '../services/instapaper/sync.js';
 import { htmlToText } from '../lib/html-to-text.js';
+import {
+  embedArticles,
+  type ArticleForEmbedding,
+} from '../services/embeddings/reading.js';
 
 const ALL_DOMAINS = [
   'reading',
@@ -293,6 +297,116 @@ adminReindex.openapi(backfillBodyRoute, async (c) => {
   return c.json({
     scanned: rows.length,
     updated,
+    took_ms: Date.now() - t0,
+  });
+});
+
+// ─── Vectorize backfill (reading embeddings) ─────────────────────────
+
+const ReembedBodySchema = z
+  .object({
+    limit: z.number().int().min(1).max(5000).optional(),
+    batchSize: z.number().int().min(1).max(50).optional(),
+    onlyMissing: z.boolean().optional(),
+  })
+  .optional();
+
+const ReembedResponseSchema = z.object({
+  scanned: z.number(),
+  embedded: z.number(),
+  skipped: z.number(),
+  tokens: z.number(),
+  took_ms: z.number(),
+});
+
+const reembedRoute = createRoute({
+  method: 'post',
+  path: '/reembed-reading',
+  operationId: 'reembedReading',
+  tags: ['Admin'],
+  summary: 'Embed reading_items into Vectorize',
+  description:
+    'Iterates reading_items that have any indexable text (title/description/body_excerpt) and upserts their Voyage embeddings into the rewind-reading Vectorize index. Batches server-side.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: ReembedBodySchema } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Reembed complete',
+      content: {
+        'application/json': { schema: ReembedResponseSchema },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminReindex.openapi(reembedRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const body = (await c.req.json().catch(() => undefined)) as
+    | { limit?: number; batchSize?: number; onlyMissing?: boolean }
+    | undefined;
+  const limit = body?.limit ?? 2000;
+  const batchSize = body?.batchSize ?? 10;
+
+  const t0 = Date.now();
+
+  // Select candidates: anything with *some* indexable text. We skip the
+  // `onlyMissing` filter for now since Vectorize doesn't expose a cheap
+  // "does vector exist" predicate; re-running is idempotent (upsert).
+  const rows = await db
+    .select({
+      id: readingItems.id,
+      title: readingItems.title,
+      description: readingItems.description,
+      bodyExcerpt: readingItems.bodyExcerpt,
+      status: readingItems.status,
+      savedAt: readingItems.savedAt,
+      domain: readingItems.domain,
+    })
+    .from(readingItems)
+    .where(eq(readingItems.userId, 1))
+    .limit(limit);
+
+  const articles: ArticleForEmbedding[] = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    bodyExcerpt: r.bodyExcerpt,
+    status: r.status,
+    savedAt: r.savedAt,
+    domain: r.domain,
+  }));
+
+  let embedded = 0;
+  let skipped = 0;
+  let tokens = 0;
+
+  for (let i = 0; i < articles.length; i += batchSize) {
+    const slice = articles.slice(i, i + batchSize);
+    try {
+      const result = await embedArticles(c.env, slice);
+      embedded += result.embedded;
+      skipped += result.skipped;
+      tokens += result.tokens;
+    } catch (err) {
+      // Non-fatal: skip this batch, continue. Common cause would be a
+      // Voyage rate limit or transient 5xx.
+      skipped += slice.length;
+      console.log(
+        `[REEMBED] Batch ${i}-${i + slice.length} failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  return c.json({
+    scanned: rows.length,
+    embedded,
+    skipped,
+    tokens,
     took_ms: Date.now() - t0,
   });
 });
