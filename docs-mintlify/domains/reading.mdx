@@ -14,20 +14,20 @@ Future: books from Goodreads or Literal will be added as a second source under t
 
 ## Key endpoints
 
-| Endpoint                                                                   | Description                            |
-| -------------------------------------------------------------------------- | -------------------------------------- |
-| [GET /reading/recent](/api-reference/reading/recent-articles)              | Recently saved or finished articles    |
-| [GET /reading/currently-reading](/api-reference/reading/currently-reading) | Articles you're in the middle of       |
-| [GET /reading/articles](/api-reference/reading/list-articles)              | Browse all articles with filters       |
-| [GET /reading/articles/:id](/api-reference/reading/article-detail)         | Article detail with highlights + body excerpt |
+| Endpoint                                                                     | Description                                           |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [GET /reading/recent](/api-reference/reading/recent-articles)                | Recently saved or finished articles                   |
+| [GET /reading/currently-reading](/api-reference/reading/currently-reading)   | Articles you're in the middle of                      |
+| [GET /reading/articles](/api-reference/reading/list-articles)                | Browse all articles with filters                      |
+| [GET /reading/articles/:id](/api-reference/reading/article-detail)           | Article detail with highlights + body excerpt         |
 | [GET /reading/articles/:id/related](/api-reference/reading/related-articles) | Thematically related articles via semantic similarity |
-| [GET /reading/archive](/api-reference/reading/archived-articles)           | Finished articles                      |
-| [GET /reading/highlights](/api-reference/reading/list-highlights)          | All highlights across articles         |
-| [GET /reading/highlights/:id](/api-reference/reading/highlight-detail)     | Highlight detail with parent article context |
-| [GET /reading/highlights/random](/api-reference/reading/random-highlight)  | Random highlight with article context  |
-| [GET /reading/stats](/api-reference/reading/reading-stats)                 | Reading statistics                     |
-| [GET /reading/streaks](/api-reference/reading/reading-streaks)             | Consecutive days with reading activity |
-| [GET /reading/domains](/api-reference/reading/top-domains)                 | Top source domains                     |
+| [GET /reading/archive](/api-reference/reading/archived-articles)             | Finished articles                                     |
+| [GET /reading/highlights](/api-reference/reading/list-highlights)            | All highlights across articles                        |
+| [GET /reading/highlights/:id](/api-reference/reading/highlight-detail)       | Highlight detail with parent article context          |
+| [GET /reading/highlights/random](/api-reference/reading/random-highlight)    | Random highlight with article context                 |
+| [GET /reading/stats](/api-reference/reading/reading-stats)                   | Reading statistics                                    |
+| [GET /reading/streaks](/api-reference/reading/reading-streaks)               | Consecutive days with reading activity                |
+| [GET /reading/domains](/api-reference/reading/top-domains)                   | Top source domains                                    |
 
 ## Reading status
 
@@ -51,7 +51,7 @@ Highlighted passages from articles are stored with their position and timestamp.
 
 Every article is embedded into a Cloudflare Vectorize index at sync time via [Voyage AI](https://docs.voyageai.com/) (voyage-3-lite, 512-dim, cosine). Two retrieval paths are available beyond keyword FTS:
 
-- **`GET /v1/search?mode=semantic&domain=reading`** or **`?mode=hybrid&domain=reading`** — meaning-based recall over article titles, descriptions, and body excerpts. Hybrid fuses FTS + semantic via reciprocal rank fusion (k=60). Returns a cosine `score` alongside each result. Use for queries where the user describes what an article was *about* rather than quoting it.
+- **`GET /v1/search?mode=semantic&domain=reading`** or **`?mode=hybrid&domain=reading`** — meaning-based recall over article titles, descriptions, and body excerpts. Hybrid fuses FTS + semantic via reciprocal rank fusion (k=60). Returns a cosine `score` alongside each result. Use for queries where the user describes what an article was _about_ rather than quoting it.
 - **`GET /v1/reading/articles/:id/related?limit=5`** — "what else did I read like this?" Reuses the article's stored vector, no Voyage call at query time.
 
 Article text composition for embedding: `title + description + body_excerpt` (first ~3500 chars). Articles with no indexable text are skipped. Re-embedding on content updates is handled automatically by the sync pipeline.
