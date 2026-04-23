@@ -52,7 +52,12 @@ export function ArticleCard({
   article: Article;
   onOpen?: (url: string) => void;
 }) {
-  const primaryUrl = article.instapaper_url ?? article.url ?? null;
+  // Primary click goes to the real source URL so users land on the
+  // actual article. instapaper_url doesn't deep-link into the iOS app
+  // from Desktop; it just opens instapaper.com/read/:id in a browser,
+  // which is rarely what the user wants when they're already in a
+  // desktop chat.
+  const primaryUrl = article.url ?? article.instapaper_url ?? null;
   const clickable = primaryUrl != null;
   const [hovered, setHovered] = useState(false);
 
@@ -87,9 +92,7 @@ export function ArticleCard({
           ? 'var(--color-background-secondary, rgba(127,127,127,0.05))'
           : 'transparent',
       }}
-      aria-label={
-        clickable ? `Open ${article.title} in Instapaper` : article.title
-      }
+      aria-label={clickable ? `Open ${article.title}` : article.title}
     >
       <div style={textColStyle}>
         <div style={titleStyle}>{article.title}</div>
