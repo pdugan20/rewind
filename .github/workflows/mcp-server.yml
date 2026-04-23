@@ -7,10 +7,12 @@ on:
     branches: [main]
     paths:
       - 'mcp-server/**'
+      - 'docs-mintlify/**'
   pull_request:
     branches: [main]
     paths:
       - 'mcp-server/**'
+      - 'docs-mintlify/**'
 
 concurrency:
   group: mcp-server-${{ github.ref }}
@@ -35,6 +37,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+
+      - name: Verify MDX docs reference every registered tool/prompt/resource
+        run: node scripts/check-docs.mjs
 
       - name: Verify package contents
         run: npm pack --dry-run

@@ -771,7 +771,11 @@ describe('MCP Server', () => {
   describe('initialization', () => {
     it('lists all tools', async () => {
       const { tools } = await client.listTools();
-      expect(tools.length).toBeGreaterThanOrEqual(29);
+      // Exact count so adding/removing a tool fails the test and forces
+      // an accompanying docs update. See manifest-snapshot.test.ts for
+      // the structural snapshot and scripts/check-docs.mjs for the
+      // MDX cross-check.
+      expect(tools.length).toBe(39);
 
       const names = tools.map((t) => t.name);
       expect(names).toContain('get_health');
@@ -798,7 +802,12 @@ describe('MCP Server', () => {
 
     it('lists resources', async () => {
       const { resources } = await client.listResources();
+      // At minimum, the non-templated rewind://sync/status resource
+      // should always be present. Exact shape is covered by
+      // manifest-snapshot.test.ts.
       expect(resources.length).toBeGreaterThanOrEqual(1);
+      const uris = resources.map((r) => r.uri);
+      expect(uris).toContain('rewind://sync/status');
     });
 
     it('lists prompts', async () => {

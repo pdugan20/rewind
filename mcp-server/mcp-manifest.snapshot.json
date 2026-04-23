@@ -1,0 +1,1128 @@
+{
+  "tools": [
+    {
+      "name": "browse_movies",
+      "description": "Browse the movie collection with filters for genre, decade, director, and year. Supports sorting, pagination, and returns top-N posters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "genre": {
+            "type": "string",
+            "description": "Optional: filter by genre (e.g. 'Horror', 'Comedy', 'Drama')"
+          },
+          "decade": {
+            "type": "string",
+            "description": "Optional: filter by decade (e.g. '1990', '2000')"
+          },
+          "director": {
+            "type": "string",
+            "description": "Optional: filter by director name"
+          },
+          "year": {
+            "type": "string",
+            "description": "Optional: filter by release year"
+          },
+          "sort": {
+            "type": "string",
+            "description": "Optional: sort by field (default: watched_at). Options: watched_at, title, year, rating"
+          },
+          "order": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Optional: sort order (default: desc)"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of movies to return"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "find_similar_articles",
+      "description": "Find articles thematically similar to a given article by cosine similarity over Voyage AI embeddings. Use after an article has been surfaced (via search, get_recent_reads, or an @rewind://article/{id} mention) when the user asks \"what else was I reading like that\" or \"show me related pieces\". No Voyage API call is made — the article's stored vector is reused.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "article_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Internal Rewind article id (from an earlier search/recent result)"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 5,
+            "description": "Number of related articles to return"
+          }
+        },
+        "required": ["article_id"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_activity_details",
+      "description": "Get detailed information about a specific running activity by ID, including distance, pace, heart rate, elevation, calories, and a Strava resource link.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Activity ID (from get_recent_runs or get_personal_records)"
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_activity_splits",
+      "description": "Get per-mile splits for a running activity. Shows pace, elevation, and heart rate for each mile. Get the activity ID from get_recent_runs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Activity ID (from get_recent_runs or get_personal_records)"
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_album_details",
+      "description": "Get detailed information about a specific album by ID: artist, play count, track listing, cover art, and Apple Music link.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Album ID"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_artist_details",
+      "description": "Get detailed information about a specific artist by ID: play count, top albums, top tracks, artist image, and Apple Music link.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Artist ID"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_collecting_stats",
+      "description": "Get overall collection statistics including total items, format breakdown (vinyl, CD, cassette), unique artists, genre data, and year range. Supports date filtering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_feed",
+      "description": "Get the unified activity feed across all domains. Returns a chronological list of recent activities (listens, runs, watches, reads, collection adds). Supports date filtering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of feed items to return"
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "listening",
+              "running",
+              "watching",
+              "collecting",
+              "reading"
+            ],
+            "description": "Optional: filter feed to a single domain"
+          },
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_health",
+      "description": "Check the health and sync status of the Rewind API. Returns API status and last sync times for each data domain.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_listening_genres",
+      "description": "Get genre breakdown over time from Last.fm listening history, grouped by week/month/year. Designed for stacked chart visualization.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "group_by": {
+            "type": "string",
+            "enum": ["week", "month", "year"],
+            "default": "month",
+            "description": "Grouping period (default: month)"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Max genres to return -- rest grouped as \"Other\" (default 10)"
+          },
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_listening_stats",
+      "description": "Get overall listening statistics from Last.fm including total scrobbles, unique artists, albums, tracks, and daily average. Supports date filtering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_listening_streaks",
+      "description": "Get listening streak data from Last.fm -- current consecutive days with scrobbles and the longest streak ever.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_movie_details",
+      "description": "Get detailed information about a specific movie by ID, including director, genres, rating, summary, watch history, poster image, and Letterboxd review links for rated watches.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Movie ID"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_now_playing",
+      "description": "Get the track currently playing (or most recently scrobbled) on Last.fm. Returns track + artist + album, album cover image, and Apple Music resource link.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_on_this_day",
+      "description": "Get historical 'on this day' items -- what happened on a given date in previous years across all domains. Defaults to today. Great for nostalgia and reflection.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12,
+            "description": "Optional: month (1-12). Defaults to current month."
+          },
+          "day": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 31,
+            "description": "Optional: day (1-31). Defaults to current day."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_personal_records",
+      "description": "Get personal running records (PRs) from Strava -- fastest times at standard distances like mile, 5K, 10K, half marathon, marathon.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_physical_media",
+      "description": "Browse the physical media collection (Blu-ray, 4K UHD, HD DVD). Search by title, filter by format. Returns top-N cover art and pagination.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Optional: search by title (e.g. 'Princess Bride', 'Kubrick')"
+          },
+          "media_type": {
+            "type": "string",
+            "enum": ["bluray", "uhd_bluray", "hddvd"],
+            "description": "Optional: filter by format (bluray, uhd_bluray, hddvd)"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of items to return"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_physical_media_stats",
+      "description": "Get statistics for the physical media collection including total items and breakdown by format (Blu-ray, 4K UHD, HD DVD).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_random_highlight",
+      "description": "Get a single random highlight from saved Instapaper articles. Great for daily inspiration or reflection.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_reading_highlights",
+      "description": "Get saved highlights from Instapaper articles. Returns the highlighted text, notes, source article, and article URLs as resource links.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of highlights to return"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_reading_stats",
+      "description": "Get overall reading statistics from Instapaper including total articles, finished count, currently reading, highlights, and word count.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_recent_listens",
+      "description": "Get recently scrobbled tracks from Last.fm, with top-N album covers and Apple Music resource links. Supports date filtering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of recent tracks to return (default 10, max 50)"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination. Combine with limit to page through longer windows."
+          },
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_recent_reads",
+      "description": "Get recently saved articles from Instapaper. Returns title, author, domain, read time, status, top-N site images where available, and article URLs as resource links.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of recent articles to return (max 50)"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination. Combine with limit to page through longer windows."
+          },
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_recent_runs",
+      "description": "Get recent running activities from Strava. Returns runs with ID, distance, pace, duration, location, and Strava activity resource links for top-N.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of recent runs to return (max 50)"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination. Combine with limit to page through longer windows."
+          },
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_recent_watches",
+      "description": "Get recently watched movies and TV shows from Plex and Letterboxd. Returns titles, ratings, watch dates, top-N posters, and Letterboxd review links where available. In MCP Apps hosts, renders an interactive poster grid inline.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of recent watches to return (max 50)"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination (1-indexed). Combine with limit to page through longer windows like \"last month\"."
+          },
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_running_stats",
+      "description": "Get overall running statistics from Strava including total runs, distance, elevation, duration, average pace, and Eddington number.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_running_streaks",
+      "description": "Get running streak data from Strava -- current consecutive days with runs and the longest streak ever.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_running_years",
+      "description": "Get per-year summary of running activity: total runs, distance, elevation, duration, average pace, longest run, and race count for every year on record.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_top_albums",
+      "description": "Get top listened-to albums from Last.fm for a given time period, with top-N covers and Apple Music links.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "7day",
+              "1month",
+              "3month",
+              "6month",
+              "12month",
+              "overall"
+            ],
+            "default": "1month",
+            "description": "Time period for rankings"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of albums to return"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_top_artists",
+      "description": "Get top listened-to artists from Last.fm for a given time period, with top-N artist images and Apple Music links.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "7day",
+              "1month",
+              "3month",
+              "6month",
+              "12month",
+              "overall"
+            ],
+            "default": "1month",
+            "description": "Time period for rankings"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of artists to return"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_top_tracks",
+      "description": "Get top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "7day",
+              "1month",
+              "3month",
+              "6month",
+              "12month",
+              "overall"
+            ],
+            "default": "1month",
+            "description": "Time period for rankings"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of tracks to return"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_vinyl_collection",
+      "description": "Browse the vinyl record collection from Discogs. Returns records with artist, title, year, format, and label, plus top-N cover art and Discogs resource links. Supports search, filters, sort, and pagination.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Optional: search by artist or album title (e.g. 'Beastie Boys', 'Dark Side')"
+          },
+          "format": {
+            "type": "string",
+            "description": "Optional: filter by format (e.g. 'Vinyl', 'CD', 'Cassette')"
+          },
+          "genre": {
+            "type": "string",
+            "description": "Optional: filter by genre"
+          },
+          "artist": {
+            "type": "string",
+            "description": "Optional: filter by artist name"
+          },
+          "sort": {
+            "type": "string",
+            "description": "Optional: sort field (default: date_added). Options: date_added, title, year, artist"
+          },
+          "order": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Optional: sort order (default: desc)"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of records to return"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination"
+          },
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_watching_decades",
+      "description": "Get decade breakdown across all watched movies. Returns each decade with movie count.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_watching_directors",
+      "description": "Get top directors by watched-movie count. Returns directors ranked by how many of their films you have watched.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Number of directors to return"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_watching_genres",
+      "description": "Get genre breakdown across all watched movies. Returns each genre with movie count and percentage of total watches.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_watching_stats",
+      "description": "Get overall watching statistics including total movies, watch time, movies this year, top genre, top director, TV show counts, and episode counts. Supports date filtering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Optional: start of date range (ISO 8601)"
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional: end of date range (ISO 8601)"
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search across all domains (listening, running, watching, collecting, reading). Three ranking modes: keyword (default) uses FTS5 full-text search across all domains; semantic uses Voyage AI embeddings for paraphrased / meaning-based recall (reading domain only); hybrid fuses both (reading domain only). Use semantic or hybrid when the user describes what an article was ABOUT rather than quoting its words.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query text"
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "listening",
+              "running",
+              "watching",
+              "collecting",
+              "reading"
+            ],
+            "description": "Optional: filter results to a single domain"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["keyword", "semantic", "hybrid"],
+            "description": "Ranking mode. keyword = FTS (default). semantic = cosine-similarity over article embeddings (reading only). hybrid = FTS + semantic via reciprocal rank fusion (reading only)."
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "Number of results to return"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number for pagination"
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "semantic_search",
+      "description": "Semantic search over the reading domain using Voyage AI embeddings. Use when the user describes the gist or topic of an article they remember rather than quoting exact words — e.g. \"article about a former SNL writer\" or \"piece about tech layoffs\". Returns articles ranked by cosine similarity with a score in [0,1]. Reading domain only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural-language description of the article"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10,
+            "description": "Number of matches to return"
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "ui_hello_debug",
+      "description": "Show the Rewind MCP Apps diagnostic UI. Invoke this to verify the MCP Apps pipeline end-to-end against a known-working minimal React app.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  ],
+  "prompts": [
+    {
+      "name": "compare-periods",
+      "description": "Compare activity between two time periods for a specific domain",
+      "arguments": [
+        {
+          "name": "domain",
+          "description": "Domain to compare (listening, running, watching, collecting, reading)",
+          "required": true
+        },
+        {
+          "name": "period1",
+          "description": "First period description (e.g. 'January 2025', 'last month')",
+          "required": true
+        },
+        {
+          "name": "period2",
+          "description": "Second period description (e.g. 'January 2024', 'this month')",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "film-diet",
+      "description": "Characterize the shape of my movie-watching taste: genre mix, decade distribution, top directors, rewatch rate, and where I lean vs drift.",
+      "arguments": [
+        {
+          "name": "period",
+          "description": "Optional period scope (e.g. '12month', '2025'). Default: lifetime.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "find-article",
+      "description": "Recover an article the user only half-remembers, using hybrid keyword + semantic search, then surface related pieces",
+      "arguments": [
+        {
+          "name": "description",
+          "description": "Whatever the user remembers about the article: topic, person mentioned, feeling, rough time period, etc.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "letterboxd-review-draft",
+      "description": "Draft a Letterboxd-style review for a recently watched film that I have rated but not yet reviewed.",
+      "arguments": [
+        {
+          "name": "title",
+          "description": "Optional film title to review. If omitted, picks the most recent unreviewed watch.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "training-report",
+      "description": "Analyze the past 7-14 days of running activity and produce a coach-style training report.",
+      "arguments": [
+        {
+          "name": "days",
+          "description": "Number of days to analyze (default 7).",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "weekly-summary",
+      "description": "Generate a summary of activity across all domains for the past week",
+      "arguments": []
+    },
+    {
+      "name": "year-in-review",
+      "description": "Generate a comprehensive year-in-review for a given year across all domains",
+      "arguments": [
+        {
+          "name": "year",
+          "description": "The year to review (e.g. 2025)",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "uri": "rewind://sync/status",
+      "name": "sync-status",
+      "description": "Current sync health and last sync times for each data domain"
+    },
+    {
+      "uri": "ui://rewind/hello.html",
+      "name": "Rewind -- Hello (debug)",
+      "description": "Minimal diagnostic UI. Mirror of the Phase-1 app that rendered cleanly earlier today.",
+      "mimeType": "text/html;profile=mcp-app"
+    },
+    {
+      "uri": "ui://rewind/recent-watches.html",
+      "name": "Rewind -- Recent Watches",
+      "description": "Interactive poster grid for recently watched movies. Consumes get_recent_watches structuredContent.",
+      "mimeType": "text/html;profile=mcp-app"
+    }
+  ],
+  "resourceTemplates": [
+    {
+      "uriTemplate": "rewind://activity/{id}",
+      "name": "activity",
+      "description": "Full detail for a single running activity by internal Rewind id: distance, pace, elevation, HR, cadence, calories, location, and Strava URL."
+    },
+    {
+      "uriTemplate": "rewind://album/{id}",
+      "name": "album",
+      "description": "Full detail for a single album by internal Rewind id: artist, play count, track listing, cover art metadata, and Apple Music URL."
+    },
+    {
+      "uriTemplate": "rewind://article/{id}",
+      "name": "article",
+      "description": "Full detail for a saved Instapaper article by internal Rewind id: title, author, domain, word count, read progress, tags, source URL, and embedded highlights."
+    },
+    {
+      "uriTemplate": "rewind://artist/{id}",
+      "name": "artist",
+      "description": "Full detail for a single artist by internal Rewind id: play count, genre, top albums, top tracks, image metadata, and Apple Music URL."
+    },
+    {
+      "uriTemplate": "rewind://highlight/{id}",
+      "name": "highlight",
+      "description": "Full detail for a single Instapaper highlight by internal Rewind id: highlighted text, optional note, and nested parent-article context (title, author, domain, source URL)."
+    },
+    {
+      "uriTemplate": "rewind://listening/year/{year}",
+      "name": "listening-year",
+      "description": "Listening year-in-review statistics for a given year"
+    },
+    {
+      "uriTemplate": "rewind://movie/{id}",
+      "name": "movie",
+      "description": "Full detail for a single movie by internal Rewind id: metadata, watch history, ratings, and Letterboxd review URLs."
+    },
+    {
+      "uriTemplate": "rewind://physical-media/{id}",
+      "name": "physical-media",
+      "description": "Full detail for a single physical media item (Blu-ray / 4K UHD / HD DVD) by internal Rewind id: title, year, format, resolution, HDR, audio, watch history."
+    },
+    {
+      "uriTemplate": "rewind://running/year/{year}",
+      "name": "running-year",
+      "description": "Running year-in-review statistics for a given year"
+    },
+    {
+      "uriTemplate": "rewind://show/{id}",
+      "name": "show",
+      "description": "Full detail for a single TV show by internal Rewind id: metadata, seasons, and watched-episode counts."
+    },
+    {
+      "uriTemplate": "rewind://vinyl/{id}",
+      "name": "vinyl",
+      "description": "Full detail for a single vinyl record (or other Discogs collection item) by internal Rewind id: title, artists, formats, genres, cover art, Discogs URL, community stats."
+    },
+    {
+      "uriTemplate": "rewind://watching/year/{year}",
+      "name": "watching-year",
+      "description": "Watching year-in-review statistics for a given year"
+    }
+  ]
+}

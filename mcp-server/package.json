@@ -20,6 +20,8 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "mcp:update": "vitest run src/__tests__/manifest-snapshot.test.ts --update",
+    "check:docs": "npm run build && node scripts/check-docs.mjs",
     "inspect": "npx @modelcontextprotocol/inspector node dist/index.js",
     "deploy": "npm run build:web && wrangler deploy",
     "prepublishOnly": "npm run build"
