@@ -94,18 +94,23 @@ is_filtered = 0` drops from **564 → 0**.
   trending toward near-zero as the system reaches steady state.
 - No regression in existing `enrichBatch` behavior — all existing tests pass.
 
-## Prod baseline (captured 2026-04-23)
+## Prod baseline vs. post-backfill (2026-04-23 → 2026-04-24)
 
-| Metric                                                         | Count        |
-| -------------------------------------------------------------- | ------------ |
-| Total tracks                                                   | 28,674       |
-| Tracks unenriched (`itunes_enriched_at IS NULL`, not filtered) | 564          |
-| Tracks with Apple Music URL                                    | 24,432 (85%) |
-| Total artists                                                  | 5,495        |
-| Artists with null URL                                          | 877 (16%)    |
-| Artists with null URL AND `playcount >= 5`                     | 39           |
-| Artists with Apple Music id                                    | 4,618 (84%)  |
-| Albums with null URL                                           | 1,854        |
+| Metric                                                         | Before      | After           |
+| -------------------------------------------------------------- | ----------- | --------------- |
+| Tracks unenriched (`itunes_enriched_at IS NULL`, not filtered) | 564         | **0** ✅        |
+| Artists with null URL                                          | 877 (16%)   | **258** (5%)    |
+| Artists with null URL AND `playcount >= 5`                     | 39          | **5**           |
+| Artists with Apple Music id                                    | 4,618 (84%) | **5,077** (92%) |
+| Albums with null URL                                           | 1,854       | 1,213           |
+| Artist images from `apple-music` source                        | **0**       | **273**         |
+| Artist images with null-source placeholder                     | 411         | **138**         |
+
+The 5 residual `playcount >= 5` nulls are conjunction names (e.g. "Henrik
+Lindstrand & Kasper Bjørke") that Apple Music doesn't index as a single
+artist entity. Expected failure; they'll retry in 30 days via the tier
+predicate. The 258 total nulls are similarly long-tail "no match"
+artists — the daily cron keeps chipping away through retry.
 
 ## Backfill pacing assumptions
 

@@ -155,11 +155,31 @@
                 "error_rate"
               ]
             }
+          },
+          "enrichment": {
+            "type": "object",
+            "properties": {
+              "artists_missing_apple_music_url_with_plays": {
+                "type": "integer"
+              },
+              "artists_missing_apple_music_url": {
+                "type": "integer"
+              },
+              "tracks_missing_itunes_enrichment": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "artists_missing_apple_music_url_with_plays",
+              "artists_missing_apple_music_url",
+              "tracks_missing_itunes_enrichment"
+            ]
           }
         },
         "required": [
           "status",
-          "domains"
+          "domains",
+          "enrichment"
         ]
       },
       "ErrorResponse": {

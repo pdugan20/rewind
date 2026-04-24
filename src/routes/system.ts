@@ -1,8 +1,9 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { desc, eq, sql, and } from 'drizzle-orm';
+import { desc, eq, sql, and, isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { syncRuns } from '../db/schema/system.js';
+import { lastfmArtists, lastfmTracks } from '../db/schema/lastfm.js';
 import { setCache } from '../lib/cache.js';
 
 const DOMAINS = ['listening', 'running', 'watching', 'collecting', 'reading'];
@@ -28,10 +29,22 @@ const SyncDomainStatus = z.object({
   error_rate: z.number().openapi({ example: 0.0 }),
 });
 
+const EnrichmentHealth = z.object({
+  // Visible-bug watchdog: any artist the user actually listens to (>=5
+  // plays) missing an Apple Music URL. Expect this to stay in low single
+  // digits — growth indicates the enrichment pipeline is degrading.
+  artists_missing_apple_music_url_with_plays: z.number().int(),
+  // Full-coverage counter for trend monitoring.
+  artists_missing_apple_music_url: z.number().int(),
+  // Track-enrichment backlog. Expect to stay near 0; the daily cron drains it.
+  tracks_missing_itunes_enrichment: z.number().int(),
+});
+
 const SyncHealthResponse = z
   .object({
     status: z.literal('ok'),
     domains: z.record(z.string(), SyncDomainStatus),
+    enrichment: EnrichmentHealth,
   })
   .openapi('SyncHealthResponse');
 
@@ -176,9 +189,34 @@ system.openapi(syncHealthRoute, async (c) => {
     };
   }
 
+  // Enrichment-pipeline health counters. Added in the apple-music-enrichment
+  // project so a silent regression in track or artist URL coverage is
+  // visible without manual SQL.
+  const [enrichmentRow] = await db
+    .select({
+      artistsMissingWithPlays: sql<number>`sum(case when ${lastfmArtists.appleMusicUrl} is null and ${lastfmArtists.isFiltered} = 0 and ${lastfmArtists.playcount} >= 5 then 1 else 0 end)`,
+      artistsMissing: sql<number>`sum(case when ${lastfmArtists.appleMusicUrl} is null and ${lastfmArtists.isFiltered} = 0 then 1 else 0 end)`,
+    })
+    .from(lastfmArtists);
+
+  const [trackRow] = await db
+    .select({
+      tracksMissing: sql<number>`count(*)`,
+    })
+    .from(lastfmTracks)
+    .where(
+      and(isNull(lastfmTracks.itunesEnrichedAt), eq(lastfmTracks.isFiltered, 0))
+    );
+
   return c.json({
     status: 'ok' as const,
     domains,
+    enrichment: {
+      artists_missing_apple_music_url_with_plays:
+        enrichmentRow?.artistsMissingWithPlays ?? 0,
+      artists_missing_apple_music_url: enrichmentRow?.artistsMissing ?? 0,
+      tracks_missing_itunes_enrichment: trackRow?.tracksMissing ?? 0,
+    },
   });
 });
 

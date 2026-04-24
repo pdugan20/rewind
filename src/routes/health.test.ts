@@ -39,6 +39,21 @@ describe('health/sync endpoint', () => {
       expect(body.domains.collecting.last_sync).toBeNull();
     });
 
+    it('exposes enrichment-pipeline counters', async () => {
+      const res = await SELF.fetch('http://localhost/v1/health/sync');
+      const body = (await res.json()) as any;
+      expect(body.enrichment).toBeDefined();
+      expect(
+        typeof body.enrichment.artists_missing_apple_music_url_with_plays
+      ).toBe('number');
+      expect(typeof body.enrichment.artists_missing_apple_music_url).toBe(
+        'number'
+      );
+      expect(typeof body.enrichment.tracks_missing_itunes_enrichment).toBe(
+        'number'
+      );
+    });
+
     it('shows sync details after a sync run', async () => {
       const db = drizzle(env.DB);
       const startedAt = new Date(Date.now() - 5000).toISOString();
