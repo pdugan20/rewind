@@ -682,6 +682,70 @@ const clearPlaceholdersRoute = createRoute({
   },
 });
 
+// ─── One-shot: titlecase URL-shaped authors ──────────────────────────
+// NYT (and some other sources) put a URL like
+//   https://www.nytimes.com/by/mike-isaac
+// in `article:author` meta instead of a name. Forward-facing extraction
+// now converts these at sync time, but existing rows need a one-shot
+// cleanup. Converts the last path slug to titlecase.
+
+const CleanupAuthorsResponseSchema = z.object({
+  scanned: z.number(),
+  updated: z.number(),
+  took_ms: z.number(),
+});
+
+const cleanupAuthorsRoute = createRoute({
+  method: 'post',
+  path: '/cleanup-reading-url-authors',
+  operationId: 'cleanupReadingUrlAuthors',
+  tags: ['Admin'],
+  summary:
+    "Titlecase URL-shaped authors (e.g. 'https://.../by/mike-isaac' → 'Mike Isaac')",
+  responses: {
+    200: {
+      description: 'Cleanup complete',
+      content: {
+        'application/json': { schema: CleanupAuthorsResponseSchema },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminReindex.openapi(cleanupAuthorsRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const t0 = Date.now();
+  const rows = await db
+    .select({ id: readingItems.id, author: readingItems.author })
+    .from(readingItems)
+    .where(sql`${readingItems.author} LIKE 'http%'`);
+
+  let updated = 0;
+  for (const row of rows) {
+    const raw = row.author;
+    if (!raw) continue;
+    const slug = raw.replace(/\/+$/, '').split('/').pop();
+    if (!slug) continue;
+    const titled = slug
+      .replace(/[-_]+/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    if (titled && titled !== raw) {
+      await db
+        .update(readingItems)
+        .set({ author: titled })
+        .where(eq(readingItems.id, row.id));
+      updated++;
+    }
+  }
+
+  return c.json({
+    scanned: rows.length,
+    updated,
+    took_ms: Date.now() - t0,
+  });
+});
+
 adminReindex.openapi(clearPlaceholdersRoute, async (c) => {
   const db = createDb(c.env.DB);
   const t0 = Date.now();

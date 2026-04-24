@@ -150,8 +150,23 @@ async function fetchOgMetadata(url: string, env?: OgEnv): Promise<OgMetadata> {
       getMeta('article:published_time') ??
       getMeta('datePublished') ??
       getMeta('date');
+    // NYT (and some other sources) put a URL in `article:author` rather
+    // than a name. Skip URL-shaped values and fall through to the next
+    // tag; if all we have is a URL, convert `https://site/by/jane-doe`
+    // into "Jane Doe" by titlecasing the last path slug.
+    const pickName = (raw: string | null): string | null => {
+      if (!raw) return null;
+      if (!/^https?:\/\//i.test(raw)) return raw;
+      const slug = raw.replace(/\/+$/, '').split('/').pop();
+      if (!slug) return null;
+      return slug
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    };
     result.author =
-      getMeta('author') ?? getMeta('article:author') ?? getMeta('byl');
+      pickName(getMeta('author')) ??
+      pickName(getMeta('article:author')) ??
+      pickName(getMeta('byl'));
 
     // Article tags/section
     const section = getMeta('article:section');

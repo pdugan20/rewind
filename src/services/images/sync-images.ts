@@ -74,12 +74,23 @@ export async function processItems(
           result.succeeded++;
         } else {
           result.skipped++;
-          await insertNoSourcePlaceholder(
-            db,
-            domain,
-            entityType,
-            outcome.value.params.entityId
-          );
+          const entityId = outcome.value.params.entityId;
+          await insertNoSourcePlaceholder(db, domain, entityType, entityId);
+          // Refresh createdAt so PLACEHOLDER_RETRY_DAYS gates the next
+          // retry. Without this, a dead URL that fails once would
+          // retry on every pipeline run forever (since insertNoSourcePlaceholder
+          // is onConflictDoNothing, the original timestamp never updates).
+          await db
+            .update(images)
+            .set({ createdAt: new Date().toISOString() })
+            .where(
+              and(
+                eq(images.domain, domain),
+                eq(images.entityType, entityType),
+                eq(images.entityId, entityId),
+                eq(images.source, 'none')
+              )
+            );
         }
       } else {
         result.failed++;
@@ -289,13 +300,23 @@ export async function processCollectingImages(
 /**
  * Process images for reading entities (articles) missing images.
  * Extracts og:image from article URLs for thumbnails.
+ *
+ * Targets two populations (mirrors listening's pattern):
+ *   1. Articles with a URL or og_image_url but no `images` row yet.
+ *   2. Articles with a null-source placeholder row older than
+ *      PLACEHOLDER_RETRY_DAYS. Keeps flaky or temporarily-blocked
+ *      sources from being locked out forever without requiring the
+ *      manual /admin/clear-reading-image-placeholders endpoint.
  */
 export async function processReadingImages(
   db: Database,
   env: PipelineEnv,
   maxItems = DEFAULT_MAX_ITEMS
 ): Promise<SyncImageResult[]> {
-  // Articles without images that have an og_image_url from enrichment
+  const retryCutoff = new Date(
+    Date.now() - PLACEHOLDER_RETRY_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+
   const articleRows = await db
     .select({
       id: readingItems.id,
@@ -306,9 +327,18 @@ export async function processReadingImages(
     .where(
       and(
         eq(readingItems.itemType, 'article'),
-        sql`(${readingItems.ogImageUrl} IS NOT NULL OR ${readingItems.url} IS NOT NULL) AND ${readingItems.id} NOT IN (
-          SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
-          WHERE ${images.domain} = 'reading' AND ${images.entityType} = 'articles'
+        sql`(${readingItems.ogImageUrl} IS NOT NULL OR ${readingItems.url} IS NOT NULL) AND (
+          ${readingItems.id} NOT IN (
+            SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+            WHERE ${images.domain} = 'reading' AND ${images.entityType} = 'articles'
+          )
+          OR ${readingItems.id} IN (
+            SELECT CAST(${images.entityId} AS INTEGER) FROM ${images}
+            WHERE ${images.domain} = 'reading'
+              AND ${images.entityType} = 'articles'
+              AND ${images.source} = 'none'
+              AND ${images.createdAt} < ${retryCutoff}
+          )
         )`
       )
     )
