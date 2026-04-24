@@ -173,6 +173,8 @@ adminReindex.openapi(reenrichRoute, async (c) => {
     INSTAPAPER_CONSUMER_SECRET: string;
     INSTAPAPER_ACCESS_TOKEN: string;
     INSTAPAPER_ACCESS_TOKEN_SECRET: string;
+    SCRAPER_API_KEY?: string;
+    OPENGRAPH_IO_KEY?: string;
   };
   const db = createDb(c.env.DB);
 
@@ -214,7 +216,10 @@ adminReindex.openapi(reenrichRoute, async (c) => {
       continue;
     }
     try {
-      await enrichArticle(db, client, row.id, bookmarkId, row.url);
+      await enrichArticle(db, client, row.id, bookmarkId, row.url, {
+        SCRAPER_API_KEY: env.SCRAPER_API_KEY,
+        OPENGRAPH_IO_KEY: env.OPENGRAPH_IO_KEY,
+      });
       const [after] = await db
         .select({
           status: readingItems.enrichmentStatus,

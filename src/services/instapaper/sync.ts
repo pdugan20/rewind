@@ -21,6 +21,7 @@ import { afterSync } from '../../lib/after-sync.js';
 import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import { htmlToText } from '../../lib/html-to-text.js';
 import { BROWSER_HEADERS_NAVIGATE } from '../../lib/browser-headers.js';
+import { fetchOgFallback } from '../../lib/og-fallback.js';
 
 interface SyncResult {
   itemsSynced: number;
@@ -86,7 +87,12 @@ interface OgMetadata {
   articleTags: string | null;
 }
 
-async function fetchOgMetadata(url: string): Promise<OgMetadata> {
+interface OgEnv {
+  SCRAPER_API_KEY?: string;
+  OPENGRAPH_IO_KEY?: string;
+}
+
+async function fetchOgMetadata(url: string, env?: OgEnv): Promise<OgMetadata> {
   const result: OgMetadata = {
     ogImage: null,
     siteName: null,
@@ -95,40 +101,48 @@ async function fetchOgMetadata(url: string): Promise<OgMetadata> {
     ogDescription: null,
     articleTags: null,
   };
+
+  let html = '';
+  let directOk = false;
   try {
     const response = await fetch(url, {
       headers: BROWSER_HEADERS_NAVIGATE,
       redirect: 'follow',
     });
-    if (!response.ok) return result;
-
-    // Read only the first 50KB to find the <head> section
-    const reader = response.body?.getReader();
-    if (!reader) return result;
-
-    let html = '';
-    const decoder = new TextDecoder();
-    while (html.length < 50000) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      html += decoder.decode(value, { stream: true });
-      if (html.includes('</head>')) break;
+    if (response.ok) {
+      // Read only the first 50KB to find the <head> section
+      const reader = response.body?.getReader();
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (html.length < 50_000) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          html += decoder.decode(value, { stream: true });
+          if (html.includes('</head>')) break;
+        }
+        reader.cancel();
+        directOk = true;
+      }
     }
-    reader.cancel();
+  } catch {
+    // Non-fatal — paywall, anti-bot, network. Fall through to scraper tier.
+  }
 
-    // Helper to extract meta content
-    const getMeta = (property: string): string | null => {
-      const re1 = new RegExp(
-        `<meta[^>]*(?:property|name)=["']${property}["'][^>]*content=["']([^"']+)["']`,
-        'i'
-      );
-      const re2 = new RegExp(
-        `<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${property}["']`,
-        'i'
-      );
-      return html.match(re1)?.[1] ?? html.match(re2)?.[1] ?? null;
-    };
+  // Helper to extract meta content from the head HTML we have
+  const getMeta = (property: string): string | null => {
+    if (!html) return null;
+    const re1 = new RegExp(
+      `<meta[^>]*(?:property|name)=["']${property}["'][^>]*content=["']([^"']+)["']`,
+      'i'
+    );
+    const re2 = new RegExp(
+      `<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${property}["']`,
+      'i'
+    );
+    return html.match(re1)?.[1] ?? html.match(re2)?.[1] ?? null;
+  };
 
+  if (directOk) {
     result.ogImage = getMeta('og:image');
     result.siteName = getMeta('og:site_name');
     result.ogDescription = getMeta('og:description');
@@ -150,9 +164,20 @@ async function fetchOgMetadata(url: string): Promise<OgMetadata> {
       tags.push(tagMatch[1]);
     }
     result.articleTags = tags.length > 0 ? JSON.stringify(tags) : null;
-  } catch {
-    // Non-fatal — article may be behind a paywall or unavailable
   }
+
+  // Tier 3/4 fallback for image + description when direct fetch didn't
+  // yield them (DataDome on NYT, PerimeterX on Bloomberg, etc). Only
+  // fires when keys are configured and the cheap path came up empty.
+  if (env && (!result.ogImage || !result.ogDescription)) {
+    const fb = await fetchOgFallback(url, env);
+    if (fb) {
+      if (!result.ogImage && fb.image) result.ogImage = fb.image;
+      if (!result.ogDescription && fb.description)
+        result.ogDescription = fb.description;
+    }
+  }
+
   return result;
 }
 
@@ -230,13 +255,14 @@ export async function enrichArticle(
   client: InstapaperClient,
   itemId: number,
   bookmarkId: number,
-  url: string | null
+  url: string | null,
+  ogEnv?: OgEnv
 ): Promise<void> {
   const updates: Record<string, unknown> = {};
 
   // Fetch OG metadata from article URL
   if (url) {
-    const og = await fetchOgMetadata(url);
+    const og = await fetchOgMetadata(url, ogEnv);
     if (og.siteName) updates.siteName = og.siteName;
     if (og.author) updates.author = og.author;
     if (og.ogImage) updates.ogImageUrl = og.ogImage;
@@ -420,6 +446,8 @@ export async function syncReading(
     INSTAPAPER_CONSUMER_SECRET: string;
     INSTAPAPER_ACCESS_TOKEN: string;
     INSTAPAPER_ACCESS_TOKEN_SECRET: string;
+    SCRAPER_API_KEY?: string;
+    OPENGRAPH_IO_KEY?: string;
   }
 ): Promise<SyncResult> {
   const runId = await startSyncRun(db);
@@ -504,7 +532,11 @@ export async function syncReading(
             client,
             id,
             bookmark.bookmark_id,
-            bookmark.url
+            bookmark.url,
+            {
+              SCRAPER_API_KEY: env.SCRAPER_API_KEY,
+              OPENGRAPH_IO_KEY: env.OPENGRAPH_IO_KEY,
+            }
           );
 
           // Feed item

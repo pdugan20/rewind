@@ -5,6 +5,11 @@ export interface Env {
   IMAGE_TRANSFORMS: ImagesBinding;
   VECTORIZE_READING: VectorizeIndex;
 
+  // OG fallback scrapers for DataDome/PerimeterX-protected sources
+  // (NYT, WSJ, Bloomberg, Reuters). Optional — calls skip if unset.
+  SCRAPER_API_KEY?: string;
+  OPENGRAPH_IO_KEY?: string;
+
   // System
   ALLOWED_ORIGINS: string;
 
