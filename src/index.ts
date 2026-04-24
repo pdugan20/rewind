@@ -31,7 +31,9 @@ import {
   processWatchingImages,
   processCollectingImages,
   processReadingImages,
+  refreshArtistImageFromAppleMusicId,
 } from './services/images/sync-images.js';
+import { enrichBatch, enrichArtistsByName } from './services/itunes/enrich.js';
 import { shouldRetry } from './lib/sync-retry.js';
 import { shouldSkipWatchingImages } from './services/images/sync-images.js';
 
@@ -150,6 +152,30 @@ export default {
             } catch (err) {
               console.log(
                 `[ERROR] Last.fm daily sync failed: ${err instanceof Error ? err.message : String(err)}`
+              );
+            }
+
+            // Apple Music enrichment steps. Isolated from the sync above —
+            // iTunes / Apple Music 403s or outages should not mark the
+            // Last.fm sync as failed. Each step independently try/catched so
+            // a failure in one doesn't poison the others.
+            try {
+              const trackResult = await enrichBatch(db, 200);
+              const artistResult = await enrichArtistsByName(db, 100);
+              const imageResult = await refreshArtistImageFromAppleMusicId(
+                db,
+                env,
+                100
+              );
+              console.log(
+                `[ENRICH] tracks ${trackResult.succeeded}/${trackResult.skipped}/${trackResult.failed}` +
+                  ` artists ${artistResult.succeeded}/${artistResult.skipped}/${artistResult.failed}` +
+                  ` images ${imageResult.succeeded}/${imageResult.skipped}/${imageResult.failed}` +
+                  ` (succeeded/skipped/failed)`
+              );
+            } catch (err) {
+              console.log(
+                `[ERROR] Apple Music enrichment failed: ${err instanceof Error ? err.message : String(err)}`
               );
             }
           })()

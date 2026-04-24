@@ -3925,6 +3925,146 @@
         }
       }
     },
+    "/v1/listening/admin/enrich-artists": {
+      "post": {
+        "operationId": "enrichListeningArtists",
+        "x-hidden": true,
+        "tags": [
+          "Listening",
+          "Admin"
+        ],
+        "summary": "Enrich artists with Apple Music URLs via direct iTunes lookup",
+        "description": "Fallback for artists the track-driven enrichBatch path cannot reach. Searches iTunes with entity=musicArtist and writes apple_music_id + apple_music_url on a name match. Retries rows whose last attempt was >30 days ago.",
+        "responses": {
+          "200": {
+            "description": "Enrichment results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "results": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "number"
+                        },
+                        "succeeded": {
+                          "type": "number"
+                        },
+                        "skipped": {
+                          "type": "number"
+                        },
+                        "failed": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "succeeded",
+                        "skipped",
+                        "failed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "results"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listening/admin/refresh-artist-images": {
+      "post": {
+        "operationId": "refreshListeningArtistImages",
+        "x-hidden": true,
+        "tags": [
+          "Listening",
+          "Admin"
+        ],
+        "summary": "Refresh artist images via stored Apple Music id",
+        "description": "Deterministic-by-id fetch against the Apple Music catalog for artists that have an apple_music_id but no image row (or a stale null-source placeholder). Bypasses the name-search waterfall.",
+        "responses": {
+          "200": {
+            "description": "Image refresh results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "results": {
+                      "type": "object",
+                      "properties": {
+                        "domain": {
+                          "type": "string"
+                        },
+                        "entityType": {
+                          "type": "string"
+                        },
+                        "queued": {
+                          "type": "number"
+                        },
+                        "succeeded": {
+                          "type": "number"
+                        },
+                        "skipped": {
+                          "type": "number"
+                        },
+                        "failed": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "domain",
+                        "entityType",
+                        "queued",
+                        "succeeded",
+                        "skipped",
+                        "failed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "results"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/running/stats": {
       "get": {
         "operationId": "getRunningStats",

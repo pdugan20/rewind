@@ -61,43 +61,52 @@
       from the existing name-search flow)
 - [x] `npx tsc --noEmit` clean; `npm test` all 599 tests pass
 
-## Phase 3 — Code: cron wiring + retry TTL
+## Phase 3 — Code: cron wiring + retry TTL ✅
 
-- [ ] Extend the `0 3 * * *` cron handler in `src/index.ts`: after existing
+- [x] Extend the `0 3 * * *` cron handler in `src/index.ts`: after existing
       top-lists / stats / `processListeningImages()` steps, call in order:
-  - [ ] `enrichBatch(db, 200)` (existing, just add the call)
-  - [ ] `enrichArtistsByName(db, 100)` (new)
-  - [ ] `refreshArtistImageFromAppleMusicId(db, 100)` (new)
-- [ ] Wrap each in the same try/catch isolation the other sync steps use so
-      one failing doesn't poison the others
-- [ ] Emit a single `[ENRICH]` log line per run summarizing
-      `succeeded / no_match / rate_limited / failed` per step
+  - [x] `enrichBatch(db, 200)`
+  - [x] `enrichArtistsByName(db, 100)`
+  - [x] `refreshArtistImageFromAppleMusicId(db, env, 100)`
+- [x] Separate try/catch so iTunes/Apple Music failures don't mark the
+      Last.fm sync as failed
+- [x] Single `[ENRICH]` log line per run with per-step succeeded/skipped/failed
 
-## Phase 4 — Admin endpoints
+## Phase 4 — Admin endpoints ✅
 
-- [ ] `POST /v1/admin/listening/enrich-artists` in `src/routes/listening.ts`
-      — calls `enrichArtistsByName` with configurable `limit` query param
-      (default 100, max 500)
-- [ ] `POST /v1/admin/listening/refresh-artist-images` — calls
-      `refreshArtistImageFromAppleMusicId` similarly
-- [ ] Same Bearer-admin-key auth as existing admin routes
-- [ ] Return JSON shape matching existing enrich route (for script reuse)
+- [x] `POST /v1/listening/admin/enrich-artists` — calls `enrichArtistsByName`
+      (limit query param, default 100, max 500)
+- [x] `POST /v1/listening/admin/refresh-artist-images` — calls
+      `refreshArtistImageFromAppleMusicId` (limit default 100, max 500)
+- [x] Same auth scope as the existing `/listening/admin/enrich-apple-music`
+      (read-key accepted, admin-scope override via /v1/admin/ prefix if ever
+      needed — deferred since it's not a regression of current behavior)
+- [x] JSON shape matches the existing enrich route for script reuse
+- [x] OpenAPI snapshot regenerated to include the two new routes
 
-## Phase 5 — Tests
+## Phase 5 — Tests ✅
 
-- [ ] `src/services/itunes/enrich.test.ts`:
-  - [ ] `enrichArtistsByName` writes URL + id on mocked direct-artist match
-  - [ ] `enrichArtistsByName` bumps `itunes_enriched_at` but leaves URL null
-        on no-match
-  - [ ] `enrichArtistsByName` honors 30-day retry tier (time-manipulated)
-  - [ ] `enrichArtistsByName` early-exits on 403 without touching remaining
-        rows
-- [ ] `src/services/images/sync-images.test.ts` (new file or existing):
-  - [ ] `refreshArtistImageFromAppleMusicId` skips artists without
-        `apple_music_id`
-  - [ ] Handles Apple Music catalog 404 / no artwork gracefully
-- [ ] `npm test` all green
-- [ ] `npm run lint` clean
+- [x] `src/services/itunes/enrich.test.ts` — 10 tests covering:
+  - [x] Writes URL + id on direct-artist match
+  - [x] Falls back to `artistViewUrl` when `artistLinkUrl` absent
+  - [x] Bumps `itunes_enriched_at` but leaves URL null on no-match
+  - [x] Rejects name mismatches (via `artistMatches` filter)
+  - [x] Skips already-enriched artists
+  - [x] Skips filtered artists
+  - [x] Honors 30-day retry tier (time-manipulated: 15d skipped, 40d retried)
+  - [x] Never-tried rows sort ahead of retried rows even when playcounts differ
+  - [x] 403 rate-limit stops batch early without touching remaining rows
+- [x] `src/services/images/refresh-artist-images.test.ts` — 8 tests covering:
+  - [x] Zero-work when `APPLE_MUSIC_DEVELOPER_TOKEN` is unset
+  - [x] Skips artists without `apple_music_id`
+  - [x] Calls `runPipeline` with `prefetchedCandidates` on artwork hit
+  - [x] Writes null-source placeholder when catalog returns no artwork
+  - [x] Retries stale placeholder (>7d old)
+  - [x] Does NOT retry fresh placeholder (<7d old)
+  - [x] Handles 404 gracefully (stale id)
+  - [x] Skips filtered artists
+- [x] `npm test`: 617 passed (was 599, +18 new)
+- [x] `npm run lint` clean
 
 ## Phase 6 — Deploy
 

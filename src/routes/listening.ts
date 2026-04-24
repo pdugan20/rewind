@@ -20,7 +20,8 @@ import { images } from '../db/schema/system.js';
 import { LastfmClient } from '../services/lastfm/client.js';
 import type { LastfmPeriod } from '../services/lastfm/client.js';
 import { backfillImages } from '../services/images/backfill.js';
-import { enrichBatch } from '../services/itunes/enrich.js';
+import { enrichBatch, enrichArtistsByName } from '../services/itunes/enrich.js';
+import { refreshArtistImageFromAppleMusicId } from '../services/images/sync-images.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses, PaginationMeta } from '../lib/schemas/common.js';
@@ -3262,6 +3263,97 @@ listening.openapi(enrichAppleMusicRoute, async (c) => {
   );
 
   const results = await enrichBatch(db, limit);
+  return c.json({ success: true, results });
+});
+
+// POST /v1/listening/admin/enrich-artists
+const enrichArtistsRoute = createRoute({
+  method: 'post',
+  path: '/admin/enrich-artists',
+  operationId: 'enrichListeningArtists',
+  'x-hidden': true,
+  tags: ['Listening', 'Admin'],
+  summary: 'Enrich artists with Apple Music URLs via direct iTunes lookup',
+  description:
+    'Fallback for artists the track-driven enrichBatch path cannot reach. ' +
+    'Searches iTunes with entity=musicArtist and writes apple_music_id + ' +
+    'apple_music_url on a name match. Retries rows whose last attempt was ' +
+    '>30 days ago.',
+  responses: {
+    200: {
+      description: 'Enrichment results',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            results: z.object({
+              total: z.number(),
+              succeeded: z.number(),
+              skipped: z.number(),
+              failed: z.number(),
+            }),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+listening.openapi(enrichArtistsRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const limit = Math.min(
+    Math.max(1, parseInt(c.req.query('limit') ?? '100', 10)),
+    500
+  );
+
+  const results = await enrichArtistsByName(db, limit);
+  return c.json({ success: true, results });
+});
+
+// POST /v1/listening/admin/refresh-artist-images
+const refreshArtistImagesRoute = createRoute({
+  method: 'post',
+  path: '/admin/refresh-artist-images',
+  operationId: 'refreshListeningArtistImages',
+  'x-hidden': true,
+  tags: ['Listening', 'Admin'],
+  summary: 'Refresh artist images via stored Apple Music id',
+  description:
+    'Deterministic-by-id fetch against the Apple Music catalog for ' +
+    'artists that have an apple_music_id but no image row (or a stale ' +
+    'null-source placeholder). Bypasses the name-search waterfall.',
+  responses: {
+    200: {
+      description: 'Image refresh results',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            results: z.object({
+              domain: z.string(),
+              entityType: z.string(),
+              queued: z.number(),
+              succeeded: z.number(),
+              skipped: z.number(),
+              failed: z.number(),
+            }),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+listening.openapi(refreshArtistImagesRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const limit = Math.min(
+    Math.max(1, parseInt(c.req.query('limit') ?? '100', 10)),
+    500
+  );
+
+  const results = await refreshArtistImageFromAppleMusicId(db, c.env, limit);
   return c.json({ success: true, results });
 });
 
