@@ -25,27 +25,21 @@ Interactive card UIs for reading and music, inline clickable links across all li
 
 <Update label="April 23, 2026" tags={["New releases", "Improvements"]}>
 
-## MCP server v0.4.3
+## MCP server
 
-Rolls up three releases (v0.3.0 → v0.4.3) into one changelog: interactive UI, semantic recall for reading, and full-text article fetch.
-
-- **Interactive poster grid** for `get_recent_watches` via [MCP Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/). Renders inline in Claude Desktop, Claude web, VS Code GitHub Copilot, and Goose with thumbhash placeholders, theme-aware cards, and clickable Letterboxd links.
-- **Semantic search for reading** via Voyage AI embeddings (voyage-3-lite, 512 dim, cosine). New `semantic_search` and `find_similar_articles` tools; `search` gains a `mode` param (`keyword` | `semantic` | `hybrid`, RRF k=60).
-- **Full article content** via new `get_article(id)` tool — returns the HTML-stripped Instapaper body (5-30 KB, including paywalled NYT / WSJ / Atlantic). Also exposed as a `content` field on `GET /v1/reading/articles/{id}`.
+- **Interactive poster grid** for `get_recent_watches` via [MCP Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/) — renders inline in Claude Desktop, Claude web, VS Code GitHub Copilot, and Goose.
+- **Semantic and hybrid search** for reading via new `semantic_search` and `find_similar_articles` tools; `search` gains a `mode` param (`keyword` | `semantic` | `hybrid`).
+- **Full article text** via new `get_article(id)` tool — returns the Instapaper body, including paywalled NYT / WSJ / Atlantic.
 - **Instapaper deep-links** on every reading article: `instapaper_url` (paywall-free web archive) and `instapaper_app_url` (iOS app).
-- **10 entity resources** (`rewind://movie/{id}`, `rewind://album/{id}`, `rewind://highlight/{id}`, etc.) and **3 new prompts** (`letterboxd-review-draft`, `training-report`, `film-diet`, `find-article`).
-- **Richer tool responses**: cover art / posters as `image` blocks, external platform URLs as `resource_link` blocks, `structuredContent` on every tool for reliable numeric reasoning.
-- **12 new tools** across domains including `get_listening_genres`, `get_watching_directors`, `get_article`, `semantic_search`, `find_similar_articles`.
-- Server instructions enforce anti-hallucination (quote from excerpt, offer candidates when ambiguous) and tool routing (prefer Rewind over web search for the user's own history).
+- New prompts: `letterboxd-review-draft`, `training-report`, `film-diet`, and `find-article`.
 
 ## API
 
-- `GET /v1/search?mode=keyword|semantic|hybrid` — three ranking modes; semantic/hybrid are reading-only, return a cosine `score`.
+- `GET /v1/search?mode=keyword|semantic|hybrid` — three ranking modes; semantic/hybrid are reading-only.
 - `GET /v1/reading/articles/{id}` — gains `content`, `instapaper_url`, `instapaper_app_url`.
-- `GET /v1/reading/articles/{id}/related?limit=5` — related articles backed by Cloudflare Vectorize.
-- `GET /v1/reading/highlights/{id}` — highlight detail with nested parent-article context.
+- `GET /v1/reading/articles/{id}/related?limit=5` — related articles via semantic similarity.
+- `GET /v1/reading/highlights/{id}` — highlight detail with parent-article context.
 - All `/recent` endpoints: `limit` cap raised from 20 to 50, new `page` param for offset pagination.
-- FTS tokenizer normalizes dotted acronyms (`S.N.L.` ↔ `SNL`) at index and query time.
 
 </Update>
 
@@ -55,11 +49,11 @@ Rolls up three releases (v0.3.0 → v0.4.3) into one changelog: interactive UI, 
 
 New [MCP server](/mcp-server) for connecting AI assistants to your Rewind data. Published as [`rewind-mcp-server`](https://www.npmjs.com/package/rewind-mcp-server) on npm.
 
-- 30 tools across all five domains: listening, running, watching, collecting, reading
-- Cross-domain search, unified feed, and on-this-day
-- Built-in prompt templates for weekly summaries, year-in-review, and period comparisons
-- Works with Claude Desktop, Claude Code, Claude iOS/web, and any MCP-compatible client
-- Local mode via `npx` or remote mode via `mcp.rewind.rest`
+- 30 tools across all five domains: listening, running, watching, collecting, reading.
+- Cross-domain search, unified feed, and on-this-day.
+- Built-in prompt templates for weekly summaries, year-in-review, and period comparisons.
+- Works with Claude Desktop, Claude Code, Claude iOS/web, and any MCP-compatible client.
+- Local mode via `npx` or remote mode via `mcp.rewind.rest`.
 
 </Update>
 
@@ -67,9 +61,7 @@ New [MCP server](/mcp-server) for connecting AI assistants to your Rewind data. 
 
 ## Reading domain: delta sync
 
-Instapaper sync now uses the `have` and `highlights` API parameters for delta syncing. Instead of re-fetching all bookmarks and highlights every cycle, the sync sends known bookmark hashes and highlight IDs so the API only returns new or changed data. Also handles `delete_ids` to remove bookmarks deleted from Instapaper.
-
-Added `verify_credentials` method to the Instapaper client for credential health checks. Fixed the `/health/sync` endpoint to include the Reading domain.
+Instapaper sync now transfers only new or changed bookmarks and highlights each cycle, and deletions from Instapaper propagate through. `/health/sync` now includes the Reading domain.
 
 </Update>
 
@@ -79,12 +71,12 @@ Added `verify_credentials` method to the Instapaper client for credential health
 
 New Reading domain powered by Instapaper. Track articles, reading progress, and highlights.
 
-- `GET /reading/articles` -- browse and filter articles by status, domain, tag
-- `GET /reading/currently-reading` -- articles in progress
-- `GET /reading/highlights` -- highlighted passages across all articles
-- `GET /reading/highlights/random` -- random highlight for daily quote
-- `GET /reading/stats` -- reading statistics and streaks
-- `GET /reading/year/{year}` -- year in review
+- `GET /reading/articles` — browse and filter articles by status, domain, or tag.
+- `GET /reading/currently-reading` — articles in progress.
+- `GET /reading/highlights` — highlighted passages across all articles.
+- `GET /reading/highlights/random` — random highlight for a daily quote.
+- `GET /reading/stats` — reading statistics and streaks.
+- `GET /reading/year/{year}` — year in review.
 
 Articles include metadata extracted from OG tags: author, site name, word count, estimated read time, and thumbnail images.
 
@@ -110,8 +102,8 @@ Listening endpoints now include `apple_music_url` and `preview_url` fields on tr
 
 ## Watching: reviews, ratings, and last watched
 
-- Movies endpoint now includes `last_watched_at` for sorting by when you last watched
-- Reviews and ratings from Letterboxd are now exposed via `review`, `review_url`, and `user_rating` fields on watch history entries
+- Movies endpoint now includes `last_watched_at` for sorting by when you last watched.
+- Reviews and ratings from Letterboxd are now exposed via `review`, `review_url`, and `user_rating` fields on watch history entries.
 
 </Update>
 
@@ -119,12 +111,12 @@ Listening endpoints now include `apple_music_url` and `preview_url` fields on tr
 
 ## Genres, on-this-day, and date filtering
 
-- New `GET /listening/genres` endpoint with genre breakdown over time
-- Artists now tagged with genres from Last.fm (`genre` field on artist responses)
-- New `GET /feed/on-this-day` endpoint showing what happened on this date in previous years
-- Artist and album detail endpoints now include `first_scrobbled_at`
-- All recent, stats, and feed endpoints now accept `date`, `from`, and `to` query parameters for date filtering
-- Album and artist artwork now falls back to Deezer when Apple Music and iTunes don't have a match
+- New `GET /listening/genres` endpoint with genre breakdown over time.
+- Artists now tagged with genres from Last.fm (`genre` field on artist responses).
+- New `GET /feed/on-this-day` endpoint for what happened on this date in previous years.
+- Artist and album detail endpoints now include `first_scrobbled_at`.
+- All recent, stats, and feed endpoints now accept `date`, `from`, and `to` query parameters.
+- Album and artist artwork falls back to Deezer when Apple Music and iTunes don't have a match.
 
 </Update>
 
@@ -134,10 +126,10 @@ Listening endpoints now include `apple_music_url` and `preview_url` fields on tr
 
 New physical media endpoints in the Collecting domain. Track your Blu-ray, DVD, and 4K UHD collection synced from Trakt, with cross-referencing against your Plex watch history.
 
-- `GET /collecting/media` -- list physical media collection
-- `GET /collecting/media/:id` -- media item detail
-- `GET /collecting/media/stats` -- collection statistics by format
-- `GET /collecting/media/cross-reference` -- owned vs watched comparison
+- `GET /collecting/media` — list physical media collection.
+- `GET /collecting/media/:id` — media item detail.
+- `GET /collecting/media/stats` — collection statistics by format.
+- `GET /collecting/media/cross-reference` — owned vs. watched comparison.
 
 </Update>
 
@@ -147,10 +139,10 @@ New physical media endpoints in the Collecting domain. Track your Blu-ray, DVD, 
 
 New endpoints that work across all data domains:
 
-- `GET /feed` -- unified activity feed with cursor-based pagination
-- `GET /feed/domain/:domain` -- filter feed to a single domain
-- `GET /search` -- full-text search across listening, running, watching, and collecting
-- `GET /health` -- API health check
-- `GET /health/sync` -- sync status for all domains
+- `GET /feed` — unified activity feed with cursor-based pagination.
+- `GET /feed/domain/:domain` — filter feed to a single domain.
+- `GET /search` — full-text search across listening, running, watching, and collecting.
+- `GET /health` — API health check.
+- `GET /health/sync` — sync status for all domains.
 
 </Update>

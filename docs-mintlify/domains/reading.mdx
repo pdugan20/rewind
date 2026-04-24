@@ -8,9 +8,7 @@ description: Instapaper articles, reading progress, and highlights
 
 The Reading domain tracks articles and reading activity from Instapaper, including reading progress, starred items, and highlighted passages.
 
-Data syncs every 6 hours via cron using **delta sync** -- each sync sends known bookmark hashes and highlight IDs to the Instapaper API, so only new or changed data is returned. The sync also handles bookmarks deleted from Instapaper. Reading status is derived from progress data.
-
-Future: books from Goodreads or Literal will be added as a second source under the same domain.
+Data syncs every 6 hours via cron. Each sync transfers only new or changed bookmarks and highlights, and deletions from Instapaper propagate through. Reading status is derived from progress data.
 
 ## Key endpoints
 
@@ -45,33 +43,31 @@ The 0.75 threshold accounts for article footers, author bios, and related links 
 
 ## Highlights
 
-Highlighted passages from articles are stored with their position and timestamp. The highlights endpoints return each highlight with its parent article context (title, author, domain, URL), making it useful for building a highlights collection or daily quote feature. Each highlight is also independently searchable via `/v1/search` and exposed as a `rewind://highlight/{id}` resource.
+Highlighted passages are stored with their position and timestamp. The highlights endpoints return each highlight with parent-article context (title, author, domain, URL), useful for building a highlights collection or a daily-quote feature. Highlights are independently searchable via `/v1/search`.
 
-## Semantic search & related articles
+## Semantic search and related articles
 
-Every article is embedded into a Cloudflare Vectorize index at sync time via [Voyage AI](https://docs.voyageai.com/) (voyage-3-lite, 512-dim, cosine). Two retrieval paths are available beyond keyword FTS:
+Beyond keyword search, the Reading domain supports two meaning-based retrieval paths:
 
-- **`GET /v1/search?mode=semantic&domain=reading`** or **`?mode=hybrid&domain=reading`** — meaning-based recall over article titles, descriptions, and body excerpts. Hybrid fuses FTS + semantic via reciprocal rank fusion (k=60). Returns a cosine `score` alongside each result. Use for queries where the user describes what an article was _about_ rather than quoting it.
-- **`GET /v1/reading/articles/:id/related?limit=5`** — "what else did I read like this?" Reuses the article's stored vector, no Voyage call at query time.
-
-Article text composition for embedding: `title + description + body_excerpt` (first ~3500 chars). Articles with no indexable text are skipped. Re-embedding on content updates is handled automatically by the sync pipeline.
+- `GET /v1/search?mode=semantic&domain=reading` or `?mode=hybrid&domain=reading` — search by what an article was _about_ rather than the exact words in it. Hybrid blends keyword and semantic results. Both return a relevance `score` per result.
+- `GET /v1/reading/articles/:id/related?limit=5` — "what else did I read like this?" for any article.
 
 ## Article metadata
 
 Each article includes metadata extracted during sync:
 
-- **Title, description** -- from Instapaper
-- **Author, site name** -- from the article's OG meta tags
-- **Domain** -- parsed from the URL (e.g., "wired.com", "theatlantic.com")
-- **Word count, estimated read time** -- computed from the article's processed text
-- **Thumbnail** -- from the article's `og:image`, stored in the image pipeline
+- **Title, description** — from Instapaper.
+- **Author, site name** — from the article's OG meta tags.
+- **Domain** — parsed from the URL (e.g., `wired.com`, `theatlantic.com`).
+- **Word count, estimated read time** — computed from the article's processed text.
+- **Thumbnail** — from the article's `og:image`, served via the image pipeline.
 
 ## Filtering
 
 Articles can be filtered by:
 
-- `status` -- unread, reading, finished, skipped, abandoned
-- `domain` -- source domain (wired.com, theatlantic.com, etc.)
-- `tag` -- Instapaper tags
-- `starred` -- true/false
-- Standard date filters (`date`, `from`, `to`)
+- `status` — unread, reading, finished, skipped, abandoned.
+- `domain` — source domain (e.g., `wired.com`, `theatlantic.com`).
+- `tag` — Instapaper tags.
+- `starred` — true/false.
+- Standard date filters (`date`, `from`, `to`).
