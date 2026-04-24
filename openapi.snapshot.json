@@ -14008,6 +14008,8 @@
                       "title": "The Age of AI",
                       "author": "Derek Thompson",
                       "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                      "instapaper_url": "https://www.instapaper.com/read/1234567",
+                      "instapaper_app_url": "instapaper://read/1234567",
                       "domain": "theatlantic.com",
                       "site_name": "The Atlantic",
                       "description": "How artificial intelligence is reshaping every industry.",
@@ -14213,6 +14215,8 @@
                       "title": "Why the Internet Isn't Working",
                       "author": "Maxwell Zeff",
                       "url": "https://www.wired.com/story/why-the-internet-isnt-working",
+                      "instapaper_url": "https://www.instapaper.com/read/2345678",
+                      "instapaper_app_url": "instapaper://read/2345678",
                       "domain": "wired.com",
                       "site_name": "Wired",
                       "description": "The web was supposed to connect us. What went wrong?",
@@ -14548,6 +14552,8 @@
                       "title": "The Age of AI",
                       "author": "Derek Thompson",
                       "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                      "instapaper_url": "https://www.instapaper.com/read/1234567",
+                      "instapaper_app_url": "instapaper://read/1234567",
                       "domain": "theatlantic.com",
                       "site_name": "The Atlantic",
                       "description": "How artificial intelligence is reshaping every industry.",
@@ -14822,6 +14828,8 @@
                   "title": "The Age of AI",
                   "author": "Derek Thompson",
                   "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                  "instapaper_url": "https://www.instapaper.com/read/1234567",
+                  "instapaper_app_url": "instapaper://read/1234567",
                   "domain": "theatlantic.com",
                   "site_name": "The Atlantic",
                   "description": "How artificial intelligence is reshaping every industry.",
@@ -14995,6 +15003,8 @@
                       "title": "Tim Robinson broke my boyfriend's brain",
                       "author": null,
                       "url": "https://...",
+                      "instapaper_url": "https://www.instapaper.com/read/3456789",
+                      "instapaper_app_url": "instapaper://read/3456789",
                       "domain": "nytimes.com",
                       "description": "A writer learns the hard way...",
                       "score": 0.67
@@ -15258,6 +15268,8 @@
                       "title": "The Age of AI",
                       "author": "Derek Thompson",
                       "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                      "instapaper_url": "https://www.instapaper.com/read/1234567",
+                      "instapaper_app_url": "instapaper://read/1234567",
                       "domain": "theatlantic.com",
                       "site_name": "The Atlantic",
                       "description": "How artificial intelligence is reshaping every industry.",
@@ -15477,7 +15489,9 @@
                         "title": "The Age of AI",
                         "author": "Derek Thompson",
                         "domain": "theatlantic.com",
-                        "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai"
+                        "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                        "instapaper_url": "https://www.instapaper.com/read/1234567",
+                        "instapaper_app_url": "instapaper://read/1234567"
                       }
                     }
                   ],
@@ -15638,7 +15652,9 @@
                     "title": "Why the Internet Isn't Working",
                     "author": "Maxwell Zeff",
                     "domain": "wired.com",
-                    "url": "https://www.wired.com/story/why-the-internet-isnt-working"
+                    "url": "https://www.wired.com/story/why-the-internet-isnt-working",
+                    "instapaper_url": "https://www.instapaper.com/read/2345678",
+                    "instapaper_app_url": "instapaper://read/2345678"
                   }
                 }
               }
@@ -15802,7 +15818,9 @@
                     "title": "The Age of AI",
                     "author": "Derek Thompson",
                     "domain": "theatlantic.com",
-                    "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai"
+                    "url": "https://www.theatlantic.com/technology/archive/2025/the-age-of-ai",
+                    "instapaper_url": "https://www.instapaper.com/read/1234567",
+                    "instapaper_app_url": "instapaper://read/1234567"
                   }
                 }
               }
