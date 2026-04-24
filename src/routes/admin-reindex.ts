@@ -206,41 +206,36 @@ adminReindex.openapi(reenrichRoute, async (c) => {
     .where(filter)
     .limit(limit);
 
-  let succeeded = 0;
-  let stillFailed = 0;
-
-  for (const row of rows) {
-    const bookmarkId = Number(row.sourceId);
-    if (!bookmarkId) {
-      stillFailed++;
-      continue;
-    }
-    try {
-      await enrichArticle(db, client, row.id, bookmarkId, row.url, {
-        SCRAPER_API_KEY: env.SCRAPER_API_KEY,
-        OPENGRAPH_IO_KEY: env.OPENGRAPH_IO_KEY,
-      });
-      const [after] = await db
-        .select({
-          status: readingItems.enrichmentStatus,
-          ogImageUrl: readingItems.ogImageUrl,
-        })
-        .from(readingItems)
-        .where(eq(readingItems.id, row.id))
-        .limit(1);
-      // In missing-images mode, success means the og_image_url got
-      // populated (the row is already `completed`). In failed mode,
-      // success means the row graduated from `failed` to `completed`.
-      const ok =
-        mode === 'missing-images'
+  // Process rows in parallel. og-fallback's internal slot pool caps
+  // concurrent ScraperAPI/OG.io calls at 5, matching the Hobby-tier
+  // plan limit; excess wait their turn.
+  const results = await Promise.all(
+    rows.map(async (row) => {
+      const bookmarkId = Number(row.sourceId);
+      if (!bookmarkId) return false;
+      try {
+        await enrichArticle(db, client, row.id, bookmarkId, row.url, {
+          SCRAPER_API_KEY: env.SCRAPER_API_KEY,
+          OPENGRAPH_IO_KEY: env.OPENGRAPH_IO_KEY,
+        });
+        const [after] = await db
+          .select({
+            status: readingItems.enrichmentStatus,
+            ogImageUrl: readingItems.ogImageUrl,
+          })
+          .from(readingItems)
+          .where(eq(readingItems.id, row.id))
+          .limit(1);
+        return mode === 'missing-images'
           ? after?.ogImageUrl != null
           : after?.status === 'completed';
-      if (ok) succeeded++;
-      else stillFailed++;
-    } catch {
-      stillFailed++;
-    }
-  }
+      } catch {
+        return false;
+      }
+    })
+  );
+  const succeeded = results.filter(Boolean).length;
+  const stillFailed = results.length - succeeded;
 
   return c.json({
     retried: rows.length,

@@ -21,12 +21,41 @@ export interface OgFallbackResult {
   description?: string;
 }
 
-let fallbackQueue: Promise<unknown> = Promise.resolve();
+/**
+ * Allow up to MAX_CONCURRENT third-party scraper calls at once. Matches
+ * the ScraperAPI Hobby-tier concurrency (5). If a caller tries to run
+ * more in parallel, the extra ones wait their turn.
+ *
+ * Replaces the single-file promise chain from claudenotes — that pattern
+ * was safe for free-tier concurrency=1 but becomes a 5x throughput
+ * tax on the Hobby plan and up.
+ */
+const MAX_CONCURRENT = 5;
+let inFlight = 0;
+const waiters: Array<() => void> = [];
 
-function enqueueFallback<T>(fn: () => Promise<T>): Promise<T> {
-  const queued = fallbackQueue.then(fn, fn);
-  fallbackQueue = queued;
-  return queued;
+async function acquireSlot(): Promise<void> {
+  if (inFlight < MAX_CONCURRENT) {
+    inFlight++;
+    return;
+  }
+  await new Promise<void>((resolve) => waiters.push(resolve));
+  inFlight++;
+}
+
+function releaseSlot(): void {
+  inFlight--;
+  const next = waiters.shift();
+  if (next) next();
+}
+
+async function enqueueFallback<T>(fn: () => Promise<T>): Promise<T> {
+  await acquireSlot();
+  try {
+    return await fn();
+  } finally {
+    releaseSlot();
+  }
 }
 
 /** Strip query/fragment for cleaner scraper URLs. Keeps path so that
