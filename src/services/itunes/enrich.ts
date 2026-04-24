@@ -8,7 +8,7 @@
  * (the backfill script controls delay between batch requests).
  */
 
-import { eq, and, isNull, desc } from 'drizzle-orm';
+import { eq, and, isNull, or, lt, sql, desc } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
   lastfmTracks,
@@ -18,6 +18,14 @@ import {
 import { artistMatches, cleanArtistName } from '../images/sources/utils.js';
 
 const ITUNES_SEARCH_URL = 'https://itunes.apple.com/search';
+
+// Retry cadence: artists whose iTunes lookup returned no_match re-enter the
+// queue after this interval so catalog additions get picked up. Uses
+// `strftime` so the threshold matches the stored `new Date().toISOString()`
+// format exactly (YYYY-MM-DDTHH:MM:SS.sssZ) — avoids a ~1-day drift at the
+// boundary from SQLite's default datetime() format (space-separated, no Z).
+const ITUNES_RETRY_INTERVAL =
+  "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')";
 
 interface ITunesSongResult {
   trackId?: number;
@@ -32,9 +40,25 @@ interface ITunesSongResult {
   previewUrl?: string;
 }
 
+interface ITunesArtistResult {
+  wrapperType?: string;
+  artistType?: string;
+  artistId?: number;
+  artistName?: string;
+  // `artistLinkUrl` is the canonical field for entity=musicArtist results;
+  // older payloads also surface `artistViewUrl`. Accept either.
+  artistLinkUrl?: string;
+  artistViewUrl?: string;
+}
+
 interface ITunesSearchResponse {
   resultCount: number;
   results: ITunesSongResult[];
+}
+
+interface ITunesArtistSearchResponse {
+  resultCount: number;
+  results: ITunesArtistResult[];
 }
 
 export interface BatchEnrichResult {
@@ -46,6 +70,12 @@ export interface BatchEnrichResult {
 
 type SearchResult =
   | { status: 'found'; result: ITunesSongResult }
+  | { status: 'no_match' }
+  | { status: 'rate_limited' }
+  | { status: 'error' };
+
+type ArtistSearchResult =
+  | { status: 'found'; result: ITunesArtistResult }
   | { status: 'no_match' }
   | { status: 'rate_limited' }
   | { status: 'error' };
@@ -235,4 +265,141 @@ export async function enrichBatch(
   }
 
   return { total: tracks.length, succeeded, skipped, failed };
+}
+
+/**
+ * Search iTunes for an artist directly (entity=musicArtist).
+ * Used as a fallback for artists that the track-driven enrichBatch path
+ * cannot reach — either because none of their tracks landed a matchable
+ * iTunes song result, or because they have no tracks in the DB at all
+ * (e.g. imported via the Last.fm top-artists list with no scrobbled tracks).
+ */
+async function searchItunesArtist(
+  artistName: string
+): Promise<ArtistSearchResult> {
+  const term = cleanArtistName(artistName);
+  const url = new URL(ITUNES_SEARCH_URL);
+  url.searchParams.set('term', term);
+  url.searchParams.set('entity', 'musicArtist');
+  url.searchParams.set('media', 'music');
+  url.searchParams.set('limit', '5');
+
+  const response = await fetch(url.toString());
+
+  if (response.status === 403) {
+    return { status: 'rate_limited' };
+  }
+
+  if (!response.ok) {
+    return { status: 'error' };
+  }
+
+  const data = (await response.json()) as ITunesArtistSearchResponse;
+
+  for (const result of data.results) {
+    if (!result.artistId) continue;
+    const link = result.artistLinkUrl ?? result.artistViewUrl;
+    if (!link) continue;
+    if (result.artistName && !artistMatches(artistName, result.artistName)) {
+      continue;
+    }
+    return { status: 'found', result };
+  }
+
+  return { status: 'no_match' };
+}
+
+/**
+ * Enrich artists that have no Apple Music URL by searching iTunes directly
+ * for the artist entity. Complements `enrichBatch`, which can only reach
+ * artists via a successful track match.
+ *
+ * Selection tiers (via ORDER BY): never-tried first, then rows whose last
+ * attempt was >30 days ago. Within each tier, higher-playcount artists go
+ * first so user-visible gaps (the top-artists card) clear fastest.
+ *
+ * On 403 the function stops early and returns, mirroring `enrichBatch`.
+ */
+export async function enrichArtistsByName(
+  db: Database,
+  limit: number
+): Promise<BatchEnrichResult> {
+  const artists = await db
+    .select({
+      id: lastfmArtists.id,
+      name: lastfmArtists.name,
+      enrichedAt: lastfmArtists.itunesEnrichedAt,
+    })
+    .from(lastfmArtists)
+    .where(
+      and(
+        isNull(lastfmArtists.appleMusicUrl),
+        eq(lastfmArtists.isFiltered, 0),
+        or(
+          isNull(lastfmArtists.itunesEnrichedAt),
+          lt(lastfmArtists.itunesEnrichedAt, sql.raw(ITUNES_RETRY_INTERVAL))
+        )
+      )
+    )
+    .orderBy(
+      // Never-tried rows ahead of retried rows (SQLite: 1 sorts before 0 asc,
+      // so `IS NULL DESC` puts NULLs first).
+      sql`${lastfmArtists.itunesEnrichedAt} IS NULL DESC`,
+      desc(lastfmArtists.playcount)
+    )
+    .limit(limit);
+
+  if (artists.length === 0) {
+    return { total: 0, succeeded: 0, skipped: 0, failed: 0 };
+  }
+
+  let succeeded = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const artist of artists) {
+    const searchResult = await searchItunesArtist(artist.name);
+
+    if (searchResult.status === 'rate_limited') {
+      failed++;
+      return {
+        total: succeeded + skipped + failed,
+        succeeded,
+        skipped,
+        failed,
+      };
+    }
+
+    if (searchResult.status === 'error') {
+      failed++;
+      continue;
+    }
+
+    const now = new Date().toISOString();
+
+    if (searchResult.status === 'no_match') {
+      // Stamp itunes_enriched_at so this artist drops into the 30-day retry
+      // tier instead of being re-attempted on every pass.
+      await db
+        .update(lastfmArtists)
+        .set({ itunesEnrichedAt: now })
+        .where(eq(lastfmArtists.id, artist.id));
+      skipped++;
+      continue;
+    }
+
+    const { result } = searchResult;
+    const link = result.artistLinkUrl ?? result.artistViewUrl;
+    await db
+      .update(lastfmArtists)
+      .set({
+        appleMusicId: result.artistId,
+        appleMusicUrl: link,
+        itunesEnrichedAt: now,
+      })
+      .where(eq(lastfmArtists.id, artist.id));
+    succeeded++;
+  }
+
+  return { total: artists.length, succeeded, skipped, failed };
 }
