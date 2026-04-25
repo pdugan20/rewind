@@ -127,48 +127,52 @@ These are pure-function additions; can be written from real fixtures during the 
 - [ ] **3.5.4** `parse-vividseats.ts` — VividSeats.
 - [ ] **3.5.5** `parse-ticketclub.ts` — TicketClub.
 
-## Phase 4: Match + enrich pipeline
+## Phase 4: Match + enrich pipeline — DONE
 
 Goal: every candidate from Phase 2/3 has a resolved venue and (where applicable) a confirmed sports-game record or concert setlist.
 
-### 4.1 — Venue seed migration
+**Validated end-to-end against real calendar**: 2024 UW football season fully enriched (Apple Cup 19-24 loss to WSU, USC OT win 26-21, Michigan 27-17 W, etc.) plus Mariners games with scores, all from MLB Stats API + ESPN — zero hand-tuning required for any season-tickets-style schedule.
 
-- [ ] **4.1.1** `migrations/0033_seed_venues.sql` — INSERT INTO venues for the Seattle venue set in DESIGN.md, with `aliases` populated. Use INSERT OR IGNORE so re-applying is safe.
+### 4.1 — Venue seed migration — DONE
 
-### 4.2 — Venue resolver
+- [x] **4.1.1** `migrations/0033_seed_venues.sql` — 14 Seattle venues with aliases (Safeco Field → T-Mobile Park, KeyArena → Climate Pledge, CenturyLink/Qwest → Lumen, Hec Ed → Alaska Airlines Arena, etc.). `INSERT OR IGNORE` for safe re-apply.
 
-- [ ] **4.2.1** `src/services/attending/match.ts → resolveVenue(rawName: string, db): Promise<{ venue_id: number; confidence: number }>`. Direct match → 1.0; alias match → 1.0; auto-create fallback → 0.5.
-- [ ] **4.2.2** Unit tests including the Safeco→T-Mobile, KeyArena→Climate Pledge alias paths.
+### 4.2 — Venue resolver — DONE
 
-### 4.3 — MLB Stats client
+- [x] **4.2.1** `src/services/attending/match.ts → resolveVenue()`. Tiered: exact name → alias exact → substring fallback → auto-create. Confidence levels 1.0 / 0.95 / 0.85 / 0.5.
+- [x] **4.2.2** 14 unit tests including all alias paths and the calendar-location-format cleanup.
 
-- [ ] **4.3.1** `src/services/sports/mlb-client.ts → getMlbGame(date: string, teamId: number): Promise<MlbGameMatch | null>`. Hits `statsapi.mlb.com/api/v1/schedule?teamId={id}&date={YYYY-MM-DD}`. Filters to the home/away-matching game.
-- [ ] **4.3.2** Returns canonical record: `{ gamePk, home_team, away_team, home_score, away_score, my_team_won, season, gameType, innings }`.
-- [ ] **4.3.3** UTC-to-Pacific conversion for `gameDate` → `event_date` (game-day in venue local).
-- [ ] **4.3.4** Fixture tests for: regular-season win, regular-season loss, doubleheader (both games), postseason game.
+### 4.3 — MLB Stats client — DONE
 
-### 4.4 — ESPN unified client
+- [x] **4.3.1** `src/services/sports/mlb-client.ts → getMlbGamesByDate(date, teamId)`. Hits `statsapi.mlb.com/api/v1/schedule?teamId={id}&date={YYYY-MM-DD}&sportId=1`.
+- [x] **4.3.2** Returns canonical `SportsGameMatch[]` (typically 1, but supports doubleheaders).
+- [x] **4.3.3** Uses MLB's `officialDate` field which is venue-local — no UTC conversion needed.
+- [x] **4.3.4** 5 fixture tests + live-validated against real Mariners game (746331 vs Astros 2024-09-25).
 
-- [ ] **4.4.1** `src/services/sports/espn-client.ts → getEspnGame(league: EspnLeague, date: string, teamId: number)`. Discriminated union on league.
-- [ ] **4.4.2** Returns canonical record matching the MLB shape (use a common `SportsGameMatch` type so the loader doesn't care which league).
-- [ ] **4.4.3** Fixture tests across all six leagues: NFL, college-football (UW), NBA, WNBA, college-basketball (UW), MLS.
-- [ ] **4.4.4** Try/catch wrapper that logs `[WARN] ESPN endpoint returned non-200 — game unenriched` and returns null. Pipeline doesn't fail on ESPN flake.
+### 4.4 — ESPN unified client — DONE
 
-### 4.5 — setlist.fm client
+- [x] **4.4.1** `src/services/sports/espn-client.ts → getEspnGamesByDate(league, date, teamId)`. Discriminated union via `ESPN_LEAGUES` constant.
+- [x] **4.4.2** Returns the same `SportsGameMatch` shape as MLB so the loader is league-agnostic.
+- [x] **4.4.3** 7 fixture tests across all six leagues + live-validated against UW Huskies 2008 (Notre Dame 33-7 loss) and 2024 Apple Cup.
+- [x] **4.4.4** Caller wraps in try/catch (in `enrich.ts → enrichSports`) — ESPN failure logs and returns null; pipeline keeps moving.
 
-- [ ] **4.5.1** Apply for setlist.fm API key (web form at setlist.fm/settings/api). Add `SETLIST_FM_API_KEY` to env vars + Worker secrets.
-- [ ] **4.5.2** `src/services/setlist/client.ts → getSetlist(artistName: string, date: string)`. **DD-MM-YYYY** date format conversion. 2-req/sec throttle (use the existing rate-limit pattern or a tiny sleep).
-- [ ] **4.5.3** Fixture tests with cached responses.
+### 4.5 — setlist.fm client — DONE (key gated)
 
-### 4.6 — Performer resolver
+- [x] **4.5.1** Schema + env wiring. `SETLIST_FM_API_KEY` is optional in `Env`; client returns null when absent so concerts load without enrichment.
+- [x] **4.5.2** `src/services/setlist/client.ts → searchSetlist()`. DD-MM-YYYY conversion via `toSetlistDate()`. Returns `SetlistMatch` with setlist URL, tour, venue.
+- [x] **4.5.3** 9 fixture tests including the date-format gotcha and 404-no-match handling.
+- [ ] **USER ACTION**: apply for free API key at https://www.setlist.fm/settings/api when ready to enrich concerts. Add to `.dev.vars` then re-run dry-run on concert candidates.
 
-- [ ] **4.6.1** `resolvePerformer(name: string, mbid: string | null, db)` per DESIGN.md (mbid → exact-name → cross-domain probe to lastfm_artists → auto-create).
-- [ ] **4.6.2** Unit tests for each fall-through tier.
+### 4.6 — Performer resolver — DONE
 
-### 4.7 — Match orchestrator
+- [x] **4.6.1** `resolvePerformer()` in match.ts. Tiered: mbid → exact name → **cross-domain probe to lastfm_artists** → auto-create.
+- [x] **4.6.2** 5 unit tests covering each tier including the cross-domain link (creates `performers` row with `lastfm_artist_id` populated when artist already exists in listening domain).
 
-- [ ] **4.7.1** `services/attending/match.ts → enrichCandidate(candidate, db, env)` that runs venue resolution, then sports OR concert enrichment based on inferred event_type, returns enriched candidate.
-- [ ] **4.7.2** Event-type inference: keyword-based (Mariners → mlb_game, Huskies + football season → ncaaf_game, etc.). Unit tests for each league.
+### 4.7 — Match orchestrator — DONE
+
+- [x] **4.7.1** `src/services/attending/enrich.ts → enrichCandidate()`. Resolves venue, infers event_type, dispatches to sports or concert enricher, returns `CanonicalEvent`.
+- [x] **4.7.2** Event-type inference covers all 7 leagues + Husky football/basketball venue disambiguation. 18 unit tests.
+- [x] **4.7.3** Wired into `backfill.ts` as a dry-run-only preview path (caps at 20 candidates per call). Live test confirmed end-to-end pipeline working: 6 UW football games of 2024 fully matched with scores + opponents.
 
 ## Phase 5: Dedupe + load
 

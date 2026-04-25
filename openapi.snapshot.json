@@ -653,6 +653,10 @@
               "skipped_subject",
               "skipped_no_jsonld"
             ]
+          },
+          "enriched": {
+            "type": "array",
+            "items": {}
           }
         },
         "required": [

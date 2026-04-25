@@ -6,6 +6,7 @@ import {
   type CandidateCalendarEvent,
   type ParsedGmailCandidate,
 } from './extract.js';
+import { enrichCandidate, type CanonicalEvent } from './enrich.js';
 
 // Backfill pipeline. Five stages, each idempotent:
 //
@@ -46,6 +47,8 @@ export interface BackfillResult {
     skipped_no_jsonld: number;
     candidates?: ParsedGmailCandidate[];
   };
+  // Phase-4 extras (only present in dry-run; enrichment doesn't write)
+  enriched?: CanonicalEvent[];
 }
 
 export interface BackfillOptions {
@@ -103,6 +106,37 @@ export async function backfillAttending(
     };
     result.sources.gcal = gcal.matched;
     result.candidates_found += gcal.matched;
+  }
+
+  // For dry-run only: also run enrichment over the candidates we found,
+  // so the response shows the canonical-event preview. Skipped on
+  // non-dry-run because Phase 5 (load) does its own enrich+dedupe pass.
+  const enrichedPreview: CanonicalEvent[] = [];
+  if (dry_run && source === 'gcal' && result.gcal?.candidates) {
+    for (const c of result.gcal.candidates.slice(0, 20)) {
+      try {
+        const enriched = await enrichCandidate(
+          {
+            source_ref: c.source_ref,
+            source_type: 'gcal',
+            event_date: c.event_date,
+            event_datetime: c.event_datetime,
+            title: c.summary,
+            location: c.location,
+          },
+          db,
+          env
+        );
+        if (enriched) enrichedPreview.push(enriched);
+      } catch (err) {
+        console.log(
+          `[ERROR] enrich preview failed for ${c.source_ref}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+    if (enrichedPreview.length > 0) {
+      result.enriched = enrichedPreview;
+    }
   }
 
   if (source === 'gmail' || source === 'all') {

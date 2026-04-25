@@ -481,6 +481,7 @@ const AttendingBackfillResponse = z
         candidates: z.array(z.any()).optional(),
       })
       .optional(),
+    enriched: z.array(z.any()).optional(),
   })
   .openapi('AttendingBackfillResponse');
 
@@ -530,6 +531,7 @@ adminSync.openapi(syncAttendingRoute, async (c) => {
       timestamp: new Date().toISOString(),
       ...(result.gcal && { gcal: result.gcal }),
       ...(result.gmail && { gmail: result.gmail }),
+      ...(result.enriched && { enriched: result.enriched }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
