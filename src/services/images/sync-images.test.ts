@@ -18,7 +18,12 @@ import { runPipeline } from './pipeline.js';
 const mockRunPipeline = vi.mocked(runPipeline);
 
 describe('processItems', () => {
-  const mockDb = {} as never;
+  // processItems refreshes the placeholder row's createdAt via
+  // db.update(images).set(...).where(...). The chain needs to be callable;
+  // the values don't matter because the placeholder insert itself is mocked
+  // out separately. Rebuilt in beforeEach because vi.restoreAllMocks()
+  // wipes mockReturnValue setups.
+  let mockDb: never;
   const mockEnv: PipelineEnv = {
     IMAGES: {} as R2Bucket,
     IMAGE_TRANSFORMS: {} as ImagesBinding,
@@ -26,6 +31,13 @@ describe('processItems', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockDb = {
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    } as never;
   });
 
   it('returns zero counts for empty items array', async () => {
