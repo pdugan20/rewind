@@ -21,6 +21,7 @@ import { syncCollecting } from '../services/discogs/sync.js';
 import { syncTraktCollection } from '../services/trakt/sync.js';
 import { syncReading } from '../services/instapaper/sync.js';
 import { processReadingImages } from '../services/images/sync-images.js';
+import { backfillAttending } from '../services/attending/backfill.js';
 import { badRequest } from '../lib/errors.js';
 
 const adminSync = createOpenAPIApp();
@@ -420,6 +421,82 @@ adminSync.openapi(recomputeRoute, async (c) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// POST /v1/admin/sync/attending
+const AttendingBackfillBody = z
+  .object({
+    source: z.enum(['gcal', 'gmail', 'all']).optional().default('all'),
+    dry_run: z.boolean().optional().default(false),
+    from: z.string().optional().openapi({ example: '2018-01-01' }),
+    to: z.string().optional().openapi({ example: '2026-04-25' }),
+  })
+  .openapi('AttendingBackfillBody');
+
+const AttendingBackfillResponse = z
+  .object({
+    status: z.literal('completed'),
+    candidates_found: z.number().int(),
+    events_loaded: z.number().int(),
+    sources: z.object({
+      gcal: z.number().int(),
+      gmail: z.number().int(),
+    }),
+    dry_run: z.boolean(),
+    timestamp: z.string().datetime(),
+  })
+  .openapi('AttendingBackfillResponse');
+
+const syncAttendingRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/attending',
+  operationId: 'adminSyncAttending',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Trigger attending backfill',
+  description:
+    'Run the attending backfill pipeline against Google Calendar and Gmail. Pass dry_run=true to inspect candidates without writing.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: AttendingBackfillBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: AttendingBackfillResponse } },
+      description: 'Backfill completed',
+    },
+    ...errorResponses(400, 401, 500),
+  },
+});
+
+adminSync.openapi(syncAttendingRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const body = await c.req
+    .json<{
+      source?: 'gcal' | 'gmail' | 'all';
+      dry_run?: boolean;
+      from?: string;
+      to?: string;
+    }>()
+    .catch(() => ({}));
+
+  try {
+    const result = await backfillAttending(db, body);
+    return c.json({
+      status: 'completed' as const,
+      candidates_found: result.candidates_found,
+      events_loaded: result.events_loaded,
+      sources: result.sources,
+      dry_run: result.dry_run,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/sync/attending: ${message}`);
     return c.json({ error: message, status: 500 }, 500) as any;
   }
 });

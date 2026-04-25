@@ -36,6 +36,10 @@
       "description": "Articles, highlights, and reading stats from Instapaper."
     },
     {
+      "name": "Attending",
+      "description": "Live events you bought tickets for — sports games, concerts, theater. Sourced from Google Calendar and ticket-vendor email."
+    },
+    {
       "name": "Feed",
       "description": "Cross-domain activity feed with cursor-based pagination."
     },
@@ -549,6 +553,79 @@
           "status",
           "strava_id"
         ]
+      },
+      "AttendingBackfillResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "candidates_found": {
+            "type": "integer"
+          },
+          "events_loaded": {
+            "type": "integer"
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "gcal": {
+                "type": "integer"
+              },
+              "gmail": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "gcal",
+              "gmail"
+            ]
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "candidates_found",
+          "events_loaded",
+          "sources",
+          "dry_run",
+          "timestamp"
+        ]
+      },
+      "AttendingBackfillBody": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "gcal",
+              "gmail",
+              "all"
+            ],
+            "default": "all"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false
+          },
+          "from": {
+            "type": "string",
+            "example": "2018-01-01"
+          },
+          "to": {
+            "type": "string",
+            "example": "2026-04-25"
+          }
+        }
       }
     },
     "parameters": {}
@@ -16799,6 +16876,1113 @@
         }
       }
     },
+    "/v1/attending/events": {
+      "get": {
+        "operationId": "listAttendedEvents",
+        "tags": [
+          "Attending"
+        ],
+        "summary": "List attended events",
+        "description": "Returns events you have tickets for, optionally filtered by category, event_type, season, year, and venue. Includes events you bought tickets for but did not attend (attended=false).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sports",
+                "music",
+                "arts"
+              ]
+            },
+            "required": false,
+            "name": "category",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "event_type",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "required": false,
+            "name": "season",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "required": false,
+            "name": "year",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "required": false,
+            "name": "venue_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "required": false,
+            "name": "attended",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attended events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "event_date": {
+                            "type": "string"
+                          },
+                          "event_datetime": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "series_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "external_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "external_source": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "event_data": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "notes": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "attended": {
+                            "type": "boolean"
+                          },
+                          "venue": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "number"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "city": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "state": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "country": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "latitude": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "longitude": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "capacity": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "city",
+                              "state",
+                              "country",
+                              "latitude",
+                              "longitude",
+                              "capacity"
+                            ]
+                          },
+                          "tickets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "number"
+                                },
+                                "vendor": {
+                                  "type": "string"
+                                },
+                                "order_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "section": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "row": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "seat": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "quantity": {
+                                  "type": "number"
+                                },
+                                "total_price_cents": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "currency": {
+                                  "type": "string"
+                                },
+                                "purchased_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "vendor",
+                                "order_id",
+                                "section",
+                                "row",
+                                "seat",
+                                "quantity",
+                                "total_price_cents",
+                                "currency",
+                                "purchased_at"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "category",
+                          "event_type",
+                          "event_date",
+                          "event_datetime",
+                          "title",
+                          "subtitle",
+                          "series_id",
+                          "external_id",
+                          "external_source",
+                          "event_data",
+                          "notes",
+                          "attended",
+                          "venue",
+                          "tickets"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attending/events/{id}": {
+      "get": {
+        "operationId": "getAttendedEvent",
+        "tags": [
+          "Attending"
+        ],
+        "summary": "Get an attended event",
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "required": false,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "event_type": {
+                      "type": "string"
+                    },
+                    "event_date": {
+                      "type": "string"
+                    },
+                    "event_datetime": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "subtitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "series_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "external_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "external_source": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "event_data": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "notes": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "attended": {
+                      "type": "boolean"
+                    },
+                    "venue": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "city": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "country": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "latitude": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "longitude": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "capacity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "city",
+                        "state",
+                        "country",
+                        "latitude",
+                        "longitude",
+                        "capacity"
+                      ]
+                    },
+                    "tickets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "vendor": {
+                            "type": "string"
+                          },
+                          "order_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "section": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "row": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "seat": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "total_price_cents": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "purchased_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "vendor",
+                          "order_id",
+                          "section",
+                          "row",
+                          "seat",
+                          "quantity",
+                          "total_price_cents",
+                          "currency",
+                          "purchased_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "category",
+                    "event_type",
+                    "event_date",
+                    "event_datetime",
+                    "title",
+                    "subtitle",
+                    "series_id",
+                    "external_id",
+                    "external_source",
+                    "event_data",
+                    "notes",
+                    "attended",
+                    "venue",
+                    "tickets"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attending/seasons/{league}/{season}": {
+      "get": {
+        "operationId": "getAttendedSeason",
+        "tags": [
+          "Attending"
+        ],
+        "summary": "Attended games in a sports season",
+        "description": "Returns the games you attended (or hold tickets for) in a given league + season. Pair with a public schedule API (MLB Stats API, ESPN, etc.) on the consumer side to overlay attendance on the full schedule.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "mlb"
+            },
+            "required": true,
+            "name": "league",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "example": 2024
+            },
+            "required": false,
+            "name": "season",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attended games this season",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "league": {
+                      "type": "string"
+                    },
+                    "season": {
+                      "type": "number"
+                    },
+                    "attended_count": {
+                      "type": "number"
+                    },
+                    "wins": {
+                      "type": "number"
+                    },
+                    "losses": {
+                      "type": "number"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "event_date": {
+                            "type": "string"
+                          },
+                          "event_datetime": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "series_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "external_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "external_source": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "event_data": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "notes": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "attended": {
+                            "type": "boolean"
+                          },
+                          "venue": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "number"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "city": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "state": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "country": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "latitude": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "longitude": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "capacity": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "city",
+                              "state",
+                              "country",
+                              "latitude",
+                              "longitude",
+                              "capacity"
+                            ]
+                          },
+                          "tickets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "number"
+                                },
+                                "vendor": {
+                                  "type": "string"
+                                },
+                                "order_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "section": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "row": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "seat": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "quantity": {
+                                  "type": "number"
+                                },
+                                "total_price_cents": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "currency": {
+                                  "type": "string"
+                                },
+                                "purchased_at": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "vendor",
+                                "order_id",
+                                "section",
+                                "row",
+                                "seat",
+                                "quantity",
+                                "total_price_cents",
+                                "currency",
+                                "purchased_at"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "category",
+                          "event_type",
+                          "event_date",
+                          "event_datetime",
+                          "title",
+                          "subtitle",
+                          "series_id",
+                          "external_id",
+                          "external_source",
+                          "event_data",
+                          "notes",
+                          "attended",
+                          "venue",
+                          "tickets"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "league",
+                    "season",
+                    "attended_count",
+                    "wins",
+                    "losses",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attending/venues": {
+      "get": {
+        "operationId": "listVenues",
+        "tags": [
+          "Attending"
+        ],
+        "summary": "List venues",
+        "responses": {
+          "200": {
+            "description": "Venues",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "city": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "state": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "country": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "latitude": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "longitude": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "capacity": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "city",
+                          "state",
+                          "country",
+                          "latitude",
+                          "longitude",
+                          "capacity"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attending/stats": {
+      "get": {
+        "operationId": "getAttendingStats",
+        "tags": [
+          "Attending"
+        ],
+        "summary": "Aggregate attending stats",
+        "responses": {
+          "200": {
+            "description": "Stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_events": {
+                      "type": "number"
+                    },
+                    "attended_events": {
+                      "type": "number"
+                    },
+                    "by_category": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "category",
+                          "count"
+                        ]
+                      }
+                    },
+                    "by_event_type": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "event_type",
+                          "count"
+                        ]
+                      }
+                    },
+                    "by_year": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "year": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "year",
+                          "count"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "total_events",
+                    "attended_events",
+                    "by_category",
+                    "by_event_type",
+                    "by_year"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/feed": {
       "get": {
         "operationId": "getFeed",
@@ -18777,6 +19961,69 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SyncStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sync/attending": {
+      "post": {
+        "operationId": "adminSyncAttending",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Trigger attending backfill",
+        "description": "Run the attending backfill pipeline against Google Calendar and Gmail. Pass dry_run=true to inspect candidates without writing.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingBackfillBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Backfill completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingBackfillResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

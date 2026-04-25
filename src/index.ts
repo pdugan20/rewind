@@ -13,6 +13,7 @@ import imagesRoute from './routes/images.js';
 import collecting from './routes/collecting.js';
 import feed from './routes/feed.js';
 import reading from './routes/reading.js';
+import attending from './routes/attending.js';
 import search from './routes/search.js';
 import exportRoute from './routes/export.js';
 import keys from './routes/keys.js';
@@ -87,6 +88,7 @@ const routes = app
   .route('/', imagesRoute)
   .route('/', collecting)
   .route('/reading', reading)
+  .route('/attending', attending)
   .route('/feed', feed)
   .route('/search', search)
   .route('/admin/export', exportRoute)
