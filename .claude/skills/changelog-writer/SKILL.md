@@ -1,7 +1,7 @@
 ---
 name: changelog-writer
 description: This skill should be used when the user asks to "add a changelog entry", "write changelog", "audit changelog", "review changelog", "check changelog entries", or is editing docs-mintlify/changelog.mdx. Enforces a consistent, reader-facing voice and cuts implementation trivia.
-argument-hint: 'write | audit | entry for <feature>'
+argument-hint: 'write | audit | entry for {feature}'
 ---
 
 # Changelog Writer
