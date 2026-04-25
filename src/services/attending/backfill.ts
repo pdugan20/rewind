@@ -2,7 +2,9 @@ import type { Database } from '../../db/client.js';
 import type { Env } from '../../types/env.js';
 import {
   extractCalendarCandidates,
+  extractGmailCandidates,
   type CandidateCalendarEvent,
+  type ParsedGmailCandidate,
 } from './extract.js';
 
 // Backfill pipeline. Five stages, each idempotent:
@@ -33,6 +35,16 @@ export interface BackfillResult {
     inserted: number;
     candidates?: CandidateCalendarEvent[];
     resynced_from_expiry?: boolean;
+  };
+  // Phase-3 extras
+  gmail?: {
+    scanned: number;
+    fetched: number;
+    parsed: number;
+    inserted: number;
+    skipped_subject: number;
+    skipped_no_jsonld: number;
+    candidates?: ParsedGmailCandidate[];
   };
 }
 
@@ -94,9 +106,23 @@ export async function backfillAttending(
   }
 
   if (source === 'gmail' || source === 'all') {
-    // Phase 3 — Gmail extractor lands next. Stub for now so the admin
-    // endpoint stays callable end-to-end.
-    console.log('[SYNC] gmail extraction not implemented yet (Phase 3)');
+    const gmail = await extractGmailCandidates(db, env, {
+      newerThanDate: from ? from.slice(0, 10) : undefined,
+      olderThanDate: to ? to.slice(0, 10) : undefined,
+      newerThanDays: mode === 'incremental' && !from && !to ? 2 : undefined,
+      dryRun: dry_run,
+    });
+    result.gmail = {
+      scanned: gmail.scanned,
+      fetched: gmail.fetched,
+      parsed: gmail.parsed,
+      inserted: gmail.inserted,
+      skipped_subject: gmail.skipped_subject,
+      skipped_no_jsonld: gmail.skipped_no_jsonld,
+      candidates: dry_run ? gmail.candidates : undefined,
+    };
+    result.sources.gmail = gmail.parsed;
+    result.candidates_found += gmail.parsed;
   }
 
   return result;

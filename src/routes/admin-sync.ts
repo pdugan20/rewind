@@ -470,6 +470,17 @@ const AttendingBackfillResponse = z
         resynced_from_expiry: z.boolean().optional(),
       })
       .optional(),
+    gmail: z
+      .object({
+        scanned: z.number().int(),
+        fetched: z.number().int(),
+        parsed: z.number().int(),
+        inserted: z.number().int(),
+        skipped_subject: z.number().int(),
+        skipped_no_jsonld: z.number().int(),
+        candidates: z.array(z.any()).optional(),
+      })
+      .optional(),
   })
   .openapi('AttendingBackfillResponse');
 
@@ -518,6 +529,7 @@ adminSync.openapi(syncAttendingRoute, async (c) => {
       dry_run: result.dry_run,
       timestamp: new Date().toISOString(),
       ...(result.gcal && { gcal: result.gcal }),
+      ...(result.gmail && { gmail: result.gmail }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

@@ -11,7 +11,19 @@ import {
   readCalendarSyncToken,
   writeCalendarSyncToken,
 } from '../google/calendar-sync-token.js';
-import { matchesAllowlist } from './allowlist.js';
+import {
+  listGmailMessages,
+  getGmailMessage,
+  judgeSubject,
+  type GmailMessage,
+} from '../google/gmail-client.js';
+import { matchesAllowlist, buildGmailVendorQuery } from './allowlist.js';
+import {
+  parseEventReservationFromHtml,
+  inferVendorFromSender,
+  type ParsedReservation,
+} from './parse-jsonld.js';
+import { parseSeatGeekText } from './parse-seatgeek.js';
 
 export interface ExtractCalendarOptions {
   // Range pull window. Used for backfill, or for the initial pull before
@@ -175,6 +187,178 @@ function toCandidate(ev: CalendarEvent): CandidateCalendarEvent {
     html_link: ev.htmlLink,
   };
 }
+
+// ─── Gmail extractor ───────────────────────────────────────────────
+
+export interface ExtractGmailOptions {
+  newerThanDays?: number; // cron-incremental (default 2)
+  olderThanDate?: string; // YYYY-MM-DD, for backfill segments
+  newerThanDate?: string; // YYYY-MM-DD, for backfill segments
+  dryRun?: boolean;
+  maxMessages?: number; // safety cap; default no cap
+}
+
+export interface ExtractGmailResult {
+  scanned: number; // messages.list returned this many ids
+  fetched: number; // .get'd this many bodies (after subject gate)
+  parsed: number; // produced at least one ParsedReservation
+  inserted: number;
+  skipped_subject: number;
+  skipped_no_jsonld: number; // body had no JSON-LD blocks at all
+  candidates: ParsedGmailCandidate[];
+}
+
+export interface ParsedGmailCandidate {
+  source_ref: string; // Gmail message id
+  subject: string | null;
+  from: string | null;
+  internal_date: string; // ISO 8601
+  reservations: ParsedReservation[];
+  body_text: string | null;
+}
+
+export async function extractGmailCandidates(
+  db: Database,
+  env: Env,
+  opts: ExtractGmailOptions = {}
+): Promise<ExtractGmailResult> {
+  const dryRun = opts.dryRun ?? false;
+  const accessToken = await getGoogleAccessToken(db, env);
+
+  const dateFragment = buildDateFragment(opts);
+  const query = `${buildGmailVendorQuery()}${dateFragment ? ' ' + dateFragment : ''}`;
+  console.log(`[SYNC] Gmail extractor query: ${query}`);
+
+  const result: ExtractGmailResult = {
+    scanned: 0,
+    fetched: 0,
+    parsed: 0,
+    inserted: 0,
+    skipped_subject: 0,
+    skipped_no_jsonld: 0,
+    candidates: [],
+  };
+
+  let pageToken: string | undefined;
+  do {
+    const page = await listGmailMessages(accessToken, query, {
+      pageToken,
+      maxResults: 100,
+    });
+    result.scanned += page.messages.length;
+
+    for (const ref of page.messages) {
+      if (opts.maxMessages && result.fetched >= opts.maxMessages) break;
+      const msg = await getGmailMessage(accessToken, ref.id);
+      const verdict = judgeSubject(msg.headers.subject);
+      if (verdict === 'reject') {
+        result.skipped_subject++;
+        continue;
+      }
+      result.fetched++;
+
+      // Always capture as a candidate, even when the JSON-LD parser
+      // finds nothing. Reality from Phase 3 check: most vendors do NOT
+      // emit JSON-LD; the source row stores the raw text/html for
+      // per-vendor labeled-text parsers (Phase 3.4) to consume later.
+      const candidate = parseMessageCapture(msg);
+      if (candidate.reservations.length === 0) result.skipped_no_jsonld++;
+      else result.parsed++;
+      result.candidates.push(candidate);
+    }
+
+    pageToken = page.nextPageToken;
+    if (opts.maxMessages && result.fetched >= opts.maxMessages) break;
+  } while (pageToken);
+
+  if (!dryRun && result.candidates.length > 0) {
+    result.inserted = await insertGmailSourceRows(db, result.candidates);
+  }
+
+  return result;
+}
+
+function buildDateFragment(opts: ExtractGmailOptions): string {
+  const parts: string[] = [];
+  if (opts.newerThanDays != null) {
+    parts.push(`newer_than:${opts.newerThanDays}d`);
+  }
+  if (opts.newerThanDate) {
+    parts.push(`after:${opts.newerThanDate.replace(/-/g, '/')}`);
+  }
+  if (opts.olderThanDate) {
+    parts.push(`before:${opts.olderThanDate.replace(/-/g, '/')}`);
+  }
+  return parts.join(' ');
+}
+
+// Always returns a candidate — `reservations` is empty when neither
+// JSON-LD nor any vendor-specific parser found anything. The raw HTML +
+// text are kept in the source row so a later parser pass can re-process
+// without re-fetching from Gmail.
+function parseMessageCapture(msg: GmailMessage): ParsedGmailCandidate {
+  const subject = msg.headers.subject ?? null;
+  const from = msg.headers.from ?? null;
+  const vendor = inferVendorFromSender(from ?? undefined);
+  const html = msg.bodyHtml ?? '';
+
+  // Tiered parsing: try JSON-LD first (cheap, covers any vendor that
+  // emits it), then per-vendor labeled-text parsers using the text
+  // body. Empty `reservations` means no parser path matched — the
+  // source row still gets stored so a future parser can re-process.
+  let reservations = parseEventReservationFromHtml(html, vendor) ?? [];
+  if (reservations.length === 0 && vendor === 'seatgeek') {
+    reservations = parseSeatGeekText(msg.bodyText) ?? [];
+  }
+  // Future: parse-ticketmaster.ts, parse-axs.ts, etc.
+
+  return {
+    source_ref: msg.id,
+    subject,
+    from,
+    internal_date: new Date(parseInt(msg.internalDate, 10)).toISOString(),
+    reservations,
+    // Capped at 12k chars — enough for the structured fields (Order
+    // number, Section, Row, Seats, Total) which always appear in the
+    // first half of these emails. Saves D1 row size.
+    body_text: msg.bodyText ? msg.bodyText.slice(0, 12000) : null,
+  };
+}
+
+async function insertGmailSourceRows(
+  db: Database,
+  candidates: ParsedGmailCandidate[]
+): Promise<number> {
+  let inserted = 0;
+  for (const c of candidates) {
+    const result = await db
+      .insert(attendedEventSources)
+      .values({
+        userId: 1,
+        sourceType: 'gmail',
+        sourceRef: c.source_ref,
+        rawData: JSON.stringify({
+          subject: c.subject,
+          from: c.from,
+          internal_date: c.internal_date,
+          reservations: c.reservations,
+          body_text: c.body_text,
+        }),
+        matchConfidence: c.reservations.length > 0 ? 1.0 : 0.3,
+      })
+      .onConflictDoNothing({
+        target: [
+          attendedEventSources.sourceType,
+          attendedEventSources.sourceRef,
+        ],
+      })
+      .returning({ id: attendedEventSources.id });
+    if (result.length > 0) inserted++;
+  }
+  return inserted;
+}
+
+// ─── Helpers (calendar) ─────────────────────────────────────────────
 
 async function insertSourceRows(
   db: Database,

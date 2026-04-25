@@ -60,30 +60,29 @@ export const VENUE_KEYWORDS = [
   'tractor tavern',
 ] as const;
 
-// Gmail "from:" allowlist — built into the Gmail query string by the
-// extractor. Each entry is the literal email address the vendor uses for
-// confirmations. Multiple entries per vendor are common — order doesn't
-// matter; Gmail's `from:(a OR b)` handles them.
-export const VENDOR_SENDERS = [
-  // Ticketmaster
-  'noreply@ticketmaster.com',
-  'customer_support@email.ticketmaster.com',
-  // SeatGeek
-  'noreply@seatgeek.com',
-  'orders@seatgeek.com',
-  'hi@seatgeek.com',
-  // TicketClub
-  'info@ticketclub.com',
-  'orders@ticketclub.com',
-  // AXS
-  'customer.service@axs.com',
-  'tickets@axs.com',
-  // StubHub
-  'customerservice@stubhub.com',
-  'noreply@stubhub.com',
-  // VividSeats
-  'orders@vividseats.com',
-  'customerservice@vividseats.com',
+// Gmail "from:" allowlist — by DOMAIN, not specific addresses.
+//
+// Domain-level filters survive vendor address rotation (e.g.
+// noreply@ticketmaster.com → orders@ticketmaster.com). The vendor would
+// have to change its domain entirely to escape — much rarer than the
+// address-level churn we'd otherwise have to chase. Tradeoff: domain
+// filter also catches marketing/survey/transfer emails, but the
+// subject-line gate (judgeSubject) filters those.
+//
+// Initial inbox-validation found that the actual confirmation senders
+// often differ from what research suggests:
+//   - SeatGeek: transactions@seatgeek.com (not orders@)
+//   - AXS: axs@axs.com (not customer.service@)
+//   - VividSeats: sales@vividseats.com (not orders@)
+//   - TicketClub: customersupport@ticketclub.com (not info@)
+// The domain filter sidesteps this entire class of misses.
+export const VENDOR_DOMAINS = [
+  'ticketmaster.com',
+  'seatgeek.com',
+  'ticketclub.com',
+  'axs.com',
+  'stubhub.com',
+  'vividseats.com',
 ] as const;
 
 /**
@@ -109,8 +108,11 @@ export function matchesAllowlist(
 /**
  * Returns the Gmail query string fragment for the vendor allowlist.
  * Combine with `newer_than:` / `older_than:` filters at call sites.
+ *
+ * Uses domain-level filters (`from:@<domain>`) so we don't have to
+ * track specific sender addresses as vendors rotate them.
  */
 export function buildGmailVendorQuery(): string {
-  const senders = VENDOR_SENDERS.map((s) => s).join(' OR ');
-  return `from:(${senders})`;
+  const domains = VENDOR_DOMAINS.map((d) => `@${d}`).join(' OR ');
+  return `from:(${domains})`;
 }

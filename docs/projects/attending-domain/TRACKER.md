@@ -78,36 +78,54 @@ Goal: `extractCalendarCandidates(db, env, opts)` writes candidate rows to `atten
 - [x] **2.3.2** Wired into `services/attending/backfill.ts`. Admin endpoint `POST /v1/admin/sync/attending` returns the `gcal` envelope with scan/match/insert counts and (for dry runs) the candidate list.
 - [x] **2.3.3** Validated against real account. Found expected events including a Mariners game with full SeatGeek ticket data in the calendar description.
 
-## Phase 3: Gmail extractor + JSON-LD parser
+## Phase 3: Gmail extractor — DONE (with reality-check pivot)
 
-Goal: every ticket-confirmation email matching the vendor allowlist is decoded into a `ParsedReservation` (or null + logged for review).
+Goal: every ticket-confirmation email matching the vendor allowlist is captured to `attended_event_sources` (with full body), parsed when we have a vendor parser.
 
-### 3.1 — Gmail client
+**Reality check during validation**: zero of the six vendors include JSON-LD in their actual confirmation emails (research from earlier was wrong). Pivoted to:
 
-- [ ] **3.1.1** `src/services/google/gmail-client.ts → listGmailMessages(accessToken, query, opts)` and `getGmailMessage(accessToken, id)`. Walks MIME tree; base64url-decode helper.
-- [ ] **3.1.2** Vendor sender allowlist constant (`VENDOR_SENDERS`) in `services/attending/allowlist.ts`. Builds the Gmail query string from it.
-- [ ] **3.1.3** Subject-line gate function — accept patterns + reject patterns.
-- [ ] **3.1.4** Unit tests: MIME walker (single-part, multi-part, nested multipart), base64url edge cases, subject gate.
+- Domain-level Gmail filter (`from:@ticketmaster.com`) — survives sender-address rotation. Specific-address allowlists drifted between research and reality (SeatGeek confirmations come from `transactions@`, not `orders@`; AXS uses `axs@axs.com`, not `customer.service@`; etc.). DESIGN.md captures the brittleness analysis.
+- Per-vendor labeled-text parsers — labeled-regex over the text/plain body. SeatGeek done; others can be added incrementally as the backfill exposes the formats.
+- All confirmation emails captured (with body_text up to 12KB) even when parsing produces zero reservations, so future parsers can re-run without re-fetching from Gmail.
 
-### 3.2 — Universal JSON-LD parser
+**Validated end-to-end**: 90-day dry-run scanned 13 confirmations, 4 fully parsed (3 SeatGeek seats from a Mariners game with venue + section/row/seat + total $72.90), 9 captured with raw bodies for follow-up parsers.
 
-- [ ] **3.2.1** `src/services/attending/parse-jsonld.ts → parseEventReservationFromHtml(html, vendor)`. Returns `ParsedReservation[] | null`.
-- [ ] **3.2.2** Handles single-object, array, and `@graph`-wrapped JSON-LD shapes.
-- [ ] **3.2.3** Multi-seat expansion: if one EventReservation has an array of `reservedTicket` entries (SeatGeek pattern), emit N rows.
-- [ ] **3.2.4** Edge cases: AXS "Mobile Entry" string for `seatNumber` → null; missing `priceCurrency` → "USD"; malformed JSON → catch and return null for that block (not throw).
-- [ ] **3.2.5** Fixture-based tests: real (anonymized) emails from Ticketmaster, AXS, StubHub, SeatGeek. At least 2 per vendor (single-seat + multi-seat).
+### 3.1 — Gmail client — DONE
 
-### 3.3 — Gmail extractor
+- [x] **3.1.1** `src/services/google/gmail-client.ts` with `listGmailMessages` + `getGmailMessage`. MIME walker handles single-part, multi-part, and nested multipart payloads. base64url decoder via `atob` + URL-char swap.
+- [x] **3.1.2** Replaced `VENDOR_SENDERS` with **`VENDOR_DOMAINS`** in allowlist.ts. `buildGmailVendorQuery()` produces `from:(@ticketmaster.com OR @seatgeek.com OR ...)`.
+- [x] **3.1.3** `judgeSubject()` 3-way classifier: accept / reject / uncertain. Reject patterns drop reminders, transfers, refunds, surveys, marketing.
+- [x] **3.1.4** Unit tests (23 cases): MIME walker shapes, base64url edge cases, subject gate full coverage.
 
-- [ ] **3.3.1** `extractGmailCandidates()` in `src/services/attending/extract.ts`. Loops `listGmailMessages` pages, fetches each with `getGmailMessage`, applies subject gate, runs JSON-LD parser, INSERT to `attended_event_sources` with `source_type='gmail'`, `source_ref=<message.id>`, `raw_data=ParsedReservation` (or the raw HTML if parser returned null + a `parse_error` field).
-- [ ] **3.3.2** Wire into `backfill.ts` (`source: 'gmail'`).
-- [ ] **3.3.3** Run against real account: `POST /v1/admin/sync/attending {"source":"gmail","dry_run":true}`. Confirm we get reasonable hit rates from each vendor.
+### 3.2 — Universal JSON-LD parser — DONE
 
-### 3.4 — Per-vendor HTML scrapers (DEFERRED — only if Phase 3.3 dry-run shows gaps)
+- [x] **3.2.1** `parse-jsonld.ts → parseEventReservationFromHtml(html, vendor)`. Returns `ParsedReservation[] | null`.
+- [x] **3.2.2** Handles single-object, array, and `@graph`-wrapped JSON-LD shapes.
+- [x] **3.2.3** Multi-seat expansion: SeatGeek's array-of-reservedTicket pattern → N rows.
+- [x] **3.2.4** Edge cases: AXS "Mobile Entry" → null seat; missing `priceCurrency` → "USD"; malformed JSON → swallow per block, keep going.
+- [x] **3.2.5** 21 unit tests covering all shapes + multi-seat + vendor inference. **Plus parser stays in place even though no current vendor uses it** — costs nothing, ready if any vendor adds JSON-LD support.
 
-- [ ] **3.4.1** `src/services/attending/parse-vivid.ts` — labeled-regex extractor. Test fixtures.
-- [ ] **3.4.2** `src/services/attending/parse-ticketclub.ts` — same pattern. Test fixtures.
-- [ ] **3.4.3** Wire into `extractGmailCandidates`: try JSON-LD first, fall back to vendor-specific scraper based on sender.
+### 3.3 — Calendar-description parser (tier-0) — DONE
+
+- [x] **3.3.1** `parse-calendar-description.ts` extracts `Reservation Number`, `Provider`, `Seats`, `Section`, `Row`, `Total` from Google Calendar's auto-enriched event descriptions. Tested against the real Mariners SeatGeek pattern observed in Phase 2.
+- [x] **3.3.2** 9 unit tests. Tier-0 because for cron-going-forward this is the most robust path — Google maintains the email-markup parser, not us.
+
+### 3.4 — Gmail extractor + first per-vendor parser — DONE
+
+- [x] **3.4.1** `extractGmailCandidates()` in `extract.ts`. Subject-gates messages, walks the JSON-LD path then per-vendor text path, INSERTs every confirmation to `attended_event_sources` (with body_text capped at 12KB) regardless of parse success.
+- [x] **3.4.2** `parse-seatgeek.ts` + 5 fixture tests. Anchors parsing to the post-"Order Details" block to avoid false-matches in marketing prose.
+- [x] **3.4.3** Wired into `backfill.ts`. Admin endpoint returns the `gmail` envelope with `scanned/fetched/parsed/skipped_subject/skipped_no_jsonld` counts and the per-message candidates list (in dry-run).
+- [x] **3.4.4** Validated against real account: 90-day dry-run found 13 confirmations across vendors. 4 fully parsed (all SeatGeek). 9 captured with body for future parsers.
+
+### 3.5 — Additional per-vendor parsers — FOLLOW-UP (not blocking)
+
+These are pure-function additions; can be written from real fixtures during the Phase 9 backfill review.
+
+- [ ] **3.5.1** `parse-ticketmaster.ts` — Ticketmaster + Mariners Fancare templates.
+- [ ] **3.5.2** `parse-axs.ts` — AXS confirmation format.
+- [ ] **3.5.3** `parse-stubhub.ts` — StubHub.
+- [ ] **3.5.4** `parse-vividseats.ts` — VividSeats.
+- [ ] **3.5.5** `parse-ticketclub.ts` — TicketClub.
 
 ## Phase 4: Match + enrich pipeline
 

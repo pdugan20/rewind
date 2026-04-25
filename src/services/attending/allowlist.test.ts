@@ -79,15 +79,15 @@ describe('attending allowlist', () => {
   });
 
   describe('buildGmailVendorQuery', () => {
-    it('produces a from:() query covering all vendors', () => {
+    it('produces a from:() query covering all vendor domains', () => {
       const q = buildGmailVendorQuery();
       expect(q).toMatch(/^from:\(/);
-      expect(q).toContain('noreply@ticketmaster.com');
-      expect(q).toContain('orders@seatgeek.com');
-      expect(q).toContain('customer.service@axs.com');
-      expect(q).toContain('customerservice@stubhub.com');
-      expect(q).toContain('orders@vividseats.com');
-      expect(q).toContain('orders@ticketclub.com');
+      expect(q).toContain('@ticketmaster.com');
+      expect(q).toContain('@seatgeek.com');
+      expect(q).toContain('@axs.com');
+      expect(q).toContain('@stubhub.com');
+      expect(q).toContain('@vividseats.com');
+      expect(q).toContain('@ticketclub.com');
       expect(q).toContain(' OR ');
     });
   });

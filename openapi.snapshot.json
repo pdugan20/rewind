@@ -618,6 +618,41 @@
               "matched",
               "inserted"
             ]
+          },
+          "gmail": {
+            "type": "object",
+            "properties": {
+              "scanned": {
+                "type": "integer"
+              },
+              "fetched": {
+                "type": "integer"
+              },
+              "parsed": {
+                "type": "integer"
+              },
+              "inserted": {
+                "type": "integer"
+              },
+              "skipped_subject": {
+                "type": "integer"
+              },
+              "skipped_no_jsonld": {
+                "type": "integer"
+              },
+              "candidates": {
+                "type": "array",
+                "items": {}
+              }
+            },
+            "required": [
+              "scanned",
+              "fetched",
+              "parsed",
+              "inserted",
+              "skipped_subject",
+              "skipped_no_jsonld"
+            ]
           }
         },
         "required": [

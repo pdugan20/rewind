@@ -224,6 +224,40 @@ function walkParts(payload: any, mime: string): string | null {
 
 `base64urlDecode`: `atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(s.length + (4 - s.length % 4) % 4, '='))`. Workers have global `atob`.
 
+## Brittleness analysis (added Phase 3)
+
+Two layers can break independently. Designed to fail gracefully on each.
+
+### Vendor sender addresses change
+
+**Mitigation**: Gmail filter uses **domain-level** match (`from:@ticketmaster.com`) rather than specific addresses. The vendor would need to change domains entirely to escape, which is rare. Specific-address allowlists were tried and immediately drifted (research said SeatGeek confirmations come from `orders@`; reality says `transactions@`). The domain filter catches more noise (marketing, surveys), but the subject-line gate (`judgeSubject`) drops those.
+
+**Detection**: per-domain hit counts logged on each cron run. If a vendor's `fetched` count drops to 0 for 30+ days, the cron emits a warning so we notice silently dead vendors.
+
+### Vendor email body templates change
+
+**Mitigation**: `attended_event_sources` keeps the raw `body_text` (capped at 12KB) inside the source row. If a parser breaks, we re-run a fixed parser without re-fetching from Gmail. Parsers are pure functions over `body_text` — testable in isolation.
+
+**Detection**: per-vendor `parsed`-vs-`fetched` ratio. A SeatGeek redesign drops `parsed/fetched` while leaving `fetched` flat, surfacing on the cron health dashboard.
+
+### Reality check from Phase 3 dry-run
+
+Sampled real confirmation emails across all six vendors. **Zero include JSON-LD** in current templates — research from earlier was wrong on this point. The Phase 3 architecture pivots accordingly:
+
+- **JSON-LD parser** stays as-is. Costs ~zero to keep around; will fire if any vendor adds it back, or for new vendors that do use it.
+- **Per-vendor labeled-text parsers** become the primary Gmail extraction path. SeatGeek is the first one (`parse-seatgeek.ts`) since its format is in hand.
+- **Calendar-description parser** (next section) becomes the dominant cron-path source. Google's auto-extraction populates calendar event descriptions with `Reservation Number / Provider / Seats` — Google's parser breakage is Google's problem, not ours.
+
+### Layer durability summary
+
+| Layer                           | Owner        | Brittleness | What breaks if it changes                                             |
+| ------------------------------- | ------------ | ----------- | --------------------------------------------------------------------- |
+| Gmail domain filter             | This project | LOW         | Vendor changes domain (rare).                                         |
+| Calendar auto-extraction        | Google       | LOW         | Google rewrites email-markup parser. Their fix.                       |
+| JSON-LD parser                  | This project | LOW         | Schema.org changes EventReservation shape. Rare.                      |
+| Per-vendor labeled-text parsers | This project | MEDIUM      | Vendor redesigns email template. Re-run parser over stored body_text. |
+| Subject-line accept/reject gate | This project | MEDIUM      | New vendor email categories appear. Add to list, re-run.              |
+
 ## Calendar-embedded ticket data (discovered Phase 2)
 
 Google Calendar **auto-parses** ticket-vendor confirmation emails and writes the structured fields into the event's `description` when the vendor is on Google's email-markup trusted-sender list. Observed in a real Mariners SeatGeek purchase:
