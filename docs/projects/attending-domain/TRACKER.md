@@ -217,25 +217,27 @@ Goal: candidates collapse correctly into canonical `attended_events` rows; loade
   - Rejected a Ticketmaster password-reset email (count 11→10).
   - Promoted a high-confidence SeatGeek confirmation that lacked event_date in its parser output — first call returned 400 with the override hint, second call with `{event_date, location}` succeeded with `action: updated` (deduped against the calendar-loaded event for the same date+venue).
 
-## Phase 8: Manual-entry path (UW football 2007–2010 + 2021–2026 season tickets)
+## Phase 8: Manual-entry path (UW football 2007–2010 + 2021–2026 season tickets) — INFRA DONE, USER CURATION PENDING
 
 Two parallel bulk-loads, same import endpoint, different shape. **Football only** — basketball is out of scope.
 
-### 8.1 — UW football 2007–2010 (per-game manual list)
+**Infrastructure validated end-to-end**: live test imported 2024 UW football home season via `attendance: 'all_home'` shorthand with the Apple Cup (2024-09-14) listed as an exception. ESPN team-schedule endpoint returned 7 home games; loader populated all scores correctly (35-3, 30-9, 19-24, 24-5, 27-17, 26-21, 31-19); `/v1/attending/seasons/ncaaf/2024` returned `attended_count=6, W=6, L=0` (the Apple Cup loss correctly excluded from W/L because attended=0).
 
-- [ ] **8.1.1** Curate `scripts/data/manual-attending-uw-2007-2010.json` for UW football home games attended during college. Reference: Wikipedia season pages (`2007 Washington Huskies football team`, etc.). Per-row: `{ event_date, event_type: 'ncaaf_game', team_id: 264, opponent, is_home: true, notes? }`. Estimate: ~100 rows.
+### 8.1 — UW football 2007–2010 (per-game manual list) — USER ACTION
 
-### 8.2 — UW football 2021–2026 season-tickets bulk-load (all-home expansion)
+- [ ] **8.1.1** USER ACTION: curate `scripts/data/manual-attending-uw-2007-2010.json`. Reference: Wikipedia season pages (`2007 Washington Huskies football team`, etc.). Per-row: `{ event_date, event_type: 'ncaaf_game', team_id: 264, opponent, is_home: true, notes? }`. Estimate: ~100 rows.
 
-- [ ] **8.2.1** Curate `scripts/data/manual-attending-uw-recent.json` using the season-shorthand format: `[{ event_type: 'ncaaf_game', team_id: 264, season: 2021, attendance: 'all_home' }, ...]`. One row per season (~5 rows). Plus an `exceptions: [date, ...]` list per season for games user actually missed. Estimate: ~30 home games before exceptions across 5 seasons.
-- [ ] **8.2.2** Seeder script support for the season-shorthand: when input has `attendance: 'all_home'`, fetch ESPN's full schedule for `(team_id, season)`, expand to one row per home game with `attended=1` (or `0` if date is in the exceptions list).
+### 8.2 — UW football 2021–2026 season-tickets bulk-load (all-home expansion) — USER ACTION
 
-### 8.3 — Shared import endpoint + tooling
+- [ ] **8.2.1** USER ACTION: curate `scripts/data/manual-attending-uw-recent.json` with one row per season: `{ event_type: 'ncaaf_game', team_id: 264, season: <yr>, attendance: 'all_home', exceptions: [<dates missed>] }`. Estimate: 5 rows (one per 2021–2026 season).
 
-- [ ] **8.3.1** Admin endpoint `POST /v1/admin/sync/attending/manual-import` that handles BOTH per-row and season-shorthand inputs. Hits ESPN for canonical records, upserts, returns `{ loaded: N, unmatched: [...] }`.
-- [ ] **8.3.2** `scripts/tools/import-manual-attending.ts` thin wrapper that POSTs a file.
-- [ ] **8.3.3** Run for UW 2007–2010 list; resolve unmatched.
-- [ ] **8.3.4** Run for UW 2021–2026 season-shorthand; user reviews populated rows and flips `attended=0` for actual misses (post-load via direct DB or admin endpoint).
+### 8.3 — Shared import endpoint + tooling — DONE
+
+- [x] **8.3.1** `POST /v1/admin/sync/attending/manual-import` accepts an array of mixed per-game and season-shorthand entries. For per-game: hits MLB Stats API (mlb_game) or ESPN team-schedule (everything else) by date+team. For season-shorthand: hits ESPN team-schedule for the full season, filters to home games, expands one row per home game with `attended=0` for dates in `exceptions`.
+- [x] **8.3.2** `scripts/tools/import-manual-attending.ts` reads a JSON file and POSTs to the endpoint. Supports `--remote` for prod imports.
+- [x] **8.3.3** `getEspnTeamSchedule()` added to `espn-client.ts` so season-shorthand only needs one API call per season instead of 12+. Score-parser extended to handle the schedule endpoint's `{ value, displayValue }` shape (vs the scoreboard endpoint's flat string).
+- [x] **8.3.4** Loader handles the ESPN UTC-vs-Pacific TZ off-by-one (per-game lookups accept date OR date+1 to match games stamped at UTC midnight = next day vs venue-local).
+- [x] **8.3.5** Season-endpoint W/L count filters to `attended=1` only — your attended record (6-0) instead of the team's record (6-1) when exceptions are flagged.
 
 ## Phase 9: Backfill execution
 

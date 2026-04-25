@@ -75,7 +75,10 @@ interface RawEvent {
 
 interface RawCompetitor {
   homeAway?: 'home' | 'away';
-  score?: string | number;
+  // Two shapes observed:
+  //   - scoreboard endpoint returns score as a string ("35") or number
+  //   - team-schedule endpoint returns score as { value: number, displayValue: string }
+  score?: string | number | { value?: number; displayValue?: string };
   winner?: boolean;
   team?: { id?: string | number; displayName?: string; abbreviation?: string };
 }
@@ -154,11 +157,82 @@ function teamIdNum(c: RawCompetitor): number | null {
   return null;
 }
 
-function parseScore(score: string | number | undefined): number | null {
+function parseScore(
+  score: string | number | { value?: number; displayValue?: string } | undefined
+): number | null {
   if (typeof score === 'number') return score;
   if (typeof score === 'string') {
     const n = parseInt(score, 10);
     return Number.isFinite(n) ? n : null;
   }
+  if (typeof score === 'object' && score !== null) {
+    if (typeof score.value === 'number') return Math.round(score.value);
+    if (typeof score.displayValue === 'string') {
+      const n = parseInt(score.displayValue, 10);
+      return Number.isFinite(n) ? n : null;
+    }
+  }
   return null;
+}
+
+/**
+ * Fetch a full season's schedule for a team in one API call. Used by
+ * the season-shorthand expansion in Phase 8 manual-import — instead of
+ * 12+ scoreboard calls (one per game date), we get them all at once.
+ *
+ * Filters to home games only when `homeOnly` is true (Phase 8's
+ * primary use case: "I attended every home game this season").
+ */
+export async function getEspnTeamSchedule(
+  league: EspnLeague,
+  teamId: number,
+  season: number,
+  opts: { homeOnly?: boolean } = {}
+): Promise<SportsGameMatch[]> {
+  const url = `${BASE}/${league.sport}/${league.league}/teams/${teamId}/schedule?season=${season}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `ESPN ${league.league} team-schedule ${res.status}: ${body}`
+    );
+  }
+  const data = (await res.json()) as RawScoreboard;
+
+  const games: SportsGameMatch[] = [];
+  for (const ev of data.events ?? []) {
+    const comp = ev.competitions?.[0];
+    if (!comp || !comp.competitors || comp.competitors.length < 2) continue;
+    const home = comp.competitors.find((c) => c.homeAway === 'home');
+    const away = comp.competitors.find((c) => c.homeAway === 'away');
+    if (!home || !away) continue;
+    const homeId = teamIdNum(home);
+    if (opts.homeOnly && homeId !== teamId) continue;
+
+    // Schedule events use ev.date in UTC. Convert to YYYY-MM-DD by
+    // taking the date component — close enough for our purposes since
+    // the user's home games are all in Pacific TZ.
+    const date = ev.date.slice(0, 10);
+
+    games.push({
+      external_id: ev.id,
+      external_source: 'espn',
+      league: league.mapped,
+      season: ev.season?.year ?? season,
+      game_type: 'R',
+      game_date: date,
+      game_datetime_utc: ev.date,
+      status:
+        ev.status?.type?.description ??
+        comp.status?.type?.description ??
+        'Unknown',
+      home_team: toTeamRef(home),
+      away_team: toTeamRef(away),
+      home_score: parseScore(home.score),
+      away_score: parseScore(away.score),
+      home_is_winner: home.winner ?? null,
+      away_is_winner: away.winner ?? null,
+    });
+  }
+  return games;
 }

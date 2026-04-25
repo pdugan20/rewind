@@ -369,8 +369,13 @@ attending.openapi(seasonRoute, async (c) => {
     const e = r.attended_events;
     const v = r.venues;
     const ed = parseJson<Record<string, unknown>>(e.eventData);
-    if (ed?.my_team_won === true) wins++;
-    else if (ed?.my_team_won === false) losses++;
+    // Only count W/L for games actually attended. Lets the
+    // season-shorthand "all_home" pattern with exceptions report
+    // your attended record (6-0) rather than the team's record (6-1).
+    if (e.attended === 1) {
+      if (ed?.my_team_won === true) wins++;
+      else if (ed?.my_team_won === false) losses++;
+    }
     return {
       id: e.id,
       category: e.category,

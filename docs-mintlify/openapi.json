@@ -550,6 +550,164 @@
           "source_ref"
         ]
       },
+      "AttendingManualImportResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "loaded": {
+            "type": "integer"
+          },
+          "inserted": {
+            "type": "integer"
+          },
+          "updated": {
+            "type": "integer"
+          },
+          "skipped_attended_zero": {
+            "type": "integer"
+          },
+          "unmatched": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "entry": {},
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "loaded",
+          "inserted",
+          "updated",
+          "skipped_attended_zero",
+          "unmatched"
+        ]
+      },
+      "AttendingManualImportBody": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "event_date": {
+                      "type": "string",
+                      "example": "2008-09-13"
+                    },
+                    "event_type": {
+                      "type": "string",
+                      "enum": [
+                        "mlb_game",
+                        "nfl_game",
+                        "nba_game",
+                        "wnba_game",
+                        "mls_game",
+                        "ncaaf_game",
+                        "ncaab_game"
+                      ]
+                    },
+                    "team_id": {
+                      "type": "integer",
+                      "example": 264
+                    },
+                    "opponent": {
+                      "type": "string"
+                    },
+                    "is_home": {
+                      "type": "boolean"
+                    },
+                    "notes": {
+                      "type": "string"
+                    },
+                    "attended": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "enum": [
+                            0
+                          ]
+                        },
+                        {
+                          "type": "number",
+                          "enum": [
+                            1
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event_date",
+                    "event_type",
+                    "team_id"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "event_type": {
+                      "type": "string",
+                      "enum": [
+                        "mlb_game",
+                        "nfl_game",
+                        "nba_game",
+                        "wnba_game",
+                        "mls_game",
+                        "ncaaf_game",
+                        "ncaab_game"
+                      ]
+                    },
+                    "team_id": {
+                      "type": "integer"
+                    },
+                    "season": {
+                      "type": "integer",
+                      "example": 2024
+                    },
+                    "attendance": {
+                      "type": "string",
+                      "enum": [
+                        "all_home"
+                      ]
+                    },
+                    "exceptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "event_type",
+                    "team_id",
+                    "season",
+                    "attendance"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "events"
+        ]
+      },
       "SyncCompletedResponse": {
         "type": "object",
         "properties": {
@@ -20078,6 +20236,69 @@
           },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sync/attending/manual-import": {
+      "post": {
+        "operationId": "adminAttendingManualImport",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Bulk-import attended events from a hand-curated list",
+        "description": "Loads attended_events rows from per-game entries (UW football 2007–2010 from Wikipedia) or season-shorthand entries (`attendance: \"all_home\"` for friend's-season-tickets pattern). Hits MLB Stats API / ESPN to fetch canonical game records — no manual score-typing required.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingManualImportBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingManualImportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {

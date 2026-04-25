@@ -16,6 +16,10 @@ import { createDb } from '../db/client.js';
 import { attendedEventSources } from '../db/schema/attending.js';
 import { enrichCandidate } from '../services/attending/enrich.js';
 import { loadCanonicalEvent } from '../services/attending/load.js';
+import {
+  importManualAttending,
+  type ManualEntry,
+} from '../services/attending/manual-import.js';
 import type { ParsedReservation } from '../services/attending/parse-jsonld.js';
 import { setCache } from '../lib/cache.js';
 import { badRequest, notFound } from '../lib/errors.js';
@@ -362,5 +366,115 @@ function buildCandidateFromSource(
     event_datetime: null,
   };
 }
+
+// ─── POST /v1/admin/sync/attending/manual-import ────────────────────
+
+const ManualEntrySchema = z.union([
+  // Per-game format
+  z.object({
+    event_date: z.string().openapi({ example: '2008-09-13' }),
+    event_type: z.enum([
+      'mlb_game',
+      'nfl_game',
+      'nba_game',
+      'wnba_game',
+      'mls_game',
+      'ncaaf_game',
+      'ncaab_game',
+    ]),
+    team_id: z.number().int().openapi({ example: 264 }),
+    opponent: z.string().optional(),
+    is_home: z.boolean().optional(),
+    notes: z.string().optional(),
+    attended: z.union([z.literal(0), z.literal(1)]).optional(),
+  }),
+  // Season shorthand
+  z.object({
+    event_type: z.enum([
+      'mlb_game',
+      'nfl_game',
+      'nba_game',
+      'wnba_game',
+      'mls_game',
+      'ncaaf_game',
+      'ncaab_game',
+    ]),
+    team_id: z.number().int(),
+    season: z.number().int().openapi({ example: 2024 }),
+    attendance: z.literal('all_home'),
+    exceptions: z.array(z.string()).optional(),
+  }),
+]);
+
+const ManualImportBody = z
+  .object({
+    events: z.array(ManualEntrySchema),
+  })
+  .openapi('AttendingManualImportBody');
+
+const ManualImportResponse = z
+  .object({
+    status: z.literal('completed'),
+    loaded: z.number().int(),
+    inserted: z.number().int(),
+    updated: z.number().int(),
+    skipped_attended_zero: z.number().int(),
+    unmatched: z.array(
+      z.object({
+        entry: z.any(),
+        reason: z.string(),
+      })
+    ),
+  })
+  .openapi('AttendingManualImportResponse');
+
+const manualImportRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/attending/manual-import',
+  operationId: 'adminAttendingManualImport',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Bulk-import attended events from a hand-curated list',
+  description:
+    'Loads attended_events rows from per-game entries (UW football 2007–2010 from Wikipedia) or season-shorthand entries (`attendance: "all_home"` for friend\'s-season-tickets pattern). Hits MLB Stats API / ESPN to fetch canonical game records — no manual score-typing required.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: ManualImportBody } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Import completed',
+      content: { 'application/json': { schema: ManualImportResponse } },
+    },
+    ...errorResponses(400, 401, 500),
+  },
+});
+
+adminAttending.openapi(manualImportRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const { events } = c.req.valid('json');
+
+  try {
+    const result = await importManualAttending(
+      db,
+      c.env,
+      events as ManualEntry[]
+    );
+    return c.json({
+      status: 'completed' as const,
+      loaded: result.loaded,
+      inserted: result.inserted,
+      updated: result.updated,
+      skipped_attended_zero: result.skipped_attended_zero,
+      unmatched: result.unmatched,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/sync/attending/manual-import: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
 
 export default adminAttending;
