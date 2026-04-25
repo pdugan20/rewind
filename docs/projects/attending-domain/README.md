@@ -14,7 +14,15 @@ Five concrete things this unlocks:
 
 ## Status
 
-Schema and read-side routes already shipped on `worktree-attending-domain` (commit `aba384e`). This project covers the data-ingestion pipeline: Google OAuth foundation, Calendar + Gmail extractors, sports/concert enrichment, dedupe/load, cron wiring, and one-time backfill execution.
+Branch `worktree-attending-domain`:
+
+| Phase | Status                                                                                                                                                                                                        |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Scaffolding — DONE (`c934041`). Schema, routes, admin stub, OpenAPI tag.                                                                                                                                      |
+| 1     | Google OAuth foundation — DONE LOCALLY (`2100971`, `de082da`). End-to-end smoke validated against `dugan.pat@gmail.com` (216k messages accessible, both scopes granted). Production seed deferred to Phase 9. |
+| 2–9   | Pending. See TRACKER.md.                                                                                                                                                                                      |
+
+This project covers the data-ingestion pipeline: Google OAuth foundation, Calendar + Gmail extractors, sports/concert enrichment, dedupe/load, cron wiring, and one-time backfill execution.
 
 ## Scope
 

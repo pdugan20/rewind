@@ -14,9 +14,11 @@ Phases are designed to ship independently — each delivers verifiable value (te
 - [x] **0.6** Local migration applied (`npm run db:migrate`)
 - [ ] **0.7** Remote migration applied (`npm run db:remote`) — gated on Phase 1+ readiness, no point applying to prod until ingestion works
 
-## Phase 1: Google OAuth foundation
+## Phase 1: Google OAuth foundation — DONE LOCALLY (commits 2100971, de082da)
 
 Goal: a single function `getGoogleAccessToken(db, env)` returns a valid access token, with a one-shot CLI to seed the refresh token from my laptop.
+
+Verified end-to-end against `dugan.pat@gmail.com` — smoke endpoint returned email + `messages_total: 216591` + both required scopes. Production seed is consolidated into Phase 9 (no point doing it before there's a cron that reads the token).
 
 ### 1.1 — Token table + env vars — DONE
 
@@ -25,14 +27,14 @@ Goal: a single function `getGoogleAccessToken(db, env)` returns a valid access t
 - [x] **1.1.3** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` added to `Env` interface (Worker secrets via `wrangler secret put`, not `[vars]` — matches Trakt/Strava pattern).
 - [x] **1.1.4** Local migration applied. Lint + typecheck clean.
 
-### 1.2 — Google Cloud Console setup (user-side, one-time)
+### 1.2 — Google Cloud Console setup (user-side, one-time) — DONE
 
-- [ ] **1.2.1** Create new GCP project ("rewind-attending").
-- [ ] **1.2.2** Enable Calendar API and Gmail API.
-- [ ] **1.2.3** Configure OAuth consent screen (External, fill required fields, add user email as test user).
-- [ ] **1.2.4** **Publish to "In production".** Click through "unverified app" — required to avoid the 7-day refresh-token expiry.
-- [ ] **1.2.5** Create OAuth Client ID, type **Desktop app**.
-- [ ] **1.2.6** Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as Worker secrets via `wrangler secret put`.
+- [x] **1.2.1** GCP project "rewind-attending" created.
+- [x] **1.2.2** Calendar API + Gmail API enabled.
+- [x] **1.2.3** OAuth consent screen configured via the new "Google Auth Platform" wizard (Branding + Audience + Data Access + Clients pages — Google rebranded the old single-page flow). Both scopes added under Data Access.
+- [x] **1.2.4** Audience → **Publish App** clicked → status "In production." Verified screenshot. (Avoids the 7-day refresh-token expiry trap.)
+- [x] **1.2.5** Desktop OAuth client "rewind-attending-desktop" created; client_id/secret extracted from downloaded JSON, JSON deleted from `~/Downloads`.
+- [ ] **1.2.6** DEFERRED to Phase 9: `wrangler secret put GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` for prod. Local uses `.dev.vars` (already populated).
 
 ### 1.3 — Auth service — DONE
 
@@ -40,15 +42,15 @@ Goal: a single function `getGoogleAccessToken(db, env)` returns a valid access t
 - [x] **1.3.2** Verifies returned `scope` field includes both `calendar.readonly` and `gmail.readonly` on each refresh; throws if not.
 - [x] **1.3.3** Unit tests (5 cases): expiry math both directions, successful refresh persists, scope drift throws, 400 from token endpoint propagates.
 
-### 1.4 — One-shot setup CLI — CODE DONE, AWAITING USER RUN
+### 1.4 — One-shot setup CLI — DONE (LOCAL)
 
-- [x] **1.4.1** `scripts/tools/setup-google.ts` — Authorization Code flow with localhost loopback. Captures code, exchanges for access+refresh, verifies scopes, writes to local or remote D1 via `wrangler d1 execute`.
-- [ ] **1.4.2** USER ACTION: complete Phase 1.2 (GCP setup), put creds in `.dev.vars`, then `npx tsx scripts/tools/setup-google.ts`. Confirm row in `google_tokens`.
-- [ ] **1.4.3** USER ACTION: same with `--remote` flag once prod is migrated.
+- [x] **1.4.1** `scripts/tools/setup-google.ts` — Authorization Code flow with localhost loopback. Bug fix in `de082da`: capture redirect URI before `server.close()` (address() returns null after close).
+- [x] **1.4.2** Ran successfully against local D1. Token row in `google_tokens` confirmed; both scopes granted.
+- [ ] **1.4.3** DEFERRED to Phase 9: `--remote` flag once prod is migrated.
 
-### 1.5 — Smoke test — DONE
+### 1.5 — Smoke test — DONE + VALIDATED
 
-- [x] **1.5.1** `POST /v1/admin/google/test` (hidden) — refreshes the token and hits `/oauth2/v2/userinfo`, returns `{ email, scopes, expires_at }`. Will validate end-to-end auth once the user runs Phase 1.2 + 1.4.
+- [x] **1.5.1** `POST /v1/admin/google/test` (hidden) — refreshes the token and hits `https://gmail.googleapis.com/gmail/v1/users/me/profile`, returns `{ email, messages_total, scopes, expires_at }`. Switched from `/oauth2/v2/userinfo` (commit `de082da`) because that endpoint requires the `userinfo.email` scope which we don't request — Gmail's getProfile is gated by `gmail.readonly` which we do have, and doubles as proof we can read mail. Validated locally: 216k messages accessible.
 
 ## Phase 2: Calendar extractor
 
