@@ -49,7 +49,13 @@ async function main(): Promise<void> {
 
   const filepath = resolve(process.cwd(), fileArg);
   const raw = readFileSync(filepath, 'utf-8');
-  const events = JSON.parse(raw);
+  const parsed = JSON.parse(raw) as unknown;
+  // Accept either a bare array of entries OR a wrapper object
+  // `{ events: [...], _notes?: {...} }`. The wrapper form lets the
+  // file carry inline documentation alongside the data.
+  const events = Array.isArray(parsed)
+    ? parsed
+    : ((parsed as { events?: unknown[] }).events ?? []);
 
   const base = remote ? REMOTE_BASE : LOCAL_BASE;
   console.log(`[INFO] Importing ${events.length} entries to ${base}...`);

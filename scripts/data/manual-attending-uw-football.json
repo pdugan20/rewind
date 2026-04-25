@@ -1,0 +1,68 @@
+{
+  "_notes": {
+    "block_a_undergrad_grad": "Seasons 2007-2010 + 2013: undergrad + grad year, attended every home game. Use season-shorthand. Edit `exceptions: [\"YYYY-MM-DD\"]` per season for any home game you actually missed.",
+    "block_b_sf_decade_away": "2010-2016 SF decade: alternating away games at Cal or Stanford. 2017 (Stanford), 2018 (Cal), 2019 (Stanford) already loaded from Ticket Club emails. Pre-2017 needs per-game entries — find each year's UW road game at Cal or Stanford on Wikipedia (YYYY Washington Huskies football team season schedule) and add a row below.",
+    "block_c_recent_seasons": "2021-2023 + 2025-2026: return to Seattle. Mostly-home pattern. 2024 already loaded from calendar. Add the rest below.",
+    "format_per_game": "{ event_date: 'YYYY-MM-DD', event_type: 'ncaaf_game', team_id: 264, opponent: 'Cal' (for reference, ignored by script), is_home: false }",
+    "format_season_shorthand": "{ event_type: 'ncaaf_game', team_id: 264, season: YYYY, attendance: 'all_home', exceptions: [] }"
+  },
+  "events": [
+    {
+      "event_type": "ncaaf_game",
+      "team_id": 264,
+      "season": 2007,
+      "attendance": "all_home",
+      "exceptions": []
+    },
+    {
+      "event_type": "ncaaf_game",
+      "team_id": 264,
+      "season": 2008,
+      "attendance": "all_home",
+      "exceptions": []
+    },
+    {
+      "event_type": "ncaaf_game",
+      "team_id": 264,
+      "season": 2009,
+      "attendance": "all_home",
+      "exceptions": []
+    },
+    {
+      "event_type": "ncaaf_game",
+      "team_id": 264,
+      "season": 2010,
+      "attendance": "all_home",
+      "exceptions": []
+    },
+    {
+      "event_type": "ncaaf_game",
+      "team_id": 264,
+      "season": 2013,
+      "attendance": "all_home",
+      "exceptions": []
+    },
+
+    {
+      "event_type": "ncaaf_game",
+      "team_id": 264,
+      "season": 2022,
+      "attendance": "all_home",
+      "exceptions": []
+    },
+    {
+      "event_type": "ncaaf_game",
+      "team_id": 264,
+      "season": 2023,
+      "attendance": "all_home",
+      "exceptions": []
+    },
+    {
+      "event_type": "ncaaf_game",
+      "team_id": 264,
+      "season": 2025,
+      "attendance": "all_home",
+      "exceptions": []
+    }
+  ]
+}

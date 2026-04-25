@@ -252,13 +252,29 @@ Two parallel bulk-loads, same import endpoint, different shape. **Football only*
 
 **Infrastructure validated end-to-end**: live test imported 2024 UW football home season via `attendance: 'all_home'` shorthand with the Apple Cup (2024-09-14) listed as an exception. ESPN team-schedule endpoint returned 7 home games; loader populated all scores correctly (35-3, 30-9, 19-24, 24-5, 27-17, 26-21, 31-19); `/v1/attending/seasons/ncaaf/2024` returned `attended_count=6, W=6, L=0` (the Apple Cup loss correctly excluded from W/L because attended=0).
 
-### 8.1 — UW football 2007–2010 (per-game manual list) — USER ACTION
+### 8.1 + 8.2 — UW football coverage scaffold — STARTER FILE READY
 
-- [ ] **8.1.1** USER ACTION: curate `scripts/data/manual-attending-uw-2007-2010.json`. Reference: Wikipedia season pages (`2007 Washington Huskies football team`, etc.). Per-row: `{ event_date, event_type: 'ncaaf_game', team_id: 264, opponent, is_home: true, notes? }`. Estimate: ~100 rows.
+User attendance pattern (per user clarification):
 
-### 8.2 — UW football 2021–2026 season-tickets bulk-load (all-home expansion) — USER ACTION
+- **Undergrad 2007–2010 + grad year 2013**: every home game.
+- **SF decade ~2010–2016**: alternating away games at Cal or Stanford (Pac-12 home/away rotation). 2017 Stanford, 2018 Cal, 2019 Stanford already loaded from Ticket Club confirmations.
+- **Return to Seattle 2021–2026**: most home games, friend's-tickets pattern.
 
-- [ ] **8.2.1** USER ACTION: curate `scripts/data/manual-attending-uw-recent.json` with one row per season: `{ event_type: 'ncaaf_game', team_id: 264, season: <yr>, attendance: 'all_home', exceptions: [<dates missed>] }`. Estimate: 5 rows (one per 2021–2026 season).
+`scripts/data/manual-attending-uw-football.json` scaffolded with:
+
+- Block A: 5 season-shorthand rows (2007, 2008, 2009, 2010, 2013) with empty `exceptions` arrays for the user to fill if they remember missing any home games.
+- Block C: 3 season-shorthand rows (2022, 2023, 2025) for the post-return Seattle years (2024 already in DB from calendar/email; 2026 is in-season).
+
+Block B (per-game SF-decade away games at Cal/Stanford) left to user — Wikipedia "YYYY Washington Huskies football team" pages give the schedule, user picks the Bay Area road game per year.
+
+- [x] **8.1.1** USER ACTION: scaffold reviewed & populated. Run via:
+  ```bash
+  REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
+    scripts/data/manual-attending-uw-football.json --remote
+  ```
+  Server-side expansion produces ~30-40 attended_events from the 8 starter rows.
+- [ ] **8.1.2** USER ACTION (optional): add per-game Block B rows for 2010-2016 away games at Cal/Stanford. Schema: `{ event_date: 'YYYY-MM-DD', event_type: 'ncaaf_game', team_id: 264, opponent: 'Cal', is_home: false }`. ~5-7 rows.
+- [ ] **8.1.3** USER ACTION (optional): for any season-shorthand rows, populate `exceptions: ["YYYY-MM-DD"]` for home games actually missed (sick days, travel, etc.) — `attended` flag flips to 0 for those.
 
 ### 8.3 — Shared import endpoint + tooling — DONE
 
