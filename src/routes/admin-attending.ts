@@ -20,6 +20,7 @@ import {
   importManualAttending,
   type ManualEntry,
 } from '../services/attending/manual-import.js';
+import { reprocessPendingSources } from '../services/attending/reprocess.js';
 import type { ParsedReservation } from '../services/attending/parse-jsonld.js';
 import { setCache } from '../lib/cache.js';
 import { badRequest, notFound } from '../lib/errors.js';
@@ -473,6 +474,88 @@ adminAttending.openapi(manualImportRoute, async (c) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.log(`[ERROR] POST /admin/sync/attending/manual-import: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// ─── POST /v1/admin/attending/reprocess ─────────────────────────────
+
+const ReprocessBody = z
+  .object({
+    vendor: z.string().optional().openapi({ example: 'ticketclub.com' }),
+    refetch_missing_body: z.boolean().optional().default(true),
+    limit: z.number().int().min(1).max(2000).optional().default(1000),
+    dry_run: z.boolean().optional().default(false),
+  })
+  .openapi('AttendingReprocessBody');
+
+const ReprocessResponse = z
+  .object({
+    status: z.literal('completed'),
+    scanned: z.number().int(),
+    refetched: z.number().int(),
+    newly_parsed: z.number().int(),
+    loaded: z.number().int(),
+    failures: z.array(
+      z.object({ source_id: z.number().int(), reason: z.string() })
+    ),
+  })
+  .openapi('AttendingReprocessResponse');
+
+const reprocessRoute = createRoute({
+  method: 'post',
+  path: '/admin/attending/reprocess',
+  operationId: 'adminAttendingReprocess',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Re-run parsers + enrich+load over pending source rows',
+  description:
+    "After shipping a new vendor parser, this endpoint re-tries every pending source. With `refetch_missing_body: true` (default), Gmail messages whose body wasn't captured (early Phase 3 sources) get re-fetched and updated. Use `vendor` to scope to one domain.",
+  request: {
+    body: {
+      content: { 'application/json': { schema: ReprocessBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Reprocess completed',
+      content: { 'application/json': { schema: ReprocessResponse } },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminAttending.openapi(reprocessRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  type ReprocessOpts = {
+    vendor?: string;
+    refetch_missing_body?: boolean;
+    limit?: number;
+    dry_run?: boolean;
+  };
+  const body: ReprocessOpts = await c.req
+    .json<ReprocessOpts>()
+    .catch(() => ({}) as ReprocessOpts);
+
+  try {
+    const result = await reprocessPendingSources(db, c.env, {
+      vendor: body.vendor,
+      refetchMissingBody: body.refetch_missing_body ?? true,
+      limit: body.limit ?? 1000,
+      dryRun: body.dry_run ?? false,
+    });
+    return c.json({
+      status: 'completed' as const,
+      scanned: result.scanned,
+      refetched: result.refetched,
+      newly_parsed: result.newly_parsed,
+      loaded: result.loaded,
+      failures: result.failures,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/attending/reprocess: ${message}`);
     return c.json({ error: message, status: 500 }, 500) as any;
   }
 });

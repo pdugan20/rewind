@@ -24,6 +24,11 @@ import {
   type ParsedReservation,
 } from './parse-jsonld.js';
 import { parseSeatGeekText } from './parse-seatgeek.js';
+import { parseTicketClubHtml } from './parse-ticketclub.js';
+import { parseTicketmasterHtml } from './parse-ticketmaster.js';
+import { parseAxsHtml } from './parse-axs.js';
+import { parseVividHtml } from './parse-vivid.js';
+import { parseStubhubHtml } from './parse-stubhub.js';
 
 export interface ExtractCalendarOptions {
   // Range pull window. Used for backfill, or for the initial pull before
@@ -215,6 +220,7 @@ export interface ParsedGmailCandidate {
   internal_date: string; // ISO 8601
   reservations: ParsedReservation[];
   body_text: string | null;
+  body_html: string | null;
 }
 
 export async function extractGmailCandidates(
@@ -303,14 +309,25 @@ function parseMessageCapture(msg: GmailMessage): ParsedGmailCandidate {
   const html = msg.bodyHtml ?? '';
 
   // Tiered parsing: try JSON-LD first (cheap, covers any vendor that
-  // emits it), then per-vendor labeled-text parsers using the text
-  // body. Empty `reservations` means no parser path matched — the
-  // source row still gets stored so a future parser can re-process.
+  // emits it), then per-vendor labeled-text/HTML parsers. Empty
+  // `reservations` means no parser path matched — source row still
+  // gets stored so reprocess can re-try later.
   let reservations = parseEventReservationFromHtml(html, vendor) ?? [];
-  if (reservations.length === 0 && vendor === 'seatgeek') {
-    reservations = parseSeatGeekText(msg.bodyText) ?? [];
+  if (reservations.length === 0) {
+    if (vendor === 'seatgeek') {
+      reservations = parseSeatGeekText(msg.bodyText) ?? [];
+    } else if (vendor === 'ticketclub') {
+      reservations = parseTicketClubHtml(html) ?? [];
+    } else if (vendor === 'ticketmaster') {
+      reservations = parseTicketmasterHtml(html) ?? [];
+    } else if (vendor === 'axs') {
+      reservations = parseAxsHtml(html) ?? [];
+    } else if (vendor === 'vividseats') {
+      reservations = parseVividHtml(html) ?? [];
+    } else if (vendor === 'stubhub') {
+      reservations = parseStubhubHtml(html) ?? [];
+    }
   }
-  // Future: parse-ticketmaster.ts, parse-axs.ts, etc.
 
   return {
     source_ref: msg.id,
@@ -318,10 +335,13 @@ function parseMessageCapture(msg: GmailMessage): ParsedGmailCandidate {
     from,
     internal_date: new Date(parseInt(msg.internalDate, 10)).toISOString(),
     reservations,
-    // Capped at 12k chars — enough for the structured fields (Order
-    // number, Section, Row, Seats, Total) which always appear in the
-    // first half of these emails. Saves D1 row size.
+    // Capped at 12k chars each — enough for the structured fields
+    // (Order number, Section, Row, Seats, Total) which always appear
+    // in the first portion of these emails. Stores BOTH text/plain and
+    // text/html because some vendors (Ticket Club, older Ticketmaster)
+    // ship HTML-only emails — body_text would be null in that case.
     body_text: msg.bodyText ? msg.bodyText.slice(0, 12000) : null,
+    body_html: msg.bodyHtml ? msg.bodyHtml.slice(0, 24000) : null,
   };
 }
 

@@ -708,6 +708,78 @@
           "events"
         ]
       },
+      "AttendingReprocessResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "scanned": {
+            "type": "integer"
+          },
+          "refetched": {
+            "type": "integer"
+          },
+          "newly_parsed": {
+            "type": "integer"
+          },
+          "loaded": {
+            "type": "integer"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source_id",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "scanned",
+          "refetched",
+          "newly_parsed",
+          "loaded",
+          "failures"
+        ]
+      },
+      "AttendingReprocessBody": {
+        "type": "object",
+        "properties": {
+          "vendor": {
+            "type": "string",
+            "example": "ticketclub.com"
+          },
+          "refetch_missing_body": {
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 1000
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "SyncCompletedResponse": {
         "type": "object",
         "properties": {
@@ -20283,6 +20355,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/attending/reprocess": {
+      "post": {
+        "operationId": "adminAttendingReprocess",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Re-run parsers + enrich+load over pending source rows",
+        "description": "After shipping a new vendor parser, this endpoint re-tries every pending source. With `refetch_missing_body: true` (default), Gmail messages whose body wasn't captured (early Phase 3 sources) get re-fetched and updated. Use `vendor` to scope to one domain.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingReprocessBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reprocess completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingReprocessResponse"
                 }
               }
             }

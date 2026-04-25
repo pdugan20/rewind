@@ -165,6 +165,22 @@ const SUBJECT_REJECT = [
   'thank you for joining',
   'newsletter',
   'unsubscribe',
+  // Marketing / non-purchase noise that slipped through during the
+  // Phase 9 prod run.
+  'on sale',
+  'special offers',
+  'see it live',
+  'on tour',
+  'vip package',
+  'verified fan',
+  'sign in activity',
+  'password has been updated',
+  'request to reset password',
+  'chances to win',
+  'how likely are you',
+  'how was it',
+  'rate your experience',
+  'tell us about',
 ];
 
 const SUBJECT_ACCEPT = [

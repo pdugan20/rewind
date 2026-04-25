@@ -117,15 +117,44 @@ Goal: every ticket-confirmation email matching the vendor allowlist is captured 
 - [x] **3.4.3** Wired into `backfill.ts`. Admin endpoint returns the `gmail` envelope with `scanned/fetched/parsed/skipped_subject/skipped_no_jsonld` counts and the per-message candidates list (in dry-run).
 - [x] **3.4.4** Validated against real account: 90-day dry-run found 13 confirmations across vendors. 4 fully parsed (all SeatGeek). 9 captured with body for future parsers.
 
-### 3.5 — Additional per-vendor parsers — FOLLOW-UP (not blocking)
+### 3.5 — Additional per-vendor parsers — DONE
 
-These are pure-function additions; can be written from real fixtures during the Phase 9 backfill review.
+All five parsers shipped with real-fixture validation. Each handles
+multiple template generations observed in the inbox (legacy + modern).
 
-- [ ] **3.5.1** `parse-ticketmaster.ts` — Ticketmaster + Mariners Fancare templates.
-- [ ] **3.5.2** `parse-axs.ts` — AXS confirmation format.
-- [ ] **3.5.3** `parse-stubhub.ts` — StubHub.
-- [ ] **3.5.4** `parse-vividseats.ts` — VividSeats.
-- [ ] **3.5.5** `parse-ticketclub.ts` — TicketClub.
+- [x] **3.5.1** `parse-ticketclub.ts` — handles legacy 2018 (labeled
+      lines, "Saturday, Oct 27 2018 at Time TBD") and modern 2025 (inline
+      Section/Row/Qty • bullets, "@" date separator) layouts. 15 tests.
+      Reprocess result: 75 newly_parsed → 27 new events loaded (Mariners
+      4→8 in 2024, +13 concerts).
+- [x] **3.5.2** `parse-ticketmaster.ts` — handles legacy 2018 (RÜFÜS
+      DU SOL, "Tue, Nov 06 2018 - 8:00 PM") and modern 2019+ (Mariners,
+      "Thu • May 16 2019 • 7:10 PM" bullets). Covers official Ticketmaster
+  - team-branded sub-brands (Mariners Fancare). 8 tests. Reprocess
+    result: 5 new events loaded.
+- [x] **3.5.3** `parse-axs.ts` — "Your confirmation number is X" anchor
+      with "scheduled on YYYY-MM-DD HH:MM" date. 3 events loaded.
+- [x] **3.5.4** `parse-vivid.ts` — "Order #\n<num>" + "Section: X Row: Y"
+      inline. 1 event loaded.
+- [x] **3.5.5** `parse-stubhub.ts` — distinctive single-line "EVENT at
+      VENUE, City" format. 2 events loaded.
+
+### 3.5.x — Reprocess endpoint — DONE
+
+- [x] `POST /v1/admin/attending/reprocess?vendor=<domain>` re-runs
+      parsers + enrich + load over pending source rows. Has `refetch_missing_body`
+      flag to re-pull from Gmail when body data is absent (required for
+      rows captured before Phase 9.5 added body_html storage). Used after
+      every new parser ships.
+
+### 3.5 — Subject-gate hardening
+
+- [x] Added 14 new reject patterns observed during Phase 9: "on sale",
+      "special offers", "see it live", "on tour", "vip package",
+      "verified fan", "sign in activity", "password has been updated",
+      "request to reset password", "chances to win", "how likely are you",
+      "how was it", "rate your experience", "tell us about". Removes ~88
+      Ticketmaster marketing emails per backfill pass.
 
 ## Phase 4: Match + enrich pipeline — DONE
 
