@@ -18,12 +18,12 @@ Phases are designed to ship independently — each delivers verifiable value (te
 
 Goal: a single function `getGoogleAccessToken(db, env)` returns a valid access token, with a one-shot CLI to seed the refresh token from my laptop.
 
-### 1.1 — Token table + env vars
+### 1.1 — Token table + env vars — DONE
 
-- [ ] **1.1.1** `src/db/schema/google.ts` defining `googleTokens` (id, userId, accessToken, refreshToken, expiresAt, scopes, createdAt, updatedAt). Mirrors `strava_tokens` shape.
-- [ ] **1.1.2** Hand-authored `migrations/0032_google_tokens.sql` (CREATE TABLE IF NOT EXISTS).
-- [ ] **1.1.3** Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `wrangler.toml` `[vars]` section (placeholders) and `Env` interface in `src/types/env.ts`.
-- [ ] **1.1.4** `npm run db:generate` should NOT modify the journal (we hand-author). Run lint + typecheck.
+- [x] **1.1.1** `src/db/schema/google.ts` defining `googleTokens` (id, userId, accessToken, refreshToken, expiresAt, scopes, createdAt, updatedAt). Mirrors `strava_tokens` shape.
+- [x] **1.1.2** Hand-authored `migrations/0032_google_tokens.sql` (CREATE TABLE IF NOT EXISTS).
+- [x] **1.1.3** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` added to `Env` interface (Worker secrets via `wrangler secret put`, not `[vars]` — matches Trakt/Strava pattern).
+- [x] **1.1.4** Local migration applied. Lint + typecheck clean.
 
 ### 1.2 — Google Cloud Console setup (user-side, one-time)
 
@@ -34,27 +34,21 @@ Goal: a single function `getGoogleAccessToken(db, env)` returns a valid access t
 - [ ] **1.2.5** Create OAuth Client ID, type **Desktop app**.
 - [ ] **1.2.6** Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as Worker secrets via `wrangler secret put`.
 
-### 1.3 — Auth service
+### 1.3 — Auth service — DONE
 
-- [ ] **1.3.1** `src/services/google/auth.ts` exporting `getGoogleAccessToken(db, env): Promise<string>`. Caches via `expires_at`; refreshes when within 60s of expiry. Form-encoded POST to `https://oauth2.googleapis.com/token`.
-- [ ] **1.3.2** Verifies returned `scope` field includes both `calendar.readonly` and `gmail.readonly` on each refresh; throws if not (so silent scope drift gets caught).
-- [ ] **1.3.3** Unit test with mocked fetch: cache hit, cache miss + successful refresh, cache miss + 401, scope verification failure.
+- [x] **1.3.1** `src/services/google/auth.ts` exporting `getGoogleAccessToken(db, env): Promise<string>`. Caches via `expires_at`; refreshes when within 60s of expiry. Form-encoded POST to `https://oauth2.googleapis.com/token`.
+- [x] **1.3.2** Verifies returned `scope` field includes both `calendar.readonly` and `gmail.readonly` on each refresh; throws if not.
+- [x] **1.3.3** Unit tests (5 cases): expiry math both directions, successful refresh persists, scope drift throws, 400 from token endpoint propagates.
 
-### 1.4 — One-shot setup CLI
+### 1.4 — One-shot setup CLI — CODE DONE, AWAITING USER RUN
 
-- [ ] **1.4.1** `scripts/tools/setup-google.ts` modeled on `setup-trakt.ts`:
-  - Spins up a localhost loopback HTTP server on a random port
-  - Builds the consent URL with `access_type=offline&prompt=consent&scope=calendar.readonly+gmail.readonly`
-  - Opens the URL in the default browser
-  - Captures the `code` from the redirect
-  - Exchanges code → access+refresh token at `oauth2.googleapis.com/token`
-  - Writes the token row to local D1 via `wrangler d1 execute`
-- [ ] **1.4.2** Run it once locally; confirm `google_tokens` has a row with a non-empty `refresh_token`.
-- [ ] **1.4.3** Run it once against remote (`--remote` flag) so prod has the seed token.
+- [x] **1.4.1** `scripts/tools/setup-google.ts` — Authorization Code flow with localhost loopback. Captures code, exchanges for access+refresh, verifies scopes, writes to local or remote D1 via `wrangler d1 execute`.
+- [ ] **1.4.2** USER ACTION: complete Phase 1.2 (GCP setup), put creds in `.dev.vars`, then `npx tsx scripts/tools/setup-google.ts`. Confirm row in `google_tokens`.
+- [ ] **1.4.3** USER ACTION: same with `--remote` flag once prod is migrated.
 
-### 1.5 — Smoke test
+### 1.5 — Smoke test — DONE
 
-- [ ] **1.5.1** Tiny admin endpoint `POST /v1/admin/google/test` (hidden) that calls `getGoogleAccessToken` and then `GET https://www.googleapis.com/oauth2/v2/userinfo`. Returns the user's email + the access token's expiry. Confirms end-to-end auth works.
+- [x] **1.5.1** `POST /v1/admin/google/test` (hidden) — refreshes the token and hits `/oauth2/v2/userinfo`, returns `{ email, scopes, expires_at }`. Will validate end-to-end auth once the user runs Phase 1.2 + 1.4.
 
 ## Phase 2: Calendar extractor
 

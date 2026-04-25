@@ -626,6 +626,28 @@
             "example": "2026-04-25"
           }
         }
+      },
+      "GoogleTestResponse": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expires_at": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "email",
+          "scopes",
+          "expires_at"
+        ]
       }
     },
     "parameters": {}
@@ -20024,6 +20046,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/google/test": {
+      "post": {
+        "operationId": "adminGoogleTest",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Smoke test Google auth",
+        "description": "Runs the Google token refresh flow and hits userinfo to confirm end-to-end OAuth works. Used during attending-domain setup.",
+        "responses": {
+          "200": {
+            "description": "Google auth working",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleTestResponse"
                 }
               }
             }

@@ -42,6 +42,10 @@ export interface Env {
   TRAKT_CLIENT_ID: string;
   TRAKT_CLIENT_SECRET: string;
 
+  // Google (Calendar + Gmail for the attending domain)
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+
   // Instapaper
   INSTAPAPER_CONSUMER_KEY: string;
   INSTAPAPER_CONSUMER_SECRET: string;

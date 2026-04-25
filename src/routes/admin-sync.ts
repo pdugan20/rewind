@@ -22,6 +22,9 @@ import { syncTraktCollection } from '../services/trakt/sync.js';
 import { syncReading } from '../services/instapaper/sync.js';
 import { processReadingImages } from '../services/images/sync-images.js';
 import { backfillAttending } from '../services/attending/backfill.js';
+import { getGoogleAccessToken } from '../services/google/auth.js';
+import { googleTokens } from '../db/schema/google.js';
+import { eq } from 'drizzle-orm';
 import { badRequest } from '../lib/errors.js';
 
 const adminSync = createOpenAPIApp();
@@ -497,6 +500,70 @@ adminSync.openapi(syncAttendingRoute, async (c) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.log(`[ERROR] POST /admin/sync/attending: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// POST /v1/admin/google/test -- end-to-end auth smoke test.
+// Refreshes the access token if needed, then calls userinfo to confirm
+// Google still trusts the credentials. Returns the authenticated email +
+// granted scopes so misconfigurations show up immediately.
+const GoogleTestResponse = z
+  .object({
+    email: z.string(),
+    scopes: z.array(z.string()),
+    expires_at: z.number().int(),
+  })
+  .openapi('GoogleTestResponse');
+
+const googleTestRoute = createRoute({
+  method: 'post',
+  path: '/admin/google/test',
+  operationId: 'adminGoogleTest',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Smoke test Google auth',
+  description:
+    'Runs the Google token refresh flow and hits userinfo to confirm end-to-end OAuth works. Used during attending-domain setup.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GoogleTestResponse } },
+      description: 'Google auth working',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminSync.openapi(googleTestRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  try {
+    const accessToken = await getGoogleAccessToken(db, c.env);
+    const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      return c.json(
+        { error: `userinfo ${res.status}: ${text}`, status: 500 },
+        500
+      ) as any;
+    }
+    const info = (await res.json()) as { email: string };
+
+    const [row] = await db
+      .select()
+      .from(googleTokens)
+      .where(eq(googleTokens.userId, 1))
+      .limit(1);
+
+    return c.json({
+      email: info.email,
+      scopes: (row?.scopes ?? '').split(' ').filter(Boolean),
+      expires_at: row?.expiresAt ?? 0,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/google/test: ${message}`);
     return c.json({ error: message, status: 500 }, 500) as any;
   }
 });
