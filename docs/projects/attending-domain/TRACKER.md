@@ -243,6 +243,20 @@ Two parallel bulk-loads, same import endpoint, different shape. **Football only*
 
 All steps are USER ACTIONS. No code changes — this is operational. Phase 8 manual lists need to be curated before 9.5/9.6 run.
 
+### Status — auto-track DONE 2026-04-25
+
+- [x] **9.1** Migrations 0031/0032/0033 applied to remote D1.
+- [x] **9.2** GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET set as Worker secrets. Refresh token seeded into remote `google_tokens`.
+- [x] **9.3** `POST https://api.rewind.rest/v1/admin/google/test` returned `dugan.pat@gmail.com`, 216592 messages, both scopes — prod auth working end-to-end.
+- [x] **9.4** Calendar full pull (2015–2026): scanned 11030, matched 59, loaded 57 + 2 dedupe-updates.
+- [x] **9.5** Gmail full pull (2010–2026): scanned 694, fetched 665, parsed 20 (SeatGeek), inserted 4 events + 1 update. 660 sources captured for Phase 3.5 vendor parsers.
+- [x] **9.8** Pending review: 660 Gmail sources await per-vendor parsers. Junk-detection done at the subject-gate level (29 rejected before fetch); the 660 are real confirmations that just don't have a parser yet.
+- [x] **9.9** Spot-check confirmed: `/v1/attending/seasons/mlb/2024` shows 4 attended games W=2 L=2; `/v1/attending/seasons/ncaaf/2024` shows 6 W=5 L=1 (Apple Cup currently attended=1 per calendar entry — will flip to 0 when manual season-import runs); `/v1/attending/stats` shows 61 events across MLB/NCAAF/NFL/WNBA/NCAAB/concerts spanning 2016–2026.
+- [x] **9.10** `/v1/health/sync` shows attending status=completed, sync_type=range, items_synced=4, last_sync recent.
+- [ ] **9.6 + 9.7** USER ACTION: manual UW football imports (gated on Phase 8.1.1 / 8.2.1 curation).
+
+---
+
 ### 9.1 — Apply migrations to remote D1
 
 ```bash
