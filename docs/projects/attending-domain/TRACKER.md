@@ -187,13 +187,25 @@ Goal: candidates collapse correctly into canonical `attended_events` rows; loade
 - [ ] **7.2** Admin endpoint `POST /v1/admin/attending/candidates/:id/promote` and `/reject` to manually approve a low-confidence candidate or drop it.
 - [ ] **7.3** Document the workflow in DESIGN.md (which exists already — link it from here).
 
-## Phase 8: Manual-entry path (UW football 2007–2010 + similar gaps)
+## Phase 8: Manual-entry path (UW football 2007–2010 + 2021–2026 season tickets)
 
-- [ ] **8.1** Curate `scripts/data/manual-attending.json` for UW football home games attended 2007–2010. Reference: Wikipedia season pages (`2007 Washington Huskies football team`, etc.). Per-row: `{ event_date, event_type: 'ncaaf_game', team_id: 264, opponent, is_home: true, notes? }`. Estimate: ~100 rows.
-- [ ] **8.2** Admin endpoint `POST /v1/admin/sync/attending/manual-import` that reads the JSON, hits ESPN for each row to pull canonical record, upserts. Returns `{ loaded: N, unmatched: [...] }`.
-- [ ] **8.3** `scripts/tools/import-manual-attending.ts` thin wrapper that POSTs the file.
-- [ ] **8.4** Run it; resolve any unmatched rows by hand.
-- [ ] **8.5** **Decide**: scope-creep check — does basketball 2007–2010 also get a manual list? Or defer? (DESIGN open question.)
+Two parallel bulk-loads, same import endpoint, different shape. **Football only** — basketball is out of scope.
+
+### 8.1 — UW football 2007–2010 (per-game manual list)
+
+- [ ] **8.1.1** Curate `scripts/data/manual-attending-uw-2007-2010.json` for UW football home games attended during college. Reference: Wikipedia season pages (`2007 Washington Huskies football team`, etc.). Per-row: `{ event_date, event_type: 'ncaaf_game', team_id: 264, opponent, is_home: true, notes? }`. Estimate: ~100 rows.
+
+### 8.2 — UW football 2021–2026 season-tickets bulk-load (all-home expansion)
+
+- [ ] **8.2.1** Curate `scripts/data/manual-attending-uw-recent.json` using the season-shorthand format: `[{ event_type: 'ncaaf_game', team_id: 264, season: 2021, attendance: 'all_home' }, ...]`. One row per season (~5 rows). Plus an `exceptions: [date, ...]` list per season for games user actually missed. Estimate: ~30 home games before exceptions across 5 seasons.
+- [ ] **8.2.2** Seeder script support for the season-shorthand: when input has `attendance: 'all_home'`, fetch ESPN's full schedule for `(team_id, season)`, expand to one row per home game with `attended=1` (or `0` if date is in the exceptions list).
+
+### 8.3 — Shared import endpoint + tooling
+
+- [ ] **8.3.1** Admin endpoint `POST /v1/admin/sync/attending/manual-import` that handles BOTH per-row and season-shorthand inputs. Hits ESPN for canonical records, upserts, returns `{ loaded: N, unmatched: [...] }`.
+- [ ] **8.3.2** `scripts/tools/import-manual-attending.ts` thin wrapper that POSTs a file.
+- [ ] **8.3.3** Run for UW 2007–2010 list; resolve unmatched.
+- [ ] **8.3.4** Run for UW 2021–2026 season-shorthand; user reviews populated rows and flips `attended=0` for actual misses (post-load via direct DB or admin endpoint).
 
 ## Phase 9: Backfill execution
 

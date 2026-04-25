@@ -137,7 +137,11 @@ The full historical sweep runs in three independent passes that converge on `att
 
 1. **Auto track (Calendar + Gmail)**: same pipeline as the daily cron, but bypasses the `newer_than:2d` Gmail filter and walks Calendar back to ~2015 (whatever `timeMin` we pick). This catches anything with a digital paper trail. Recommended: `dry_run=true` first, eyeball candidates with `match_confidence < 0.8`, then run for real.
 
-2. **Manual track (UW football 2007–2010, plus anything else memory-only)**: a hand-curated `scripts/data/manual-attending.json` listing `{ event_date, event_type, opponent, notes? }` per game. A seeder script reads it, hits the ESPN/MLB enrichment to pull the canonical game record (final score, team_ids, etc.), then loads. The user provides the dates+opponents (likely from old photos, the Husky Stadium attendance memory, or the Wikipedia season pages); the script handles enrichment so we don't hand-type scores.
+2. **Manual track** — for events with no email/calendar trail. Two bodies of work, both UW football:
+   - **UW football 2007–2010** (college years, ~25 home games × 4 seasons ≈ ~100 rows). Sourced from Wikipedia season pages.
+   - **UW football 2021–2026** (~6 home games × 5 seasons ≈ ~30 rows). User attends basically every home game via a friend's season-ticket package. Friend purchased the tickets, so no Gmail confirmation and no vendor-generated calendar entry. Recovery strategy: fetch the full UW home schedule from ESPN's college-football endpoint for each season, mark `attended=1` by default, user review-and-flips the misses.
+
+   The manual seeder reads `scripts/data/manual-attending.json` listing `{ event_date, event_type, opponent, notes? }` per game. For the recent bulk-load, a season-shorthand triggers expansion: `{ event_type: 'ncaaf_game', team_id: 264, season: 2024, attendance: 'all_home' }` expands to one row per home game in that season's schedule with `attended=1` defaulted. The script hits ESPN to pull the canonical game record (final score, opponent) then loads.
 
 3. **Email gap-fill (older purchases)**: even pre-2015 Gmail may contain ticket emails. A second auto-track pass with broadened date range (`from:` + `older_than:`) catches these. Lower yield but worth the one-time run.
 
@@ -166,10 +170,11 @@ These are non-blocking — defaults are picked; flag during implementation if an
 1. **Ticket-vendor coverage beyond the named six.** I default-listed Ticketmaster, SeatGeek, TicketClub, AXS, StubHub, VividSeats. If significant historical purchases used other vendors (Brown Paper Tickets, Eventbrite, Tixr, etc.), add them to the Gmail sender allowlist; JSON-LD support is variable.
 2. **Pre-2019 Mariners ticket emails using "Safeco Field"** — venue resolver needs the alias from day one (already in the seed migration plan).
 3. **Travel-attended games at non-Seattle venues.** The allowlist needs Yankee Stadium, Wrigley Field, etc. — but it's hard to enumerate without seeing the data. Approach: backfill once with the Seattle-only allowlist, then a second pass with a broader "any MLB stadium" matcher that just requires `event_data.league = mlb` to be valid.
-4. **UW basketball coverage as a v1 goal vs. deferred.** Schema and ESPN client both already cover `ncaab_game`, so it costs nothing to leave the door open. But the hand-curated 2007–2010 list is football-specific (~25 home games × 4 seasons ≈ ~100 rows). If basketball backfill is also wanted from those years, it's a separate manual-entry pass — flag during Phase 8 whether to scope it in.
+
+4. **UW football 2021–2026 season-tickets bulk-load**: user attends basically every home game via a friend's season-ticket package — no email or vendor calendar entry exists. Recovery is "all-home plus exceptions": fetch the full UW football home schedule from ESPN for each season (~6 games/year × 5 years ≈ 30 rows), mark `attended=1` by default, user review-and-flips the misses. Football only — basketball backfill is out of scope. Folded into Phase 8 alongside UW 2007–2010.
 5. **Refund-and-rebuy handling.** If a 2020 game was refunded then rebuilt to a 2021 makeup, the email trail shows two purchases. Default: both records kept; the canonical event is the one with `attended=1`. Acceptable.
 6. **OAuth scope minimization.** `gmail.readonly` is the most-restricted scope that lets us read message bodies. Using `gmail.metadata` would dodge Google's "sensitive scope" classification but loses the body which is the entire point. We accept the click-through warning.
-7. **NCAAF + NCAAB enum naming.** Settled on `ncaaf_game` and `ncaab_game` (matches the existing `mlb_game`, `nfl_game`, `wnba_game`, `mls_game`, `nba_game` shape — `<league>_game`). Mentioning here because `ncaaf` is sometimes written `cfb` (college football); we standardize on `ncaaf` for consistency with how we name the other major leagues.
+7. **NCAAF + NCAAB enum naming.** Settled on `ncaaf_game` and `ncaab_game` (matches the existing `mlb_game`, `nfl_game`, `wnba_game`, `mls_game`, `nba_game` shape — `<league>_game`). The schema includes `ncaab_game` for future-proofing but it's not in scope for v1 manual backfill.
 
 ## Follow-up projects
 
