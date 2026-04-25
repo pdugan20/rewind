@@ -590,6 +590,34 @@
           "timestamp": {
             "type": "string",
             "format": "date-time"
+          },
+          "gcal": {
+            "type": "object",
+            "properties": {
+              "scanned": {
+                "type": "integer"
+              },
+              "matched": {
+                "type": "integer"
+              },
+              "inserted": {
+                "type": "integer"
+              },
+              "candidates": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AttendingCandidate"
+                }
+              },
+              "resynced_from_expiry": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "scanned",
+              "matched",
+              "inserted"
+            ]
           }
         },
         "required": [
@@ -599,6 +627,59 @@
           "sources",
           "dry_run",
           "timestamp"
+        ]
+      },
+      "AttendingCandidate": {
+        "type": "object",
+        "properties": {
+          "source_ref": {
+            "type": "string"
+          },
+          "event_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "event_datetime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "html_link": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "source_ref",
+          "event_date",
+          "event_datetime",
+          "summary",
+          "location",
+          "status",
+          "html_link"
         ]
       },
       "AttendingBackfillBody": {

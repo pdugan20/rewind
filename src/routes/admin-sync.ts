@@ -438,6 +438,18 @@ const AttendingBackfillBody = z
   })
   .openapi('AttendingBackfillBody');
 
+const AttendingCandidateSchema = z
+  .object({
+    source_ref: z.string(),
+    event_date: z.string().nullable(),
+    event_datetime: z.string().nullable(),
+    summary: z.string().nullable(),
+    location: z.string().nullable(),
+    status: z.string().nullable(),
+    html_link: z.string().nullable(),
+  })
+  .openapi('AttendingCandidate');
+
 const AttendingBackfillResponse = z
   .object({
     status: z.literal('completed'),
@@ -449,6 +461,15 @@ const AttendingBackfillResponse = z
     }),
     dry_run: z.boolean(),
     timestamp: z.string().datetime(),
+    gcal: z
+      .object({
+        scanned: z.number().int(),
+        matched: z.number().int(),
+        inserted: z.number().int(),
+        candidates: z.array(AttendingCandidateSchema).optional(),
+        resynced_from_expiry: z.boolean().optional(),
+      })
+      .optional(),
   })
   .openapi('AttendingBackfillResponse');
 
@@ -488,7 +509,7 @@ adminSync.openapi(syncAttendingRoute, async (c) => {
     .catch(() => ({}));
 
   try {
-    const result = await backfillAttending(db, body);
+    const result = await backfillAttending(db, c.env, body);
     return c.json({
       status: 'completed' as const,
       candidates_found: result.candidates_found,
@@ -496,6 +517,7 @@ adminSync.openapi(syncAttendingRoute, async (c) => {
       sources: result.sources,
       dry_run: result.dry_run,
       timestamp: new Date().toISOString(),
+      ...(result.gcal && { gcal: result.gcal }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

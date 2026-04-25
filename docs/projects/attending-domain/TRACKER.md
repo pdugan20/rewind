@@ -52,27 +52,31 @@ Verified end-to-end against `dugan.pat@gmail.com` — smoke endpoint returned em
 
 - [x] **1.5.1** `POST /v1/admin/google/test` (hidden) — refreshes the token and hits `https://gmail.googleapis.com/gmail/v1/users/me/profile`, returns `{ email, messages_total, scopes, expires_at }`. Switched from `/oauth2/v2/userinfo` (commit `de082da`) because that endpoint requires the `userinfo.email` scope which we don't request — Gmail's getProfile is gated by `gmail.readonly` which we do have, and doubles as proof we can read mail. Validated locally: 216k messages accessible.
 
-## Phase 2: Calendar extractor
+## Phase 2: Calendar extractor — DONE
 
 Goal: `extractCalendarCandidates(db, env, opts)` writes candidate rows to `attended_event_sources` from Google Calendar with allowlist filtering.
 
-### 2.1 — Calendar client
+**Validated against real calendar**: 8-year dry-run scanned 8,882 events, matched 53 candidates across Mariners, Seahawks, Huskies, concerts. Non-dry-run idempotent (run-twice → `inserted: 1`, then `inserted: 0` via `.onConflictDoNothing()`).
 
-- [ ] **2.1.1** `src/services/google/calendar-client.ts` with `listCalendarEvents(accessToken, opts)`. Handles `pageToken` pagination + 410-on-syncToken recovery (clear stored token, full re-pull).
-- [ ] **2.1.2** Stores `nextSyncToken` in `sync_runs` row with `domain='attending', sync_type='calendar_sync_token'`.
-- [ ] **2.1.3** Unit tests with mocked fetch: full pull, syncToken pull, pagination, 410 recovery.
+**Side observation captured**: Google Calendar auto-extracts SeatGeek confirmation emails into the event description (e.g. "Reservation Number: 6P2-8YP454J\nProvider: SeatGeek\nGuests: ...\nSeats: 18, 19, 20"). For events with this enrichment, ticket data is recoverable from calendar alone — no email parser needed. Folded into Phase 3 plan.
 
-### 2.2 — Allowlist matcher
+### 2.1 — Calendar client — DONE
 
-- [ ] **2.2.1** `src/services/attending/allowlist.ts` exporting `TEAM_KEYWORDS` and `VENUE_KEYWORDS` constants per DESIGN.md. Includes Mariners, Seahawks, Storm, Sounders, Kraken, **Huskies (football + basketball)**, plus full Seattle venue list including Husky Stadium / Alaska Airlines Field at Husky Stadium / Alaska Airlines Arena.
-- [ ] **2.2.2** `matchesAllowlist(summary: string, location: string | null): boolean` — case-insensitive substring scan.
-- [ ] **2.2.3** Unit tests: positive (each keyword) + negative (random calendar entries don't match).
+- [x] **2.1.1** `src/services/google/calendar-client.ts` with `listCalendarEvents(accessToken, opts)`. Pagination via `nextPageToken`; 410-on-syncToken throws `CalendarSyncTokenExpiredError`.
+- [x] **2.1.2** `src/services/google/calendar-sync-token.ts` reads/writes the token via `sync_runs` rows (domain='attending', sync_type='calendar_sync_token', metadata JSON).
+- [x] **2.1.3** Unit tests (6 cases): range pull, syncToken pull, 410 recovery, non-200 with body, multi-page drain, sparse-fields tolerance.
 
-### 2.3 — Calendar extractor
+### 2.2 — Allowlist matcher — DONE
 
-- [ ] **2.3.1** `src/services/attending/extract.ts → extractCalendarCandidates()`. For each matching event, INSERT into `attended_event_sources` with `source_type='gcal'`, `source_ref=<event.id>`, `raw_data=JSON.stringify(event)`. ON CONFLICT DO NOTHING (re-runs are idempotent).
-- [ ] **2.3.2** Wire into `services/attending/backfill.ts` so the existing admin endpoint can run it (`source: 'gcal'`).
-- [ ] **2.3.3** Run against real account: `POST /v1/admin/sync/attending {"source":"gcal","dry_run":true,"from":"2015-01-01"}`. Eyeball results, sanity-check counts.
+- [x] **2.2.1** `src/services/attending/allowlist.ts` with `TEAM_KEYWORDS`, `VENUE_KEYWORDS`, `VENDOR_SENDERS`. Full Seattle venue set including Husky Stadium aliases.
+- [x] **2.2.2** `matchesAllowlist(summary, location)` — case-insensitive substring scan over both fields.
+- [x] **2.2.3** 43 unit tests: every keyword positive-matches as both summary and location, plus negative cases (lunch, dentist, project review).
+
+### 2.3 — Calendar extractor — DONE
+
+- [x] **2.3.1** `src/services/attending/extract.ts → extractCalendarCandidates()`. Filters allowlist, drops cancelled events, inserts via `.onConflictDoNothing()` on `(source_type, source_ref)`. Self-heals on syncToken expiry (range fallback + token rewrite).
+- [x] **2.3.2** Wired into `services/attending/backfill.ts`. Admin endpoint `POST /v1/admin/sync/attending` returns the `gcal` envelope with scan/match/insert counts and (for dry runs) the candidate list.
+- [x] **2.3.3** Validated against real account. Found expected events including a Mariners game with full SeatGeek ticket data in the calendar description.
 
 ## Phase 3: Gmail extractor + JSON-LD parser
 

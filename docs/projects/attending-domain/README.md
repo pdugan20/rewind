@@ -20,7 +20,8 @@ Branch `worktree-attending-domain`:
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0     | Scaffolding — DONE (`c934041`). Schema, routes, admin stub, OpenAPI tag.                                                                                                                                      |
 | 1     | Google OAuth foundation — DONE LOCALLY (`2100971`, `de082da`). End-to-end smoke validated against `dugan.pat@gmail.com` (216k messages accessible, both scopes granted). Production seed deferred to Phase 9. |
-| 2–9   | Pending. See TRACKER.md.                                                                                                                                                                                      |
+| 2     | Calendar extractor — DONE. 8-year dry-run scanned 8,882 events, matched 53 across Mariners, Seahawks, Huskies, concerts. Idempotent via `.onConflictDoNothing()`. 707/707 tests pass.                         |
+| 3–9   | Pending. See TRACKER.md.                                                                                                                                                                                      |
 
 This project covers the data-ingestion pipeline: Google OAuth foundation, Calendar + Gmail extractors, sports/concert enrichment, dedupe/load, cron wiring, and one-time backfill execution.
 

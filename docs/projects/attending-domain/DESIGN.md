@@ -224,6 +224,28 @@ function walkParts(payload: any, mime: string): string | null {
 
 `base64urlDecode`: `atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(s.length + (4 - s.length % 4) % 4, '='))`. Workers have global `atob`.
 
+## Calendar-embedded ticket data (discovered Phase 2)
+
+Google Calendar **auto-parses** ticket-vendor confirmation emails and writes the structured fields into the event's `description` when the vendor is on Google's email-markup trusted-sender list. Observed in a real Mariners SeatGeek purchase:
+
+```
+Reservation Number: 6P2-8YP454J
+
+Provider: SeatGeek
+
+Guests: Patrick Dugan
+
+Seats: 18, 19, 20
+```
+
+Implication: for events that show up in Calendar with this auto-enrichment, we can extract `vendor`, `order_id`, and `seat` info **from the calendar event description alone** — no Gmail parse needed. This is a meaningful shortcut for the cron path (we'd skip the Gmail extractor for these and just pull from calendar).
+
+Plan:
+
+- `parse-calendar-description.ts` (Phase 3 sibling): regex-extract `Reservation Number`, `Provider`, `Seats`, `Section`, `Row`, `Total` lines from event descriptions when present.
+- Treat this as a "tier 0" extraction path: if the calendar description has the markers, use it; only fall back to Gmail JSON-LD parser when the description is sparse.
+- Doesn't change the Gmail parser plan — historical events without calendar entries (or with empty descriptions because the calendar entry predates Google's auto-enrichment) still need Gmail. But for active-cron territory this is gold.
+
 ## Universal JSON-LD parser
 
 `services/attending/parse-jsonld.ts`. Single function for Ticketmaster + AXS + StubHub + SeatGeek.
