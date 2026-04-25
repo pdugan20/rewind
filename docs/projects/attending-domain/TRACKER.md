@@ -205,11 +205,17 @@ Goal: candidates collapse correctly into canonical `attended_events` rows; loade
 - [x] **6.4** `DOMAINS` list in `system.ts` includes `attending`. `/v1/health/sync` filters out metadata sync types so the surfaced status reflects actual cron health.
 - [x] **6.5** Smoke test passed: `wrangler dev` + `curl /cdn-cgi/handler/scheduled?cron=0+4+*+*+*` triggered the cron, full pipeline ran end-to-end, 61 events loaded, `/v1/health/sync` shows `attending: status=completed, sync_type=incremental, items=61`.
 
-## Phase 7: Review surface
+## Phase 7: Review surface — DONE
 
-- [ ] **7.1** Modify `POST /v1/admin/sync/attending` so `dry_run=true` returns the candidate list with their match confidence and source provenance, rather than just a count. JSON-shape: `{ candidates: [{ event_date, title, venue, source_type, source_ref, match_confidence, would_create_new_event }] }`.
-- [ ] **7.2** Admin endpoint `POST /v1/admin/attending/candidates/:id/promote` and `/reject` to manually approve a low-confidence candidate or drop it.
-- [ ] **7.3** Document the workflow in DESIGN.md (which exists already — link it from here).
+- [x] **7.1** `POST /v1/admin/sync/attending` with `dry_run: true` returns the enriched candidate list with `match_confidence`, source provenance, and event_data. (Already in place from Phase 4 wiring.)
+- [x] **7.2** Three new admin endpoints in `src/routes/admin-attending.ts`:
+  - `GET /v1/admin/attending/pending?source_type=&limit=` — lists `attended_event_sources` rows where `event_id IS NULL`.
+  - `POST /v1/admin/attending/sources/:id/promote` — re-runs enrich+load on the source. Optional body `{ title?, event_date?, event_datetime?, location?, performers? }` overrides individual fields when the parser got something wrong. Returns `400` with a helpful error if `event_date` can't be derived.
+  - `POST /v1/admin/attending/sources/:id/reject` — hard-deletes the source row (cron's syncToken means we won't re-extract it).
+- [x] **7.3** Live-validated:
+  - Seeded 11 pending rows from a 90-day Gmail backfill.
+  - Rejected a Ticketmaster password-reset email (count 11→10).
+  - Promoted a high-confidence SeatGeek confirmation that lacked event_date in its parser output — first call returned 400 with the override hint, second call with `{event_date, location}` succeeded with `action: updated` (deduped against the calendar-loaded event for the same date+venue).
 
 ## Phase 8: Manual-entry path (UW football 2007–2010 + 2021–2026 season tickets)
 
