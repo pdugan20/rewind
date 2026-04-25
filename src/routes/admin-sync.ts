@@ -482,6 +482,16 @@ const AttendingBackfillResponse = z
       })
       .optional(),
     enriched: z.array(z.any()).optional(),
+    load: z
+      .object({
+        enriched: z.number().int(),
+        inserted: z.number().int(),
+        updated: z.number().int(),
+        failed: z.number().int(),
+        ticket_inserts: z.number().int(),
+        performer_inserts: z.number().int(),
+      })
+      .optional(),
   })
   .openapi('AttendingBackfillResponse');
 
@@ -532,6 +542,7 @@ adminSync.openapi(syncAttendingRoute, async (c) => {
       ...(result.gcal && { gcal: result.gcal }),
       ...(result.gmail && { gmail: result.gmail }),
       ...(result.enriched && { enriched: result.enriched }),
+      ...(result.load && { load: result.load }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

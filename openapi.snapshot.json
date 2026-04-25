@@ -657,6 +657,37 @@
           "enriched": {
             "type": "array",
             "items": {}
+          },
+          "load": {
+            "type": "object",
+            "properties": {
+              "enriched": {
+                "type": "integer"
+              },
+              "inserted": {
+                "type": "integer"
+              },
+              "updated": {
+                "type": "integer"
+              },
+              "failed": {
+                "type": "integer"
+              },
+              "ticket_inserts": {
+                "type": "integer"
+              },
+              "performer_inserts": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enriched",
+              "inserted",
+              "updated",
+              "failed",
+              "ticket_inserts",
+              "performer_inserts"
+            ]
           }
         },
         "required": [
