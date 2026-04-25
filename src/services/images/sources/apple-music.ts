@@ -45,10 +45,15 @@ export class AppleMusicClient implements SourceClient {
   ): Promise<ImageResult[]> {
     const name = params.artistName;
     if (!name) return [];
+    // Same cleanup the album search applies: strips feat./ft., rewrites
+    // `&` to `and`. Without this, ampersand-named artists like Matt & Kim
+    // or Henrik Lindstrand & Kasper Bjørke send a literal `&` to Apple
+    // Music's search and fall back through the waterfall.
+    const term = cleanArtistName(name);
 
     const url = new URL(`${BASE_URL}/catalog/us/search`);
     url.searchParams.set('types', 'artists');
-    url.searchParams.set('term', name);
+    url.searchParams.set('term', term);
     url.searchParams.set('limit', '5');
 
     const response = await fetch(url.toString(), {

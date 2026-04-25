@@ -112,6 +112,46 @@ describe('AppleMusicClient', () => {
     expect(results).toEqual([]);
   });
 
+  it('rewrites ampersand to "and" in artist search term', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          results: {
+            artists: {
+              data: [
+                {
+                  attributes: {
+                    name: 'Matt and Kim',
+                    artwork: {
+                      url: 'https://example.com/{w}x{h}/img.jpg',
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const results = await client.search({
+      domain: 'listening',
+      entityType: 'artists',
+      entityId: 'matt-kim',
+      artistName: 'Matt & Kim',
+    });
+
+    expect(results).toHaveLength(1);
+    const requestUrl = String(fetchMock.mock.calls[0][0]);
+    // Apple Music's artist search should receive the spelled-out form,
+    // not a literal ampersand. URL-encoded `&` would be `%26` either way,
+    // but the term has been transformed to `Matt and Kim` first so the
+    // upstream tokenizer behaves predictably.
+    expect(requestUrl).toContain('term=Matt+and+Kim');
+    expect(requestUrl).not.toContain('Matt+%26+Kim');
+  });
+
   it('returns empty array on API error', async () => {
     vi.stubGlobal(
       'fetch',

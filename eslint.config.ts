@@ -40,6 +40,7 @@ export default tseslint.config(
       'dist/',
       'mcp-server/',
       '.wrangler/',
+      '.claude/',
       'migrations/',
       'docs-site/',
       'scripts/',
