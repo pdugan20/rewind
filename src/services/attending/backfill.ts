@@ -1,5 +1,7 @@
+import { eq } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import type { Env } from '../../types/env.js';
+import { syncRuns } from '../../db/schema/system.js';
 import {
   extractCalendarCandidates,
   extractGmailCandidates,
@@ -83,17 +85,30 @@ export async function backfillAttending(
   env: Env,
   options: BackfillOptions = {}
 ): Promise<BackfillResult> {
-  const {
-    source = 'all',
-    dry_run = false,
-    from,
-    to,
-    mode = from ? 'range' : 'incremental',
-  } = options;
+  const { source = 'all', dry_run = false, from } = options;
+  const mode = options.mode ?? (from ? 'range' : 'incremental');
 
   console.log(
     `[SYNC] attending backfill source=${source} mode=${mode} dry_run=${dry_run}`
   );
+
+  // Track this run in sync_runs (skipped on dry-run — those are
+  // exploratory and shouldn't pollute the retry-window stats).
+  const startedAt = new Date().toISOString();
+  let syncRunId: number | null = null;
+  if (!dry_run) {
+    const [row] = await db
+      .insert(syncRuns)
+      .values({
+        userId: 1,
+        domain: 'attending',
+        syncType: mode,
+        status: 'running',
+        startedAt,
+      })
+      .returning({ id: syncRuns.id });
+    syncRunId = row.id;
+  }
 
   const result: BackfillResult = {
     candidates_found: 0,
@@ -101,6 +116,42 @@ export async function backfillAttending(
     sources: { gcal: 0, gmail: 0 },
     dry_run,
   };
+
+  try {
+    return await runPipeline(db, env, options, result, syncRunId);
+  } catch (err) {
+    if (syncRunId !== null) {
+      await db
+        .update(syncRuns)
+        .set({
+          status: 'failed',
+          completedAt: new Date().toISOString(),
+          error: err instanceof Error ? err.message : String(err),
+        })
+        .where(eq(syncRuns.id, syncRunId));
+    }
+    throw err;
+  }
+}
+
+/**
+ * Inner pipeline body — separated so we can wrap with try/finally for
+ * sync_runs status tracking.
+ */
+async function runPipeline(
+  db: Database,
+  env: Env,
+  options: BackfillOptions,
+  result: BackfillResult,
+  syncRunId: number | null
+): Promise<BackfillResult> {
+  const {
+    source = 'all',
+    dry_run = false,
+    from,
+    to,
+    mode = from ? 'range' : 'incremental',
+  } = options;
 
   // Internal candidate buffers — used by Phase 5 load. The API response
   // only echoes them on dry-run (see end of function).
@@ -218,6 +269,18 @@ export async function backfillAttending(
 
     result.load = loadStats;
     result.events_loaded = loadStats.inserted;
+  }
+
+  // Mark the sync_runs row as completed on the success path.
+  if (syncRunId !== null) {
+    await db
+      .update(syncRuns)
+      .set({
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        itemsSynced: result.events_loaded,
+      })
+      .where(eq(syncRuns.id, syncRunId));
   }
 
   return result;

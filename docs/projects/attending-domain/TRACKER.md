@@ -197,13 +197,13 @@ Goal: candidates collapse correctly into canonical `attended_events` rows; loade
 - [x] **5.3.1** `services/attending/backfill.ts` runs extract → enrich → load on non-dry-run. Per-candidate try/catch so one failure doesn't kill the batch. Internal candidate buffers (gcalCandidates / gmailCandidates) keep the in-memory list separate from the dry-run-only response field.
 - [x] **5.3.2** End-to-end live validation: Aug-Dec 2024 calendar pull wrote 10 canonical events with full sports enrichment; admin endpoint returns `load: { enriched: 10, inserted: 10, updated: 0, failed: 0 }`. Re-running same window produced `inserted: 0, updated: 10` confirming idempotency.
 
-## Phase 6: Cron wiring + health
+## Phase 6: Cron wiring + health — DONE
 
-- [ ] **6.1** Add `0 4 * * *` case in `src/index.ts → scheduled`. Calls `backfillAttending` with `mode: 'incremental'`. Wraps in try/catch with `[ERROR] Attending sync failed: ...` log.
-- [ ] **6.2** Add to `wrangler.toml` `triggers.crons` if not auto-registered (check existing pattern).
-- [ ] **6.3** Register `attending` in `lib/sync-retry.ts` `shouldRetry` valid-domain check.
-- [ ] **6.4** Update `/v1/health/sync` to include attending — show last successful run, consecutive failures, last sync timestamp.
-- [ ] **6.5** Smoke test: `wrangler dev` triggers the cron locally; verify it runs end-to-end without error.
+- [x] **6.1** `0 4 * * *` case in `src/index.ts → scheduled`. Calls `backfillAttending(db, env, { source: 'all', mode: 'incremental' })`. Wraps in `.catch()` with `[ERROR] Attending sync failed: ...` log.
+- [x] **6.2** Added `"0 4 * * *"` entry to `wrangler.toml` `triggers.crons` array.
+- [x] **6.3** `shouldRetry` doesn't have a hard-coded valid-domain list — calling `shouldRetry(db, 'attending')` works as-is. **Note**: the calendar_sync_token rows we write to `sync_runs` are filtered out of `/v1/health/sync` via a `METADATA_SYNC_TYPES` exclusion list, so they don't mask the real cron sync status. `backfillAttending` now writes its own `sync_runs` row at start (`status='running'`) and updates to `completed`/`failed` at end.
+- [x] **6.4** `DOMAINS` list in `system.ts` includes `attending`. `/v1/health/sync` filters out metadata sync types so the surfaced status reflects actual cron health.
+- [x] **6.5** Smoke test passed: `wrangler dev` + `curl /cdn-cgi/handler/scheduled?cron=0+4+*+*+*` triggered the cron, full pipeline ran end-to-end, 61 events loaded, `/v1/health/sync` shows `attending: status=completed, sync_type=incremental, items=61`.
 
 ## Phase 7: Review surface
 

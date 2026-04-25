@@ -39,6 +39,7 @@ crons = [
   "30 3 * * *",     # Daily 3:30 AM: Plex library scan
   "45 3 * * SUN",   # Sunday 3:45 AM: Discogs + Trakt collections
   "0 */6 * * *",    # Every 6 hours: Letterboxd RSS sync
+  "0 4 * * *",      # Daily 4:00 AM: Attending (Calendar + Gmail incremental)
 ]
 
 # Cloudflare Images (for thumbhash/color extraction)

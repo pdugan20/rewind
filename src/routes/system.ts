@@ -6,7 +6,14 @@ import { syncRuns } from '../db/schema/system.js';
 import { lastfmArtists, lastfmTracks } from '../db/schema/lastfm.js';
 import { setCache } from '../lib/cache.js';
 
-const DOMAINS = ['listening', 'running', 'watching', 'collecting', 'reading'];
+const DOMAINS = [
+  'listening',
+  'running',
+  'watching',
+  'collecting',
+  'reading',
+  'attending',
+];
 
 const system = createOpenAPIApp();
 
@@ -147,11 +154,25 @@ system.openapi(syncHealthRoute, async (c) => {
     }
   > = {};
 
+  // Some sync_runs rows are metadata storage (e.g., the attending
+  // domain's calendar_sync_token persistence) — skip those when
+  // surfacing sync health, since they always have status='completed'
+  // and would mask real sync runs.
+  const METADATA_SYNC_TYPES = ['calendar_sync_token'];
+
   for (const domain of DOMAINS) {
     const [latest] = await db
       .select()
       .from(syncRuns)
-      .where(eq(syncRuns.domain, domain))
+      .where(
+        and(
+          eq(syncRuns.domain, domain),
+          sql`${syncRuns.syncType} NOT IN (${sql.join(
+            METADATA_SYNC_TYPES.map((t) => sql`${t}`),
+            sql`, `
+          )})`
+        )
+      )
       .orderBy(desc(syncRuns.startedAt))
       .limit(1);
 
@@ -168,7 +189,11 @@ system.openapi(syncHealthRoute, async (c) => {
       .where(
         and(
           eq(syncRuns.domain, domain),
-          sql`${syncRuns.startedAt} >= ${twentyFourHoursAgo}`
+          sql`${syncRuns.startedAt} >= ${twentyFourHoursAgo}`,
+          sql`${syncRuns.syncType} NOT IN (${sql.join(
+            METADATA_SYNC_TYPES.map((t) => sql`${t}`),
+            sql`, `
+          )})`
         )
       );
 

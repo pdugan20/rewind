@@ -27,6 +27,7 @@ import { syncLetterboxd } from './services/letterboxd/sync.js';
 import { syncCollecting } from './services/discogs/sync.js';
 import { syncTraktCollection } from './services/trakt/sync.js';
 import { syncReading } from './services/instapaper/sync.js';
+import { backfillAttending } from './services/attending/backfill.js';
 import {
   processListeningImages,
   processWatchingImages,
@@ -299,6 +300,26 @@ export default {
               );
             }
           })()
+        );
+        break;
+      }
+      case '0 4 * * *': {
+        const attendingRetry = await shouldRetry(db, 'attending');
+        if (attendingRetry.shouldRetry) {
+          console.log(
+            `[SYNC] Retrying failed attending sync (${attendingRetry.consecutiveFailures} consecutive failures)`
+          );
+        }
+        console.log('[SYNC] Attending refresh (calendar + gmail)');
+        ctx.waitUntil(
+          backfillAttending(db, env, {
+            source: 'all',
+            mode: 'incremental',
+          }).catch((err) =>
+            console.log(
+              `[ERROR] Attending sync failed: ${err instanceof Error ? err.message : String(err)}`
+            )
+          )
         );
         break;
       }
