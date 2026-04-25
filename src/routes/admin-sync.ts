@@ -505,12 +505,14 @@ adminSync.openapi(syncAttendingRoute, async (c) => {
 });
 
 // POST /v1/admin/google/test -- end-to-end auth smoke test.
-// Refreshes the access token if needed, then calls userinfo to confirm
-// Google still trusts the credentials. Returns the authenticated email +
-// granted scopes so misconfigurations show up immediately.
+// Refreshes the access token if needed, then calls Gmail's getProfile
+// (gated by gmail.readonly, which we requested). Returns the authenticated
+// email + total messages count + granted scopes so misconfigurations show
+// up immediately.
 const GoogleTestResponse = z
   .object({
     email: z.string(),
+    messages_total: z.number().int(),
     scopes: z.array(z.string()),
     expires_at: z.number().int(),
   })
@@ -538,17 +540,21 @@ adminSync.openapi(googleTestRoute, async (c) => {
   const db = createDb(c.env.DB);
   try {
     const accessToken = await getGoogleAccessToken(db, c.env);
-    const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const res = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
     if (!res.ok) {
       const text = await res.text();
       return c.json(
-        { error: `userinfo ${res.status}: ${text}`, status: 500 },
+        { error: `gmail.profile ${res.status}: ${text}`, status: 500 },
         500
       ) as any;
     }
-    const info = (await res.json()) as { email: string };
+    const info = (await res.json()) as {
+      emailAddress: string;
+      messagesTotal: number;
+    };
 
     const [row] = await db
       .select()
@@ -557,7 +563,8 @@ adminSync.openapi(googleTestRoute, async (c) => {
       .limit(1);
 
     return c.json({
-      email: info.email,
+      email: info.emailAddress,
+      messages_total: info.messagesTotal,
       scopes: (row?.scopes ?? '').split(' ').filter(Boolean),
       expires_at: row?.expiresAt ?? 0,
     });

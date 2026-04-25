@@ -633,6 +633,9 @@
           "email": {
             "type": "string"
           },
+          "messages_total": {
+            "type": "integer"
+          },
           "scopes": {
             "type": "array",
             "items": {
@@ -645,6 +648,7 @@
         },
         "required": [
           "email",
+          "messages_total",
           "scopes",
           "expires_at"
         ]

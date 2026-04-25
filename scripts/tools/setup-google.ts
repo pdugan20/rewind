@@ -101,6 +101,7 @@ async function captureAuthCode(): Promise<{
   redirectUri: string;
 }> {
   return new Promise((resolveCode, rejectCode) => {
+    let capturedRedirectUri = '';
     const server = createServer((req, res) => {
       const url = new URL(req.url ?? '/', `http://127.0.0.1`);
       const code = url.searchParams.get('code');
@@ -126,17 +127,19 @@ async function captureAuthCode(): Promise<{
       res.end(
         '<html><body><h1>Authorization complete</h1><p>You can close this tab.</p></body></html>'
       );
+      // Capture the redirect URI BEFORE close — server.address() returns
+      // null after close().
+      const redirectUri = capturedRedirectUri;
       server.close();
-      const port = (server.address() as AddressInfo).port;
-      resolveCode({ code, redirectUri: `http://127.0.0.1:${port}` });
+      resolveCode({ code, redirectUri });
     });
 
     server.listen(0, '127.0.0.1', () => {
       const port = (server.address() as AddressInfo).port;
-      const redirectUri = `http://127.0.0.1:${port}`;
+      capturedRedirectUri = `http://127.0.0.1:${port}`;
       const params = new URLSearchParams({
         client_id: clientIdGlobal,
-        redirect_uri: redirectUri,
+        redirect_uri: capturedRedirectUri,
         response_type: 'code',
         scope: SCOPES.join(' '),
         access_type: 'offline',
