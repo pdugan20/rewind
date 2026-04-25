@@ -9,6 +9,7 @@ import {
   lastfmTopAlbums,
   lastfmTopTracks,
   lastfmUserStats,
+  lastfmMonthlyStats,
 } from '../../db/schema/lastfm.js';
 import { syncRuns } from '../../db/schema/system.js';
 import { LastfmClient, LASTFM_PERIODS } from './client.js';
@@ -418,6 +419,11 @@ export async function syncTopLists(
       totalSynced += await syncTopTracksForPeriod(db, client, period);
     }
 
+    // Refresh per-month aggregates alongside top lists. Cheap (single
+    // GROUP-BY) and runs daily, so the listening page year view reads
+    // from precompute instead of paying live-aggregate cost per request.
+    totalSynced += await syncMonthlyStats(db);
+
     await completeSyncRun(db, runId, totalSynced);
     console.log(`[SYNC] Synced ${totalSynced} top list entries`);
     return totalSynced;
@@ -427,6 +433,58 @@ export async function syncTopLists(
     console.log(`[ERROR] Top lists sync failed: ${message}`);
     throw error;
   }
+}
+
+/**
+ * Refresh per-month listening stats. One GROUP-BY scan over the full
+ * scrobble history (filtered = 0) covers every month in a single query;
+ * results are upserted into lastfm_monthly_stats. Powers the bar chart
+ * on the listening page year view without paying the live aggregate
+ * cost on every cache miss.
+ *
+ * Same `is_filtered = 0` track + artist scope as the live aggregate the
+ * year endpoint used to compute, so values are identical.
+ */
+export async function syncMonthlyStats(db: Database): Promise<number> {
+  const rows = await db
+    .select({
+      yearMonth: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
+      scrobbles: sql<number>`count(*)`,
+      uniqueArtists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
+      uniqueAlbums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+    })
+    .from(lastfmScrobbles)
+    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .where(and(eq(lastfmTracks.isFiltered, 0), eq(lastfmArtists.isFiltered, 0)))
+    .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`);
+
+  const computedAt = new Date().toISOString();
+  for (const row of rows) {
+    if (!row.yearMonth) continue;
+    await db
+      .insert(lastfmMonthlyStats)
+      .values({
+        userId: 1,
+        yearMonth: row.yearMonth,
+        scrobbles: row.scrobbles,
+        uniqueArtists: row.uniqueArtists,
+        uniqueAlbums: row.uniqueAlbums,
+        computedAt,
+      })
+      .onConflictDoUpdate({
+        target: [lastfmMonthlyStats.userId, lastfmMonthlyStats.yearMonth],
+        set: {
+          scrobbles: row.scrobbles,
+          uniqueArtists: row.uniqueArtists,
+          uniqueAlbums: row.uniqueAlbums,
+          computedAt,
+        },
+      });
+  }
+
+  console.log(`[SYNC] Refreshed monthly stats for ${rows.length} months`);
+  return rows.length;
 }
 
 async function syncTopArtistsForPeriod(

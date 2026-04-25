@@ -11,6 +11,7 @@ import {
   lastfmTopTracks,
   lastfmUserStats,
   lastfmFilters,
+  lastfmMonthlyStats,
 } from '../db/schema/lastfm.js';
 import { setCache } from '../lib/cache.js';
 import { DateFilterQuery, buildDateCondition } from '../lib/date-filters.js';
@@ -2786,7 +2787,11 @@ listening.openapi(yearRoute, async (c) => {
     .orderBy(desc(sql`count(*)`))
     .limit(10);
 
-  // Monthly breakdown (skip when scoped to a single month).
+  // Monthly breakdown (skip when scoped to a single month). Reads from
+  // the precomputed lastfm_monthly_stats table (refreshed daily by the
+  // top-lists cron) instead of running a live GROUP-BY over scrobbles.
+  // Indexed lookup against ~12 rows; previously the heaviest query in
+  // this handler.
   const monthlyBreakdownPromise = monthParam
     ? Promise.resolve(
         [] as Array<{
@@ -2798,17 +2803,19 @@ listening.openapi(yearRoute, async (c) => {
       )
     : db
         .select({
-          month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
-          scrobbles: sql<number>`count(*)`,
-          artists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
-          albums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+          month: lastfmMonthlyStats.yearMonth,
+          scrobbles: lastfmMonthlyStats.scrobbles,
+          artists: lastfmMonthlyStats.uniqueArtists,
+          albums: lastfmMonthlyStats.uniqueAlbums,
         })
-        .from(lastfmScrobbles)
-        .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-        .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-        .where(filteredDateRange)
-        .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
-        .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
+        .from(lastfmMonthlyStats)
+        .where(
+          and(
+            eq(lastfmMonthlyStats.userId, 1),
+            like(lastfmMonthlyStats.yearMonth, `${year}-%`)
+          )
+        )
+        .orderBy(asc(lastfmMonthlyStats.yearMonth));
 
   const [totalsRows, topArtists, topAlbums, topTracks, monthlyBreakdown] =
     await Promise.all([

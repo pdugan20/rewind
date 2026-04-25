@@ -6,6 +6,7 @@ import {
   lastfmAlbums,
   lastfmTracks,
   lastfmScrobbles,
+  lastfmMonthlyStats,
 } from '../db/schema/lastfm.js';
 import {
   movies,
@@ -79,6 +80,25 @@ describe('Phase 6: Browse, Rating, Review, and Year-in-Review endpoints', () => 
       { trackId: track1.id, scrobbledAt: '2024-03-15T10:00:00.000Z' },
       { trackId: track1.id, scrobbledAt: '2024-03-16T10:00:00.000Z' },
       { trackId: track1.id, scrobbledAt: '2024-06-01T10:00:00.000Z' },
+    ]);
+    // The year endpoint reads monthly bars from the precomputed
+    // lastfm_monthly_stats table; production refreshes it during the
+    // daily top-lists cron via syncMonthlyStats. Mirror that here.
+    await db.insert(lastfmMonthlyStats).values([
+      {
+        userId: 1,
+        yearMonth: '2024-03',
+        scrobbles: 2,
+        uniqueArtists: 1,
+        uniqueAlbums: 1,
+      },
+      {
+        userId: 1,
+        yearMonth: '2024-06',
+        scrobbles: 1,
+        uniqueArtists: 1,
+        uniqueAlbums: 1,
+      },
     ]);
 
     // Seed watching data

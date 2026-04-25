@@ -233,3 +233,29 @@ export const lastfmUserStats = sqliteTable(
   },
   (table) => [index('idx_lastfm_user_stats_user_id').on(table.userId)]
 );
+
+// Precomputed per-month listening stats. Powers the bars on the listening
+// page year view; refreshed during the daily 0 3 cron alongside top-lists
+// sync. Same is_filtered=0 scope as the live aggregate the year endpoint
+// used to compute, so values are identical.
+export const lastfmMonthlyStats = sqliteTable(
+  'lastfm_monthly_stats',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').notNull().default(1),
+    yearMonth: text('year_month').notNull(), // YYYY-MM
+    scrobbles: integer('scrobbles').notNull().default(0),
+    uniqueArtists: integer('unique_artists').notNull().default(0),
+    uniqueAlbums: integer('unique_albums').notNull().default(0),
+    computedAt: text('computed_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    uniqueIndex('idx_lastfm_monthly_stats_unique').on(
+      table.userId,
+      table.yearMonth
+    ),
+    index('idx_lastfm_monthly_stats_user_id').on(table.userId),
+  ]
+);
