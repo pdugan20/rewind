@@ -239,21 +239,123 @@ Two parallel bulk-loads, same import endpoint, different shape. **Football only*
 - [x] **8.3.4** Loader handles the ESPN UTC-vs-Pacific TZ off-by-one (per-game lookups accept date OR date+1 to match games stamped at UTC midnight = next day vs venue-local).
 - [x] **8.3.5** Season-endpoint W/L count filters to `attended=1` only — your attended record (6-0) instead of the team's record (6-1) when exceptions are flagged.
 
-## Phase 9: Backfill execution
+## Phase 9: Backfill execution against prod — RUNBOOK
 
-This is the moment of truth — the schema, parsers, and enrichment all converge on a real database.
+All steps are USER ACTIONS. No code changes — this is operational. Phase 8 manual lists need to be curated before 9.5/9.6 run.
 
-- [ ] **9.1** `wrangler d1 execute rewind-db --remote` to apply migrations 0032 + 0033 to prod.
-- [ ] **9.2** Seed Google refresh token to remote D1 via the Phase 1.4 setup script with `--remote`.
-- [ ] **9.3** **Auto track — calendar full pull**: `POST /v1/admin/sync/attending {"source":"gcal","dry_run":true,"from":"2015-01-01","to":"2026-12-31"}`. Eyeball candidate count by year. Run for real.
-- [ ] **9.4** **Auto track — Gmail full pull**: same with `source:gmail`. Higher candidate volume; spend more time on the dry-run review. Run for real.
-- [ ] **9.5** **Manual track**: `POST /v1/admin/sync/attending/manual-import` for UW 2007–2010.
-- [ ] **9.6** **Email gap-fill**: `POST /v1/admin/sync/attending {"source":"gmail","dry_run":true,"from":"2010-01-01","to":"2014-12-31"}`. Catches anything pre-2015 that's still in Gmail.
-- [ ] **9.7** Spot-check via the read endpoints:
-  - `GET /v1/attending/seasons/mlb/2024` — does the W/L count look right?
-  - `GET /v1/attending/seasons/ncaaf/2008` — UW games show up?
-  - `GET /v1/attending/stats` — totals by year/category make sense?
-- [ ] **9.8** Mark any obviously wrong rows (`attended=0` for tickets I didn't use, etc.) via direct DB or the admin endpoint.
+### 9.1 — Apply migrations to remote D1
+
+```bash
+npx wrangler d1 migrations apply rewind-db --remote
+```
+
+Should apply `0031_attending_domain`, `0032_google_tokens`, `0033_seed_venues` (additive — safe).
+
+### 9.2 — Set Google secrets + seed prod refresh token
+
+```bash
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+# (paste the same values from .dev.vars)
+
+npx tsx scripts/tools/setup-google.ts --remote
+```
+
+Browser opens to Google consent (same flow as local). Token written to remote D1's `google_tokens`.
+
+### 9.3 — Smoke-test prod auth
+
+```bash
+curl -X POST https://api.rewind.rest/v1/admin/google/test \
+  -H "Authorization: Bearer rw_admin_..."
+```
+
+Expect: `{ email, messages_total, scopes, expires_at }` matching the local smoke test.
+
+### 9.4 — Auto track: calendar full historical pull
+
+```bash
+# Dry-run first to eyeball
+curl -X POST https://api.rewind.rest/v1/admin/sync/attending \
+  -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"source":"gcal","dry_run":true,"from":"2015-01-01T00:00:00Z","to":"2026-12-31T23:59:59Z"}'
+
+# Then real:
+curl -X POST https://api.rewind.rest/v1/admin/sync/attending \
+  -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"source":"gcal","dry_run":false,"from":"2015-01-01T00:00:00Z","to":"2026-12-31T23:59:59Z"}'
+```
+
+### 9.5 — Auto track: Gmail full historical pull
+
+Higher volume. Spend extra time on the dry-run review:
+
+```bash
+curl -X POST https://api.rewind.rest/v1/admin/sync/attending \
+  -H "Authorization: Bearer rw_admin_..." \
+  -H "Content-Type: application/json" \
+  -d '{"source":"gmail","dry_run":true,"from":"2010-01-01","to":"2026-12-31"}'
+```
+
+Eyeball candidates with `match_confidence < 0.8`. Reject any obvious junk via `POST /v1/admin/attending/sources/:id/reject` (after the real pull writes them). Then run `dry_run: false`.
+
+### 9.6 — Manual import: UW football 2007–2010
+
+Once `scripts/data/manual-attending-uw-2007-2010.json` is curated (Phase 8.1.1):
+
+```bash
+REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
+  scripts/data/manual-attending-uw-2007-2010.json --remote
+```
+
+### 9.7 — Manual import: UW football 2021–2026 season tickets
+
+Once `scripts/data/manual-attending-uw-recent.json` is curated (Phase 8.2.1):
+
+```bash
+REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
+  scripts/data/manual-attending-uw-recent.json --remote
+```
+
+### 9.8 — Review pending sources
+
+```bash
+curl https://api.rewind.rest/v1/admin/attending/pending?limit=200 \
+  -H "Authorization: Bearer rw_admin_..."
+```
+
+For each unloaded source row, decide: promote (with overrides if needed) or reject.
+
+### 9.9 — Spot-check via read endpoints
+
+```bash
+# Mariners 2024 attended games:
+curl https://api.rewind.rest/v1/attending/seasons/mlb/2024 \
+  -H "Authorization: Bearer rw_live_..."
+
+# UW football 2008 (college era):
+curl https://api.rewind.rest/v1/attending/seasons/ncaaf/2008 \
+  -H "Authorization: Bearer rw_live_..."
+
+# Aggregate stats:
+curl https://api.rewind.rest/v1/attending/stats \
+  -H "Authorization: Bearer rw_live_..."
+```
+
+Sanity check: counts make sense, scores look right, attended/unattended split is plausible.
+
+### 9.10 — Confirm cron is running
+
+After 24 hours (one cron tick), check `/v1/health/sync`:
+
+```bash
+curl https://api.rewind.rest/v1/health/sync \
+  -H "Authorization: Bearer rw_live_..."
+```
+
+Look for `attending: { last_sync: <recent>, status: completed }`.
 
 ## Phase 10+ — Follow-up projects (NOT in this project)
 
