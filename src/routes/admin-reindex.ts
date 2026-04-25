@@ -702,6 +702,8 @@ const cleanupAuthorsRoute = createRoute({
   tags: ['Admin'],
   summary:
     "Titlecase URL-shaped authors (e.g. 'https://.../by/mike-isaac' → 'Mike Isaac')",
+  description:
+    'Iterates reading_items where author starts with "http" (URL-shaped due to the source\'s `article:author` meta tag), strips the path slug, and titlecases it (e.g. `mike-isaac` → `Mike Isaac`). One-shot cleanup; forward sync now does this transformation at write time.',
   responses: {
     200: {
       description: 'Cleanup complete',

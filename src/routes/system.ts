@@ -116,6 +116,11 @@ const syncHealthRoute = createRoute({
                 error_rate: 0.0,
               },
             },
+            enrichment: {
+              artists_missing_apple_music_url_with_plays: 0,
+              artists_missing_apple_music_url: 0,
+              tracks_missing_itunes_enrichment: 0,
+            },
           },
         },
       },

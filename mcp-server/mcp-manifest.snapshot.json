@@ -757,6 +757,11 @@
             "type": "boolean",
             "default": true,
             "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          },
+          "include_sparklines": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, attach a `sparkline` (granularity + zero-filled play-count points) to each artist. Supported only for period in {1month, 3month, 6month, 12month}; omitted otherwise."
           }
         },
         "additionalProperties": false,
