@@ -1,17 +1,30 @@
 // ESPN player-id cross-reference. For every attended MLB game we have
 // a Mariners-vs-X box score for, hit ESPN's game summary endpoint and
-// match each ESPN player to the MLB player by (last_name + jersey).
-// Populates `players.espn_id` so the photo pipeline can fetch the
-// ESPN full-body PNG variant.
+// match each ESPN athlete to a player who appeared in OUR boxscore
+// for the same game.
 //
-// Approach: ESPN's schedule endpoint by team-season gives us
-// (date, ESPN gameId, opposing team). We resolve our attended events
-// to ESPN gameIds via a date+team match, then per-game pull the
-// summary endpoint and walk both rosters.
+// Game-scoped matching is the key insight: any player who appears in
+// the ESPN boxscore for game X must also appear in the MLB Stats
+// boxscore for the same game (we already have those rows in
+// attended_event_players). That eliminates cross-team last-name
+// collisions ("Hernandez", "Garcia", "Rodriguez") because the candidate
+// pool is just the ~50 players in this one game.
+//
+// Approach:
+//   1. ESPN schedule by team-season → resolve our event_date to
+//      ESPN gameId.
+//   2. ESPN summary by gameId → list of athletes with ESPN IDs.
+//   3. For each athlete, find the matching player in OUR DB whose
+//      attended_event_players row points at this event AND whose
+//      normalized last_name (and first_name when ambiguous) matches.
 
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
-import { attendedEvents, players } from '../../db/schema/attending.js';
+import {
+  attendedEventPlayers,
+  attendedEvents,
+  players,
+} from '../../db/schema/attending.js';
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb';
 
@@ -142,7 +155,7 @@ export async function enrichEspnIds(
     }
 
     result.matched_events++;
-    const matched = await matchAndPersistEspnIds(db, summary);
+    const matched = await matchAndPersistEspnIds(db, summary, ev.id);
     result.resolved_player_ids += matched;
   }
 
@@ -168,21 +181,64 @@ async function fetchEspnSummary(gameId: string): Promise<EspnSummary> {
 }
 
 /**
- * Walk the box score in the ESPN summary and match each athlete to a
- * player row by last_name + jersey (and league=mlb). Updates
- * `players.espn_id` when we find a confident match. Returns count of
- * newly-resolved espn_ids.
+ * Match each ESPN athlete to a player who appeared in OUR boxscore
+ * for the same event. Game-scoping is the trick: instead of searching
+ * all 800+ players for a last-name match, we restrict to the ~50 who
+ * played this specific game. That eliminates cross-team collisions on
+ * common last names ("Hernandez", "Garcia") cleanly.
  *
- * Match rules (must all hold):
- *   - players.league = 'mlb'
- *   - players.last_name (lowercase) === athlete.lastName (lowercase)
- *   - players.primary_number === athlete.jersey  (when both present)
- *   - players.espn_id is currently NULL (don't overwrite existing)
+ * Match rules (in priority order):
+ *   1. Normalized first + last name match (highest confidence).
+ *   2. Normalized last name match when there's a single candidate.
+ *   3. Disambiguate by jersey if multiple last-name candidates share it.
+ *
+ * Skips athletes whose target player already has an espn_id set.
  */
 async function matchAndPersistEspnIds(
   db: Database,
-  summary: EspnSummary
+  summary: EspnSummary,
+  eventId: number
 ): Promise<number> {
+  // Pull this game's player roster (everyone who appeared) joined to
+  // the players table. This is our candidate pool for ESPN matches.
+  const gameRoster = await db
+    .select({
+      player_id: players.id,
+      first_name: players.firstName,
+      last_name: players.lastName,
+      jersey: players.primaryNumber,
+      espn_id: players.espnId,
+    })
+    .from(attendedEventPlayers)
+    .leftJoin(players, eq(players.id, attendedEventPlayers.playerId))
+    .where(eq(attendedEventPlayers.eventId, eventId));
+
+  // Index candidates by normalized last name (multimap).
+  const byLast = new Map<
+    string,
+    Array<{
+      player_id: number;
+      first_name: string | null;
+      last_name: string | null;
+      jersey: string | null;
+      espn_id: string | null;
+    }>
+  >();
+  for (const r of gameRoster) {
+    if (!r.player_id || !r.last_name) continue;
+    const key = normalize(r.last_name);
+    if (!key) continue;
+    const list = byLast.get(key) ?? [];
+    list.push({
+      player_id: r.player_id,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      jersey: r.jersey,
+      espn_id: r.espn_id,
+    });
+    byLast.set(key, list);
+  }
+
   let count = 0;
   const teams = summary.boxscore?.players ?? [];
   for (const teamGroup of teams) {
@@ -190,43 +246,58 @@ async function matchAndPersistEspnIds(
       for (const item of grp.athletes ?? []) {
         const a = item.athlete;
         if (!a?.id) continue;
-        const lastName = (
-          a.lastName ?? extractLastName(a.fullName ?? a.displayName ?? '')
-        ).toLowerCase();
-        const jersey = a.jersey ?? null;
+        const display = a.fullName ?? a.displayName ?? '';
+        const lastName = normalize(a.lastName ?? extractLastName(display));
+        const firstName = normalize(extractFirstName(display));
         if (!lastName) continue;
 
-        // Find a candidate match. We use raw SQL for case-insensitive last
-        // name comparison (drizzle's eq() is case-sensitive).
-        const candidates = await db
-          .select({ id: players.id, primaryNumber: players.primaryNumber })
-          .from(players)
-          .where(
-            and(
-              eq(players.league, 'mlb'),
-              isNull(players.espnId),
-              sql`lower(${players.lastName}) = ${lastName}`
-            )
-          );
+        const candidates = (byLast.get(lastName) ?? []).filter(
+          (c) => c.espn_id == null
+        );
+        if (candidates.length === 0) continue;
 
-        let match: { id: number; primaryNumber: string | null } | null = null;
+        let match: (typeof candidates)[number] | null = null;
         if (candidates.length === 1) {
           match = candidates[0];
-        } else if (candidates.length > 1 && jersey) {
-          // Disambiguate by jersey when multiple players share a last name.
-          match = candidates.find((c) => c.primaryNumber === jersey) ?? null;
+        } else if (firstName) {
+          // Try first-name match within the last-name candidates.
+          match =
+            candidates.find(
+              (c) => c.first_name && normalize(c.first_name) === firstName
+            ) ?? null;
+        }
+        // Final fallback: jersey match if ESPN provided one and we
+        // still have ambiguity.
+        if (!match && a.jersey) {
+          match = candidates.find((c) => c.jersey === a.jersey) ?? null;
         }
         if (!match) continue;
 
         await db
           .update(players)
           .set({ espnId: a.id, updatedAt: new Date().toISOString() })
-          .where(eq(players.id, match.id));
+          .where(eq(players.id, match.player_id));
+        // Mark resolved in our local index so we don't reuse the row.
+        match.espn_id = a.id;
         count++;
       }
     }
   }
   return count;
+}
+
+function normalize(s: string | null | undefined): string {
+  if (!s) return '';
+  // Strip accents, lowercase, and collapse whitespace.
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+function extractFirstName(fullName: string): string {
+  if (!fullName) return '';
+  const stripped = fullName.trim().replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/i, '');
+  const parts = stripped.split(/\s+/);
+  if (parts.length <= 1) return '';
+  return parts.slice(0, -1).join(' ');
 }
 
 function extractLastName(fullName: string): string {
