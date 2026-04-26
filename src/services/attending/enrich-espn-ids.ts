@@ -257,21 +257,37 @@ async function matchAndPersistEspnIds(
         if (candidates.length === 0) continue;
 
         let match: (typeof candidates)[number] | null = null;
-        if (candidates.length === 1) {
-          match = candidates[0];
-        } else if (firstName) {
-          // Try first-name match within the last-name candidates.
+        if (firstName) {
+          // Require a first-name match when ESPN gave us one. Avoids
+          // the trap where a single leftover same-last-name candidate
+          // gets a wrong ID just because it was the only one left.
           match =
             candidates.find(
               (c) => c.first_name && normalize(c.first_name) === firstName
             ) ?? null;
+        } else if (candidates.length === 1) {
+          // No first name from ESPN — accept the single candidate.
+          match = candidates[0];
         }
-        // Final fallback: jersey match if ESPN provided one and we
-        // still have ambiguity.
+        // Last-resort jersey match (rare since ESPN summaries usually
+        // omit jerseys).
         if (!match && a.jersey) {
           match = candidates.find((c) => c.jersey === a.jersey) ?? null;
         }
         if (!match) continue;
+
+        // Belt-and-suspenders: check the espn_id isn't already taken
+        // by a different player. Without this, a same-last-name
+        // collision in a *different* game can blow up the unique
+        // (league, espn_id) index later in the run.
+        const existing = await db
+          .select({ id: players.id })
+          .from(players)
+          .where(and(eq(players.league, 'mlb'), eq(players.espnId, a.id)))
+          .limit(1);
+        if (existing.length > 0 && existing[0].id !== match.player_id) {
+          continue;
+        }
 
         await db
           .update(players)
