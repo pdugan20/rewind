@@ -17420,7 +17420,8 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "default": 1
+              "default": 1,
+              "example": 1
             },
             "required": false,
             "name": "page",
@@ -17431,7 +17432,8 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 100,
-              "default": 20
+              "default": 20,
+              "example": 20
             },
             "required": false,
             "name": "limit",
@@ -17444,7 +17446,8 @@
                 "sports",
                 "music",
                 "arts"
-              ]
+              ],
+              "example": "sports"
             },
             "required": false,
             "name": "category",
@@ -17452,7 +17455,8 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "example": "mlb_game"
             },
             "required": false,
             "name": "event_type",
@@ -17463,7 +17467,8 @@
               "type": [
                 "integer",
                 "null"
-              ]
+              ],
+              "example": 2024
             },
             "required": false,
             "name": "season",
@@ -17474,7 +17479,8 @@
               "type": [
                 "integer",
                 "null"
-              ]
+              ],
+              "example": 2024
             },
             "required": false,
             "name": "year",
@@ -17485,7 +17491,8 @@
               "type": [
                 "integer",
                 "null"
-              ]
+              ],
+              "example": 12
             },
             "required": false,
             "name": "venue_id",
@@ -17498,7 +17505,8 @@
                 "null"
               ],
               "minimum": 0,
-              "maximum": 1
+              "maximum": 1,
+              "example": 1
             },
             "required": false,
             "name": "attended",
@@ -17519,65 +17527,86 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "type": "number"
+                            "type": "number",
+                            "example": 142
                           },
                           "category": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "sports"
                           },
                           "event_type": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "mlb_game"
                           },
                           "event_date": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "2024-08-12"
                           },
                           "event_datetime": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "2024-08-12T19:10:00Z"
                           },
                           "title": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "Seattle Mariners vs Houston Astros"
                           },
                           "subtitle": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "Mariners 4, Astros 2"
                           },
                           "series_id": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "mlb-2024-mariners"
                           },
                           "external_id": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "745423"
                           },
                           "external_source": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "mlb_stats_api"
                           },
                           "event_data": {
                             "type": [
                               "object",
                               "null"
                             ],
-                            "additionalProperties": {}
+                            "additionalProperties": {},
+                            "example": {
+                              "season": 2024,
+                              "home_team": "Seattle Mariners",
+                              "away_team": "Houston Astros",
+                              "home_score": 4,
+                              "away_score": 2,
+                              "my_team_won": true,
+                              "winning_pitcher": "Logan Gilbert"
+                            }
                           },
                           "notes": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": null
                           },
                           "attended": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "example": true
                           },
                           "venue": {
                             "type": [
@@ -17586,46 +17615,54 @@
                             ],
                             "properties": {
                               "id": {
-                                "type": "number"
+                                "type": "number",
+                                "example": 12
                               },
                               "name": {
-                                "type": "string"
+                                "type": "string",
+                                "example": "T-Mobile Park"
                               },
                               "city": {
                                 "type": [
                                   "string",
                                   "null"
-                                ]
+                                ],
+                                "example": "Seattle"
                               },
                               "state": {
                                 "type": [
                                   "string",
                                   "null"
-                                ]
+                                ],
+                                "example": "WA"
                               },
                               "country": {
                                 "type": [
                                   "string",
                                   "null"
-                                ]
+                                ],
+                                "example": "US"
                               },
                               "latitude": {
                                 "type": [
                                   "number",
                                   "null"
-                                ]
+                                ],
+                                "example": 47.5914
                               },
                               "longitude": {
                                 "type": [
                                   "number",
                                   "null"
-                                ]
+                                ],
+                                "example": -122.3325
                               },
                               "capacity": {
                                 "type": [
                                   "number",
                                   "null"
-                                ]
+                                ],
+                                "example": 47929
                               }
                             },
                             "required": [
@@ -17645,52 +17682,62 @@
                               "type": "object",
                               "properties": {
                                 "id": {
-                                  "type": "number"
+                                  "type": "number",
+                                  "example": 871
                                 },
                                 "vendor": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ticketmaster"
                                 },
                                 "order_id": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "32-43215/SEA"
                                 },
                                 "section": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "147"
                                 },
                                 "row": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "15"
                                 },
                                 "seat": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "12"
                                 },
                                 "quantity": {
-                                  "type": "number"
+                                  "type": "number",
+                                  "example": 2
                                 },
                                 "total_price_cents": {
                                   "type": [
                                     "number",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": 8400
                                 },
                                 "currency": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "USD"
                                 },
                                 "purchased_at": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "2024-06-15T18:42:11Z"
                                 }
                               },
                               "required": [
@@ -17792,65 +17839,86 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "number"
+                      "type": "number",
+                      "example": 142
                     },
                     "category": {
-                      "type": "string"
+                      "type": "string",
+                      "example": "sports"
                     },
                     "event_type": {
-                      "type": "string"
+                      "type": "string",
+                      "example": "mlb_game"
                     },
                     "event_date": {
-                      "type": "string"
+                      "type": "string",
+                      "example": "2024-08-12"
                     },
                     "event_datetime": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "example": "2024-08-12T19:10:00Z"
                     },
                     "title": {
-                      "type": "string"
+                      "type": "string",
+                      "example": "Seattle Mariners vs Houston Astros"
                     },
                     "subtitle": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "example": "Mariners 4, Astros 2"
                     },
                     "series_id": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "example": "mlb-2024-mariners"
                     },
                     "external_id": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "example": "745423"
                     },
                     "external_source": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "example": "mlb_stats_api"
                     },
                     "event_data": {
                       "type": [
                         "object",
                         "null"
                       ],
-                      "additionalProperties": {}
+                      "additionalProperties": {},
+                      "example": {
+                        "season": 2024,
+                        "home_team": "Seattle Mariners",
+                        "away_team": "Houston Astros",
+                        "home_score": 4,
+                        "away_score": 2,
+                        "my_team_won": true,
+                        "winning_pitcher": "Logan Gilbert"
+                      }
                     },
                     "notes": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "example": null
                     },
                     "attended": {
-                      "type": "boolean"
+                      "type": "boolean",
+                      "example": true
                     },
                     "venue": {
                       "type": [
@@ -17859,46 +17927,54 @@
                       ],
                       "properties": {
                         "id": {
-                          "type": "number"
+                          "type": "number",
+                          "example": 12
                         },
                         "name": {
-                          "type": "string"
+                          "type": "string",
+                          "example": "T-Mobile Park"
                         },
                         "city": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "example": "Seattle"
                         },
                         "state": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "example": "WA"
                         },
                         "country": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "example": "US"
                         },
                         "latitude": {
                           "type": [
                             "number",
                             "null"
-                          ]
+                          ],
+                          "example": 47.5914
                         },
                         "longitude": {
                           "type": [
                             "number",
                             "null"
-                          ]
+                          ],
+                          "example": -122.3325
                         },
                         "capacity": {
                           "type": [
                             "number",
                             "null"
-                          ]
+                          ],
+                          "example": 47929
                         }
                       },
                       "required": [
@@ -17918,52 +17994,62 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "type": "number"
+                            "type": "number",
+                            "example": 871
                           },
                           "vendor": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "ticketmaster"
                           },
                           "order_id": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "32-43215/SEA"
                           },
                           "section": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "147"
                           },
                           "row": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "15"
                           },
                           "seat": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "12"
                           },
                           "quantity": {
-                            "type": "number"
+                            "type": "number",
+                            "example": 2
                           },
                           "total_price_cents": {
                             "type": [
                               "number",
                               "null"
-                            ]
+                            ],
+                            "example": 8400
                           },
                           "currency": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "USD"
                           },
                           "purchased_at": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "2024-06-15T18:42:11Z"
                           }
                         },
                         "required": [
@@ -18085,65 +18171,86 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "type": "number"
+                            "type": "number",
+                            "example": 142
                           },
                           "category": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "sports"
                           },
                           "event_type": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "mlb_game"
                           },
                           "event_date": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "2024-08-12"
                           },
                           "event_datetime": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "2024-08-12T19:10:00Z"
                           },
                           "title": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "Seattle Mariners vs Houston Astros"
                           },
                           "subtitle": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "Mariners 4, Astros 2"
                           },
                           "series_id": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "mlb-2024-mariners"
                           },
                           "external_id": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "745423"
                           },
                           "external_source": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "mlb_stats_api"
                           },
                           "event_data": {
                             "type": [
                               "object",
                               "null"
                             ],
-                            "additionalProperties": {}
+                            "additionalProperties": {},
+                            "example": {
+                              "season": 2024,
+                              "home_team": "Seattle Mariners",
+                              "away_team": "Houston Astros",
+                              "home_score": 4,
+                              "away_score": 2,
+                              "my_team_won": true,
+                              "winning_pitcher": "Logan Gilbert"
+                            }
                           },
                           "notes": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": null
                           },
                           "attended": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "example": true
                           },
                           "venue": {
                             "type": [
@@ -18152,46 +18259,54 @@
                             ],
                             "properties": {
                               "id": {
-                                "type": "number"
+                                "type": "number",
+                                "example": 12
                               },
                               "name": {
-                                "type": "string"
+                                "type": "string",
+                                "example": "T-Mobile Park"
                               },
                               "city": {
                                 "type": [
                                   "string",
                                   "null"
-                                ]
+                                ],
+                                "example": "Seattle"
                               },
                               "state": {
                                 "type": [
                                   "string",
                                   "null"
-                                ]
+                                ],
+                                "example": "WA"
                               },
                               "country": {
                                 "type": [
                                   "string",
                                   "null"
-                                ]
+                                ],
+                                "example": "US"
                               },
                               "latitude": {
                                 "type": [
                                   "number",
                                   "null"
-                                ]
+                                ],
+                                "example": 47.5914
                               },
                               "longitude": {
                                 "type": [
                                   "number",
                                   "null"
-                                ]
+                                ],
+                                "example": -122.3325
                               },
                               "capacity": {
                                 "type": [
                                   "number",
                                   "null"
-                                ]
+                                ],
+                                "example": 47929
                               }
                             },
                             "required": [
@@ -18211,52 +18326,62 @@
                               "type": "object",
                               "properties": {
                                 "id": {
-                                  "type": "number"
+                                  "type": "number",
+                                  "example": 871
                                 },
                                 "vendor": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "ticketmaster"
                                 },
                                 "order_id": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "32-43215/SEA"
                                 },
                                 "section": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "147"
                                 },
                                 "row": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "15"
                                 },
                                 "seat": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "12"
                                 },
                                 "quantity": {
-                                  "type": "number"
+                                  "type": "number",
+                                  "example": 2
                                 },
                                 "total_price_cents": {
                                   "type": [
                                     "number",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": 8400
                                 },
                                 "currency": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "example": "USD"
                                 },
                                 "purchased_at": {
                                   "type": [
                                     "string",
                                     "null"
-                                  ]
+                                  ],
+                                  "example": "2024-06-15T18:42:11Z"
                                 }
                               },
                               "required": [
@@ -18341,46 +18466,54 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "type": "number"
+                            "type": "number",
+                            "example": 12
                           },
                           "name": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "T-Mobile Park"
                           },
                           "city": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "Seattle"
                           },
                           "state": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "WA"
                           },
                           "country": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "example": "US"
                           },
                           "latitude": {
                             "type": [
                               "number",
                               "null"
-                            ]
+                            ],
+                            "example": 47.5914
                           },
                           "longitude": {
                             "type": [
                               "number",
                               "null"
-                            ]
+                            ],
+                            "example": -122.3325
                           },
                           "capacity": {
                             "type": [
                               "number",
                               "null"
-                            ]
+                            ],
+                            "example": 47929
                           }
                         },
                         "required": [
@@ -20129,9 +20262,17 @@
           },
           {
             "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "source_ref",
+            "in": "query"
+          },
+          {
+            "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 200,
+              "maximum": 1000,
               "default": 50
             },
             "required": false,

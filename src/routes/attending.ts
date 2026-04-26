@@ -31,43 +31,62 @@ function parseJson<T = unknown>(raw: string | null): T | null {
 // ─── Schemas ────────────────────────────────────────────────────────
 
 const VenueSchema = z.object({
-  id: z.number(),
-  name: z.string(),
-  city: z.string().nullable(),
-  state: z.string().nullable(),
-  country: z.string().nullable(),
-  latitude: z.number().nullable(),
-  longitude: z.number().nullable(),
-  capacity: z.number().nullable(),
+  id: z.number().openapi({ example: 12 }),
+  name: z.string().openapi({ example: 'T-Mobile Park' }),
+  city: z.string().nullable().openapi({ example: 'Seattle' }),
+  state: z.string().nullable().openapi({ example: 'WA' }),
+  country: z.string().nullable().openapi({ example: 'US' }),
+  latitude: z.number().nullable().openapi({ example: 47.5914 }),
+  longitude: z.number().nullable().openapi({ example: -122.3325 }),
+  capacity: z.number().nullable().openapi({ example: 47929 }),
 });
 
 const TicketSchema = z.object({
-  id: z.number(),
-  vendor: z.string(),
-  order_id: z.string().nullable(),
-  section: z.string().nullable(),
-  row: z.string().nullable(),
-  seat: z.string().nullable(),
-  quantity: z.number(),
-  total_price_cents: z.number().nullable(),
-  currency: z.string(),
-  purchased_at: z.string().nullable(),
+  id: z.number().openapi({ example: 871 }),
+  vendor: z.string().openapi({ example: 'ticketmaster' }),
+  order_id: z.string().nullable().openapi({ example: '32-43215/SEA' }),
+  section: z.string().nullable().openapi({ example: '147' }),
+  row: z.string().nullable().openapi({ example: '15' }),
+  seat: z.string().nullable().openapi({ example: '12' }),
+  quantity: z.number().openapi({ example: 2 }),
+  total_price_cents: z.number().nullable().openapi({ example: 8400 }),
+  currency: z.string().openapi({ example: 'USD' }),
+  purchased_at: z
+    .string()
+    .nullable()
+    .openapi({ example: '2024-06-15T18:42:11Z' }),
 });
 
 const AttendedEventSchema = z.object({
-  id: z.number(),
-  category: z.string(),
-  event_type: z.string(),
-  event_date: z.string(),
-  event_datetime: z.string().nullable(),
-  title: z.string(),
-  subtitle: z.string().nullable(),
-  series_id: z.string().nullable(),
-  external_id: z.string().nullable(),
-  external_source: z.string().nullable(),
-  event_data: z.record(z.string(), z.any()).nullable(),
-  notes: z.string().nullable(),
-  attended: z.boolean(),
+  id: z.number().openapi({ example: 142 }),
+  category: z.string().openapi({ example: 'sports' }),
+  event_type: z.string().openapi({ example: 'mlb_game' }),
+  event_date: z.string().openapi({ example: '2024-08-12' }),
+  event_datetime: z
+    .string()
+    .nullable()
+    .openapi({ example: '2024-08-12T19:10:00Z' }),
+  title: z.string().openapi({ example: 'Seattle Mariners vs Houston Astros' }),
+  subtitle: z.string().nullable().openapi({ example: 'Mariners 4, Astros 2' }),
+  series_id: z.string().nullable().openapi({ example: 'mlb-2024-mariners' }),
+  external_id: z.string().nullable().openapi({ example: '745423' }),
+  external_source: z.string().nullable().openapi({ example: 'mlb_stats_api' }),
+  event_data: z
+    .record(z.string(), z.any())
+    .nullable()
+    .openapi({
+      example: {
+        season: 2024,
+        home_team: 'Seattle Mariners',
+        away_team: 'Houston Astros',
+        home_score: 4,
+        away_score: 2,
+        my_team_won: true,
+        winning_pitcher: 'Logan Gilbert',
+      },
+    }),
+  notes: z.string().nullable().openapi({ example: null }),
+  attended: z.boolean().openapi({ example: true }),
   venue: VenueSchema.nullable(),
   tickets: z.array(TicketSchema),
 });
@@ -84,14 +103,36 @@ const eventsRoute = createRoute({
     'Returns events you have tickets for, optionally filtered by category, event_type, season, year, and venue. Includes events you bought tickets for but did not attend (attended=false).',
   request: {
     query: z.object({
-      page: z.coerce.number().int().min(1).optional().default(1),
-      limit: z.coerce.number().int().min(1).max(100).optional().default(20),
-      category: z.enum(['sports', 'music', 'arts']).optional(),
-      event_type: z.string().optional(),
-      season: z.coerce.number().int().optional(),
-      year: z.coerce.number().int().optional(),
-      venue_id: z.coerce.number().int().optional(),
-      attended: z.coerce.number().int().min(0).max(1).optional(),
+      page: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .default(1)
+        .openapi({ example: 1 }),
+      limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .optional()
+        .default(20)
+        .openapi({ example: 20 }),
+      category: z
+        .enum(['sports', 'music', 'arts'])
+        .optional()
+        .openapi({ example: 'sports' }),
+      event_type: z.string().optional().openapi({ example: 'mlb_game' }),
+      season: z.coerce.number().int().optional().openapi({ example: 2024 }),
+      year: z.coerce.number().int().optional().openapi({ example: 2024 }),
+      venue_id: z.coerce.number().int().optional().openapi({ example: 12 }),
+      attended: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .max(1)
+        .optional()
+        .openapi({ example: 1 }),
     }),
   },
   responses: {

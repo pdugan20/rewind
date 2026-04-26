@@ -3,6 +3,24 @@ title: Changelog
 description: API updates and new features.
 ---
 
+<Update label="April 25, 2026" tags={["New releases", "New features"]}>
+
+## Attending domain
+
+New fifth domain for live events — sports games, concerts, theater. **193 events backfilled** from Google Calendar and Gmail across 2016–2026.
+
+- [`GET /v1/attending/events`](/api-reference/attending/list-attended-events) — list attended events with filters for category (`sports` / `music` / `arts`), `event_type`, `season`, `year`, `venue_id`, and `attended` (separates "I went" from "I bought tickets but didn't go").
+- [`GET /v1/attending/events/{id}`](/api-reference/attending/get-attended-event) — single event with venue, multiple ticket rows, and league-specific `event_data` (scores, winning pitcher, my_team_won).
+- [`GET /v1/attending/seasons/{league}/{season}`](/api-reference/attending/get-attended-season) — attended games in a sports season with W/L record. Counts only games you actually attended, not the team's full record.
+- [`GET /v1/attending/venues`](/api-reference/attending/list-venues) — venue catalog with city, capacity, and lat/long.
+- [`GET /v1/attending/stats`](/api-reference/attending/get-attending-stats) — counts by category, `event_type`, and year.
+- **Seven Gmail parsers** — Ticketmaster, SeatGeek, Ticket Club, AXS, StubHub, VividSeats, and Eventbrite. Universal `schema.org/EventReservation` JSON-LD parser as a fallback.
+- **Sports enrichment** via MLB Stats API (baseball) and ESPN (NFL, NBA, WNBA, MLS, NCAAF, NCAAB) attaches scores and outcomes to past games.
+- **Cross-domain link** — concert performers can carry a `lastfm_artist_id` so a single artist row drives both your scrobble history and your concert attendance.
+- Daily incremental sync at 4:00 AM Pacific. See [Attending domain](/domains/attending).
+
+</Update>
+
 <Update label="April 24, 2026" tags={["New releases", "New features", "Improvements"]}>
 
 ## MCP server

@@ -146,7 +146,7 @@ export async function reprocessPendingSources(
       } else if (senderVendor === 'ticketclub') {
         reservations = parseTicketClubHtml(html) ?? [];
       } else if (senderVendor === 'ticketmaster') {
-        reservations = parseTicketmasterHtml(html) ?? [];
+        reservations = parseTicketmasterHtml(html, row.sourceRef) ?? [];
       } else if (senderVendor === 'axs') {
         reservations = parseAxsHtml(html) ?? [];
       } else if (senderVendor === 'vividseats') {

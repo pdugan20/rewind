@@ -8,7 +8,6 @@
     "dark": "/logo/dark.svg"
   },
   "favicon": "/favicon.svg",
-  "openapi": "openapi.json",
   "appearance": {
     "default": "system",
     "strict": false
@@ -53,6 +52,7 @@
               "domains/watching",
               "domains/reading",
               "domains/collecting",
+              "domains/attending",
               "domains/images"
             ]
           },
@@ -68,6 +68,7 @@
       },
       {
         "tab": "API Reference",
+        "openapi": "openapi.json",
         "groups": [
           {
             "group": "Listening",
@@ -171,6 +172,16 @@
               "api-reference/collecting/media-format-breakdown",
               "api-reference/collecting/owned-vs-watched-cross-reference",
               "api-reference/collecting/physical-media-item-detail"
+            ]
+          },
+          {
+            "group": "Attending",
+            "pages": [
+              "api-reference/attending/list-attended-events",
+              "api-reference/attending/get-attended-event",
+              "api-reference/attending/get-attended-season",
+              "api-reference/attending/list-venues",
+              "api-reference/attending/get-attending-stats"
             ]
           },
           {

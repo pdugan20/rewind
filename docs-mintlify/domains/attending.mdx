@@ -1,0 +1,56 @@
+---
+title: Attending
+icon: ticket
+description: Live events, tickets, and game attendance
+---
+
+## Overview
+
+The Attending domain tracks live events you bought tickets for: sports games, concerts, theater, and other one-off events. Events come from two extraction paths:
+
+- **Google Calendar** — auto-extracts ticketing details from event descriptions when Google's parsers populate them.
+- **Gmail** — per-vendor parsers walk confirmation emails from Ticketmaster, SeatGeek, Ticket Club, AXS, StubHub, VividSeats, and Eventbrite. A universal `schema.org/EventReservation` JSON-LD parser handles vendors that emit structured data.
+
+Events are enriched with team/score data from the MLB Stats API and ESPN (NFL, NBA, WNBA, MLS, NCAAF, NCAAB), and concerts can be cross-linked to Last.fm artists for unified listening + attendance views.
+
+Data syncs daily at 4:00 AM Pacific via cron, with incremental Gmail and Calendar pulls (syncToken-based).
+
+## Key endpoints
+
+| Endpoint                                                                               | Description                                                  |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [GET /attending/events](/api-reference/attending/list-attended-events)                 | Attended events with filters (category, season, year, venue) |
+| [GET /attending/events/:id](/api-reference/attending/get-attended-event)               | Single event with venue, tickets, and event_data             |
+| [GET /attending/seasons/:league/:season](/api-reference/attending/get-attended-season) | Attended games in a sports season with W/L record            |
+| [GET /attending/venues](/api-reference/attending/list-venues)                          | Venue catalog with city, capacity, and lat/long              |
+| [GET /attending/stats](/api-reference/attending/get-attending-stats)                   | Aggregate attendance counts by category, type, and year      |
+
+## Event categories
+
+Every event has a top-level `category` and a more specific `event_type`:
+
+| Category | Event types                                                                             |
+| -------- | --------------------------------------------------------------------------------------- |
+| `sports` | `mlb_game`, `nfl_game`, `nba_game`, `wnba_game`, `mls_game`, `ncaaf_game`, `ncaab_game` |
+| `music`  | `concert`                                                                               |
+| `arts`   | `theater`, `comedy`, `other`                                                            |
+
+Sports event types determine which league API enriches the row. `event_data` carries league-specific fields — for MLB games that's `home_team`, `away_team`, `home_score`, `away_score`, `winning_pitcher`, `my_team_won`. For NFL/NCAAF games it's the equivalent shape from ESPN's scoreboard endpoint.
+
+## Attendance vs ownership
+
+The `attended` flag separates "I went" from "I bought tickets but didn't go." Both states are returned by default — pass `attended=1` to filter to confirmed attendance, `attended=0` to see no-shows. The [seasons endpoint](/api-reference/attending/get-attended-season) only counts wins/losses for events you actually attended, so a 6-game home season with one no-show reports a 5-1 attended record rather than a 5-2 team record.
+
+## Tickets and venues
+
+Each event can have multiple ticket rows — re-purchases, transfers, or multi-vendor situations all coexist. Ticket fields capture vendor-of-record details: `section`, `row`, `seat`, `quantity`, `total_price_cents`, `currency`, and the raw `order_id`.
+
+Venues are deduplicated against a curated catalog seeded with major Seattle and West-coast sports/music venues; new venues from email confirmations are auto-added with whatever name and city the parser extracts. Lat/long and capacity backfill via venue lookup over time.
+
+## Cross-domain linking
+
+Concert performers can carry a `lastfm_artist_id` populated by the performer resolver, which probes the listening domain's `lastfm_artists` table for an exact name match. This lets a single artist row drive both your scrobble history and your concert attendance.
+
+## Sports season W/L
+
+The [seasons endpoint](/api-reference/attending/get-attended-season) returns the attended games in a given league + season alongside `wins` and `losses` counts. For events flagged `attended=0` (tickets bought but you didn't go), the W/L count skips them — your attended record is what's reported, not the team's. Pair the response with a public schedule API (MLB Stats API for baseball, ESPN for football and basketball) on the consumer side to overlay attendance on the full schedule.

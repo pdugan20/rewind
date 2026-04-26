@@ -320,7 +320,7 @@ function parseMessageCapture(msg: GmailMessage): ParsedGmailCandidate {
     } else if (vendor === 'ticketclub') {
       reservations = parseTicketClubHtml(html) ?? [];
     } else if (vendor === 'ticketmaster') {
-      reservations = parseTicketmasterHtml(html) ?? [];
+      reservations = parseTicketmasterHtml(html, msg.id) ?? [];
     } else if (vendor === 'axs') {
       reservations = parseAxsHtml(html) ?? [];
     } else if (vendor === 'vividseats') {
@@ -366,6 +366,7 @@ async function insertGmailSourceRows(
           internal_date: c.internal_date,
           reservations: c.reservations,
           body_text: c.body_text,
+          body_html: c.body_html,
         }),
         matchConfidence: c.reservations.length > 0 ? 1.0 : 0.3,
       })

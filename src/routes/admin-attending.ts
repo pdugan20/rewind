@@ -97,7 +97,8 @@ const pendingRoute = createRoute({
   request: {
     query: z.object({
       source_type: z.enum(['gcal', 'gmail', 'manual']).optional(),
-      limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+      source_ref: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(1000).optional().default(50),
     }),
   },
   responses: {
@@ -118,7 +119,7 @@ const pendingRoute = createRoute({
 
 adminAttending.openapi(pendingRoute, async (c) => {
   const db = createDb(c.env.DB);
-  const { source_type, limit } = c.req.valid('query');
+  const { source_type, source_ref, limit } = c.req.valid('query');
 
   const rows = await db
     .select()
@@ -129,7 +130,8 @@ adminAttending.openapi(pendingRoute, async (c) => {
         isNull(attendedEventSources.eventId),
         source_type
           ? eq(attendedEventSources.sourceType, source_type)
-          : undefined
+          : undefined,
+        source_ref ? eq(attendedEventSources.sourceRef, source_ref) : undefined
       )
     )
     .orderBy(asc(attendedEventSources.createdAt))

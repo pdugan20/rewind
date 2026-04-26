@@ -181,6 +181,17 @@ const SUBJECT_REJECT = [
   'how was it',
   'rate your experience',
   'tell us about',
+  // Outgoing transfers — user is GIVING tickets away, not attending.
+  // "Your ticket transfer to Brad is on the way" — Brad goes, not user.
+  'transfer to',
+  'is on the way',
+  // Pre-acceptance offers from Mariners Fancare / friends — the
+  // companion "all set to see"/"got tickets" email is the actual
+  // confirmation we want. Skip the offer; trust the acceptance.
+  'just sent you',
+  'sent you ticket',
+  'sent you 1 seattle',
+  'kids club',
 ];
 
 const SUBJECT_ACCEPT = [
@@ -193,6 +204,14 @@ const SUBJECT_ACCEPT = [
   'tickets for',
   'ticket purchase',
   'thanks for your order',
+  // Ticketmaster transfer-complete confirmations.
+  "you're all set to see",
+  'you got tickets to',
+  'you got the tickets',
+  'transfer is complete',
+  'transfer went through',
+  // Generic Ticketmaster purchase confirmations.
+  'thanks for your',
 ];
 
 export type SubjectVerdict = 'accept' | 'reject' | 'uncertain';

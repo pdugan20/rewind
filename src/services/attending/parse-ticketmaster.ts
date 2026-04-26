@@ -33,10 +33,25 @@ import { stripToText } from './parse-ticketclub.js';
 import type { ParsedReservation, Vendor } from './parse-jsonld.js';
 
 export function parseTicketmasterHtml(
-  html: string | null | undefined
+  html: string | null | undefined,
+  sourceRef?: string
 ): ParsedReservation[] | null {
   if (!html) return null;
   const text = stripToText(html);
+
+  // Transfer-complete branch — Ticketmaster sends these when a friend
+  // transfers tickets to you and you accept. No Order# in the email
+  // body (the original purchase had one), so we synthesize a
+  // reservation_number from the source ref. The body is well-shaped:
+  // "Patrick, Your Ticket Transfer Is Complete!" anchor, then the
+  // game line, date, venue, and seat block.
+  if (
+    /Your Ticket Transfer (?:is|Is) [Cc]omplete/.test(text) ||
+    /Transfer Status:\s*Completed/i.test(text) ||
+    /successfully accepted your ticket transfer/i.test(text)
+  ) {
+    return parseTicketmasterTransfer(text, sourceRef);
+  }
 
   // Order number anchor — present in both layouts.
   const orderNumber =
@@ -73,19 +88,21 @@ export function parseTicketmasterHtml(
   const skipPattern =
     /^(Order|Confirmation|Section|Row|Total|Tickets?|Ticketmaster|My Account|You|Bill to|Patrick|Thanks|View|Sign|Standard|Allow|Protect|We'd|Take|Survey|Add to|Buyer|Special|Notes?|Important|Privacy|Unsubscribe|Forward|Visit|Help|Contact|Customer|Subject|To:|From:|©|Copyright|Powered)/i;
 
+  // Prefer lines matching "X vs. Y" or "X vs Y" — sports games and
+  // many concerts use this shape. Walk the whole list looking for
+  // the strongest title candidate before falling back to the first
+  // non-skipped line. This keeps email intros like "The countdown to
+  // your event starts now…" from being mis-titled as the event.
   let eventName = '';
   let eventStart: string | null = null;
   let dateLineIdx = -1;
+  let versusCandidate: string | null = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (skipPattern.test(line)) continue;
-    if (line.startsWith('$')) continue; // skip dollar-amount lines
-    if (/^\d+(?:[,.]\d+)?$/.test(line)) continue; // skip pure numbers
+    if (line.startsWith('$')) continue;
+    if (/^\d+(?:[,.]\d+)?$/.test(line)) continue;
     if (line === orderNumber) continue;
-    // Skip lines that describe quantity ("4 General Admission ticket(s)
-    // in Section GENADM") — these contain section info but aren't event
-    // names. The literal "ticket(s)" / "ticket" + "Section" combo is a
-    // strong signal.
     if (/\bticket\(?s?\)?\b.*\bSection\b/i.test(line)) continue;
     if (/^\d+\s+\w+\s+ticket/i.test(line)) continue;
     const parsedDate = parseTicketmasterDate(line);
@@ -94,10 +111,19 @@ export function parseTicketmasterHtml(
       dateLineIdx = i;
       continue;
     }
+    if (
+      !versusCandidate &&
+      / vs\.? /i.test(line) &&
+      line.length > 5 &&
+      line.length < 200
+    ) {
+      versusCandidate = line;
+    }
     if (!eventName && line.length > 2 && line.length < 200) {
       eventName = line;
     }
   }
+  if (versusCandidate) eventName = versusCandidate;
 
   // Venue: line right before or after the date line, picking whichever
   // looks like a venue.
@@ -132,6 +158,133 @@ export function parseTicketmasterHtml(
       currency: 'USD',
     },
   ];
+}
+
+/**
+ * Parse a Ticketmaster transfer-completion email body into a
+ * ParsedReservation. These emails don't carry an Order#, so we
+ * synthesize a reservation_number from the source_ref (preferred) or a
+ * content fingerprint (fallback).
+ *
+ * Body shape (real example):
+ *   Patrick, Your Ticket Transfer Is Complete!
+ *   ...
+ *   Seattle Mariners vs. Houston Astros
+ *   Wed, Apr 9 @ 1:10 PM
+ *   T-Mobile Park, Seattle, WA
+ *   Section 191, Row 2, Seat 20
+ *   ...
+ *   (c) 2025 Ticketmaster
+ */
+function parseTicketmasterTransfer(
+  text: string,
+  sourceRef: string | undefined
+): ParsedReservation[] | null {
+  const lines = text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Year inference: prefer the copyright line, fall back to current year.
+  const copyrightYear = matchSimple(text, /\(c\)\s*(\d{4})\s*Ticketmaster/i);
+  const inferredYear = copyrightYear ?? String(new Date().getFullYear());
+
+  // Find "X vs. Y" line (event name).
+  let eventName: string | null = null;
+  let dateLine: string | null = null;
+  let venueLine: string | null = null;
+  let seatLine: string | null = null;
+  for (const line of lines) {
+    if (!eventName && / vs\.? /i.test(line) && line.length < 150) {
+      eventName = line;
+      continue;
+    }
+    if (
+      !dateLine &&
+      /\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i.test(line) &&
+      /@/.test(line)
+    ) {
+      dateLine = line;
+      continue;
+    }
+    if (!venueLine && /,\s*[A-Z]{2}\b/.test(line) && line.length < 200) {
+      venueLine = line;
+      continue;
+    }
+    if (!seatLine && /Section\s+\S/i.test(line) && /Row\s+\S/i.test(line)) {
+      seatLine = line;
+    }
+  }
+  if (!eventName || !dateLine) return null;
+
+  const eventStart = parseTicketmasterTransferDate(dateLine, inferredYear);
+  const section = seatLine
+    ? matchSimple(seatLine, /Section\s+([^,]+?)(?:,|$)/i)
+    : null;
+  const row = seatLine ? matchSimple(seatLine, /Row\s+([^,]+?)(?:,|$)/i) : null;
+  const seat = seatLine
+    ? matchSimple(seatLine, /Seat\s+([^,]+?)(?:,|$)/i)
+    : null;
+
+  return [
+    {
+      vendor: 'ticketmaster' as Vendor,
+      reservation_number: sourceRef
+        ? `tm-transfer-${sourceRef}`
+        : `tm-transfer-${eventName.slice(0, 12)}-${eventStart ?? 'unknown'}`,
+      event_name: eventName,
+      event_start: eventStart,
+      venue_name: venueLine ? cleanVenueName(venueLine) : null,
+      venue_address: venueLine,
+      section,
+      row,
+      seat,
+      total_price_cents: null,
+      currency: 'USD',
+    },
+  ];
+}
+
+/**
+ * Parse Ticketmaster's transfer-email date format (no year):
+ *   "Wed, Apr 9 @ 1:10 PM"
+ *   "Sat • Jul 13 • 6:40 PM"
+ */
+function parseTicketmasterTransferDate(
+  line: string,
+  year: string
+): string | null {
+  const m = line.match(
+    /([A-Za-z]+)\s+(\d{1,2})\s*[@•·-]\s*(\d{1,2}):(\d{2})\s*(am|pm)/i
+  );
+  if (!m) return null;
+  const months: Record<string, string> = {
+    jan: '01',
+    feb: '02',
+    mar: '03',
+    apr: '04',
+    may: '05',
+    jun: '06',
+    jul: '07',
+    aug: '08',
+    sep: '09',
+    oct: '10',
+    nov: '11',
+    dec: '12',
+  };
+  const mm = months[m[1].slice(0, 3).toLowerCase()];
+  if (!mm) return null;
+  const dd = m[2].padStart(2, '0');
+  const hour12 = parseInt(m[3], 10);
+  const min = parseInt(m[4], 10);
+  const ampm = m[5].toLowerCase();
+  const hour24 =
+    ampm === 'pm' && hour12 !== 12
+      ? hour12 + 12
+      : ampm === 'am' && hour12 === 12
+        ? 0
+        : hour12;
+  return `${year}-${mm}-${dd}T${String(hour24).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
 function cleanVenueName(line: string): string {
