@@ -465,8 +465,10 @@ export async function insertFeedItems(
 ) {
   if (items.length === 0) return;
 
-  const SELECT_CHUNK = 200; // dedupe IN-list cap
-  const INSERT_CHUNK = 20; // INSERT VALUES row cap (× 11 cols ≈ 220 params)
+  // D1's effective per-query param cap is around 100 in practice;
+  // 200-source-id IN-lists still tripped the planner. Stay well below.
+  const SELECT_CHUNK = 80; // dedupe IN-list cap (+ 1 for domain)
+  const INSERT_CHUNK = 8; // INSERT VALUES row cap (8 × 11 cols = 88 params)
 
   const domains = [...new Set(items.map((i) => i.domain))];
 

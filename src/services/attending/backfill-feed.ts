@@ -6,7 +6,7 @@
 // Idempotent — insertFeedItems dedupes on (domain, source_id), so
 // re-running is safe.
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { attendedEvents, venues } from '../../db/schema/attending.js';
 import { activityFeed } from '../../db/schema/system.js';
@@ -67,36 +67,29 @@ export async function backfillAttendingFeed(
     })
   );
 
-  // Pre-count rows that already exist so we can report
-  // inserted vs skipped — insertFeedItems dedupes silently and
-  // returns void. Chunk the IN-list lookup to stay under D1's
-  // per-query parameter cap.
-  const SELECT_CHUNK = 200;
-  const existingSet = new Set<string>();
-  for (let i = 0; i < items.length; i += SELECT_CHUNK) {
-    const chunk = items.slice(i, i + SELECT_CHUNK).map((c) => c.sourceId);
-    const existing = await db
-      .select({ source_id: activityFeed.sourceId })
-      .from(activityFeed)
-      .where(
-        and(
-          eq(activityFeed.domain, 'attending'),
-          inArray(activityFeed.sourceId, chunk)
-        )
-      );
-    for (const e of existing) existingSet.add(e.source_id);
-  }
-  const inserted = items.filter((i) => !existingSet.has(i.sourceId)).length;
-
   // insertFeedItems handles its own internal chunking for both the
-  // dedupe SELECT and the INSERT VALUES (D1 param cap).
+  // dedupe SELECT and the INSERT VALUES under D1's param cap. We
+  // don't track inserted-vs-skipped for the response — the helper
+  // returns void. Callers who need the split can re-query feed
+  // counts before/after.
+  const before = await countAttendingFeedRows(db);
   await insertFeedItems(db, items);
+  const after = await countAttendingFeedRows(db);
+  const inserted = after - before;
 
   return {
     scanned: rows.length,
     inserted,
     skipped: rows.length - inserted,
   };
+}
+
+async function countAttendingFeedRows(db: Database): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(activityFeed)
+    .where(eq(activityFeed.domain, 'attending'));
+  return row?.count ?? 0;
 }
 
 function safeJson(s: string): Record<string, unknown> | null {
