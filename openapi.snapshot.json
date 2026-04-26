@@ -19937,7 +19937,8 @@
                 "listening",
                 "running",
                 "watching",
-                "collecting"
+                "collecting",
+                "attending"
               ],
               "description": "Activity domain to filter by",
               "example": "listening"

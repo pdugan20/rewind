@@ -62,7 +62,13 @@ const FeedResponseSchema = z.object({
 
 const DomainParamSchema = z.object({
   domain: z
-    .enum(['listening', 'running', 'watching', 'collecting'] as const)
+    .enum([
+      'listening',
+      'running',
+      'watching',
+      'collecting',
+      'attending',
+    ] as const)
     .openapi({
       description: 'Activity domain to filter by',
       example: 'listening',
