@@ -94,12 +94,17 @@ export function parseTicketmasterHtml(
   // the strongest title candidate before falling back to the first
   // non-skipped line. This keeps email intros like "The countdown to
   // your event starts now…" from being mis-titled as the event.
+  //
+  // Also handle the table-cell-split case where the line list ends up
+  // ["Team A", "vs.", "Team B"] (each in its own <td>). Recombine
+  // adjacent triples into a single versus title before scanning.
+  const recombined = recombineSplitVersus(lines);
   let eventName = '';
   let eventStart: string | null = null;
   let dateLineIdx = -1;
   let versusCandidate: string | null = null;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 0; i < recombined.length; i++) {
+    const line = recombined[i];
     if (skipPattern.test(line)) continue;
     if (line.startsWith('$')) continue;
     if (/^\d+(?:[,.]\d+)?$/.test(line)) continue;
@@ -294,6 +299,47 @@ function parseTicketmasterTransferDate(
         ? 0
         : hour12;
   return `${year}-${mm}-${dd}T${String(hour24).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+/**
+ * Some Ticketmaster templates put the team line in three separate
+ * <td>s — after stripToText that arrives as ["Seattle Mariners",
+ * "vs.", "Houston Astros"] (three lines). Detect that triple and
+ * collapse it to a single "X vs. Y" line so the versus heuristic
+ * picks it up. Same logic for the rare "vs"-only middle line.
+ */
+function recombineSplitVersus(lines: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (
+      i + 2 < lines.length &&
+      /^vs\.?$/i.test(lines[i + 1].trim()) &&
+      lines[i].length > 1 &&
+      lines[i + 2].length > 1 &&
+      !skipMidLine(lines[i]) &&
+      !skipMidLine(lines[i + 2])
+    ) {
+      out.push(`${lines[i]} vs. ${lines[i + 2]}`);
+      i += 2;
+      continue;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+function skipMidLine(s: string): boolean {
+  return (
+    /^\d/.test(s) ||
+    /^[$#@]/.test(s) ||
+    s.length > 100 ||
+    // Word-boundary anchors so "Seattle" doesn't match the "seat"
+    // alternation. The list catches structural rows in transfer
+    // emails — order numbers, section/row labels, ticket counts —
+    // that should not be treated as a team name.
+    /\b(?:order|section|row|seat|seats|total|ticket|tickets)\b/i.test(s)
+  );
 }
 
 function cleanVenueName(line: string): string {
