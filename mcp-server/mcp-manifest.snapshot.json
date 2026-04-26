@@ -185,6 +185,134 @@
       }
     },
     {
+      "name": "get_attended_event",
+      "description": "Get a single attended event in full detail, including venue, tickets, and per-player stat lines (for sports). Use this when the user asks \"who was on that team\" or \"what happened in that game\".",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Event id."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_attended_events",
+      "description": "List events you bought tickets for: sports games, concerts, theater. Filterable by category (sports/music/arts), event_type (mlb_game, concert, etc.), season, year, and venue. Includes events you bought tickets for but did not attend (attended=false).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number, 1-indexed."
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Items per page (max 100)."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "sports",
+              "music",
+              "arts"
+            ],
+            "description": "Top-level category filter."
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Specific type, e.g. \"mlb_game\", \"concert\", \"ncaaf_game\"."
+          },
+          "season": {
+            "type": "integer",
+            "description": "Sports season year (e.g. 2024)."
+          },
+          "year": {
+            "type": "integer",
+            "description": "Calendar year filter on event_date."
+          },
+          "venue_id": {
+            "type": "integer",
+            "description": "Filter by venue id."
+          },
+          "attended": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "1 = only attended, 0 = only unattended (purchased but missed). Omit to return both."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_attended_player",
+      "description": "Get details for a player you have watched play in person, including bio (position, jersey, debut), photos, and every attended event in which they appeared with their stat line for that game.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Player id."
+          },
+          "include_images": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_attended_season",
+      "description": "Get every game you attended (or hold tickets for) in a given league + season, with W/L record. league is a slug like \"mlb\", \"nfl\", \"ncaaf\", \"nba\", \"wnba\". In MCP Apps hosts, renders an interactive season grid with score, attendance, and notable performers.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "league": {
+            "type": "string",
+            "description": "League slug (lowercase): \"mlb\", \"nfl\", \"nba\", \"wnba\", \"ncaaf\", \"ncaab\", \"mls\"."
+          },
+          "season": {
+            "type": "integer",
+            "description": "Season year (e.g. 2024 for the 2024 MLB season)."
+          }
+        },
+        "required": [
+          "league",
+          "season"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_attending_stats",
+      "description": "Aggregate counts of attended events broken down by category, event_type, and year.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
       "name": "get_collecting_stats",
       "description": "Get overall collection statistics including total items, format breakdown (vinyl, CD, cassette), unique artists, genre data, and year range. Supports date filtering.",
       "inputSchema": {
@@ -1107,6 +1235,12 @@
       "uri": "rewind://sync/status",
       "name": "sync-status",
       "description": "Current sync health and last sync times for each data domain"
+    },
+    {
+      "uri": "ui://rewind/attended-season.html",
+      "name": "Rewind -- Attended Season",
+      "description": "Interactive season grid for attended sports games. Each card shows date, score, attendance, weather, and a strip of the game's notable performers as silo headshots. Consumes get_attended_season structuredContent.",
+      "mimeType": "text/html;profile=mcp-app"
     },
     {
       "uri": "ui://rewind/hello.html",

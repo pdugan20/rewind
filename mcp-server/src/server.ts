@@ -12,6 +12,7 @@ import { registerWatchingTools } from './tools/watching.js';
 import { registerCollectingTools } from './tools/collecting.js';
 import { registerReadingTools } from './tools/reading.js';
 import { registerCrossDomainTools } from './tools/cross-domain.js';
+import { registerAttendingTools } from './tools/attending.js';
 import { registerDebugTools } from './tools/debug.js';
 import { registerResources } from './resources.js';
 import { registerUiResource } from './resources/ui.js';
@@ -151,6 +152,7 @@ export function createServer(client: RewindClient): McpServer {
   registerCollectingTools(server, client);
   registerReadingTools(server, client);
   registerCrossDomainTools(server, client);
+  registerAttendingTools(server, client);
 
   // Register resources and prompts
   registerResources(server, client);
@@ -201,6 +203,17 @@ export function createServer(client: RewindClient): McpServer {
     html: UI_BUNDLES['top-artists.html'],
     description:
       'Interactive artist portrait grid for top listened-to artists. Consumes get_top_artists structuredContent.',
+    csp: {
+      resourceDomains: ['https://cdn.rewind.rest'],
+    },
+  });
+
+  registerUiResource(server, {
+    name: 'Rewind -- Attended Season',
+    uri: 'ui://rewind/attended-season.html',
+    html: UI_BUNDLES['attended-season.html'],
+    description:
+      "Interactive season grid for attended sports games. Each card shows date, score, attendance, weather, and a strip of the game's notable performers as silo headshots. Consumes get_attended_season structuredContent.",
     csp: {
       resourceDomains: ['https://cdn.rewind.rest'],
     },

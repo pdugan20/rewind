@@ -148,6 +148,16 @@ Requires a [Rewind API key](/authentication). `REWIND_API_URL` defaults to `http
     Reading articles are embedded into a Cloudflare Vectorize index at sync time using Voyage AI (voyage-3-lite, 512 dim). `semantic_search` and `search` with `mode=semantic|hybrid` let the model recall articles by gist rather than exact words; hybrid fuses FTS + vectors via reciprocal rank fusion.
   </Accordion>
 
+  <Accordion title="Attending">
+    | Tool                    | Description                                                                                          |
+    | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+    | `get_attended_events`   | List events you bought tickets for (sports games, concerts, theater) with category/year/venue filters |
+    | `get_attended_event`    | Single event detail with venue, tickets, and per-player stat lines                                   |
+    | `get_attended_season`   | Sports season W/L + game list with notable performers; renders as an interactive grid in MCP Apps clients |
+    | `get_attended_player`   | Player bio + photos + every attended event in which they appeared with stat lines                    |
+    | `get_attending_stats`   | Aggregate counts of attended events by category, type, and year                                      |
+  </Accordion>
+
   <Accordion title="Cross-Domain">
     | Tool              | Description                                                                                  |
     | ----------------- | -------------------------------------------------------------------------------------------- |
