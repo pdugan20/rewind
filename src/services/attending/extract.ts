@@ -29,6 +29,7 @@ import { parseTicketmasterHtml } from './parse-ticketmaster.js';
 import { parseAxsHtml } from './parse-axs.js';
 import { parseVividHtml } from './parse-vivid.js';
 import { parseStubhubHtml } from './parse-stubhub.js';
+import { parseEventbriteHtml } from './parse-eventbrite.js';
 
 export interface ExtractCalendarOptions {
   // Range pull window. Used for backfill, or for the initial pull before
@@ -326,6 +327,8 @@ function parseMessageCapture(msg: GmailMessage): ParsedGmailCandidate {
       reservations = parseVividHtml(html) ?? [];
     } else if (vendor === 'stubhub') {
       reservations = parseStubhubHtml(html) ?? [];
+    } else if (vendor === 'eventbrite') {
+      reservations = parseEventbriteHtml(html) ?? [];
     }
   }
 

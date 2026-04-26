@@ -21,6 +21,7 @@ export type Vendor =
   | 'seatgeek'
   | 'ticketclub'
   | 'vividseats'
+  | 'eventbrite'
   | 'unknown';
 
 export interface ParsedReservation {
@@ -230,5 +231,6 @@ export function inferVendorFromSender(from: string | undefined): Vendor {
   if (f.includes('seatgeek.com')) return 'seatgeek';
   if (f.includes('ticketclub.com')) return 'ticketclub';
   if (f.includes('vividseats.com')) return 'vividseats';
+  if (f.includes('eventbrite.com')) return 'eventbrite';
   return 'unknown';
 }

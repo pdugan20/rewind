@@ -1,0 +1,11 @@
+{
+  "_notes": {
+    "purpose": "Optional Mariners coverage gap-filler. Email/calendar backfill recovered 37 Mariners games but distribution is uneven (2021 is 0 despite increased attendance starting then). If you want fuller coverage, edit this file with the years you attended most/all home games.",
+    "current_recovered_by_year": "2017:2, 2022:4, 2023:8, 2024:8, 2025:13, 2026:2 (YTD). 2021 is the conspicuous gap.",
+    "format_recommendation": "Mariners ticket purchases mostly recoverable from email trails (you buy your own tickets). The gap is more likely individual missed purchases than a season-wide pattern. Two options below — pick whichever matches reality:",
+    "option_a_per_game": "Per-game entries for specific dates you remember: { event_date: 'YYYY-MM-DD', event_type: 'mlb_game', team_id: 136, opponent: 'Astros', is_home: true, notes: 'where you sat / who you went with' }",
+    "option_b_season_shorthand": "Aggressive coverage: { event_type: 'mlb_game', team_id: 136, season: YYYY, attendance: 'all_home', exceptions: [<dates not attended>] }. WARNING: 81 home games per season — if you attended e.g. half, listing 40 exceptions is a lot. Per-game might be saner unless attendance was truly comprehensive.",
+    "team_id": "Mariners = 136 in MLB Stats API."
+  },
+  "events": []
+}

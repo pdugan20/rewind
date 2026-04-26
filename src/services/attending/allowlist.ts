@@ -83,6 +83,10 @@ export const VENDOR_DOMAINS = [
   'axs.com',
   'stubhub.com',
   'vividseats.com',
+  // Added Phase 9.5 deep-sweep — 66+ confirmations were sitting outside
+  // the original 6-vendor allowlist (mostly tech meetups + smaller
+  // concerts). Eventbrite covers that long tail in one parser.
+  'eventbrite.com',
 ] as const;
 
 /**

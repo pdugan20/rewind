@@ -27,6 +27,7 @@ import { parseTicketmasterHtml } from './parse-ticketmaster.js';
 import { parseAxsHtml } from './parse-axs.js';
 import { parseVividHtml } from './parse-vivid.js';
 import { parseStubhubHtml } from './parse-stubhub.js';
+import { parseEventbriteHtml } from './parse-eventbrite.js';
 
 export interface ReprocessOptions {
   vendor?: string; // domain match (e.g. 'ticketclub.com')
@@ -152,6 +153,8 @@ export async function reprocessPendingSources(
         reservations = parseVividHtml(html) ?? [];
       } else if (senderVendor === 'stubhub') {
         reservations = parseStubhubHtml(html) ?? [];
+      } else if (senderVendor === 'eventbrite') {
+        reservations = parseEventbriteHtml(html) ?? [];
       }
     }
 
