@@ -24,7 +24,10 @@ import {
   type ParsedReservation,
 } from './parse-jsonld.js';
 import { parseSeatGeekText } from './parse-seatgeek.js';
-import { parseTicketClubHtml } from './parse-ticketclub.js';
+import {
+  compactHtmlForStorage,
+  parseTicketClubHtml,
+} from './parse-ticketclub.js';
 import { parseTicketmasterHtml } from './parse-ticketmaster.js';
 import { parseAxsHtml } from './parse-axs.js';
 import { parseVividHtml } from './parse-vivid.js';
@@ -347,7 +350,7 @@ function parseMessageCapture(msg: GmailMessage): ParsedGmailCandidate {
     // text/html because some vendors (Ticket Club, older Ticketmaster)
     // ship HTML-only emails — body_text would be null in that case.
     body_text: msg.bodyText ? msg.bodyText.slice(0, 12000) : null,
-    body_html: msg.bodyHtml ? msg.bodyHtml.slice(0, 24000) : null,
+    body_html: msg.bodyHtml ? compactHtmlForStorage(msg.bodyHtml) : null,
   };
 }
 
