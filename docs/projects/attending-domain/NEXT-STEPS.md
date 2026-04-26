@@ -28,7 +28,7 @@ Pending source rows (mostly notifications, not real gaps): 663
 
 ```bash
 curl https://api.rewind.rest/v1/health/sync \
-  -H "Authorization: Bearer rw_..." | jq '.domains.attending'
+  -H "Authorization: Bearer $API_KEY" | jq '.domains.attending'
 ```
 
 Expect `last_sync` after 4 AM PT and `status: completed`. If `status: failed`, re-run admin sync manually and check `error` field.
@@ -45,7 +45,7 @@ Already scaffolded with 8 starter rows (2007–2010 + 2013 + 2022/2023/2025 all-
 To run:
 
 ```bash
-REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
+REWIND_ADMIN_KEY=$ADMIN_KEY npx tsx scripts/tools/import-manual-attending.ts \
   scripts/data/manual-attending-uw-football.json --remote
 ```
 
@@ -66,7 +66,7 @@ Most likely the gaps are individual purchases via the friend-tickets path — pe
 
 ```bash
 curl 'https://api.rewind.rest/v1/admin/attending/pending?limit=50' \
-  -H "Authorization: Bearer rw_..."
+  -H "Authorization: Bearer $API_KEY"
 ```
 
 For each that's a real missed event, either:
@@ -104,7 +104,7 @@ Skip this entirely if you don't care about the long tail.
 Health check is the first stop:
 
 ```bash
-curl https://api.rewind.rest/v1/health/sync -H "Authorization: Bearer rw_..."
+curl https://api.rewind.rest/v1/health/sync -H "Authorization: Bearer $API_KEY"
 ```
 
 If `attending.status === 'failed'`, the `error` field has the message. Common breakages and fixes:

@@ -229,8 +229,15 @@ const eventDetailRoute = createRoute({
   operationId: 'getAttendedEvent',
   tags: ['Attending'],
   summary: 'Get an attended event',
+  description:
+    'Returns a single attended event with its venue, tickets, performers, and event_data.',
   request: {
-    params: z.object({ id: z.coerce.number().int() }),
+    params: z.object({
+      id: z.coerce
+        .number()
+        .int()
+        .openapi({ param: { name: 'id', in: 'path', required: true } }),
+    }),
   },
   responses: {
     200: {
@@ -321,8 +328,19 @@ const seasonRoute = createRoute({
     'Returns the games you attended (or hold tickets for) in a given league + season. Pair with a public schedule API (MLB Stats API, ESPN, etc.) on the consumer side to overlay attendance on the full schedule.',
   request: {
     params: z.object({
-      league: z.string().openapi({ example: 'mlb' }),
-      season: z.coerce.number().int().openapi({ example: 2024 }),
+      league: z
+        .string()
+        .openapi({
+          param: { name: 'league', in: 'path', required: true },
+          example: 'mlb',
+        }),
+      season: z.coerce
+        .number()
+        .int()
+        .openapi({
+          param: { name: 'season', in: 'path', required: true },
+          example: 2024,
+        }),
     }),
   },
   responses: {
@@ -428,6 +446,8 @@ const venuesRoute = createRoute({
   operationId: 'listVenues',
   tags: ['Attending'],
   summary: 'List venues',
+  description:
+    'Returns the venues catalog used by attended events. Includes city, state, country, lat/long, and capacity when known.',
   responses: {
     200: {
       description: 'Venues',
@@ -474,6 +494,8 @@ const statsRoute = createRoute({
   operationId: 'getAttendingStats',
   tags: ['Attending'],
   summary: 'Aggregate attending stats',
+  description:
+    'Returns counts of attended events broken down by category, event_type, and year. Useful for top-line stats on the portfolio page.',
   responses: {
     200: {
       description: 'Stats',

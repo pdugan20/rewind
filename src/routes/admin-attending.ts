@@ -74,7 +74,13 @@ const RejectResponse = z
   .openapi('AttendingRejectResponse');
 
 const SourceIdParam = z.object({
-  id: z.coerce.number().int().openapi({ example: 42 }),
+  id: z.coerce
+    .number()
+    .int()
+    .openapi({
+      param: { name: 'id', in: 'path', required: true },
+      example: 42,
+    }),
 });
 
 // ─── GET /v1/admin/attending/pending ────────────────────────────────

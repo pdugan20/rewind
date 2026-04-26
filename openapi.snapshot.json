@@ -17769,6 +17769,7 @@
           "Attending"
         ],
         "summary": "Get an attended event",
+        "description": "Returns a single attended event with its venue, tickets, performers, and event_data.",
         "parameters": [
           {
             "schema": {
@@ -17777,7 +17778,7 @@
                 "null"
               ]
             },
-            "required": false,
+            "required": true,
             "name": "id",
             "in": "path"
           }
@@ -18050,7 +18051,7 @@
               ],
               "example": 2024
             },
-            "required": false,
+            "required": true,
             "name": "season",
             "in": "path"
           }
@@ -18325,6 +18326,7 @@
           "Attending"
         ],
         "summary": "List venues",
+        "description": "Returns the venues catalog used by attended events. Includes city, state, country, lat/long, and capacity when known.",
         "responses": {
           "200": {
             "description": "Venues",
@@ -18421,6 +18423,7 @@
           "Attending"
         ],
         "summary": "Aggregate attending stats",
+        "description": "Returns counts of attended events broken down by category, event_type, and year. Useful for top-line stats on the portfolio page.",
         "responses": {
           "200": {
             "description": "Stats",
@@ -20193,7 +20196,7 @@
               ],
               "example": 42
             },
-            "required": false,
+            "required": true,
             "name": "id",
             "in": "path"
           }
@@ -20280,7 +20283,7 @@
               ],
               "example": 42
             },
-            "required": false,
+            "required": true,
             "name": "id",
             "in": "path"
           }

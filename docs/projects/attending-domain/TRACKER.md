@@ -269,7 +269,7 @@ Block B (per-game SF-decade away games at Cal/Stanford) left to user — Wikiped
 
 - [x] **8.1.1** USER ACTION: scaffold reviewed & populated. Run via:
   ```bash
-  REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
+  REWIND_ADMIN_KEY=$ADMIN_KEY npx tsx scripts/tools/import-manual-attending.ts \
     scripts/data/manual-attending-uw-football.json --remote
   ```
   Server-side expansion produces ~30-40 attended_events from the 8 starter rows.
@@ -326,7 +326,7 @@ Browser opens to Google consent (same flow as local). Token written to remote D1
 
 ```bash
 curl -X POST https://api.rewind.rest/v1/admin/google/test \
-  -H "Authorization: Bearer rw_admin_..."
+  -H "Authorization: Bearer $ADMIN_KEY"
 ```
 
 Expect: `{ email, messages_total, scopes, expires_at }` matching the local smoke test.
@@ -336,13 +336,13 @@ Expect: `{ email, messages_total, scopes, expires_at }` matching the local smoke
 ```bash
 # Dry-run first to eyeball
 curl -X POST https://api.rewind.rest/v1/admin/sync/attending \
-  -H "Authorization: Bearer rw_admin_..." \
+  -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"source":"gcal","dry_run":true,"from":"2015-01-01T00:00:00Z","to":"2026-12-31T23:59:59Z"}'
 
 # Then real:
 curl -X POST https://api.rewind.rest/v1/admin/sync/attending \
-  -H "Authorization: Bearer rw_admin_..." \
+  -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"source":"gcal","dry_run":false,"from":"2015-01-01T00:00:00Z","to":"2026-12-31T23:59:59Z"}'
 ```
@@ -353,7 +353,7 @@ Higher volume. Spend extra time on the dry-run review:
 
 ```bash
 curl -X POST https://api.rewind.rest/v1/admin/sync/attending \
-  -H "Authorization: Bearer rw_admin_..." \
+  -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"source":"gmail","dry_run":true,"from":"2010-01-01","to":"2026-12-31"}'
 ```
@@ -365,7 +365,7 @@ Eyeball candidates with `match_confidence < 0.8`. Reject any obvious junk via `P
 Once `scripts/data/manual-attending-uw-2007-2010.json` is curated (Phase 8.1.1):
 
 ```bash
-REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
+REWIND_ADMIN_KEY=$ADMIN_KEY npx tsx scripts/tools/import-manual-attending.ts \
   scripts/data/manual-attending-uw-2007-2010.json --remote
 ```
 
@@ -374,7 +374,7 @@ REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
 Once `scripts/data/manual-attending-uw-recent.json` is curated (Phase 8.2.1):
 
 ```bash
-REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
+REWIND_ADMIN_KEY=$ADMIN_KEY npx tsx scripts/tools/import-manual-attending.ts \
   scripts/data/manual-attending-uw-recent.json --remote
 ```
 
@@ -382,7 +382,7 @@ REWIND_ADMIN_KEY=rw_admin_... npx tsx scripts/tools/import-manual-attending.ts \
 
 ```bash
 curl https://api.rewind.rest/v1/admin/attending/pending?limit=200 \
-  -H "Authorization: Bearer rw_admin_..."
+  -H "Authorization: Bearer $ADMIN_KEY"
 ```
 
 For each unloaded source row, decide: promote (with overrides if needed) or reject.
@@ -392,15 +392,15 @@ For each unloaded source row, decide: promote (with overrides if needed) or reje
 ```bash
 # Mariners 2024 attended games:
 curl https://api.rewind.rest/v1/attending/seasons/mlb/2024 \
-  -H "Authorization: Bearer rw_live_..."
+  -H "Authorization: Bearer $READ_KEY"
 
 # UW football 2008 (college era):
 curl https://api.rewind.rest/v1/attending/seasons/ncaaf/2008 \
-  -H "Authorization: Bearer rw_live_..."
+  -H "Authorization: Bearer $READ_KEY"
 
 # Aggregate stats:
 curl https://api.rewind.rest/v1/attending/stats \
-  -H "Authorization: Bearer rw_live_..."
+  -H "Authorization: Bearer $READ_KEY"
 ```
 
 Sanity check: counts make sense, scores look right, attended/unattended split is plausible.
@@ -411,7 +411,7 @@ After 24 hours (one cron tick), check `/v1/health/sync`:
 
 ```bash
 curl https://api.rewind.rest/v1/health/sync \
-  -H "Authorization: Bearer rw_live_..."
+  -H "Authorization: Bearer $READ_KEY"
 ```
 
 Look for `attending: { last_sync: <recent>, status: completed }`.
