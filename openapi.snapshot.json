@@ -1018,6 +1018,88 @@
           }
         }
       },
+      "AttendingEnrichEspnIdsBySearchResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "scanned": {
+            "type": "integer"
+          },
+          "resolved_unique": {
+            "type": "integer"
+          },
+          "resolved_disambiguated": {
+            "type": "integer"
+          },
+          "multi_unresolved": {
+            "type": "integer"
+          },
+          "zero_match": {
+            "type": "integer"
+          },
+          "collision_skipped": {
+            "type": "integer"
+          },
+          "errors": {
+            "type": "integer"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "player_id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "player_id",
+                "name",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "scanned",
+          "resolved_unique",
+          "resolved_disambiguated",
+          "multi_unresolved",
+          "zero_match",
+          "collision_skipped",
+          "errors",
+          "failures"
+        ]
+      },
+      "AttendingEnrichEspnIdsBySearchBody": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 500
+          },
+          "throttle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 50
+          }
+        }
+      },
       "AttendingBackfillFeedResponse": {
         "type": "object",
         "properties": {
@@ -21791,6 +21873,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AttendingEnrichEspnIdsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/attending/enrich-espn-ids-by-search": {
+      "post": {
+        "operationId": "adminAttendingEnrichEspnIdsBySearch",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Resolve ESPN player IDs via name search",
+        "description": "For every players row missing espn_id, hits ESPN site search and disambiguates by position class when a name returns multiple MLB hits. Complements enrich-espn-ids (game-summary scoped) by catching relief pitchers and bench players who do not appear in ESPN summary.athletes lists.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingEnrichEspnIdsBySearchBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ESPN ID search resolution completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingEnrichEspnIdsBySearchResponse"
                 }
               }
             }

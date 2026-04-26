@@ -808,6 +808,83 @@ adminAttending.openapi(enrichEspnIdsRoute, async (c) => {
   }
 });
 
+// ─── POST /v1/admin/attending/enrich-espn-ids-by-search ─────────────
+
+const EnrichEspnIdsBySearchBody = z
+  .object({
+    limit: z.number().int().min(1).max(500).optional().default(500),
+    throttle_ms: z.number().int().min(0).max(2000).optional().default(50),
+  })
+  .openapi('AttendingEnrichEspnIdsBySearchBody');
+
+const EnrichEspnIdsBySearchResponse = z
+  .object({
+    status: z.literal('completed'),
+    scanned: z.number().int(),
+    resolved_unique: z.number().int(),
+    resolved_disambiguated: z.number().int(),
+    multi_unresolved: z.number().int(),
+    zero_match: z.number().int(),
+    collision_skipped: z.number().int(),
+    errors: z.number().int(),
+    failures: z.array(
+      z.object({
+        player_id: z.number().int(),
+        name: z.string(),
+        reason: z.string(),
+      })
+    ),
+  })
+  .openapi('AttendingEnrichEspnIdsBySearchResponse');
+
+const enrichEspnIdsBySearchRoute = createRoute({
+  method: 'post',
+  path: '/admin/attending/enrich-espn-ids-by-search',
+  operationId: 'adminAttendingEnrichEspnIdsBySearch',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Resolve ESPN player IDs via name search',
+  description:
+    'For every players row missing espn_id, hits ESPN site search and disambiguates by position class when a name returns multiple MLB hits. Complements enrich-espn-ids (game-summary scoped) by catching relief pitchers and bench players who do not appear in ESPN summary.athletes lists.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: EnrichEspnIdsBySearchBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'ESPN ID search resolution completed',
+      content: {
+        'application/json': { schema: EnrichEspnIdsBySearchResponse },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminAttending.openapi(enrichEspnIdsBySearchRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  type Opts = { limit?: number; throttle_ms?: number };
+  const body: Opts = await c.req.json<Opts>().catch(() => ({}) as Opts);
+
+  try {
+    const { enrichEspnIdsBySearch } =
+      await import('../services/attending/enrich-espn-ids-by-search.js');
+    const result = await enrichEspnIdsBySearch(db, {
+      limit: body.limit ?? 500,
+      throttleMs: body.throttle_ms ?? 50,
+    });
+    return c.json({ status: 'completed' as const, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(
+      `[ERROR] POST /admin/attending/enrich-espn-ids-by-search: ${message}`
+    );
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
 // ─── POST /v1/admin/attending/backfill-feed ─────────────────────────
 
 const BackfillFeedBody = z
