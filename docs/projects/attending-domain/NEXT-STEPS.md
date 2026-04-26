@@ -28,8 +28,9 @@ Per-game player data (MLB):
   839 unique players seen
   1,977 game appearances with batting/pitching/fielding lines
   100% silo photos (839/839)
-   60% full ESPN photos (499/839 — relief pitchers / bench guys
-                          rarely appear in ESPN summaries)
+   99% full ESPN photos (829/839 — remaining 10 are 4 same-name same-position
+                          pitchers + 5 name-format edge cases like "C.J. Wilson"
+                          + 1 fetch failure)
 
 Activity feed: 263 attending rows in /v1/feed
 MCP tools:
@@ -91,13 +92,12 @@ For real missed events: `POST /v1/admin/attending/sources/:id/promote` with opti
 
 ## Things that wait (follow-up projects, see open GitHub issues)
 
-| Project                                                                     | Priority | Effort        | Value                                            |
-| --------------------------------------------------------------------------- | -------- | ------------- | ------------------------------------------------ |
-| **Year-in-review for attending** (`/v1/attending/year/{year}`)              | Low      | ~half evening | Annual recap. Mirrors listening/running pattern. |
-| **NFL/NBA/WNBA box scores** (extend the MLB enrichment to other leagues)    | Med      | ~2 evenings   | Per-game player stats for the 13 non-MLB games.  |
-| **Concert performer photos** (cross-link `lastfm_artist_id` to image)       | Med      | ~half evening | Concert detail responses gain artist photos.     |
-| **Improve concert event_data** (setlists, opener vs headliner discovery)    | Low      | ~1 evening    | Setlist.fm enrichment beyond what shipped in v1. |
-| **Backfill ESPN photos for unmatched players** (~340 mostly-relief pitcher) | Low      | unclear       | Marginal — ESPN summaries don't include them.    |
+| Project                                                                  | Priority | Effort        | Value                                            |
+| ------------------------------------------------------------------------ | -------- | ------------- | ------------------------------------------------ |
+| **Year-in-review for attending** (`/v1/attending/year/{year}`)           | Low      | ~half evening | Annual recap. Mirrors listening/running pattern. |
+| **NFL/NBA/WNBA box scores** (extend the MLB enrichment to other leagues) | Med      | ~2 evenings   | Per-game player stats for the 13 non-MLB games.  |
+| **Concert performer photos** (cross-link `lastfm_artist_id` to image)    | Med      | ~half evening | Concert detail responses gain artist photos.     |
+| **Improve concert event_data** (setlists, opener vs headliner discovery) | Low      | ~1 evening    | Setlist.fm enrichment beyond what shipped in v1. |
 
 ## Risks worth watching
 

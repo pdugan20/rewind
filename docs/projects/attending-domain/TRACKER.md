@@ -448,7 +448,7 @@ Goal: each MLB attended event has per-player batting/pitching/fielding lines + h
 - [x] **12.4** PT/UTC date drift handled (#52): ESPN scoreboard stamps games at UTC midnight which is the next day in venue-local; matcher accepts date or date+1.
 - [x] **12.5** `images` row promotion fix (`cc6c5b2`): placeholder `image_version` advances 0 → 1 once the real image lands so CDN cache busts properly.
 
-**Result**: 839 unique players, 1,977 game appearances, 100% silo coverage, 60% full ESPN coverage.
+**Result**: 839 unique players, 1,977 game appearances, 100% silo coverage, 99% full ESPN coverage (829/839 — search-based resolver in #72 closed the long-tail gap from 60%).
 
 ## Phase 13+ — Follow-up projects (NOT in this project, tracked in GitHub issues)
 
@@ -458,7 +458,6 @@ Each gets its own `docs/projects/<name>/` doc when started:
 - [ ] **NFL/NBA/WNBA box scores** — extend MLB enrichment to ESPN-covered leagues for the 13 non-MLB games.
 - [ ] **Concert performer photos** — cross-link `lastfm_artist_id` to image so concert detail responses gain artist headshots.
 - [ ] **Setlists for concerts** — setlist.fm beyond v1 (opener vs headliner discovery).
-- [ ] **ESPN photo backfill** — ~340 unmatched players (mostly relief pitchers).
 - [ ] **Team logos / venue photos** — TheSportsDB + Google Places.
 - [ ] **Portfolio site Mariners 2024 page** in `pat-portfolio`.
 - [ ] **Portfolio UW 2008 season page** — same pattern, different league.
