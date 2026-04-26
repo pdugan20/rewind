@@ -9,7 +9,13 @@ import { badRequest } from '../lib/errors.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses } from '../lib/schemas/common.js';
 
-const VALID_DOMAINS = ['listening', 'running', 'watching', 'collecting'];
+const VALID_DOMAINS = [
+  'listening',
+  'running',
+  'watching',
+  'collecting',
+  'attending',
+];
 
 const feed = createOpenAPIApp();
 

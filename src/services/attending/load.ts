@@ -22,8 +22,11 @@ import {
   attendedEventSources,
   attendedEventTickets,
   attendedEventPerformers,
+  venues,
 } from '../../db/schema/attending.js';
+import { insertFeedItem } from '../../routes/feed.js';
 import type { CanonicalEvent } from './enrich.js';
+import { feedItemFromCanonical } from './feed-items.js';
 import type { ParsedReservation } from './parse-jsonld.js';
 
 export interface LoadResult {
@@ -220,6 +223,33 @@ export async function loadCanonicalEvent(
           eq(attendedEventSources.sourceRef, s.source_ref)
         )
       );
+  }
+
+  // Cross-domain feed integration. Insert a row in activity_feed
+  // keyed on `attending:event:{id}` so this event shows up in the
+  // unified /v1/feed and /v1/feed/on-this-day surfaces alongside
+  // scrobbles/runs/watches/articles. Idempotent — re-running this
+  // path no-ops via the (domain, source_id) unique index.
+  let venueName: string | null = null;
+  if (canonical.venue_id != null) {
+    const [v] = await db
+      .select({ name: venues.name })
+      .from(venues)
+      .where(eq(venues.id, canonical.venue_id))
+      .limit(1);
+    if (v) venueName = v.name;
+  }
+  try {
+    await insertFeedItem(
+      db,
+      feedItemFromCanonical(eventId, canonical, venueName)
+    );
+  } catch (err) {
+    // Non-fatal — feed insert mirrors the lastfm/strava patterns where
+    // failures are logged but don't block the canonical write.
+    console.log(
+      `[WARN] attending feed insert failed for event ${eventId}: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   return {

@@ -1018,6 +1018,47 @@
           }
         }
       },
+      "AttendingBackfillFeedResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "scanned": {
+            "type": "integer"
+          },
+          "inserted": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "scanned",
+          "inserted",
+          "skipped"
+        ]
+      },
+      "AttendingBackfillFeedBody": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 2000
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "SyncCompletedResponse": {
         "type": "object",
         "properties": {
@@ -21749,6 +21790,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AttendingEnrichEspnIdsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/attending/backfill-feed": {
+      "post": {
+        "operationId": "adminAttendingBackfillFeed",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Backfill activity_feed rows for existing attended events",
+        "description": "One-shot backfill: walks `attended_events`, builds an activity-feed row for each, and inserts via the standard cross-domain insert path. Idempotent — feed-side dedupe on (domain, source_id) means re-running is safe. Used once on PR rollout to populate historical events; new events get feed rows automatically via loadCanonicalEvent.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingBackfillFeedBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Backfill completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingBackfillFeedResponse"
                 }
               }
             }

@@ -808,4 +808,66 @@ adminAttending.openapi(enrichEspnIdsRoute, async (c) => {
   }
 });
 
+// ─── POST /v1/admin/attending/backfill-feed ─────────────────────────
+
+const BackfillFeedBody = z
+  .object({
+    limit: z.number().int().min(1).max(2000).optional().default(2000),
+    dry_run: z.boolean().optional().default(false),
+  })
+  .openapi('AttendingBackfillFeedBody');
+
+const BackfillFeedResponse = z
+  .object({
+    status: z.literal('completed'),
+    scanned: z.number().int(),
+    inserted: z.number().int(),
+    skipped: z.number().int(),
+  })
+  .openapi('AttendingBackfillFeedResponse');
+
+const backfillFeedRoute = createRoute({
+  method: 'post',
+  path: '/admin/attending/backfill-feed',
+  operationId: 'adminAttendingBackfillFeed',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Backfill activity_feed rows for existing attended events',
+  description:
+    'One-shot backfill: walks `attended_events`, builds an activity-feed row for each, and inserts via the standard cross-domain insert path. Idempotent — feed-side dedupe on (domain, source_id) means re-running is safe. Used once on PR rollout to populate historical events; new events get feed rows automatically via loadCanonicalEvent.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: BackfillFeedBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Backfill completed',
+      content: { 'application/json': { schema: BackfillFeedResponse } },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminAttending.openapi(backfillFeedRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  type Opts = { limit?: number; dry_run?: boolean };
+  const body: Opts = await c.req.json<Opts>().catch(() => ({}) as Opts);
+
+  try {
+    const { backfillAttendingFeed } =
+      await import('../services/attending/backfill-feed.js');
+    const result = await backfillAttendingFeed(db, {
+      limit: body.limit ?? 2000,
+      dryRun: body.dry_run ?? false,
+    });
+    return c.json({ status: 'completed' as const, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/attending/backfill-feed: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
 export default adminAttending;
