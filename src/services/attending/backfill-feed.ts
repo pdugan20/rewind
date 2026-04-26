@@ -67,30 +67,30 @@ export async function backfillAttendingFeed(
     })
   );
 
-  // D1 caps bound parameters per query, and `insertFeedItems` does an
-  // IN-list dedupe lookup that grows with the batch. Walk in chunks of
-  // 75 source_ids so we stay well under the limit (100 is the D1
-  // ceiling we've hit in practice). Per-chunk: pre-count existing
-  // rows, then call insertFeedItems (which re-does the lookup
-  // internally — small redundancy but it keeps the count accurate).
-  const CHUNK = 75;
-  let inserted = 0;
-  for (let i = 0; i < items.length; i += CHUNK) {
-    const chunk = items.slice(i, i + CHUNK);
-    const sourceIds = chunk.map((c) => c.sourceId);
+  // Pre-count rows that already exist so we can report
+  // inserted vs skipped — insertFeedItems dedupes silently and
+  // returns void. Chunk the IN-list lookup to stay under D1's
+  // per-query parameter cap.
+  const SELECT_CHUNK = 200;
+  const existingSet = new Set<string>();
+  for (let i = 0; i < items.length; i += SELECT_CHUNK) {
+    const chunk = items.slice(i, i + SELECT_CHUNK).map((c) => c.sourceId);
     const existing = await db
       .select({ source_id: activityFeed.sourceId })
       .from(activityFeed)
       .where(
         and(
           eq(activityFeed.domain, 'attending'),
-          inArray(activityFeed.sourceId, sourceIds)
+          inArray(activityFeed.sourceId, chunk)
         )
       );
-    const existingSet = new Set(existing.map((e) => e.source_id));
-    inserted += chunk.filter((c) => !existingSet.has(c.sourceId)).length;
-    await insertFeedItems(db, chunk);
+    for (const e of existing) existingSet.add(e.source_id);
   }
+  const inserted = items.filter((i) => !existingSet.has(i.sourceId)).length;
+
+  // insertFeedItems handles its own internal chunking for both the
+  // dedupe SELECT and the INSERT VALUES (D1 param cap).
+  await insertFeedItems(db, items);
 
   return {
     scanned: rows.length,
