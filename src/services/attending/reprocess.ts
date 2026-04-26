@@ -25,7 +25,10 @@ import {
   type ParsedReservation,
 } from './parse-jsonld.js';
 import { parseSeatGeekText } from './parse-seatgeek.js';
-import { parseTicketClubHtml } from './parse-ticketclub.js';
+import {
+  compactHtmlForStorage,
+  parseTicketClubHtml,
+} from './parse-ticketclub.js';
 import { parseTicketmasterHtml } from './parse-ticketmaster.js';
 import { parseAxsHtml } from './parse-axs.js';
 import { parseVividHtml } from './parse-vivid.js';
@@ -130,7 +133,9 @@ export async function reprocessPendingSources(
         if (!accessToken) accessToken = await getGoogleAccessToken(db, env);
         const msg = await getGmailMessage(accessToken, row.sourceRef);
         raw.body_text = msg.bodyText ? msg.bodyText.slice(0, 12000) : null;
-        raw.body_html = msg.bodyHtml ? msg.bodyHtml.slice(0, 24000) : null;
+        raw.body_html = msg.bodyHtml
+          ? compactHtmlForStorage(msg.bodyHtml)
+          : null;
         // also refresh subject + from in case they were missing
         if (!raw.subject) raw.subject = msg.headers.subject ?? null;
         if (!raw.from) raw.from = msg.headers.from ?? null;

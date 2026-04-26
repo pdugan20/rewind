@@ -164,6 +164,23 @@ export function parseTicketClubHtml(
 }
 
 /**
+ * Compact an HTML body for D1 storage: strip CSS + script blocks + HTML
+ * comments, then truncate. Many vendor templates front-load the body
+ * with kilobytes of inline CSS that crowd the actual ticket content
+ * past a naive cap. Stripping first keeps the meaningful payload —
+ * the team line, date, venue, seat block — within the storage budget.
+ */
+export function compactHtmlForStorage(html: string, cap = 32000): string {
+  let s = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  s = s.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  s = s.replace(/<!--[\s\S]*?-->/g, '');
+  // Collapse runs of whitespace to compact more.
+  s = s.replace(/[ \t]+/g, ' ');
+  s = s.replace(/\n{3,}/g, '\n\n');
+  return s.length > cap ? s.slice(0, cap) : s;
+}
+
+/**
  * Strip CSS + script + remaining tags, decode common entities, and
  * collapse whitespace into a line-oriented plain-text view.
  */
