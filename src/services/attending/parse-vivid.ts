@@ -70,7 +70,7 @@ export function parseVividHtml(
 }
 
 /** Parse "Mon. May 16, 2016 7:05 PM" → "2016-05-16T19:05". */
-export function parseVividDate(s: string): string | null {
+function parseVividDate(s: string): string | null {
   const m = s.match(
     /(?:[A-Za-z]+\.?,?\s*)?([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})\s+(\d{1,2}):(\d{2})\s*(am|pm)/i
   );

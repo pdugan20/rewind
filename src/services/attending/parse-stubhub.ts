@@ -95,7 +95,7 @@ export function parseStubhubHtml(
 }
 
 /** Parse "Mon, 11/14/2016, 8:00 p.m. PDT" → "2016-11-14T20:00". */
-export function parseStubhubDate(s: string): string | null {
+function parseStubhubDate(s: string): string | null {
   const m = s.match(
     /(?:[A-Za-z]+,?\s*)?(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,?\s+(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?))?/i
   );

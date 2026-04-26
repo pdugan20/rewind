@@ -76,7 +76,7 @@ export const VENUE_KEYWORDS = [
 //   - VividSeats: sales@vividseats.com (not orders@)
 //   - TicketClub: customersupport@ticketclub.com (not info@)
 // The domain filter sidesteps this entire class of misses.
-export const VENDOR_DOMAINS = [
+const VENDOR_DOMAINS = [
   'ticketmaster.com',
   'seatgeek.com',
   'ticketclub.com',

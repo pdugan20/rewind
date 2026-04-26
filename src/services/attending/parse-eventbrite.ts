@@ -111,7 +111,7 @@ export function parseEventbriteHtml(
  *
  * Captures the START time. Returns ISO 8601 (no offset).
  */
-export function parseEventbriteDate(s: string): string | null {
+function parseEventbriteDate(s: string): string | null {
   const m = s.match(
     /(?:[A-Za-z]+,\s*)?([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})\s+(?:from|at)\s+(\d{1,2}):(\d{2})\s*(am|pm)/i
   );
