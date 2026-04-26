@@ -114,12 +114,18 @@ export async function reprocessPendingSources(
     const senderRaw = (raw.from as string) ?? '';
     result.scanned++;
 
-    // Re-fetch from Gmail if body data is missing.
-    if (
-      refetchMissingBody &&
-      (raw.body_text == null || raw.body_text === '') &&
-      (raw.body_html == null || raw.body_html === '')
-    ) {
+    // Re-fetch from Gmail if body data is missing or anemic.
+    // Older rows (pre-Phase-3.5) stored body_text but never body_html;
+    // some of those have a 14-char "Ticketmaster\n" stub that's
+    // technically non-empty but useless to vendor HTML parsers.
+    // Refetch when body_html is absent AND body_text is too short to
+    // be meaningful, OR when both are empty.
+    const textLen =
+      typeof raw.body_text === 'string' ? raw.body_text.length : 0;
+    const hasUsefulHtml =
+      typeof raw.body_html === 'string' && raw.body_html.length > 0;
+    const hasUsefulText = textLen >= 200;
+    if (refetchMissingBody && !hasUsefulHtml && !hasUsefulText) {
       try {
         if (!accessToken) accessToken = await getGoogleAccessToken(db, env);
         const msg = await getGmailMessage(accessToken, row.sourceRef);
