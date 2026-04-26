@@ -328,12 +328,10 @@ const seasonRoute = createRoute({
     'Returns the games you attended (or hold tickets for) in a given league + season. Pair with a public schedule API (MLB Stats API, ESPN, etc.) on the consumer side to overlay attendance on the full schedule.',
   request: {
     params: z.object({
-      league: z
-        .string()
-        .openapi({
-          param: { name: 'league', in: 'path', required: true },
-          example: 'mlb',
-        }),
+      league: z.string().openapi({
+        param: { name: 'league', in: 'path', required: true },
+        example: 'mlb',
+      }),
       season: z.coerce
         .number()
         .int()
