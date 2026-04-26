@@ -870,6 +870,154 @@
           }
         }
       },
+      "AttendingEnrichPlayerPhotosResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "scanned": {
+            "type": "integer"
+          },
+          "silo_inserted": {
+            "type": "integer"
+          },
+          "silo_skipped": {
+            "type": "integer"
+          },
+          "silo_failed": {
+            "type": "integer"
+          },
+          "full_inserted": {
+            "type": "integer"
+          },
+          "full_skipped": {
+            "type": "integer"
+          },
+          "full_failed": {
+            "type": "integer"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "player_id": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "player_id",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "scanned",
+          "silo_inserted",
+          "silo_skipped",
+          "silo_failed",
+          "full_inserted",
+          "full_skipped",
+          "full_failed",
+          "failures"
+        ]
+      },
+      "AttendingEnrichPlayerPhotosBody": {
+        "type": "object",
+        "properties": {
+          "player_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "skip_existing": {
+            "type": "boolean",
+            "default": true
+          },
+          "silo_only": {
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 1000
+          }
+        }
+      },
+      "AttendingEnrichEspnIdsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "scanned_events": {
+            "type": "integer"
+          },
+          "matched_events": {
+            "type": "integer"
+          },
+          "resolved_player_ids": {
+            "type": "integer"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "event_id",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "scanned_events",
+          "matched_events",
+          "resolved_player_ids",
+          "failures"
+        ]
+      },
+      "AttendingEnrichEspnIdsBody": {
+        "type": "object",
+        "properties": {
+          "event_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        }
+      },
       "SyncCompletedResponse": {
         "type": "object",
         "properties": {
@@ -18155,6 +18303,244 @@
                           "purchased_at"
                         ]
                       }
+                    },
+                    "players": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "player": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "number",
+                                "example": 42
+                              },
+                              "league": {
+                                "type": "string",
+                                "example": "mlb"
+                              },
+                              "mlb_stats_id": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "example": 663728
+                              },
+                              "espn_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "41292"
+                              },
+                              "full_name": {
+                                "type": "string",
+                                "example": "Cal Raleigh"
+                              },
+                              "primary_position": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "C"
+                              },
+                              "primary_number": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "29"
+                              },
+                              "birth_date": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "1996-11-26"
+                              },
+                              "birth_country": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "USA"
+                              },
+                              "bats": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "B"
+                              },
+                              "throws": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "R"
+                              },
+                              "primary_team_id": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "example": 136
+                              },
+                              "debut_date": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "2021-07-11"
+                              },
+                              "photo_silo": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "cdn_url": {
+                                    "type": "string",
+                                    "example": "https://cdn.rewind.rest/.../players/silo/123"
+                                  },
+                                  "thumbhash": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "dominant_color": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "example": "#1a3a6c"
+                                  },
+                                  "accent_color": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "example": "#c4ced4"
+                                  }
+                                },
+                                "required": [
+                                  "cdn_url",
+                                  "thumbhash",
+                                  "dominant_color",
+                                  "accent_color"
+                                ]
+                              },
+                              "photo_full": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "cdn_url": {
+                                    "type": "string",
+                                    "example": "https://cdn.rewind.rest/.../players/silo/123"
+                                  },
+                                  "thumbhash": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "dominant_color": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "example": "#1a3a6c"
+                                  },
+                                  "accent_color": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "example": "#c4ced4"
+                                  }
+                                },
+                                "required": [
+                                  "cdn_url",
+                                  "thumbhash",
+                                  "dominant_color",
+                                  "accent_color"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "league",
+                              "mlb_stats_id",
+                              "espn_id",
+                              "full_name",
+                              "primary_position",
+                              "primary_number",
+                              "birth_date",
+                              "birth_country",
+                              "bats",
+                              "throws",
+                              "primary_team_id",
+                              "debut_date",
+                              "photo_silo",
+                              "photo_full"
+                            ]
+                          },
+                          "team_id": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "is_home": {
+                            "type": "boolean"
+                          },
+                          "batting_line": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "pitching_line": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "fielding_line": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "decision": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "W"
+                          },
+                          "notable": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "player",
+                          "team_id",
+                          "is_home",
+                          "batting_line",
+                          "pitching_line",
+                          "fielding_line",
+                          "decision",
+                          "notable"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -18172,7 +18558,8 @@
                     "notes",
                     "attended",
                     "venue",
-                    "tickets"
+                    "tickets",
+                    "players"
                   ]
                 }
               }
@@ -18729,6 +19116,567 @@
           },
           "401": {
             "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attending/players": {
+      "get": {
+        "operationId": "listAttendedPlayers",
+        "tags": [
+          "Attending"
+        ],
+        "summary": "List players you have watched play",
+        "description": "Returns players who appeared in any attended sports event. Filterable by league and team_id. Includes both photo variants when available.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "mlb"
+            },
+            "required": false,
+            "name": "league",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "example": 136
+            },
+            "required": false,
+            "name": "team_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Players",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number",
+                            "example": 42
+                          },
+                          "league": {
+                            "type": "string",
+                            "example": "mlb"
+                          },
+                          "mlb_stats_id": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "example": 663728
+                          },
+                          "espn_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "41292"
+                          },
+                          "full_name": {
+                            "type": "string",
+                            "example": "Cal Raleigh"
+                          },
+                          "primary_position": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "C"
+                          },
+                          "primary_number": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "29"
+                          },
+                          "birth_date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "1996-11-26"
+                          },
+                          "birth_country": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "USA"
+                          },
+                          "bats": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "B"
+                          },
+                          "throws": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "R"
+                          },
+                          "primary_team_id": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "example": 136
+                          },
+                          "debut_date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "2021-07-11"
+                          },
+                          "photo_silo": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "cdn_url": {
+                                "type": "string",
+                                "example": "https://cdn.rewind.rest/.../players/silo/123"
+                              },
+                              "thumbhash": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "dominant_color": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "#1a3a6c"
+                              },
+                              "accent_color": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "#c4ced4"
+                              }
+                            },
+                            "required": [
+                              "cdn_url",
+                              "thumbhash",
+                              "dominant_color",
+                              "accent_color"
+                            ]
+                          },
+                          "photo_full": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "cdn_url": {
+                                "type": "string",
+                                "example": "https://cdn.rewind.rest/.../players/silo/123"
+                              },
+                              "thumbhash": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "dominant_color": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "#1a3a6c"
+                              },
+                              "accent_color": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "#c4ced4"
+                              }
+                            },
+                            "required": [
+                              "cdn_url",
+                              "thumbhash",
+                              "dominant_color",
+                              "accent_color"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "league",
+                          "mlb_stats_id",
+                          "espn_id",
+                          "full_name",
+                          "primary_position",
+                          "primary_number",
+                          "birth_date",
+                          "birth_country",
+                          "bats",
+                          "throws",
+                          "primary_team_id",
+                          "debut_date",
+                          "photo_silo",
+                          "photo_full"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attending/players/{id}": {
+      "get": {
+        "operationId": "getAttendedPlayer",
+        "tags": [
+          "Attending"
+        ],
+        "summary": "Get a player you have watched play",
+        "description": "Returns the player bio with both photo variants when available, plus a list of every attended event in which they appeared along with that game's stat lines.",
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Player detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number",
+                      "example": 42
+                    },
+                    "league": {
+                      "type": "string",
+                      "example": "mlb"
+                    },
+                    "mlb_stats_id": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "example": 663728
+                    },
+                    "espn_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "41292"
+                    },
+                    "full_name": {
+                      "type": "string",
+                      "example": "Cal Raleigh"
+                    },
+                    "primary_position": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "C"
+                    },
+                    "primary_number": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "29"
+                    },
+                    "birth_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "1996-11-26"
+                    },
+                    "birth_country": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "USA"
+                    },
+                    "bats": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "B"
+                    },
+                    "throws": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "R"
+                    },
+                    "primary_team_id": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "example": 136
+                    },
+                    "debut_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "2021-07-11"
+                    },
+                    "photo_silo": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "cdn_url": {
+                          "type": "string",
+                          "example": "https://cdn.rewind.rest/.../players/silo/123"
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "example": "#1a3a6c"
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "example": "#c4ced4"
+                        }
+                      },
+                      "required": [
+                        "cdn_url",
+                        "thumbhash",
+                        "dominant_color",
+                        "accent_color"
+                      ]
+                    },
+                    "photo_full": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "cdn_url": {
+                          "type": "string",
+                          "example": "https://cdn.rewind.rest/.../players/silo/123"
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "example": "#1a3a6c"
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "example": "#c4ced4"
+                        }
+                      },
+                      "required": [
+                        "cdn_url",
+                        "thumbhash",
+                        "dominant_color",
+                        "accent_color"
+                      ]
+                    },
+                    "appearances": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event_id": {
+                            "type": "number"
+                          },
+                          "event_date": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "team_id": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "is_home": {
+                            "type": "boolean"
+                          },
+                          "batting_line": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "pitching_line": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "decision": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "notable": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "event_id",
+                          "event_date",
+                          "title",
+                          "team_id",
+                          "is_home",
+                          "batting_line",
+                          "pitching_line",
+                          "decision",
+                          "notable"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "league",
+                    "mlb_stats_id",
+                    "espn_id",
+                    "full_name",
+                    "primary_position",
+                    "primary_number",
+                    "birth_date",
+                    "birth_country",
+                    "bats",
+                    "throws",
+                    "primary_team_id",
+                    "debut_date",
+                    "photo_silo",
+                    "photo_full",
+                    "appearances"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -20695,6 +21643,112 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AttendingEnrichBoxScoresResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/attending/enrich-player-photos": {
+      "post": {
+        "operationId": "adminAttendingEnrichPlayerPhotos",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Backfill player photos through the image pipeline",
+        "description": "Fetches the MLB silo cutout for every player and the ESPN full-body PNG when an espn_id is known. Stores both via the existing image pipeline (R2 + thumbhash + dominant_color) keyed on (domain='attending', entity_type='player_silo'|'player_full'). Idempotent.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingEnrichPlayerPhotosBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Photo backfill completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingEnrichPlayerPhotosResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/attending/enrich-espn-ids": {
+      "post": {
+        "operationId": "adminAttendingEnrichEspnIds",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Resolve ESPN player IDs via game summaries",
+        "description": "For each attended MLB game, hits ESPN’s schedule + summary endpoints, walks the box score, and matches each ESPN athlete to an MLB player by last_name + jersey to populate players.espn_id. Run before enrich-player-photos to unlock the ESPN full-body photo variant.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingEnrichEspnIdsBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ESPN ID cross-reference completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingEnrichEspnIdsResponse"
                 }
               }
             }
