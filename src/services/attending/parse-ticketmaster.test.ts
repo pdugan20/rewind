@@ -109,6 +109,27 @@ describe('parseTicketmasterHtml', () => {
     });
   });
 
+  it('handles "X | vs. | Y" split across adjacent table cells', () => {
+    // Real-world bug from the prod data: the "X vs. Y" line ends up
+    // split across table cells in some Ticketmaster templates.
+    // After stripToText, the cells become separate lines, so the
+    // simple " vs. " regex doesn't match. Combine adjacent lines.
+    const html = `<html><body>
+<p>Ticketmaster</p>
+<p>The countdown to your event starts now. Save this info for your records.</p>
+<p>You Got the Tickets</p>
+<p>Order # 63-12852/SEA</p>
+<table><tr><td>Seattle Mariners</td><td>vs.</td><td>Los Angeles Angels</td></tr></table>
+<p>Wed &bull; Jul 24 2024 &bull; 7:10 PM</p>
+<p>T-Mobile Park, Seattle, WA</p>
+</body></html>`;
+    const result = parseTicketmasterHtml(html);
+    expect(result).not.toBeNull();
+    expect(result![0].event_name).toBe(
+      'Seattle Mariners vs. Los Angeles Angels'
+    );
+  });
+
   it('parses transfer-complete email without an Order#', () => {
     const html = `<html><body><pre>${TRANSFER_COMPLETE_TM_TEXT}</pre></body></html>`;
     const result = parseTicketmasterHtml(html, 'gmail-msg-abc123');
