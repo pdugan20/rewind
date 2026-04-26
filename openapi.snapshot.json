@@ -729,6 +729,9 @@
           "loaded": {
             "type": "integer"
           },
+          "updated_loaded": {
+            "type": "integer"
+          },
           "failures": {
             "type": "array",
             "items": {
@@ -754,6 +757,7 @@
           "refetched",
           "newly_parsed",
           "loaded",
+          "updated_loaded",
           "failures"
         ]
       },
@@ -775,6 +779,10 @@
             "default": 1000
           },
           "dry_run": {
+            "type": "boolean",
+            "default": false
+          },
+          "force_update_loaded": {
             "type": "boolean",
             "default": false
           }

@@ -494,6 +494,7 @@ const ReprocessBody = z
     refetch_missing_body: z.boolean().optional().default(true),
     limit: z.number().int().min(1).max(2000).optional().default(1000),
     dry_run: z.boolean().optional().default(false),
+    force_update_loaded: z.boolean().optional().default(false),
   })
   .openapi('AttendingReprocessBody');
 
@@ -504,6 +505,7 @@ const ReprocessResponse = z
     refetched: z.number().int(),
     newly_parsed: z.number().int(),
     loaded: z.number().int(),
+    updated_loaded: z.number().int(),
     failures: z.array(
       z.object({ source_id: z.number().int(), reason: z.string() })
     ),
@@ -541,6 +543,7 @@ adminAttending.openapi(reprocessRoute, async (c) => {
     refetch_missing_body?: boolean;
     limit?: number;
     dry_run?: boolean;
+    force_update_loaded?: boolean;
   };
   const body: ReprocessOpts = await c.req
     .json<ReprocessOpts>()
@@ -552,6 +555,7 @@ adminAttending.openapi(reprocessRoute, async (c) => {
       refetchMissingBody: body.refetch_missing_body ?? true,
       limit: body.limit ?? 1000,
       dryRun: body.dry_run ?? false,
+      forceUpdateLoaded: body.force_update_loaded ?? false,
     });
     return c.json({
       status: 'completed' as const,
@@ -559,6 +563,7 @@ adminAttending.openapi(reprocessRoute, async (c) => {
       refetched: result.refetched,
       newly_parsed: result.newly_parsed,
       loaded: result.loaded,
+      updated_loaded: result.updated_loaded,
       failures: result.failures,
     });
   } catch (error) {

@@ -34,7 +34,8 @@ import type { ParsedReservation, Vendor } from './parse-jsonld.js';
 
 export function parseTicketmasterHtml(
   html: string | null | undefined,
-  sourceRef?: string
+  sourceRef?: string,
+  messageDate?: string | null
 ): ParsedReservation[] | null {
   if (!html) return null;
   const text = stripToText(html);
@@ -50,7 +51,7 @@ export function parseTicketmasterHtml(
     /Transfer Status:\s*Completed/i.test(text) ||
     /successfully accepted your ticket transfer/i.test(text)
   ) {
-    return parseTicketmasterTransfer(text, sourceRef);
+    return parseTicketmasterTransfer(text, sourceRef, messageDate);
   }
 
   // Order number anchor — present in both layouts.
@@ -178,16 +179,24 @@ export function parseTicketmasterHtml(
  */
 function parseTicketmasterTransfer(
   text: string,
-  sourceRef: string | undefined
+  sourceRef: string | undefined,
+  messageDate: string | null | undefined
 ): ParsedReservation[] | null {
   const lines = text
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
 
-  // Year inference: prefer the copyright line, fall back to current year.
+  // Year inference: prefer the copyright line, then the email's
+  // internal_date (transfers usually arrive within ~2 weeks of the
+  // game), then current year as a final fallback. Without this,
+  // older transfer emails (no copyright string) inherit "today"
+  // and end up dated years in the future.
   const copyrightYear = matchSimple(text, /\(c\)\s*(\d{4})\s*Ticketmaster/i);
-  const inferredYear = copyrightYear ?? String(new Date().getFullYear());
+  const messageYear =
+    messageDate && /^\d{4}/.test(messageDate) ? messageDate.slice(0, 4) : null;
+  const inferredYear =
+    copyrightYear ?? messageYear ?? String(new Date().getFullYear());
 
   // Find "X vs. Y" line (event name).
   let eventName: string | null = null;

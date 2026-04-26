@@ -320,7 +320,10 @@ function parseMessageCapture(msg: GmailMessage): ParsedGmailCandidate {
     } else if (vendor === 'ticketclub') {
       reservations = parseTicketClubHtml(html) ?? [];
     } else if (vendor === 'ticketmaster') {
-      reservations = parseTicketmasterHtml(html, msg.id) ?? [];
+      const internalDate = new Date(
+        parseInt(msg.internalDate, 10)
+      ).toISOString();
+      reservations = parseTicketmasterHtml(html, msg.id, internalDate) ?? [];
     } else if (vendor === 'axs') {
       reservations = parseAxsHtml(html) ?? [];
     } else if (vendor === 'vividseats') {

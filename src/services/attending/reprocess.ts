@@ -11,7 +11,10 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import type { Env } from '../../types/env.js';
-import { attendedEventSources } from '../../db/schema/attending.js';
+import {
+  attendedEvents,
+  attendedEventSources,
+} from '../../db/schema/attending.js';
 import { getGoogleAccessToken } from '../google/auth.js';
 import { getGmailMessage, judgeSubject } from '../google/gmail-client.js';
 import { enrichCandidate } from './enrich.js';
@@ -34,6 +37,14 @@ export interface ReprocessOptions {
   refetchMissingBody?: boolean; // re-pull from Gmail when body_text/html absent
   limit?: number;
   dryRun?: boolean;
+  // When true, also reprocess source rows that already linked to an
+  // event AND overwrite the event's title/event_type when the new
+  // parse produces a confidently-better title (matches "X vs. Y").
+  // Use after a parser fix that changes title heuristics — earlier
+  // bad titles ("The countdown to your event…") get rewritten to
+  // the actual game line. Idempotent: re-running won't degrade good
+  // titles since the new parse won't differ.
+  forceUpdateLoaded?: boolean;
 }
 
 export interface ReprocessResult {
@@ -41,6 +52,7 @@ export interface ReprocessResult {
   refetched: number;
   newly_parsed: number;
   loaded: number;
+  updated_loaded: number;
   failures: Array<{ source_id: number; reason: string }>;
 }
 
@@ -54,12 +66,14 @@ export async function reprocessPendingSources(
     refetchMissingBody = true,
     limit = 1000,
     dryRun = false,
+    forceUpdateLoaded = false,
   } = opts;
   const result: ReprocessResult = {
     scanned: 0,
     refetched: 0,
     newly_parsed: 0,
     loaded: 0,
+    updated_loaded: 0,
     failures: [],
   };
 
@@ -77,7 +91,7 @@ export async function reprocessPendingSources(
       and(
         eq(attendedEventSources.userId, 1),
         eq(attendedEventSources.sourceType, 'gmail'),
-        isNull(attendedEventSources.eventId),
+        forceUpdateLoaded ? undefined : isNull(attendedEventSources.eventId),
         vendorClause
       )
     )
@@ -146,7 +160,12 @@ export async function reprocessPendingSources(
       } else if (senderVendor === 'ticketclub') {
         reservations = parseTicketClubHtml(html) ?? [];
       } else if (senderVendor === 'ticketmaster') {
-        reservations = parseTicketmasterHtml(html, row.sourceRef) ?? [];
+        reservations =
+          parseTicketmasterHtml(
+            html,
+            row.sourceRef,
+            (raw.internal_date as string) ?? null
+          ) ?? [];
       } else if (senderVendor === 'axs') {
         reservations = parseAxsHtml(html) ?? [];
       } else if (senderVendor === 'vividseats') {
@@ -162,6 +181,60 @@ export async function reprocessPendingSources(
     result.newly_parsed++;
 
     if (dryRun) continue;
+
+    // Force-update path: source row is already linked to an event,
+    // and the new parse produced a "X vs. Y" title that the existing
+    // event lacks. Overwrite title (and re-infer event_type from the
+    // new title via the enricher). No new event row created — we
+    // update in place, leave tickets/performers untouched.
+    if (forceUpdateLoaded && row.eventId != null) {
+      const newTitle = reservations[0].event_name;
+      const hasVersus =
+        newTitle != null && / vs\.? /i.test(newTitle) && newTitle.length > 5;
+      if (!hasVersus) continue;
+
+      const enrichedForType = await enrichCandidate(
+        {
+          source_ref: row.sourceRef,
+          source_type: 'gmail',
+          event_date: '2000-01-01',
+          event_datetime: null,
+          title: newTitle,
+          location: reservations[0].venue_address ?? reservations[0].venue_name,
+        },
+        db,
+        env
+      );
+      const newEventType = enrichedForType?.event_type ?? null;
+      const newCategory = enrichedForType?.category ?? null;
+
+      const [existingEvent] = await db
+        .select()
+        .from(attendedEvents)
+        .where(eq(attendedEvents.id, row.eventId));
+      if (!existingEvent) continue;
+
+      const existingHasVersus =
+        existingEvent.title != null && / vs\.? /i.test(existingEvent.title);
+
+      if (existingHasVersus) continue;
+
+      const usableCategory =
+        newCategory && newCategory !== 'unknown'
+          ? (newCategory as 'sports' | 'music' | 'arts')
+          : existingEvent.category;
+      await db
+        .update(attendedEvents)
+        .set({
+          title: newTitle,
+          eventType: newEventType ?? existingEvent.eventType,
+          category: usableCategory,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(attendedEvents.id, row.eventId));
+      result.updated_loaded++;
+      continue;
+    }
 
     // Persist the new reservations on the source row, then enrich+load.
     raw.reservations = reservations;
