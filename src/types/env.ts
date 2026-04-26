@@ -42,6 +42,15 @@ export interface Env {
   TRAKT_CLIENT_ID: string;
   TRAKT_CLIENT_SECRET: string;
 
+  // Google (Calendar + Gmail for the attending domain)
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+
+  // setlist.fm (concert enrichment for the attending domain).
+  // Free API key via https://www.setlist.fm/settings/api — optional;
+  // concerts get loaded without setlist data when this is unset.
+  SETLIST_FM_API_KEY?: string;
+
   // Instapaper
   INSTAPAPER_CONSUMER_KEY: string;
   INSTAPAPER_CONSUMER_SECRET: string;

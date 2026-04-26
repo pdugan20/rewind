@@ -13,11 +13,13 @@ import imagesRoute from './routes/images.js';
 import collecting from './routes/collecting.js';
 import feed from './routes/feed.js';
 import reading from './routes/reading.js';
+import attending from './routes/attending.js';
 import search from './routes/search.js';
 import exportRoute from './routes/export.js';
 import keys from './routes/keys.js';
 import adminSync from './routes/admin-sync.js';
 import adminReindex from './routes/admin-reindex.js';
+import adminAttending from './routes/admin-attending.js';
 import { LastfmClient } from './services/lastfm/client.js';
 import { syncListening } from './services/lastfm/sync.js';
 import { syncRunning } from './services/strava/sync.js';
@@ -26,6 +28,7 @@ import { syncLetterboxd } from './services/letterboxd/sync.js';
 import { syncCollecting } from './services/discogs/sync.js';
 import { syncTraktCollection } from './services/trakt/sync.js';
 import { syncReading } from './services/instapaper/sync.js';
+import { backfillAttending } from './services/attending/backfill.js';
 import {
   processListeningImages,
   processWatchingImages,
@@ -87,11 +90,13 @@ const routes = app
   .route('/', imagesRoute)
   .route('/', collecting)
   .route('/reading', reading)
+  .route('/attending', attending)
   .route('/feed', feed)
   .route('/search', search)
   .route('/admin/export', exportRoute)
   .route('/admin/keys', keys)
   .route('/admin', adminReindex)
+  .route('/', adminAttending)
   .route('/', adminSync);
 
 // Register OpenAPI security scheme
@@ -297,6 +302,26 @@ export default {
               );
             }
           })()
+        );
+        break;
+      }
+      case '0 4 * * *': {
+        const attendingRetry = await shouldRetry(db, 'attending');
+        if (attendingRetry.shouldRetry) {
+          console.log(
+            `[SYNC] Retrying failed attending sync (${attendingRetry.consecutiveFailures} consecutive failures)`
+          );
+        }
+        console.log('[SYNC] Attending refresh (calendar + gmail)');
+        ctx.waitUntil(
+          backfillAttending(db, env, {
+            source: 'all',
+            mode: 'incremental',
+          }).catch((err) =>
+            console.log(
+              `[ERROR] Attending sync failed: ${err instanceof Error ? err.message : String(err)}`
+            )
+          )
         );
         break;
       }

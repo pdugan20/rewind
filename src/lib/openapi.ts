@@ -109,6 +109,11 @@ Common status codes: 400 (bad request), 401 (unauthorized), 404 (not found), 500
       description: 'Articles, highlights, and reading stats from Instapaper.',
     },
     {
+      name: 'Attending',
+      description:
+        'Live events you bought tickets for — sports games, concerts, theater. Sourced from Google Calendar and ticket-vendor email.',
+    },
+    {
       name: 'Feed',
       description: 'Cross-domain activity feed with cursor-based pagination.',
     },

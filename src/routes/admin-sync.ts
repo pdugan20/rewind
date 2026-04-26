@@ -21,6 +21,10 @@ import { syncCollecting } from '../services/discogs/sync.js';
 import { syncTraktCollection } from '../services/trakt/sync.js';
 import { syncReading } from '../services/instapaper/sync.js';
 import { processReadingImages } from '../services/images/sync-images.js';
+import { backfillAttending } from '../services/attending/backfill.js';
+import { getGoogleAccessToken } from '../services/google/auth.js';
+import { googleTokens } from '../db/schema/google.js';
+import { eq } from 'drizzle-orm';
 import { badRequest } from '../lib/errors.js';
 
 const adminSync = createOpenAPIApp();
@@ -420,6 +424,200 @@ adminSync.openapi(recomputeRoute, async (c) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// POST /v1/admin/sync/attending
+const AttendingBackfillBody = z
+  .object({
+    source: z.enum(['gcal', 'gmail', 'all']).optional().default('all'),
+    dry_run: z.boolean().optional().default(false),
+    from: z.string().optional().openapi({ example: '2018-01-01' }),
+    to: z.string().optional().openapi({ example: '2026-04-25' }),
+  })
+  .openapi('AttendingBackfillBody');
+
+const AttendingCandidateSchema = z
+  .object({
+    source_ref: z.string(),
+    event_date: z.string().nullable(),
+    event_datetime: z.string().nullable(),
+    summary: z.string().nullable(),
+    location: z.string().nullable(),
+    status: z.string().nullable(),
+    html_link: z.string().nullable(),
+  })
+  .openapi('AttendingCandidate');
+
+const AttendingBackfillResponse = z
+  .object({
+    status: z.literal('completed'),
+    candidates_found: z.number().int(),
+    events_loaded: z.number().int(),
+    sources: z.object({
+      gcal: z.number().int(),
+      gmail: z.number().int(),
+    }),
+    dry_run: z.boolean(),
+    timestamp: z.string().datetime(),
+    gcal: z
+      .object({
+        scanned: z.number().int(),
+        matched: z.number().int(),
+        inserted: z.number().int(),
+        candidates: z.array(AttendingCandidateSchema).optional(),
+        resynced_from_expiry: z.boolean().optional(),
+      })
+      .optional(),
+    gmail: z
+      .object({
+        scanned: z.number().int(),
+        fetched: z.number().int(),
+        parsed: z.number().int(),
+        inserted: z.number().int(),
+        skipped_subject: z.number().int(),
+        skipped_no_jsonld: z.number().int(),
+        candidates: z.array(z.any()).optional(),
+      })
+      .optional(),
+    enriched: z.array(z.any()).optional(),
+    load: z
+      .object({
+        enriched: z.number().int(),
+        inserted: z.number().int(),
+        updated: z.number().int(),
+        failed: z.number().int(),
+        ticket_inserts: z.number().int(),
+        performer_inserts: z.number().int(),
+      })
+      .optional(),
+  })
+  .openapi('AttendingBackfillResponse');
+
+const syncAttendingRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/attending',
+  operationId: 'adminSyncAttending',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Trigger attending backfill',
+  description:
+    'Run the attending backfill pipeline against Google Calendar and Gmail. Pass dry_run=true to inspect candidates without writing.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: AttendingBackfillBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: AttendingBackfillResponse } },
+      description: 'Backfill completed',
+    },
+    ...errorResponses(400, 401, 500),
+  },
+});
+
+adminSync.openapi(syncAttendingRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const body = await c.req
+    .json<{
+      source?: 'gcal' | 'gmail' | 'all';
+      dry_run?: boolean;
+      from?: string;
+      to?: string;
+    }>()
+    .catch(() => ({}));
+
+  try {
+    const result = await backfillAttending(db, c.env, body);
+    return c.json({
+      status: 'completed' as const,
+      candidates_found: result.candidates_found,
+      events_loaded: result.events_loaded,
+      sources: result.sources,
+      dry_run: result.dry_run,
+      timestamp: new Date().toISOString(),
+      ...(result.gcal && { gcal: result.gcal }),
+      ...(result.gmail && { gmail: result.gmail }),
+      ...(result.enriched && { enriched: result.enriched }),
+      ...(result.load && { load: result.load }),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/sync/attending: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// POST /v1/admin/google/test -- end-to-end auth smoke test.
+// Refreshes the access token if needed, then calls Gmail's getProfile
+// (gated by gmail.readonly, which we requested). Returns the authenticated
+// email + total messages count + granted scopes so misconfigurations show
+// up immediately.
+const GoogleTestResponse = z
+  .object({
+    email: z.string(),
+    messages_total: z.number().int(),
+    scopes: z.array(z.string()),
+    expires_at: z.number().int(),
+  })
+  .openapi('GoogleTestResponse');
+
+const googleTestRoute = createRoute({
+  method: 'post',
+  path: '/admin/google/test',
+  operationId: 'adminGoogleTest',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Smoke test Google auth',
+  description:
+    'Runs the Google token refresh flow and hits userinfo to confirm end-to-end OAuth works. Used during attending-domain setup.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GoogleTestResponse } },
+      description: 'Google auth working',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminSync.openapi(googleTestRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  try {
+    const accessToken = await getGoogleAccessToken(db, c.env);
+    const res = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      return c.json(
+        { error: `gmail.profile ${res.status}: ${text}`, status: 500 },
+        500
+      ) as any;
+    }
+    const info = (await res.json()) as {
+      emailAddress: string;
+      messagesTotal: number;
+    };
+
+    const [row] = await db
+      .select()
+      .from(googleTokens)
+      .where(eq(googleTokens.userId, 1))
+      .limit(1);
+
+    return c.json({
+      email: info.emailAddress,
+      messages_total: info.messagesTotal,
+      scopes: (row?.scopes ?? '').split(' ').filter(Boolean),
+      expires_at: row?.expiresAt ?? 0,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/google/test: ${message}`);
     return c.json({ error: message, status: 500 }, 500) as any;
   }
 });

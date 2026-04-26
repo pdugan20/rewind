@@ -1,0 +1,13 @@
+# Doc placeholders (literal "Bearer rw_admin_...") in attending-domain runbook.
+# Not real keys — the token after "Bearer" is the literal string "rw_admin_..."
+# (with three dots). Working tree replaces these with $ADMIN_KEY; these
+# fingerprints exempt the commits where they were originally introduced.
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:269
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:279
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:285
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:296
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:325
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:335
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:339
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:343
+6a118a5fb8880a252ee232c11d8234cacd61597c:docs/projects/attending-domain/TRACKER.md:curl-auth-header:354
