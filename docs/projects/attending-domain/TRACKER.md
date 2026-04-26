@@ -416,13 +416,49 @@ curl https://api.rewind.rest/v1/health/sync \
 
 Look for `attending: { last_sync: <recent>, status: completed }`.
 
-## Phase 10+ — Follow-up projects (NOT in this project)
+## Phase 10: MCP tools + season-grid card UI — DONE (#55)
+
+Five tools registered, manifest snapshot bumped 40 → 45, MDX docs added.
+
+- [x] **10.1** `mcp-server/src/tools/attending.ts` — `get_attended_events`, `get_attended_season` (with `_meta.ui.resourceUri`), `get_attended_event`, `get_attended_player`, `get_attending_stats`. Text fallback uses `summarizeAppearance()` for batting/pitching lines.
+- [x] **10.2** UI bundle: `mcp-server/web/attended-season.{html,tsx}` + `components/SeasonGrid.tsx` + `components/SeasonGameCard.tsx`. `useApp` + `app.ontoolresult` binding; `app.openLink` for outbound. CSS variables for host theming. Built via vite-plugin-singlefile (455KB inlined HTML).
+- [x] **10.3** `registerUiResource('ui://rewind/attended-season.html', ...)` in `server.ts` with CSP allowing `cdn.rewind.rest`.
+- [x] **10.4** `mcp-server/scripts/check-docs.mjs` updated: tools added to `domains/attending.mdx`, `ui://rewind/attended-season.html` in `UNDOCUMENTED_ALLOWLIST`.
+- [x] **10.5** Tests: `server.test.ts` tool-count assertion bumped to 45; manifest snapshot regenerated via `npm run mcp:update`.
+
+## Phase 11: Activity feed integration — DONE (#57, #61, #62, #63, #64)
+
+Goal: every attended event appears in `/v1/feed`, `/v1/feed/on-this-day`, and `/v1/feed/domain/attending` alongside scrobbles/runs/watches/articles.
+
+**Validated end-to-end**: backfill ran cleanly to 263 attending rows in `activity_feed`; cross-domain feed surfaces attending entries dated correctly; on-this-day pulls them.
+
+- [x] **11.1** `src/services/attending/feed-items.ts` — `feedItemFromCanonical(eventId, canonical, venueName)` and `feedItemFromRow(row)` helpers. Verb is category-aware (`Saw <…>` for sports/music, `Attended <…>` for arts). `sourceId: 'event:{id}'`, `domain: 'attending'`, `eventType: 'event_attended' | 'event_missed'`.
+- [x] **11.2** `loadCanonicalEvent` (load.ts) inserts a feed row inline after writing source linkage. Wrapped in try/catch — feed-insert failures are non-fatal (mirrors lastfm/strava pattern).
+- [x] **11.3** `src/services/attending/backfill-feed.ts` — one-shot `backfillAttendingFeed(db, opts)` walks `attended_events`, joins venues, and feeds rows into `insertFeedItems`. Exposed via `POST /v1/admin/attending/backfill-feed`.
+- [x] **11.4** `insertFeedItems` rewritten to chunk both the dedupe `IN (...)` SELECT (CHUNK=80) and the multi-row INSERT VALUES (CHUNK=8 × 11 cols = 88 params) under D1's ~100-param effective cap. Also dropped the param-heavy pre-count in `backfill-feed` in favor of `count(*)` before/after.
+- [x] **11.5** Domain enum on `/v1/feed/domain/{domain}` Zod schema includes `'attending'`; OpenAPI snapshot regenerated.
+
+## Phase 12: Per-game player stats + photos (MLB) — DONE (#51–#54)
+
+Goal: each MLB attended event has per-player batting/pitching/fielding lines + headshots queryable via `get_attended_player` and rendered inline in the season-grid card.
+
+- [x] **12.1** `attended_event_players` writes from MLB Stats `boxscore.teams.{home,away}.players`. Captures batting line, pitching line, fielding line, decision (W/L/SV), batting order.
+- [x] **12.2** Player photos: silo (transparent PNG) from `img.mlbstatic.com/.../headshot/silo/current/{id}.png` for every player; ESPN full headshot from `a.espncdn.com/combiner/i?img=/i/headshots/mlb/players/full/{id}.png` cross-referenced from ESPN summary.
+- [x] **12.3** Cross-ref scoping (#53, #54): ESPN summary players intersected with the MLB boxscore roster for the same game; first-name-required match dedupes shared last names like Suárez.
+- [x] **12.4** PT/UTC date drift handled (#52): ESPN scoreboard stamps games at UTC midnight which is the next day in venue-local; matcher accepts date or date+1.
+- [x] **12.5** `images` row promotion fix (`cc6c5b2`): placeholder `image_version` advances 0 → 1 once the real image lands so CDN cache busts properly.
+
+**Result**: 839 unique players, 1,977 game appearances, 100% silo coverage, 60% full ESPN coverage.
+
+## Phase 13+ — Follow-up projects (NOT in this project, tracked in GitHub issues)
 
 Each gets its own `docs/projects/<name>/` doc when started:
 
-- [ ] **MCP tools for attending** — `get_attended_events`, `get_attended_season`, `get_attending_stats`, etc. Mechanical port from existing tool patterns.
-- [ ] **Activity feed integration** — surface attended events alongside scrobbles/runs/watches in `/v1/feed`.
-- [ ] **Image pipeline for attending** — team logos (TheSportsDB), venue photos (Google Places photo API), performer photos (already covered by `lastfm_artist_id` link).
-- [ ] **Portfolio site Mariners 2024 page** in `pat-portfolio` — fetches MLB Stats API + `/v1/attending/seasons/mlb/2024`. Generalize to other team/year combos.
+- [ ] **Year-in-review for attending** — `/v1/attending/year/{year}` mirroring listening/running.
+- [ ] **NFL/NBA/WNBA box scores** — extend MLB enrichment to ESPN-covered leagues for the 13 non-MLB games.
+- [ ] **Concert performer photos** — cross-link `lastfm_artist_id` to image so concert detail responses gain artist headshots.
+- [ ] **Setlists for concerts** — setlist.fm beyond v1 (opener vs headliner discovery).
+- [ ] **ESPN photo backfill** — ~340 unmatched players (mostly relief pitchers).
+- [ ] **Team logos / venue photos** — TheSportsDB + Google Places.
+- [ ] **Portfolio site Mariners 2024 page** in `pat-portfolio`.
 - [ ] **Portfolio UW 2008 season page** — same pattern, different league.
-- [ ] **Year-in-review for attending** — most-attended team/venue, total tickets bought, total spent.

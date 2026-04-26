@@ -32,6 +32,10 @@ Branch `worktree-attending-domain`:
 | 9     | Backfill execution — DONE (auto-track). Migrations applied to remote D1, Google secrets set, prod token seeded, smoke-test passed (216k Gmail messages accessible). Calendar full pull: 11030 scanned, 59 matched, 57 inserted. Gmail full pull: 694 scanned, 20 parsed, 665 source rows captured. Manual UW imports (9.6/9.7) gated on user curation.                                                                                        |
 | 3.5   | Per-vendor parsers + reprocess — DONE. Five parsers shipped (Ticket Club, Ticketmaster, AXS, Vivid Seats, StubHub) each handling multiple template generations from real fixture inspection. Body-storage gap fixed (now persists both body_text and body_html). Reprocess endpoint re-runs parsers over pending sources with optional Gmail refetch. Subject gate hardened with 14 new reject patterns. **Result: 61 → 103 events in prod**. |
 | 9.5   | Deep email sweep + Eventbrite parser — DONE. Broad Gmail query revealed ~500 confirmation-pattern emails outside our 6-vendor allowlist. Eventbrite alone had 66+ confirmations (mostly tech meetups + smaller concerts). Eventbrite parser shipped + added to vendor allowlist. **Result: 103 → 193 events in prod**. Final breakdown: concerts 128, mlb_game 37, ncaaf_game 15, nfl_game 9, wnba_game 3, ncaab_game 1.                      |
+| 10    | MCP tools + season-grid card UI — DONE (#55). Five tools shipped: `get_attended_events`, `get_attended_season` (with interactive card), `get_attended_event`, `get_attended_player`, `get_attending_stats`. Season-grid card renders W/L badges + per-game player chips with silo headshots in MCP Apps clients via `ui://rewind/attended-season.html`. Manifest snapshots + docs updated.                                                    |
+| 11    | Activity feed integration — DONE (#57, #61, #62, #63, #64). All 263 attended events now appear in `/v1/feed`, `/v1/feed/on-this-day`, and `/v1/feed/domain/attending`. Inline insert via `loadCanonicalEvent` + one-shot backfill via `POST /v1/admin/attending/backfill-feed`. `insertFeedItems` chunks both the dedupe SELECT (CHUNK=80) and INSERT VALUES (CHUNK=8) under D1's ~100-param effective cap.                                   |
+| 12    | Per-game player stats + photos (MLB) — DONE (#51, #52, #53, #54). Boxscore enrichment writes per-player batting/pitching/fielding lines to `attended_event_players`. Cross-references ESPN player summaries by game-scoped roster intersection. **839 unique players seen, 1,977 game appearances. 100% silo photos (839/839). 60% full ESPN photos (499/839)** — relief pitchers / bench guys rarely surface in ESPN summaries.              |
+| 13    | Backfill execution → 263 events in prod. Mariners 45 games (2014–2026 with gap years 2018/2020/2021), UW football 70 games via Block A/C season-shorthand. Concerts 135. Total now 263 — see `NEXT-STEPS.md` for the punch list and per-year breakdown.                                                                                                                                                                                       |
 
 This project covers the data-ingestion pipeline: Google OAuth foundation, Calendar + Gmail extractors, sports/concert enrichment, dedupe/load, cron wiring, and one-time backfill execution.
 
@@ -188,10 +192,20 @@ These are non-blocking — defaults are picked; flag during implementation if an
 
 ## Follow-up projects
 
-These are intentionally **not** in this project. Each is a clean follow-up once the data is flowing:
+These are intentionally **not** in this project. Each is a clean follow-up once the data is flowing. Items shipped during the session-wrap pass are kept as a record; remaining items are tracked in open GitHub issues.
 
-- **MCP tools for attending** (`get_attended_events`, `get_attended_season`, `get_attended_event_details`, `get_attending_stats`). Mechanical port of existing tools.
-- **Activity feed integration** — surface attended events alongside scrobbles/runs/watches in `/v1/feed`.
-- **Image pipeline for the new domain** — team logos (TheSportsDB free), venue photos (Google Places photo API or manual), performer photos (already covered when `lastfm_artist_id` is populated).
-- **Portfolio site Mariners 2024 page** in `pat-portfolio` — fetches MLB Stats API + Rewind `/attending/seasons/mlb/2024` + renders the grid.
-- **Year-in-review for attending** — most-attended team, total tickets bought, total spent, etc.
+**Shipped:**
+
+- ✓ **MCP tools for attending** — `get_attended_events`, `get_attended_season`, `get_attended_event`, `get_attended_player`, `get_attending_stats` + interactive season-grid card UI (#55).
+- ✓ **Activity feed integration** — attended events now in `/v1/feed`, `/v1/feed/on-this-day`, and `/v1/feed/domain/attending` (#57, #61–#64).
+- ✓ **Player image pipeline (MLB)** — silo headshots + ESPN full headshots stored in `images` and rendered inline in MCP card (#51–#54).
+
+**Still pending — see open GitHub issues:**
+
+- **Year-in-review for attending** — `/v1/attending/year/{year}` mirroring listening/running. Most-attended team/venue, total tickets bought, etc.
+- **NFL/NBA/WNBA box scores** — extend the MLB per-game-player enrichment to ESPN-covered leagues (the 13 non-MLB games currently lack player rows).
+- **Concert performer photos** — cross-link `lastfm_artist_id` to existing artist images in the listening domain so concert detail responses gain artist headshots.
+- **Concert event_data enrichment** — setlists, opener vs headliner discovery (setlist.fm beyond v1).
+- **ESPN photo backfill** — ~340 unmatched players (mostly relief pitchers/bench guys) still on silo-only.
+- **Team logos / venue photos** — TheSportsDB free, Google Places photo API or manual.
+- **Portfolio site Mariners 2024 page** in `pat-portfolio` — fetches MLB Stats API + `/v1/attending/seasons/mlb/2024` + renders the grid.
