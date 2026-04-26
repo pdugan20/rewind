@@ -328,3 +328,105 @@ describe('fetchMlbBoxScore', () => {
     });
   });
 });
+
+describe('splitFullName fallback', () => {
+  // Indirectly tested via toBio when person.firstName/lastName absent.
+  // We verify the extracted bio carries a populated last_name.
+  it('extracts last_name when only fullName is present', async () => {
+    const minimalFixture = {
+      teams: {
+        home: {
+          team: { id: 136, name: 'Seattle Mariners' },
+          pitchers: [],
+          players: {
+            ID596142: {
+              person: { id: 596142, fullName: 'Cal Raleigh' },
+              position: { abbreviation: 'C' },
+              stats: {
+                batting: {
+                  gamesPlayed: 1,
+                  atBats: 4,
+                  runs: 0,
+                  hits: 2,
+                  rbi: 0,
+                  baseOnBalls: 0,
+                  strikeOuts: 0,
+                  homeRuns: 0,
+                  doubles: 0,
+                  triples: 0,
+                  stolenBases: 0,
+                  hitByPitch: 0,
+                  plateAppearances: 4,
+                  totalBases: 0,
+                  leftOnBase: 0,
+                },
+              },
+            },
+          },
+        },
+        away: {
+          team: { id: 116, name: 'Detroit Tigers' },
+          pitchers: [],
+          players: {},
+        },
+      },
+    };
+    const minimalFeed = { gamePk: 1, gameData: {}, liveData: {} };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.includes('/boxscore'))
+        return new Response(JSON.stringify(minimalFixture), { status: 200 });
+      if (u.includes('/feed/live'))
+        return new Response(JSON.stringify(minimalFeed), { status: 200 });
+      return new Response('not found', { status: 404 });
+    });
+
+    const data = await fetchMlbBoxScore(1);
+    expect(data).not.toBeNull();
+    const raleigh = data!.appearances.find(
+      (a) => a.player.mlb_stats_id === 596142
+    );
+    expect(raleigh!.player.last_name).toBe('Raleigh');
+    expect(raleigh!.player.first_name).toBe('Cal');
+  });
+
+  it('strips suffixes like Jr / III from last name', async () => {
+    const fixture = {
+      teams: {
+        home: {
+          team: { id: 136 },
+          pitchers: [],
+          players: {
+            ID1: {
+              person: { id: 1, fullName: 'Vladimir Guerrero Jr.' },
+              position: { abbreviation: '1B' },
+              stats: { batting: { gamesPlayed: 1, atBats: 4 } },
+            },
+            ID2: {
+              person: { id: 2, fullName: 'Cal Ripken III' },
+              position: { abbreviation: 'SS' },
+              stats: { batting: { gamesPlayed: 1, atBats: 4 } },
+            },
+          },
+        },
+        away: { team: { id: 0 }, pitchers: [], players: {} },
+      },
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.includes('/boxscore'))
+        return new Response(JSON.stringify(fixture), { status: 200 });
+      return new Response(
+        JSON.stringify({ gamePk: 1, gameData: {}, liveData: {} }),
+        { status: 200 }
+      );
+    });
+
+    const data = await fetchMlbBoxScore(1);
+    const vlad = data!.appearances.find((a) => a.player.mlb_stats_id === 1);
+    const cal = data!.appearances.find((a) => a.player.mlb_stats_id === 2);
+    expect(vlad!.player.last_name).toBe('Guerrero');
+    expect(vlad!.player.first_name).toBe('Vladimir');
+    expect(cal!.player.last_name).toBe('Ripken');
+  });
+});

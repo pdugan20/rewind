@@ -112,8 +112,16 @@ export async function enrichEspnIds(
       }
     }
 
-    // Match by date — ESPN's date is ISO with TZ, our event_date is YYYY-MM-DD.
-    const espnGame = schedule.find((g) => g.date.slice(0, 10) === eventDate);
+    // ESPN stores dates in UTC; our event_date is the venue-local date
+    // (Pacific for Mariners home games). Late-PT games (~7pm+) cross
+    // midnight UTC, so the UTC date is one day AFTER our stored date.
+    // Match against both eventDate and eventDate+1.
+    const eventDatePlusOne = addOneDay(eventDate);
+    const espnGame = schedule.find(
+      (g) =>
+        g.date.slice(0, 10) === eventDate ||
+        g.date.slice(0, 10) === eventDatePlusOne
+    );
     if (!espnGame) {
       result.failures.push({
         event_id: ev.id,
@@ -223,6 +231,13 @@ async function matchAndPersistEspnIds(
 
 function extractLastName(fullName: string): string {
   if (!fullName) return '';
-  const parts = fullName.trim().split(/\s+/);
+  const stripped = fullName.trim().replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/i, '');
+  const parts = stripped.split(/\s+/);
   return parts[parts.length - 1] ?? '';
+}
+
+function addOneDay(yyyyMmDd: string): string {
+  const d = new Date(yyyyMmDd + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }

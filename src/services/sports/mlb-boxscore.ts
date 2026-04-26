@@ -287,11 +287,16 @@ function toAppearance(
 
 function toBio(raw: RawPlayer): MlbPlayerBio {
   const p = raw.person;
+  // Boxscore endpoint typically returns only `person.fullName` —
+  // first/last aren't split by default. Fall back to whitespace-splitting
+  // the full name so name-based joins (ESPN cross-ref) have something
+  // to match on.
+  const split = splitFullName(p.fullName);
   return {
     mlb_stats_id: p.id,
     full_name: p.fullName,
-    first_name: p.firstName ?? null,
-    last_name: p.lastName ?? null,
+    first_name: p.firstName ?? split.first,
+    last_name: p.lastName ?? split.last,
     primary_position: raw.position?.abbreviation ?? null,
     primary_number: raw.jerseyNumber ?? p.primaryNumber ?? null,
     birth_date: p.birthDate ?? null,
@@ -300,6 +305,30 @@ function toBio(raw: RawPlayer): MlbPlayerBio {
     bats: p.batSide?.code ?? null,
     throws: p.pitchHand?.code ?? null,
     debut_date: p.mlbDebutDate ?? null,
+  };
+}
+
+/**
+ * Naive first/last split. "Cal Raleigh" → ("Cal", "Raleigh"). For
+ * compound last names ("J.D. Martinez", "Vladimir Guerrero Jr.") the
+ * MLB hydrate=person path gives us authoritative fields; this splitter
+ * is the fallback when only fullName is present.
+ */
+function splitFullName(full: string | undefined): {
+  first: string | null;
+  last: string | null;
+} {
+  if (!full) return { first: null, last: null };
+  const trimmed = full.trim();
+  if (!trimmed) return { first: null, last: null };
+  // Strip common suffixes off the end so they don't end up as "last name".
+  const suffixes = /\s+(Jr\.?|Sr\.?|II|III|IV)$/i;
+  const stripped = trimmed.replace(suffixes, '').trim();
+  const parts = stripped.split(/\s+/);
+  if (parts.length === 1) return { first: null, last: parts[0] };
+  return {
+    first: parts.slice(0, -1).join(' '),
+    last: parts[parts.length - 1],
   };
 }
 
