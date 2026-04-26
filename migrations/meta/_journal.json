@@ -71,6 +71,13 @@
       "when": 1773350400000,
       "tag": "0009_trakt_collection",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1777207414393,
+      "tag": "0034_attending_players",
+      "breakpoints": true
     }
   ]
 }

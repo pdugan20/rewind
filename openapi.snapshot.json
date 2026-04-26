@@ -788,6 +788,88 @@
           }
         }
       },
+      "AttendingEnrichBoxScoresResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "scanned": {
+            "type": "integer"
+          },
+          "enriched": {
+            "type": "integer"
+          },
+          "players_inserted": {
+            "type": "integer"
+          },
+          "players_updated": {
+            "type": "integer"
+          },
+          "appearances_inserted": {
+            "type": "integer"
+          },
+          "appearances_updated": {
+            "type": "integer"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "event_id",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "scanned",
+          "enriched",
+          "players_inserted",
+          "players_updated",
+          "appearances_inserted",
+          "appearances_updated",
+          "failures"
+        ]
+      },
+      "AttendingEnrichBoxScoresBody": {
+        "type": "object",
+        "properties": {
+          "game_pks": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "skip_enriched": {
+            "type": "boolean",
+            "default": true
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "SyncCompletedResponse": {
         "type": "object",
         "properties": {
@@ -20560,6 +20642,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AttendingReprocessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/attending/enrich-boxscores": {
+      "post": {
+        "operationId": "adminAttendingEnrichBoxScores",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Backfill MLB box score data into attended events",
+        "description": "Pulls MLB Stats API box score + live feed for each attended MLB game, upserts every player who played, writes per-player appearance rows with batting/pitching lines, and merges game-level extras (attendance, weather, linescore, decisions) into attended_events.event_data. Idempotent — by default skips events already enriched. Use `skip_enriched: false` to force re-enrichment.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingEnrichBoxScoresBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Enrichment completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingEnrichBoxScoresResponse"
                 }
               }
             }

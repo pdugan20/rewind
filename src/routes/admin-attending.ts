@@ -573,4 +573,90 @@ adminAttending.openapi(reprocessRoute, async (c) => {
   }
 });
 
+// ─── POST /v1/admin/attending/enrich-boxscores ──────────────────────
+
+const EnrichBoxScoresBody = z
+  .object({
+    game_pks: z.array(z.number().int()).optional(),
+    skip_enriched: z.boolean().optional().default(true),
+    limit: z.number().int().min(1).max(500).optional().default(100),
+    dry_run: z.boolean().optional().default(false),
+  })
+  .openapi('AttendingEnrichBoxScoresBody');
+
+const EnrichBoxScoresResponse = z
+  .object({
+    status: z.literal('completed'),
+    scanned: z.number().int(),
+    enriched: z.number().int(),
+    players_inserted: z.number().int(),
+    players_updated: z.number().int(),
+    appearances_inserted: z.number().int(),
+    appearances_updated: z.number().int(),
+    failures: z.array(
+      z.object({ event_id: z.number().int(), reason: z.string() })
+    ),
+  })
+  .openapi('AttendingEnrichBoxScoresResponse');
+
+const enrichBoxScoresRoute = createRoute({
+  method: 'post',
+  path: '/admin/attending/enrich-boxscores',
+  operationId: 'adminAttendingEnrichBoxScores',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Backfill MLB box score data into attended events',
+  description:
+    'Pulls MLB Stats API box score + live feed for each attended MLB game, upserts every player who played, writes per-player appearance rows with batting/pitching lines, and merges game-level extras (attendance, weather, linescore, decisions) into attended_events.event_data. Idempotent — by default skips events already enriched. Use `skip_enriched: false` to force re-enrichment.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: EnrichBoxScoresBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Enrichment completed',
+      content: { 'application/json': { schema: EnrichBoxScoresResponse } },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminAttending.openapi(enrichBoxScoresRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  type Opts = {
+    game_pks?: number[];
+    skip_enriched?: boolean;
+    limit?: number;
+    dry_run?: boolean;
+  };
+  const body: Opts = await c.req.json<Opts>().catch(() => ({}) as Opts);
+
+  try {
+    const { enrichAttendedBoxScores } =
+      await import('../services/attending/enrich-boxscore.js');
+    const result = await enrichAttendedBoxScores(db, {
+      gamePks: body.game_pks,
+      skipEnriched: body.skip_enriched ?? true,
+      limit: body.limit ?? 100,
+      dryRun: body.dry_run ?? false,
+    });
+    return c.json({
+      status: 'completed' as const,
+      scanned: result.scanned,
+      enriched: result.enriched,
+      players_inserted: result.players_inserted,
+      players_updated: result.players_updated,
+      appearances_inserted: result.appearances_inserted,
+      appearances_updated: result.appearances_updated,
+      failures: result.failures,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/attending/enrich-boxscores: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
 export default adminAttending;

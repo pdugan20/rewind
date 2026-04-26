@@ -249,3 +249,93 @@ export const attendedEventSources = sqliteTable(
     index('idx_attended_event_sources_event').on(table.eventId),
   ]
 );
+
+// Players: the people on the field/court for sports events I attended.
+// Modeled separately from `performers` (musical artists/comedians) because
+// the schema is genuinely different — players have positions, jersey
+// numbers, batting/pitching hands, debut dates. Cross-source IDs:
+// `mlbStatsId` from the MLB Stats API roster + boxscore endpoints,
+// `espnId` from ESPN game summaries (resolved via name+jersey match).
+//
+// Photos live in the shared `images` table keyed on
+// (domain='attending', entity_type='player_silo'|'player_full',
+// entity_id=String(player.id)). Both the MLB silo cutout and the ESPN
+// full-body PNG are stored when both sources resolve.
+export const players = sqliteTable(
+  'players',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').notNull().default(1),
+    league: text('league').notNull(), // 'mlb', 'nfl', 'nba', 'wnba', 'ncaaf', 'ncaab', 'mls'
+    mlbStatsId: integer('mlb_stats_id'),
+    espnId: text('espn_id'),
+    fullName: text('full_name').notNull(),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    primaryPosition: text('primary_position'),
+    primaryNumber: text('primary_number'), // jersey, kept as string ("00", "13", etc.)
+    birthDate: text('birth_date'), // YYYY-MM-DD
+    birthCity: text('birth_city'),
+    birthCountry: text('birth_country'),
+    bats: text('bats'), // L/R/B
+    throws: text('throws'), // L/R
+    primaryTeamId: integer('primary_team_id'), // league-specific team id
+    debutDate: text('debut_date'),
+    bioData: text('bio_data'), // JSON: any extra fields we want to keep around
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    uniqueIndex('idx_players_league_mlb_stats_id').on(
+      table.league,
+      table.mlbStatsId
+    ),
+    uniqueIndex('idx_players_league_espn_id').on(table.league, table.espnId),
+    index('idx_players_team').on(table.primaryTeamId),
+    index('idx_players_last_name').on(table.lastName),
+  ]
+);
+
+// Per-game appearance: who played in a specific event, and what they did.
+// One row per (event, player). Roles aren't enforced — a player can have
+// both a batting line and a pitching line in the same row (interleague
+// pitcher hits, position player pitching, etc.). `decision` is set on
+// the pitcher of record. `notable` is a denormalized boolean we set
+// during sync for fast filtering ("show me the standout performances").
+export const attendedEventPlayers = sqliteTable(
+  'attended_event_players',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').notNull().default(1),
+    eventId: integer('event_id')
+      .notNull()
+      .references(() => attendedEvents.id, { onDelete: 'cascade' }),
+    playerId: integer('player_id')
+      .notNull()
+      .references(() => players.id),
+    teamId: integer('team_id'), // which team they played for in this game
+    isHome: integer('is_home').notNull().default(0), // 0/1
+    battingLine: text('batting_line'), // JSON: AB/R/H/RBI/BB/K/HR/avg/obp/slg/order
+    pitchingLine: text('pitching_line'), // JSON: IP/H/R/ER/BB/K/HR/pitches/strikes/era
+    fieldingLine: text('fielding_line'), // JSON: position-by-position innings
+    decision: text('decision', { enum: ['W', 'L', 'SV', 'HLD', 'BS'] }),
+    notable: integer('notable').notNull().default(0),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    uniqueIndex('idx_attended_event_players_unique').on(
+      table.eventId,
+      table.playerId
+    ),
+    index('idx_attended_event_players_event').on(table.eventId),
+    index('idx_attended_event_players_player').on(table.playerId),
+    index('idx_attended_event_players_decision').on(table.decision),
+    index('idx_attended_event_players_notable').on(table.notable),
+  ]
+);
