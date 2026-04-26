@@ -2,11 +2,14 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { createDb } from '../db/client.js';
 import {
+  attendedEventPlayers,
   attendedEvents,
   attendedEventTickets,
+  players,
   venues,
 } from '../db/schema/attending.js';
 import { setCache } from '../lib/cache.js';
+import { getImageAttachmentBatch } from '../lib/images.js';
 import { notFound } from '../lib/errors.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses, PaginationMeta } from '../lib/schemas/common.js';
@@ -89,6 +92,48 @@ const AttendedEventSchema = z.object({
   attended: z.boolean().openapi({ example: true }),
   venue: VenueSchema.nullable(),
   tickets: z.array(TicketSchema),
+});
+
+const PlayerPhotoSchema = z.object({
+  cdn_url: z
+    .string()
+    .openapi({ example: 'https://cdn.rewind.rest/.../players/silo/123' }),
+  thumbhash: z.string().nullable(),
+  dominant_color: z.string().nullable().openapi({ example: '#1a3a6c' }),
+  accent_color: z.string().nullable().openapi({ example: '#c4ced4' }),
+});
+
+const PlayerSchema = z.object({
+  id: z.number().openapi({ example: 42 }),
+  league: z.string().openapi({ example: 'mlb' }),
+  mlb_stats_id: z.number().nullable().openapi({ example: 663728 }),
+  espn_id: z.string().nullable().openapi({ example: '41292' }),
+  full_name: z.string().openapi({ example: 'Cal Raleigh' }),
+  primary_position: z.string().nullable().openapi({ example: 'C' }),
+  primary_number: z.string().nullable().openapi({ example: '29' }),
+  birth_date: z.string().nullable().openapi({ example: '1996-11-26' }),
+  birth_country: z.string().nullable().openapi({ example: 'USA' }),
+  bats: z.string().nullable().openapi({ example: 'B' }),
+  throws: z.string().nullable().openapi({ example: 'R' }),
+  primary_team_id: z.number().nullable().openapi({ example: 136 }),
+  debut_date: z.string().nullable().openapi({ example: '2021-07-11' }),
+  photo_silo: PlayerPhotoSchema.nullable(),
+  photo_full: PlayerPhotoSchema.nullable(),
+});
+
+const AppearanceSchema = z.object({
+  player: PlayerSchema,
+  team_id: z.number().nullable(),
+  is_home: z.boolean(),
+  batting_line: z.record(z.string(), z.any()).nullable(),
+  pitching_line: z.record(z.string(), z.any()).nullable(),
+  fielding_line: z.record(z.string(), z.any()).nullable(),
+  decision: z.string().nullable().openapi({ example: 'W' }),
+  notable: z.boolean(),
+});
+
+const AttendedEventDetailSchema = AttendedEventSchema.extend({
+  players: z.array(AppearanceSchema),
 });
 
 // ─── GET /events ────────────────────────────────────────────────────
@@ -284,7 +329,7 @@ const eventDetailRoute = createRoute({
     200: {
       description: 'Event detail',
       content: {
-        'application/json': { schema: AttendedEventSchema },
+        'application/json': { schema: AttendedEventDetailSchema },
       },
     },
     ...errorResponses(401, 404),
@@ -311,6 +356,23 @@ attending.openapi(eventDetailRoute, async (c) => {
     .select()
     .from(attendedEventTickets)
     .where(eq(attendedEventTickets.eventId, e.id));
+
+  // Per-game player appearances (populated for MLB games via the
+  // box score backfill). Joined with the players table to surface
+  // bios and photo lookups.
+  const appearanceRows = await db
+    .select()
+    .from(attendedEventPlayers)
+    .leftJoin(players, eq(players.id, attendedEventPlayers.playerId))
+    .where(eq(attendedEventPlayers.eventId, e.id));
+
+  const playerIdStrings = appearanceRows
+    .map((r) => (r.players ? String(r.players.id) : null))
+    .filter((s): s is string => s !== null);
+  const [siloMap, fullMap] = await Promise.all([
+    getImageAttachmentBatch(db, 'attending', 'player_silo', playerIdStrings),
+    getImageAttachmentBatch(db, 'attending', 'player_full', playerIdStrings),
+  ]);
 
   setCache(c, 'short');
   return c.json(
@@ -352,6 +414,39 @@ attending.openapi(eventDetailRoute, async (c) => {
         currency: t.currency,
         purchased_at: t.purchasedAt,
       })),
+      players: appearanceRows
+        .filter((r) => r.players != null)
+        .map((r) => {
+          const p = r.players!;
+          const a = r.attended_event_players;
+          const eid = String(p.id);
+          return {
+            player: {
+              id: p.id,
+              league: p.league,
+              mlb_stats_id: p.mlbStatsId,
+              espn_id: p.espnId,
+              full_name: p.fullName,
+              primary_position: p.primaryPosition,
+              primary_number: p.primaryNumber,
+              birth_date: p.birthDate,
+              birth_country: p.birthCountry,
+              bats: p.bats,
+              throws: p.throws,
+              primary_team_id: p.primaryTeamId,
+              debut_date: p.debutDate,
+              photo_silo: siloMap.get(eid) ?? null,
+              photo_full: fullMap.get(eid) ?? null,
+            },
+            team_id: a.teamId,
+            is_home: a.isHome === 1,
+            batting_line: parseJson<Record<string, unknown>>(a.battingLine),
+            pitching_line: parseJson<Record<string, unknown>>(a.pitchingLine),
+            fielding_line: parseJson<Record<string, unknown>>(a.fieldingLine),
+            decision: a.decision,
+            notable: a.notable === 1,
+          };
+        }),
     },
     200
   );
@@ -605,6 +700,207 @@ attending.openapi(statsRoute, async (c) => {
       by_category: byCategory,
       by_event_type: byEventType,
       by_year: byYear,
+    },
+    200
+  );
+});
+
+// ─── GET /players ───────────────────────────────────────────────────
+
+const playersListRoute = createRoute({
+  method: 'get',
+  path: '/players',
+  operationId: 'listAttendedPlayers',
+  tags: ['Attending'],
+  summary: 'List players you have watched play',
+  description:
+    'Returns players who appeared in any attended sports event. Filterable by league and team_id. Includes both photo variants when available.',
+  request: {
+    query: z.object({
+      page: z.coerce.number().int().min(1).optional().default(1),
+      limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+      league: z.string().optional().openapi({ example: 'mlb' }),
+      team_id: z.coerce.number().int().optional().openapi({ example: 136 }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Players',
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.array(PlayerSchema),
+            pagination: PaginationMeta,
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+attending.openapi(playersListRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const { page, limit, league, team_id } = c.req.valid('query');
+  const offset = (page - 1) * limit;
+
+  const conditions = [eq(players.userId, 1)];
+  if (league) conditions.push(eq(players.league, league));
+  if (team_id) conditions.push(eq(players.primaryTeamId, team_id));
+  const where = and(...conditions);
+
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(players)
+    .where(where);
+
+  const rows = await db
+    .select()
+    .from(players)
+    .where(where)
+    .orderBy(asc(players.lastName), asc(players.firstName))
+    .limit(limit)
+    .offset(offset);
+
+  const playerIds = rows.map((p) => String(p.id));
+  const [siloMap, fullMap] = await Promise.all([
+    getImageAttachmentBatch(db, 'attending', 'player_silo', playerIds),
+    getImageAttachmentBatch(db, 'attending', 'player_full', playerIds),
+  ]);
+
+  setCache(c, 'medium');
+  return c.json(
+    {
+      data: rows.map((p) => ({
+        id: p.id,
+        league: p.league,
+        mlb_stats_id: p.mlbStatsId,
+        espn_id: p.espnId,
+        full_name: p.fullName,
+        primary_position: p.primaryPosition,
+        primary_number: p.primaryNumber,
+        birth_date: p.birthDate,
+        birth_country: p.birthCountry,
+        bats: p.bats,
+        throws: p.throws,
+        primary_team_id: p.primaryTeamId,
+        debut_date: p.debutDate,
+        photo_silo: siloMap.get(String(p.id)) ?? null,
+        photo_full: fullMap.get(String(p.id)) ?? null,
+      })),
+      pagination: paginate(page, limit, count),
+    },
+    200
+  );
+});
+
+// ─── GET /players/:id ───────────────────────────────────────────────
+
+const playerDetailRoute = createRoute({
+  method: 'get',
+  path: '/players/{id}',
+  operationId: 'getAttendedPlayer',
+  tags: ['Attending'],
+  summary: 'Get a player you have watched play',
+  description:
+    "Returns the player bio with both photo variants when available, plus a list of every attended event in which they appeared along with that game's stat lines.",
+  request: {
+    params: z.object({
+      id: z.coerce
+        .number()
+        .int()
+        .openapi({ param: { name: 'id', in: 'path', required: true } }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Player detail',
+      content: {
+        'application/json': {
+          schema: PlayerSchema.extend({
+            appearances: z.array(
+              z.object({
+                event_id: z.number(),
+                event_date: z.string(),
+                title: z.string(),
+                team_id: z.number().nullable(),
+                is_home: z.boolean(),
+                batting_line: z.record(z.string(), z.any()).nullable(),
+                pitching_line: z.record(z.string(), z.any()).nullable(),
+                decision: z.string().nullable(),
+                notable: z.boolean(),
+              })
+            ),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401, 404),
+  },
+});
+
+attending.openapi(playerDetailRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const { id } = c.req.valid('param');
+
+  const [p] = await db
+    .select()
+    .from(players)
+    .where(and(eq(players.id, id), eq(players.userId, 1)))
+    .limit(1);
+  if (!p) return notFound(c, 'Player not found') as any;
+
+  const eid = String(p.id);
+  const [siloMap, fullMap] = await Promise.all([
+    getImageAttachmentBatch(db, 'attending', 'player_silo', [eid]),
+    getImageAttachmentBatch(db, 'attending', 'player_full', [eid]),
+  ]);
+
+  const appearances = await db
+    .select()
+    .from(attendedEventPlayers)
+    .leftJoin(
+      attendedEvents,
+      eq(attendedEvents.id, attendedEventPlayers.eventId)
+    )
+    .where(eq(attendedEventPlayers.playerId, id))
+    .orderBy(desc(attendedEvents.eventDate));
+
+  setCache(c, 'medium');
+  return c.json(
+    {
+      id: p.id,
+      league: p.league,
+      mlb_stats_id: p.mlbStatsId,
+      espn_id: p.espnId,
+      full_name: p.fullName,
+      primary_position: p.primaryPosition,
+      primary_number: p.primaryNumber,
+      birth_date: p.birthDate,
+      birth_country: p.birthCountry,
+      bats: p.bats,
+      throws: p.throws,
+      primary_team_id: p.primaryTeamId,
+      debut_date: p.debutDate,
+      photo_silo: siloMap.get(eid) ?? null,
+      photo_full: fullMap.get(eid) ?? null,
+      appearances: appearances
+        .filter((r) => r.attended_events != null)
+        .map((r) => {
+          const a = r.attended_event_players;
+          const ev = r.attended_events!;
+          return {
+            event_id: ev.id,
+            event_date: ev.eventDate,
+            title: ev.title,
+            team_id: a.teamId,
+            is_home: a.isHome === 1,
+            batting_line: parseJson<Record<string, unknown>>(a.battingLine),
+            pitching_line: parseJson<Record<string, unknown>>(a.pitchingLine),
+            decision: a.decision,
+            notable: a.notable === 1,
+          };
+        }),
     },
     200
   );

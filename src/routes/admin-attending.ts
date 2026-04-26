@@ -659,4 +659,153 @@ adminAttending.openapi(enrichBoxScoresRoute, async (c) => {
   }
 });
 
+// ─── POST /v1/admin/attending/enrich-player-photos ──────────────────
+
+const EnrichPlayerPhotosBody = z
+  .object({
+    player_ids: z.array(z.number().int()).optional(),
+    skip_existing: z.boolean().optional().default(true),
+    silo_only: z.boolean().optional().default(false),
+    limit: z.number().int().min(1).max(2000).optional().default(1000),
+  })
+  .openapi('AttendingEnrichPlayerPhotosBody');
+
+const EnrichPlayerPhotosResponse = z
+  .object({
+    status: z.literal('completed'),
+    scanned: z.number().int(),
+    silo_inserted: z.number().int(),
+    silo_skipped: z.number().int(),
+    silo_failed: z.number().int(),
+    full_inserted: z.number().int(),
+    full_skipped: z.number().int(),
+    full_failed: z.number().int(),
+    failures: z.array(
+      z.object({ player_id: z.number().int(), reason: z.string() })
+    ),
+  })
+  .openapi('AttendingEnrichPlayerPhotosResponse');
+
+const enrichPlayerPhotosRoute = createRoute({
+  method: 'post',
+  path: '/admin/attending/enrich-player-photos',
+  operationId: 'adminAttendingEnrichPlayerPhotos',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Backfill player photos through the image pipeline',
+  description:
+    "Fetches the MLB silo cutout for every player and the ESPN full-body PNG when an espn_id is known. Stores both via the existing image pipeline (R2 + thumbhash + dominant_color) keyed on (domain='attending', entity_type='player_silo'|'player_full'). Idempotent.",
+  request: {
+    body: {
+      content: { 'application/json': { schema: EnrichPlayerPhotosBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Photo backfill completed',
+      content: {
+        'application/json': { schema: EnrichPlayerPhotosResponse },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminAttending.openapi(enrichPlayerPhotosRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  type Opts = {
+    player_ids?: number[];
+    skip_existing?: boolean;
+    silo_only?: boolean;
+    limit?: number;
+  };
+  const body: Opts = await c.req.json<Opts>().catch(() => ({}) as Opts);
+
+  try {
+    const { enrichPlayerPhotos } =
+      await import('../services/attending/enrich-player-photos.js');
+    const result = await enrichPlayerPhotos(db, c.env, {
+      playerIds: body.player_ids,
+      skipExisting: body.skip_existing ?? true,
+      siloOnly: body.silo_only ?? false,
+      limit: body.limit ?? 1000,
+    });
+    return c.json({ status: 'completed' as const, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(
+      `[ERROR] POST /admin/attending/enrich-player-photos: ${message}`
+    );
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// ─── POST /v1/admin/attending/enrich-espn-ids ───────────────────────
+
+const EnrichEspnIdsBody = z
+  .object({
+    event_ids: z.array(z.number().int()).optional(),
+    limit: z.number().int().min(1).max(500).optional().default(100),
+  })
+  .openapi('AttendingEnrichEspnIdsBody');
+
+const EnrichEspnIdsResponse = z
+  .object({
+    status: z.literal('completed'),
+    scanned_events: z.number().int(),
+    matched_events: z.number().int(),
+    resolved_player_ids: z.number().int(),
+    failures: z.array(
+      z.object({ event_id: z.number().int(), reason: z.string() })
+    ),
+  })
+  .openapi('AttendingEnrichEspnIdsResponse');
+
+const enrichEspnIdsRoute = createRoute({
+  method: 'post',
+  path: '/admin/attending/enrich-espn-ids',
+  operationId: 'adminAttendingEnrichEspnIds',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Resolve ESPN player IDs via game summaries',
+  description:
+    'For each attended MLB game, hits ESPN’s schedule + summary endpoints, walks the box score, and matches each ESPN athlete to an MLB player by last_name + jersey to populate players.espn_id. Run before enrich-player-photos to unlock the ESPN full-body photo variant.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: EnrichEspnIdsBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'ESPN ID cross-reference completed',
+      content: {
+        'application/json': { schema: EnrichEspnIdsResponse },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminAttending.openapi(enrichEspnIdsRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  type Opts = { event_ids?: number[]; limit?: number };
+  const body: Opts = await c.req.json<Opts>().catch(() => ({}) as Opts);
+
+  try {
+    const { enrichEspnIds } =
+      await import('../services/attending/enrich-espn-ids.js');
+    const result = await enrichEspnIds(db, {
+      eventIds: body.event_ids,
+      limit: body.limit ?? 100,
+    });
+    return c.json({ status: 'completed' as const, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/attending/enrich-espn-ids: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
 export default adminAttending;
