@@ -3,6 +3,7 @@ import { desc, eq, and, lt, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { activityFeed } from '../db/schema/system.js';
 import { setCache } from '../lib/cache.js';
+import { chunkForInsertValues, chunkForSelectIn } from '../lib/d1-chunk.js';
 import { DateFilterQuery, buildDateCondition } from '../lib/date-filters.js';
 import { requireAuth } from '../lib/auth.js';
 import { badRequest } from '../lib/errors.js';
@@ -447,13 +448,11 @@ export async function insertFeedItem(
 /**
  * Batch insert activity feed items. Called by domain sync services.
  *
- * D1 caps bound parameters per query (~256 in practice). Both the
- * dedupe SELECT (`IN (?, ?, ...)`) and the multi-row INSERT
- * (`VALUES (?, ?, ?, ...), (...)`) can blow past that with large
- * batches — sport-domain backfills routinely hand us 200+ items.
- * Chunk both operations: 200 source_ids per dedupe lookup, 20 rows
- * per INSERT (20 × 11 columns ≈ 220 params, comfortably under the
- * cap with headroom).
+ * D1's effective per-query parameter cap is ~100 (not the documented
+ * 256). Both the dedupe SELECT and the multi-row INSERT can blow past
+ * that with batches of 200+ items, so we route both through the
+ * `chunkForSelectIn` / `chunkForInsertValues` helpers in `lib/d1-chunk`
+ * which encode the empirically-derived cap in one place.
  */
 export async function insertFeedItems(
   db: ReturnType<typeof drizzle>,
@@ -471,19 +470,14 @@ export async function insertFeedItems(
 ) {
   if (items.length === 0) return;
 
-  // D1's effective per-query param cap is around 100 in practice;
-  // 200-source-id IN-lists still tripped the planner. Stay well below.
-  const SELECT_CHUNK = 80; // dedupe IN-list cap (+ 1 for domain)
-  const INSERT_CHUNK = 8; // INSERT VALUES row cap (8 × 11 cols = 88 params)
-
   const domains = [...new Set(items.map((i) => i.domain))];
 
   // Chunked dedupe lookup: walk source_ids in batches and accumulate
-  // the keys already present in activity_feed.
+  // the keys already present in activity_feed. Reserve params for the
+  // companion `domain IN (...)` predicate so the combined query fits.
   const existingSet = new Set<string>();
   const sourceIds = items.map((i) => i.sourceId);
-  for (let i = 0; i < sourceIds.length; i += SELECT_CHUNK) {
-    const chunk = sourceIds.slice(i, i + SELECT_CHUNK);
+  for (const chunk of chunkForSelectIn(sourceIds, domains.length)) {
     const existing = await db
       .select({
         sourceId: activityFeed.sourceId,
@@ -527,8 +521,9 @@ export async function insertFeedItems(
     createdAt: now,
   }));
 
-  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-    await db.insert(activityFeed).values(rows.slice(i, i + INSERT_CHUNK));
+  // 10 columns per row in the activity_feed insert shape above.
+  for (const batch of chunkForInsertValues(rows, 10)) {
+    await db.insert(activityFeed).values(batch);
   }
 }
 

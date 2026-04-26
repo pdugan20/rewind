@@ -12,6 +12,7 @@ import {
 import type { Env } from '../../types/env.js';
 import { StravaClient } from './client.js';
 import { afterSync } from '../../lib/after-sync.js';
+import { chunkForInsertValues } from '../../lib/d1-chunk.js';
 import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import {
   transformActivity,
@@ -126,8 +127,10 @@ export async function syncRunning(env: Env, db: Database): Promise<number> {
             detailedActivity.id,
             detailedActivity.splits_standard
           );
-          if (splitValues.length > 0) {
-            await db.insert(stravaSplits).values(splitValues);
+          // 16 cols × up to 26 splits (marathon) can exceed D1's
+          // ~88-param effective cap; chunk to stay under it.
+          for (const batch of chunkForInsertValues(splitValues, 16)) {
+            await db.insert(stravaSplits).values(batch);
           }
         }
 
@@ -585,8 +588,8 @@ export async function syncSingleActivity(
       .where(eq(stravaSplits.activityStravaId, stravaId));
 
     const splitValues = transformSplits(stravaId, activity.splits_standard);
-    if (splitValues.length > 0) {
-      await db.insert(stravaSplits).values(splitValues);
+    for (const batch of chunkForInsertValues(splitValues, 16)) {
+      await db.insert(stravaSplits).values(batch);
     }
   }
 
