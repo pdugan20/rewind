@@ -106,6 +106,34 @@ type AttendingStats = {
   by_year: Array<{ year: string; count: number }>;
 };
 
+type AttendingYearInReview = {
+  year: number;
+  total_events: number;
+  total_spent_cents: number;
+  by_category: Array<{ category: string; count: number }>;
+  by_event_type: Array<{ event_type: string; count: number }>;
+  monthly: Array<{ month: string; count: number }>;
+  top_venues: Array<{
+    venue_id: number;
+    name: string;
+    city: string | null;
+    count: number;
+  }>;
+  top_performers: Array<{
+    performer_id: number;
+    name: string;
+    count: number;
+  }>;
+  events: Array<{
+    id: number;
+    event_date: string;
+    event_type: string;
+    title: string;
+    subtitle: string | null;
+    venue_name: string | null;
+  }>;
+};
+
 // ─── Tool registration ───────────────────────────────────────────────
 
 export function registerAttendingTools(
@@ -412,6 +440,58 @@ export function registerAttendingTools(
             const stat = summarizeAppearance(a);
             const decision = a.decision ? ` (${a.decision})` : '';
             lines.push(`  ${a.player.full_name}${decision} -- ${stat}`);
+          }
+        }
+
+        return {
+          content: [text(lines.join('\n'))],
+          structuredContent: data,
+        };
+      })
+  );
+
+  // get_attending_year_in_review ────────────────────────────────────
+  server.tool(
+    'get_attending_year_in_review',
+    'Year-in-review summary for attended events: totals, monthly breakdown, top venues, top concert performers, and the full event list. Use this when the user asks "what shows did I see in 2024" or "best year for games".',
+    {
+      year: z.number().int().describe('Calendar year, e.g. 2024.'),
+    },
+    READ_ONLY_ANNOTATIONS,
+    async ({ year }) =>
+      withRichResponse(async () => {
+        const data = await client.get<AttendingYearInReview>(
+          `/attending/year/${year}`
+        );
+
+        const lines = [
+          `${data.year}: ${fmt(data.total_events)} attended events`,
+        ];
+        if (data.total_spent_cents > 0) {
+          lines.push(
+            `Total ticket spend: $${(data.total_spent_cents / 100).toFixed(2)}`
+          );
+        }
+
+        if (data.by_event_type.length) {
+          lines.push('', 'By event type:');
+          for (const r of data.by_event_type) {
+            lines.push(`  ${r.event_type}: ${fmt(r.count)}`);
+          }
+        }
+
+        if (data.top_venues.length) {
+          lines.push('', 'Top venues:');
+          for (const v of data.top_venues) {
+            const city = v.city ? ` (${v.city})` : '';
+            lines.push(`  ${v.name}${city}: ${fmt(v.count)}`);
+          }
+        }
+
+        if (data.top_performers.length) {
+          lines.push('', 'Top performers:');
+          for (const p of data.top_performers) {
+            lines.push(`  ${p.name}: ${fmt(p.count)}`);
           }
         }
 

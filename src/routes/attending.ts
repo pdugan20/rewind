@@ -1,16 +1,18 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { createDb } from '../db/client.js';
 import {
+  attendedEventPerformers,
   attendedEventPlayers,
   attendedEvents,
   attendedEventTickets,
+  performers,
   players,
   venues,
 } from '../db/schema/attending.js';
 import { setCache } from '../lib/cache.js';
 import { getImageAttachmentBatch } from '../lib/images.js';
-import { notFound } from '../lib/errors.js';
+import { badRequest, notFound } from '../lib/errors.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses, PaginationMeta } from '../lib/schemas/common.js';
 
@@ -901,6 +903,247 @@ attending.openapi(playerDetailRoute, async (c) => {
             notable: a.notable === 1,
           };
         }),
+    },
+    200
+  );
+});
+
+// ─── GET /year/{year} ───────────────────────────────────────────────
+
+const YearParamSchema = z.object({
+  year: z.coerce
+    .number()
+    .int()
+    .openapi({
+      param: { name: 'year', in: 'path', required: true },
+      example: 2024,
+    }),
+});
+
+const YearInReviewSchema = z.object({
+  year: z.number(),
+  total_events: z.number(),
+  total_spent_cents: z.number(),
+  by_category: z.array(z.object({ category: z.string(), count: z.number() })),
+  by_event_type: z.array(
+    z.object({ event_type: z.string(), count: z.number() })
+  ),
+  monthly: z.array(
+    z.object({
+      month: z.string().openapi({ example: '2024-08' }),
+      count: z.number(),
+    })
+  ),
+  top_venues: z.array(
+    z.object({
+      venue_id: z.number(),
+      name: z.string(),
+      city: z.string().nullable(),
+      count: z.number(),
+    })
+  ),
+  top_performers: z.array(
+    z.object({
+      performer_id: z.number(),
+      name: z.string(),
+      count: z.number(),
+    })
+  ),
+  events: z.array(
+    z.object({
+      id: z.number(),
+      event_date: z.string(),
+      event_type: z.string(),
+      title: z.string(),
+      subtitle: z.string().nullable(),
+      venue_name: z.string().nullable(),
+    })
+  ),
+});
+
+const yearInReviewRoute = createRoute({
+  method: 'get',
+  path: '/year/{year}',
+  operationId: 'getAttendingYearInReview',
+  tags: ['Attending'],
+  summary: 'Year in review',
+  description:
+    'Returns a year-in-review summary for attended events: totals, monthly breakdown, top venues, top concert performers, and the full event list. 404 when no attended events exist for the year.',
+  request: {
+    params: YearParamSchema,
+  },
+  responses: {
+    200: {
+      description: 'Year in review',
+      content: { 'application/json': { schema: YearInReviewSchema } },
+    },
+    ...errorResponses(400, 401, 404),
+  },
+});
+
+attending.openapi(yearInReviewRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const { year } = c.req.valid('param');
+  const currentYear = new Date().getFullYear();
+
+  if (year < 2000 || year > currentYear + 1) {
+    return badRequest(c, 'Invalid year') as any;
+  }
+
+  setCache(c, year < currentYear ? 'long' : 'medium');
+
+  const startDate = `${year}-01-01`;
+  const endDate = `${year}-12-31`;
+  // event_date is venue-local YYYY-MM-DD; lexicographic comparison is
+  // safe within a year. attended=1 only — events you didn't actually go
+  // to don't count toward the recap.
+  const where = and(
+    eq(attendedEvents.userId, 1),
+    eq(attendedEvents.attended, 1),
+    gte(attendedEvents.eventDate, startDate),
+    lte(attendedEvents.eventDate, endDate)
+  );
+
+  // Six aggregates fan out in parallel; same pattern as the listening
+  // year-in-review (see commit 2d0a193 for the rationale).
+  const totalsP = db
+    .select({ total: sql<number>`count(*)` })
+    .from(attendedEvents)
+    .where(where);
+
+  const byCategoryP = db
+    .select({
+      category: attendedEvents.category,
+      count: sql<number>`count(*)`,
+    })
+    .from(attendedEvents)
+    .where(where)
+    .groupBy(attendedEvents.category)
+    .orderBy(desc(sql`count(*)`));
+
+  const byEventTypeP = db
+    .select({
+      event_type: attendedEvents.eventType,
+      count: sql<number>`count(*)`,
+    })
+    .from(attendedEvents)
+    .where(where)
+    .groupBy(attendedEvents.eventType)
+    .orderBy(desc(sql`count(*)`));
+
+  const monthlyRowsP = db
+    .select({
+      month: sql<string>`substr(${attendedEvents.eventDate}, 1, 7)`,
+      count: sql<number>`count(*)`,
+    })
+    .from(attendedEvents)
+    .where(where)
+    .groupBy(sql`substr(${attendedEvents.eventDate}, 1, 7)`)
+    .orderBy(asc(sql`substr(${attendedEvents.eventDate}, 1, 7)`));
+
+  const topVenuesP = db
+    .select({
+      venue_id: venues.id,
+      name: venues.name,
+      city: venues.city,
+      count: sql<number>`count(*)`,
+    })
+    .from(attendedEvents)
+    .innerJoin(venues, eq(venues.id, attendedEvents.venueId))
+    .where(where)
+    .groupBy(venues.id)
+    .orderBy(desc(sql`count(*)`))
+    .limit(5);
+
+  const topPerformersP = db
+    .select({
+      performer_id: performers.id,
+      name: performers.name,
+      count: sql<number>`count(*)`,
+    })
+    .from(attendedEventPerformers)
+    .innerJoin(
+      performers,
+      eq(performers.id, attendedEventPerformers.performerId)
+    )
+    .innerJoin(
+      attendedEvents,
+      eq(attendedEvents.id, attendedEventPerformers.eventId)
+    )
+    .where(where)
+    .groupBy(performers.id)
+    .orderBy(desc(sql`count(*)`))
+    .limit(5);
+
+  const totalSpentP = db
+    .select({
+      cents: sql<number>`coalesce(sum(${attendedEventTickets.totalPriceCents}), 0)`,
+    })
+    .from(attendedEventTickets)
+    .innerJoin(
+      attendedEvents,
+      eq(attendedEvents.id, attendedEventTickets.eventId)
+    )
+    .where(where);
+
+  const eventsListP = db
+    .select({
+      id: attendedEvents.id,
+      event_date: attendedEvents.eventDate,
+      event_type: attendedEvents.eventType,
+      title: attendedEvents.title,
+      subtitle: attendedEvents.subtitle,
+      venue_name: venues.name,
+    })
+    .from(attendedEvents)
+    .leftJoin(venues, eq(venues.id, attendedEvents.venueId))
+    .where(where)
+    .orderBy(asc(attendedEvents.eventDate));
+
+  const [
+    totals,
+    byCategory,
+    byEventType,
+    monthlyRows,
+    topVenues,
+    topPerformers,
+    totalSpent,
+    eventsList,
+  ] = await Promise.all([
+    totalsP,
+    byCategoryP,
+    byEventTypeP,
+    monthlyRowsP,
+    topVenuesP,
+    topPerformersP,
+    totalSpentP,
+    eventsListP,
+  ]);
+
+  const totalEvents = totals[0]?.total ?? 0;
+  if (totalEvents === 0) {
+    return notFound(c, `No attended events for year ${year}`) as any;
+  }
+
+  // Backfill missing months with zeros so consumers don't have to.
+  const monthlyMap = new Map(monthlyRows.map((r) => [r.month, r.count]));
+  const monthly = Array.from({ length: 12 }, (_, i) => {
+    const mm = String(i + 1).padStart(2, '0');
+    const key = `${year}-${mm}`;
+    return { month: key, count: monthlyMap.get(key) ?? 0 };
+  });
+
+  return c.json(
+    {
+      year,
+      total_events: totalEvents,
+      total_spent_cents: totalSpent[0]?.cents ?? 0,
+      by_category: byCategory,
+      by_event_type: byEventType,
+      monthly,
+      top_venues: topVenues,
+      top_performers: topPerformers,
+      events: eventsList,
     },
     200
   );

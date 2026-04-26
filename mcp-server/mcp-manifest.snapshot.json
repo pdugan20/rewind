@@ -313,6 +313,24 @@
       }
     },
     {
+      "name": "get_attending_year_in_review",
+      "description": "Year-in-review summary for attended events: totals, monthly breakdown, top venues, top concert performers, and the full event list. Use this when the user asks \"what shows did I see in 2024\" or \"best year for games\".",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "description": "Calendar year, e.g. 2024."
+          }
+        },
+        "required": [
+          "year"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
       "name": "get_collecting_stats",
       "description": "Get overall collection statistics including total items, format breakdown (vinyl, CD, cassette), unique artists, genre data, and year range. Supports date filtering.",
       "inputSchema": {

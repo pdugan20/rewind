@@ -19811,6 +19811,240 @@
         }
       }
     },
+    "/v1/attending/year/{year}": {
+      "get": {
+        "operationId": "getAttendingYearInReview",
+        "tags": [
+          "Attending"
+        ],
+        "summary": "Year in review",
+        "description": "Returns a year-in-review summary for attended events: totals, monthly breakdown, top venues, top concert performers, and the full event list. 404 when no attended events exist for the year.",
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "example": 2024
+            },
+            "required": true,
+            "name": "year",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Year in review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "year": {
+                      "type": "number"
+                    },
+                    "total_events": {
+                      "type": "number"
+                    },
+                    "total_spent_cents": {
+                      "type": "number"
+                    },
+                    "by_category": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "category",
+                          "count"
+                        ]
+                      }
+                    },
+                    "by_event_type": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "event_type",
+                          "count"
+                        ]
+                      }
+                    },
+                    "monthly": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "month": {
+                            "type": "string",
+                            "example": "2024-08"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "month",
+                          "count"
+                        ]
+                      }
+                    },
+                    "top_venues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "venue_id": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "city": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "venue_id",
+                          "name",
+                          "city",
+                          "count"
+                        ]
+                      }
+                    },
+                    "top_performers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "performer_id": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "performer_id",
+                          "name",
+                          "count"
+                        ]
+                      }
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "event_date": {
+                            "type": "string"
+                          },
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "venue_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "event_date",
+                          "event_type",
+                          "title",
+                          "subtitle",
+                          "venue_name"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "year",
+                    "total_events",
+                    "total_spent_cents",
+                    "by_category",
+                    "by_event_type",
+                    "monthly",
+                    "top_venues",
+                    "top_performers",
+                    "events"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/feed": {
       "get": {
         "operationId": "getFeed",
