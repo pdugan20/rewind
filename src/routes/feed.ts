@@ -440,6 +440,14 @@ export async function insertFeedItem(
 
 /**
  * Batch insert activity feed items. Called by domain sync services.
+ *
+ * D1 caps bound parameters per query (~256 in practice). Both the
+ * dedupe SELECT (`IN (?, ?, ...)`) and the multi-row INSERT
+ * (`VALUES (?, ?, ?, ...), (...)`) can blow past that with large
+ * batches — sport-domain backfills routinely hand us 200+ items.
+ * Chunk both operations: 200 source_ids per dedupe lookup, 20 rows
+ * per INSERT (20 × 11 columns ≈ 220 params, comfortably under the
+ * cap with headroom).
  */
 export async function insertFeedItems(
   db: ReturnType<typeof drizzle>,
@@ -457,30 +465,39 @@ export async function insertFeedItems(
 ) {
   if (items.length === 0) return;
 
-  // Get existing sourceIds for these domains to skip duplicates
+  const SELECT_CHUNK = 200; // dedupe IN-list cap
+  const INSERT_CHUNK = 20; // INSERT VALUES row cap (× 11 cols ≈ 220 params)
+
   const domains = [...new Set(items.map((i) => i.domain))];
+
+  // Chunked dedupe lookup: walk source_ids in batches and accumulate
+  // the keys already present in activity_feed.
+  const existingSet = new Set<string>();
   const sourceIds = items.map((i) => i.sourceId);
-
-  const existing = await db
-    .select({
-      sourceId: activityFeed.sourceId,
-      domain: activityFeed.domain,
-    })
-    .from(activityFeed)
-    .where(
-      and(
-        sql`${activityFeed.domain} IN (${sql.join(
-          domains.map((d) => sql`${d}`),
-          sql`, `
-        )})`,
-        sql`${activityFeed.sourceId} IN (${sql.join(
-          sourceIds.map((s) => sql`${s}`),
-          sql`, `
-        )})`
-      )
-    );
-
-  const existingSet = new Set(existing.map((e) => `${e.domain}:${e.sourceId}`));
+  for (let i = 0; i < sourceIds.length; i += SELECT_CHUNK) {
+    const chunk = sourceIds.slice(i, i + SELECT_CHUNK);
+    const existing = await db
+      .select({
+        sourceId: activityFeed.sourceId,
+        domain: activityFeed.domain,
+      })
+      .from(activityFeed)
+      .where(
+        and(
+          sql`${activityFeed.domain} IN (${sql.join(
+            domains.map((d) => sql`${d}`),
+            sql`, `
+          )})`,
+          sql`${activityFeed.sourceId} IN (${sql.join(
+            chunk.map((s) => sql`${s}`),
+            sql`, `
+          )})`
+        )
+      );
+    for (const e of existing) {
+      existingSet.add(`${e.domain}:${e.sourceId}`);
+    }
+  }
 
   const newItems = items.filter(
     (i) => !existingSet.has(`${i.domain}:${i.sourceId}`)
@@ -489,20 +506,22 @@ export async function insertFeedItems(
   if (newItems.length === 0) return;
 
   const now = new Date().toISOString();
-  await db.insert(activityFeed).values(
-    newItems.map((item) => ({
-      userId: item.userId ?? 1,
-      domain: item.domain,
-      eventType: item.eventType,
-      occurredAt: item.occurredAt,
-      title: item.title,
-      subtitle: item.subtitle ?? null,
-      imageKey: item.imageKey ?? null,
-      sourceId: item.sourceId,
-      metadata: item.metadata ? JSON.stringify(item.metadata) : null,
-      createdAt: now,
-    }))
-  );
+  const rows = newItems.map((item) => ({
+    userId: item.userId ?? 1,
+    domain: item.domain,
+    eventType: item.eventType,
+    occurredAt: item.occurredAt,
+    title: item.title,
+    subtitle: item.subtitle ?? null,
+    imageKey: item.imageKey ?? null,
+    sourceId: item.sourceId,
+    metadata: item.metadata ? JSON.stringify(item.metadata) : null,
+    createdAt: now,
+  }));
+
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+    await db.insert(activityFeed).values(rows.slice(i, i + INSERT_CHUNK));
+  }
 }
 
 export default feed;
