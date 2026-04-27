@@ -30,6 +30,14 @@ bucket_name = "rewind-images"
 binding = "VECTORIZE_READING"
 index_name = "rewind-reading"
 
+# Shared KV namespace for fetch-on-render caches. Used by services that pull
+# live external data (e.g. MLB Stats API season stats, 1h TTL). Key prefixes
+# distinguish purposes: `mlb_stats:player:{id}:{season}`, `mlb_stats:teams:{season}`.
+[[kv_namespaces]]
+binding = "REWIND_CACHE"
+id = "e34b3662616b43048f3b7397f2fb9bac"
+preview_id = "b8773815b40f4bc5b739f5c3768457b1"
+
 # Cron Triggers
 [triggers]
 crons = [

@@ -4,6 +4,7 @@ export interface Env {
   IMAGES: R2Bucket;
   IMAGE_TRANSFORMS: ImagesBinding;
   VECTORIZE_READING: VectorizeIndex;
+  REWIND_CACHE: KVNamespace;
 
   // OG fallback scrapers for DataDome/PerimeterX-protected sources
   // (NYT, WSJ, Bloomberg, Reuters). Optional — calls skip if unset.
