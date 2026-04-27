@@ -144,7 +144,9 @@ adminSync.openapi(syncListeningRoute, async (c) => {
     | 'stats'
     | 'full'
     | 'backfill'
-    | 'artist_tags';
+    | 'artist_tags'
+    | 'artist_bios'
+    | 'artist_similar';
 
   const validTypes = [
     'scrobbles',
@@ -153,6 +155,8 @@ adminSync.openapi(syncListeningRoute, async (c) => {
     'full',
     'backfill',
     'artist_tags',
+    'artist_bios',
+    'artist_similar',
   ];
   if (!validTypes.includes(syncType)) {
     return badRequest(

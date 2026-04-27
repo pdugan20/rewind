@@ -1,5 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { eq, and, desc, sql, gte, lte, like, asc } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, lte, like, asc, inArray } from 'drizzle-orm';
 import { createDb, type Database } from '../db/client.js';
 import {
   lastfmArtists,
@@ -21,6 +21,10 @@ import { getImageAttachment, getImageAttachmentBatch } from '../lib/images.js';
 import { images } from '../db/schema/system.js';
 import { LastfmClient } from '../services/lastfm/client.js';
 import type { LastfmPeriod } from '../services/lastfm/client.js';
+import {
+  enrichArtistBio,
+  type SimilarArtistEntry,
+} from '../services/lastfm/enrichment.js';
 import { backfillImages } from '../services/images/backfill.js';
 import { enrichBatch, enrichArtistsByName } from '../services/itunes/enrich.js';
 import { refreshArtistImageFromAppleMusicId } from '../services/images/sync-images.js';
@@ -109,6 +113,8 @@ const TopAlbumItemSchema = TopItemSchema.extend({
 
 const TopTrackItemSchema = TopItemSchema.extend({
   sparkline: SparklineSchema.optional(),
+  album_id: z.number().nullable().optional(),
+  album_name: z.string().nullable().optional(),
 });
 
 const includeSparklinesField = z.coerce.boolean().optional().openapi({
@@ -127,6 +133,22 @@ const TopAlbumsQuery = PeriodQuery.extend({
 
 const TopTracksQuery = PeriodQuery.extend({
   include_sparklines: includeSparklinesField,
+  // Optional artist filter — returns this user's top tracks BY a single
+  // artist. Composes with `period` and the date filters. Either `artist_id`
+  // (preferred — stable id from get_artist_details) or `artist_name`
+  // (substring match against lastfm_artists.name) may be supplied; passing
+  // both is a 400. Filter is enforced via lastfm_top_tracks → lastfm_tracks
+  // join to lastfm_tracks.artist_id.
+  artist_id: z.coerce.number().int().positive().optional().openapi({
+    description:
+      "Filter top tracks to a single artist's catalog. Stable id from `get_artist_details` or `get_top_artists`. Composes with `period`.",
+    example: 189,
+  }),
+  artist_name: z.string().min(1).optional().openapi({
+    description:
+      'Substring match against `lastfm_artists.name`. Resolves to the highest-playcount artist. Use only when no `artist_id` is available; passing both is a 400.',
+    example: 'olivia rodrigo',
+  }),
 });
 
 const NowPlayingSchema = z.object({
@@ -223,6 +245,14 @@ const NormalizedTagSchema = z.object({
   count: z.number().openapi({ example: 100 }),
 });
 
+const SimilarArtistSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  your_scrobble_count: z.number(),
+  similarity_score: z.number(),
+  image: z.any().nullable(),
+});
+
 const ArtistDetailSchema = z.object({
   id: z.number(),
   name: z.string(),
@@ -231,9 +261,18 @@ const ArtistDetailSchema = z.object({
   apple_music_url: z.string().nullable(),
   playcount: z.number(),
   scrobble_count: z.number(),
+  first_scrobbled_at: z.string().nullable(),
+  last_played_at: z.string().nullable(),
+  all_time_rank: z.number().nullable(),
+  distinct_tracks: z.number(),
+  distinct_albums: z.number(),
   genre: z.string().nullable(),
   tags: z.array(NormalizedTagSchema).nullable(),
+  bio_summary: z.string().nullable(),
+  bio_content: z.string().nullable(),
+  bio_synced_at: z.string().nullable(),
   image: z.any().nullable(),
+  sparkline: SparklineSchema.nullable(),
   top_albums: z.array(
     z.object({
       id: z.number(),
@@ -247,11 +286,15 @@ const ArtistDetailSchema = z.object({
     z.object({
       id: z.number(),
       name: z.string(),
+      album_id: z.number().nullable(),
+      album_name: z.string().nullable(),
       scrobble_count: z.number(),
       apple_music_url: z.string().nullable(),
       preview_url: z.string().nullable(),
+      image: z.any().nullable(),
     })
   ),
+  similar_artists: z.array(SimilarArtistSchema),
 });
 
 const AlbumDetailSchema = z.object({
@@ -637,7 +680,7 @@ const topTracksRoute = createRoute({
   tags: ['Listening'],
   summary: 'Top tracks',
   description:
-    'Returns top tracks for a given time period. Pass `include_sparklines=true` to attach a play-count time series per track (1month/3month/6month/12month/overall).',
+    "Returns top tracks for a given time period. Pass `artist_id` (or `artist_name` substring) to filter to a single artist's catalog — composes with `period` and the date filters. Pass `include_sparklines=true` to attach a play-count time series per track (1month/3month/6month/12month/overall).",
   request: { query: TopTracksQuery },
   responses: {
     200: {
@@ -646,11 +689,13 @@ const topTracksRoute = createRoute({
         'application/json': {
           schema: z.object({
             period: z.string(),
+            artist_id: z.number().nullable().optional(),
             data: z.array(TopTrackItemSchema),
             pagination: PaginationMeta,
           }),
           example: {
             period: 'overall',
+            artist_id: null,
             data: [
               {
                 rank: 1,
@@ -1991,13 +2036,58 @@ listening.openapi(topTracksRoute, async (c) => {
   );
   const offset = (page - 1) * limit;
 
+  // Optional artist filter — `artist_id` (preferred, stable) or
+  // `artist_name` (substring resolver). Both supplied is a 400.
+  const artistIdParam = c.req.query('artist_id');
+  const artistNameParam = c.req.query('artist_name');
+  if (artistIdParam && artistNameParam) {
+    return badRequest(
+      c,
+      'Pass either artist_id or artist_name, not both.'
+    ) as any;
+  }
+  let resolvedArtistId: number | null = null;
+  if (artistIdParam) {
+    const parsed = parseInt(artistIdParam);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return badRequest(c, 'artist_id must be a positive integer.') as any;
+    }
+    resolvedArtistId = parsed;
+  } else if (artistNameParam) {
+    // Case-insensitive substring; tie-break by playcount desc.
+    const matches = await db
+      .select({ id: lastfmArtists.id })
+      .from(lastfmArtists)
+      .where(
+        and(
+          eq(lastfmArtists.isFiltered, 0),
+          like(
+            sql`lower(${lastfmArtists.name})`,
+            `%${artistNameParam.toLowerCase()}%`
+          )
+        )
+      )
+      .orderBy(desc(lastfmArtists.playcount))
+      .limit(1);
+    if (matches.length === 0) {
+      return notFound(c, `No artist matching '${artistNameParam}'.`) as any;
+    }
+    resolvedArtistId = matches[0].id;
+  }
+
+  const baseConditions = [
+    eq(lastfmTopTracks.period, period),
+    eq(lastfmTracks.isFiltered, 0),
+  ];
+  if (resolvedArtistId !== null) {
+    baseConditions.push(eq(lastfmTracks.artistId, resolvedArtistId));
+  }
+
   const [{ count: total }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(lastfmTopTracks)
     .innerJoin(lastfmTracks, eq(lastfmTopTracks.trackId, lastfmTracks.id))
-    .where(
-      and(eq(lastfmTopTracks.period, period), eq(lastfmTracks.isFiltered, 0))
-    );
+    .where(and(...baseConditions));
 
   const items = await db
     .select({
@@ -2008,14 +2098,15 @@ listening.openapi(topTracksRoute, async (c) => {
       trackUrl: lastfmTracks.url,
       trackAppleMusicUrl: lastfmTracks.appleMusicUrl,
       trackPreviewUrl: lastfmTracks.previewUrl,
+      albumId: lastfmTracks.albumId,
+      albumName: lastfmAlbums.name,
       artistName: lastfmArtists.name,
     })
     .from(lastfmTopTracks)
     .innerJoin(lastfmTracks, eq(lastfmTopTracks.trackId, lastfmTracks.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-    .where(
-      and(eq(lastfmTopTracks.period, period), eq(lastfmTracks.isFiltered, 0))
-    )
+    .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+    .where(and(...baseConditions))
     .orderBy(asc(lastfmTopTracks.rank))
     .limit(limit)
     .offset(offset);
@@ -2036,8 +2127,24 @@ listening.openapi(topTracksRoute, async (c) => {
       )
     : undefined;
 
+  // Album art lookup — track image == its album's image when present.
+  const albumIds = Array.from(
+    new Set(
+      items
+        .map((i) => (i.albumId ? String(i.albumId) : null))
+        .filter((s): s is string => s !== null)
+    )
+  );
+  const albumImageMap = await getImageAttachmentBatch(
+    db,
+    'listening',
+    'albums',
+    albumIds
+  );
+
   return c.json({
     period,
+    artist_id: resolvedArtistId,
     data: items.map((item) => {
       const sparkline = sparklineMap?.get(item.trackId);
       return {
@@ -2045,8 +2152,12 @@ listening.openapi(topTracksRoute, async (c) => {
         id: item.trackId,
         name: item.trackName,
         detail: item.artistName,
+        album_id: item.albumId,
+        album_name: item.albumName ?? null,
         playcount: item.playcount,
-        image: null,
+        image: item.albumId
+          ? (albumImageMap.get(String(item.albumId)) ?? null)
+          : null,
         url: item.trackUrl ?? '',
         apple_music_url: item.trackAppleMusicUrl ?? null,
         preview_url: item.trackPreviewUrl ?? null,
@@ -2425,12 +2536,34 @@ listening.openapi(artistDetailRoute, async (c) => {
 
   if (!artist) return notFound(c, 'Artist not found') as any;
 
-  // Get scrobble count (exclude filtered tracks)
-  const [scrobbleCount] = await db
-    .select({ count: sql<number>`count(*)` })
+  // Get scrobble count + first/last + distinct counts in one pass.
+  const [aggregates] = await db
+    .select({
+      count: sql<number>`count(*)`,
+      first: sql<string>`min(${lastfmScrobbles.scrobbledAt})`,
+      last: sql<string>`max(${lastfmScrobbles.scrobbledAt})`,
+      distinctTracks: sql<number>`count(distinct ${lastfmTracks.id})`,
+    })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .where(and(eq(lastfmTracks.artistId, id), eq(lastfmTracks.isFiltered, 0)));
+
+  const [albumCount] = await db
+    .select({ distinctAlbums: sql<number>`count(distinct ${lastfmAlbums.id})` })
+    .from(lastfmAlbums)
+    .where(and(eq(lastfmAlbums.artistId, id), eq(lastfmAlbums.isFiltered, 0)));
+
+  // Overall ranking — where the artist sits among all-time top artists.
+  const [overallRank] = await db
+    .select({ rank: lastfmTopArtists.rank })
+    .from(lastfmTopArtists)
+    .where(
+      and(
+        eq(lastfmTopArtists.artistId, id),
+        eq(lastfmTopArtists.period, 'overall')
+      )
+    )
+    .limit(1);
 
   // Get top albums (exclude filtered)
   const topAlbums = await db
@@ -2445,17 +2578,21 @@ listening.openapi(artistDetailRoute, async (c) => {
     .orderBy(desc(lastfmAlbums.playcount))
     .limit(10);
 
-  // Get top tracks (exclude filtered)
+  // Get top tracks (exclude filtered) — include album_id so we can join
+  // album art for the card. Per-row scrobble count via aggregate.
   const topTracks = await db
     .select({
       id: lastfmTracks.id,
       name: lastfmTracks.name,
+      albumId: lastfmTracks.albumId,
+      albumName: lastfmAlbums.name,
       appleMusicUrl: lastfmTracks.appleMusicUrl,
       previewUrl: lastfmTracks.previewUrl,
       scrobbleCount: sql<number>`count(${lastfmScrobbles.id})`,
     })
     .from(lastfmTracks)
     .leftJoin(lastfmScrobbles, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
     .where(and(eq(lastfmTracks.artistId, id), eq(lastfmTracks.isFiltered, 0)))
     .groupBy(lastfmTracks.id)
     .orderBy(desc(sql`count(${lastfmScrobbles.id})`))
@@ -2467,7 +2604,16 @@ listening.openapi(artistDetailRoute, async (c) => {
     'artists',
     String(id)
   );
-  const albumIds = topAlbums.map((a) => String(a.id));
+
+  // Album image lookup for both top_albums and (via album_id) top_tracks.
+  const albumIds = Array.from(
+    new Set([
+      ...topAlbums.map((a) => String(a.id)),
+      ...topTracks
+        .map((t) => (t.albumId ? String(t.albumId) : null))
+        .filter((s): s is string => s !== null),
+    ])
+  );
   const albumImageMap = await getImageAttachmentBatch(
     db,
     'listening',
@@ -2475,14 +2621,105 @@ listening.openapi(artistDetailRoute, async (c) => {
     albumIds
   );
 
-  // First scrobbled date
-  const [firstScrobble] = await db
-    .select({
-      firstScrobbledAt: sql<string>`min(${lastfmScrobbles.scrobbledAt})`,
-    })
-    .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(and(eq(lastfmTracks.artistId, id), eq(lastfmTracks.isFiltered, 0)));
+  // Lazy-fill bio if missing. ~200ms additional latency on first call per
+  // artist, instant thereafter. Same pattern as itunes-enrichment.
+  let bioSummary = artist.bioSummary;
+  let bioContent = artist.bioContent;
+  let bioSyncedAt = artist.bioSyncedAt;
+  if (!bioContent && c.env.LASTFM_API_KEY && c.env.LASTFM_USERNAME) {
+    try {
+      const client = new LastfmClient(
+        c.env.LASTFM_API_KEY,
+        c.env.LASTFM_USERNAME
+      );
+      const out = await enrichArtistBio(db, client, {
+        id: artist.id,
+        name: artist.name,
+        mbid: artist.mbid,
+      });
+      bioSummary = out.bio_summary;
+      bioContent = out.bio_content;
+      bioSyncedAt = new Date().toISOString();
+    } catch (err) {
+      // Non-fatal — surface null bio fields rather than failing the request.
+      console.log(
+        `[WARN] artist ${id} bio lazy-fill failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  // Resolve similar artists — read from JSON column, look up images, drop
+  // entries where the local artist no longer exists (defensive — should
+  // not happen if cron is healthy).
+  const similarRaw = artist.similarArtists
+    ? (JSON.parse(artist.similarArtists) as SimilarArtistEntry[])
+    : [];
+  const similarIds = similarRaw.map((s) => String(s.artist_id));
+  const similarImageMap = await getImageAttachmentBatch(
+    db,
+    'listening',
+    'artists',
+    similarIds
+  );
+  const similarPlaycountRows =
+    similarRaw.length > 0
+      ? await db
+          .select({
+            id: lastfmArtists.id,
+            playcount: lastfmArtists.playcount,
+          })
+          .from(lastfmArtists)
+          .where(
+            inArray(
+              lastfmArtists.id,
+              similarRaw.map((s) => s.artist_id)
+            )
+          )
+      : [];
+  const similarPlaycountById = new Map(
+    similarPlaycountRows.map((r) => [r.id, r.playcount ?? 0])
+  );
+  const similar_artists = similarRaw
+    .filter((s) => similarPlaycountById.has(s.artist_id))
+    .slice(0, 10)
+    .map((s) => ({
+      id: s.artist_id,
+      name: s.name,
+      your_scrobble_count: similarPlaycountById.get(s.artist_id) ?? 0,
+      similarity_score: s.similarity_score,
+      image: similarImageMap.get(String(s.artist_id)) ?? null,
+    }));
+
+  // Sparkline — overall window, yearly granularity. Falls back to null
+  // when the artist has no scrobbles (shouldn't normally happen but the
+  // schema allows it).
+  let sparkline: {
+    granularity: 'year';
+    points: Array<{ at: string; count: number }>;
+  } | null = null;
+  if (aggregates?.first) {
+    const earliestYear = new Date(aggregates.first).getUTCFullYear();
+    const currentYear = new Date().getUTCFullYear();
+    if (Number.isFinite(earliestYear) && earliestYear <= currentYear) {
+      const window = overallToWindow(earliestYear, currentYear);
+      const seriesMap = await buildSparklinesForWindow(
+        db,
+        [id],
+        window,
+        'artist'
+      );
+      const series = seriesMap.get(id);
+      if (series) {
+        sparkline = {
+          granularity: 'year',
+          points: window.bucketKeys.map((key, i) => ({
+            at: `${key}-01-01T00:00:00.000Z`,
+            count: series.points[i] ?? 0,
+          })),
+        };
+      }
+    }
+  }
 
   return c.json({
     id: artist.id,
@@ -2491,11 +2728,19 @@ listening.openapi(artistDetailRoute, async (c) => {
     url: artist.url,
     apple_music_url: artist.appleMusicUrl ?? null,
     playcount: artist.playcount,
-    scrobble_count: scrobbleCount.count,
-    first_scrobbled_at: firstScrobble?.firstScrobbledAt ?? null,
+    scrobble_count: aggregates?.count ?? 0,
+    first_scrobbled_at: aggregates?.first ?? null,
+    last_played_at: aggregates?.last ?? null,
+    all_time_rank: overallRank?.rank ?? null,
+    distinct_tracks: aggregates?.distinctTracks ?? 0,
+    distinct_albums: albumCount?.distinctAlbums ?? 0,
     genre: artist.genre ?? null,
     tags: artist.tags ? JSON.parse(artist.tags) : null,
+    bio_summary: bioSummary ?? null,
+    bio_content: bioContent ?? null,
+    bio_synced_at: bioSyncedAt ?? null,
     image: artistImage,
+    sparkline,
     top_albums: topAlbums.map((a) => ({
       id: a.id,
       name: a.name,
@@ -2506,10 +2751,14 @@ listening.openapi(artistDetailRoute, async (c) => {
     top_tracks: topTracks.map((t) => ({
       id: t.id,
       name: t.name,
+      album_id: t.albumId,
+      album_name: t.albumName ?? null,
       scrobble_count: t.scrobbleCount,
       apple_music_url: t.appleMusicUrl ?? null,
       preview_url: t.previewUrl ?? null,
+      image: t.albumId ? (albumImageMap.get(String(t.albumId)) ?? null) : null,
     })),
+    similar_artists,
   });
 });
 

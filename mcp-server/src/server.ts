@@ -198,6 +198,43 @@ export function createServer(client: RewindClient): McpServer {
   });
 
   registerUiResource(server, {
+    name: 'Rewind -- Artist',
+    uri: 'ui://rewind/artist.html',
+    html: UI_BUNDLES['artist.html'],
+    description:
+      "Interactive single-artist card. Hero portrait + name + genre + 2-line bio, stat strip (total plays, listening since year, last played, all-time rank), yearly sparkline, top tracks, top albums grid, similar-artists chips (cross-referenced against the user's own listening), footer link to Apple Music. Consumes get_artist_details structuredContent.",
+    csp: {
+      resourceDomains: ['https://cdn.rewind.rest'],
+    },
+  });
+
+  // Two competing layouts for top-tracks-by-artist. Both registered as
+  // ui:// resources so they preview in MCP Inspector; neither is wired to
+  // _meta.ui.resourceUri yet — Phase 4 picks the winner. Both consume the
+  // same get_top_tracks structuredContent shape.
+  registerUiResource(server, {
+    name: 'Rewind -- Top Tracks (Grid candidate)',
+    uri: 'ui://rewind/top-tracks-grid.html',
+    html: UI_BUNDLES['top-tracks-grid.html'],
+    description:
+      'Candidate UI for top-tracks-by-artist: square album-art tiles in a grid, rank badge top-left, name + album beneath. Consumes get_top_tracks structuredContent.',
+    csp: {
+      resourceDomains: ['https://cdn.rewind.rest'],
+    },
+  });
+
+  registerUiResource(server, {
+    name: 'Rewind -- Top Tracks (List candidate)',
+    uri: 'ui://rewind/top-tracks-list.html',
+    html: UI_BUNDLES['top-tracks-list.html'],
+    description:
+      'Candidate UI for top-tracks-by-artist: dense ranked rows with rank, mini album art, track name + album, scrobble count + horizontal play-count bar. Consumes get_top_tracks structuredContent.',
+    csp: {
+      resourceDomains: ['https://cdn.rewind.rest'],
+    },
+  });
+
+  registerUiResource(server, {
     name: 'Rewind -- Top Albums',
     uri: 'ui://rewind/top-albums.html',
     html: UI_BUNDLES['top-albums.html'],

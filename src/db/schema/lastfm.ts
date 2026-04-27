@@ -22,6 +22,20 @@ export const lastfmArtists = sqliteTable(
     appleMusicId: integer('apple_music_id'),
     appleMusicUrl: text('apple_music_url'),
     itunesEnrichedAt: text('itunes_enriched_at'),
+    // Last.fm artist.getInfo enrichment. bio_summary is the 1–2 sentence
+    // summary (CDATA stripped, link removed); bio_content is the longer
+    // body. bio_synced_at gates a 90-day refresh.
+    bioSummary: text('bio_summary'),
+    bioContent: text('bio_content'),
+    bioSyncedAt: text('bio_synced_at'),
+    // Last.fm artist.getSimilar response, intersected against this user's
+    // own lastfm_artists at storage time so we only persist similar artists
+    // the user has also listened to. JSON shape:
+    //   Array<{ artist_id: number, name: string, mbid: string|null,
+    //           similarity_score: number }>
+    // Eager-synced for the top-200 artists by playcount via the daily cron.
+    similarArtists: text('similar_artists'),
+    similarSyncedAt: text('similar_synced_at'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),

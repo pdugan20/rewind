@@ -226,4 +226,69 @@ export class LastfmClient {
       artist,
     });
   }
+
+  /**
+   * artist.getInfo — name, mbid, url, listeners, playcount, bio (summary +
+   * content), tags. Caller resolves with mbid when present (more reliable);
+   * falls back to artist name. Includes `user` so the response carries the
+   * caller's `userplaycount`, but we don't currently use that field.
+   */
+  async getArtistInfo(args: { mbid?: string | null; name?: string }): Promise<{
+    artist?: {
+      name: string;
+      mbid?: string;
+      url: string;
+      stats?: { listeners?: string; playcount?: string };
+      bio?: {
+        published?: string;
+        summary?: string;
+        content?: string;
+      };
+      tags?: { tag: Array<{ name: string; url: string }> };
+    };
+  }> {
+    const params: Record<string, string> = { method: 'artist.getInfo' };
+    if (args.mbid) params.mbid = args.mbid;
+    else if (args.name) params.artist = args.name;
+    else
+      throw new Error(
+        '[ERROR] getArtistInfo: at least one of { mbid, name } is required'
+      );
+    return this.request(params);
+  }
+
+  /**
+   * artist.getSimilar — list of similar artists with a similarity score
+   * (Last.fm calls it `match`, 0–1 string). The route handler intersects
+   * this with our local `lastfm_artists` table at storage time so we only
+   * persist similar artists the user has also listened to.
+   */
+  async getArtistSimilar(args: {
+    mbid?: string | null;
+    name?: string;
+    limit?: number;
+  }): Promise<{
+    similarartists: {
+      artist: Array<{
+        name: string;
+        mbid?: string;
+        match: string; // numeric string 0–1
+        url: string;
+        image: { size: string; '#text': string }[];
+      }>;
+      '@attr': { artist: string };
+    };
+  }> {
+    const params: Record<string, string> = {
+      method: 'artist.getSimilar',
+      limit: String(args.limit ?? 50),
+    };
+    if (args.mbid) params.mbid = args.mbid;
+    else if (args.name) params.artist = args.name;
+    else
+      throw new Error(
+        '[ERROR] getArtistSimilar: at least one of { mbid, name } is required'
+      );
+    return this.request(params);
+  }
 }

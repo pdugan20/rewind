@@ -86,9 +86,15 @@ Goal: `get_article` renders an inline card in Claude Desktop / iOS. Body trimmed
 - [ ] **1.7.2** Push. Deploy.
 - [ ] **1.7.3** Verify in production Claude Desktop.
 
-## Phase 2: Artist card + top-tracks-by-artist — pending
+## Phase 2: Artist card + top-tracks-by-artist — DONE (modulo client smoke test)
 
-Goal: `get_artist_details` renders a single-artist card. `get_top_tracks` accepts `artist_id`, two competing layouts shipped as fixtures. Last.fm `getInfo` + `getSimilar` enrichment landed. ~3 days.
+Goal: `get_artist_details` renders a single-artist card. `get_top_tracks` accepts `artist_id`, two competing layouts shipped as fixtures. Last.fm `getInfo` + `getSimilar` enrichment landed.
+
+Schema: 5 new columns on `lastfm_artists` (`bio_summary`, `bio_content`, `bio_synced_at`, `similar_artists`, `similar_synced_at`). Migration `0012_far_avengers.sql` applied locally. Awaiting `npm run db:remote` for prod.
+
+Last.fm enrichment helpers: `enrichArtistBio` (lazy-fill on artist detail render), `enrichArtistSimilar` (eager via daily 3:00 AM cron, top-200 by playcount). Intersection-with-user-listening enforced at storage time. 8 unit tests pass.
+
+Two top-tracks UI layouts shipped as candidates — both register as `ui://` resources, neither wired to `_meta.ui.resourceUri` yet. Phase 4 picks the winner.
 
 ### 2.1 — Schema migrations
 

@@ -2664,7 +2664,7 @@
           "Listening"
         ],
         "summary": "Top tracks",
-        "description": "Returns top tracks for a given time period. Pass `include_sparklines=true` to attach a play-count time series per track (1month/3month/6month/12month/overall).",
+        "description": "Returns top tracks for a given time period. Pass `artist_id` (or `artist_name` substring) to filter to a single artist's catalog — composes with `period` and the date filters. Pass `include_sparklines=true` to attach a play-count time series per track (1month/3month/6month/12month/overall).",
         "parameters": [
           {
             "schema": {
@@ -2720,6 +2720,30 @@
             "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {1month, 3month, 6month, 12month, overall}. `overall` returns yearly buckets covering the artist/album/track lifetime; `7day` is unsupported and the field is omitted.",
             "name": "include_sparklines",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "Filter top tracks to a single artist's catalog. Stable id from `get_artist_details` or `get_top_artists`. Composes with `period`.",
+              "example": 189
+            },
+            "required": false,
+            "description": "Filter top tracks to a single artist's catalog. Stable id from `get_artist_details` or `get_top_artists`. Composes with `period`.",
+            "name": "artist_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Substring match against `lastfm_artists.name`. Resolves to the highest-playcount artist. Use only when no `artist_id` is available; passing both is a 400.",
+              "example": "olivia rodrigo"
+            },
+            "required": false,
+            "description": "Substring match against `lastfm_artists.name`. Resolves to the highest-playcount artist. Use only when no `artist_id` is available; passing both is a 400.",
+            "name": "artist_name",
+            "in": "query"
           }
         ],
         "responses": {
@@ -2732,6 +2756,12 @@
                   "properties": {
                     "period": {
                       "type": "string"
+                    },
+                    "artist_id": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "data": {
                       "type": "array",
@@ -2792,6 +2822,18 @@
                               "granularity",
                               "points"
                             ]
+                          },
+                          "album_id": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "album_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -2817,6 +2859,7 @@
                 },
                 "example": {
                   "period": "overall",
+                  "artist_id": null,
                   "data": [
                     {
                       "rank": 1,
@@ -3669,6 +3712,30 @@
                     "scrobble_count": {
                       "type": "number"
                     },
+                    "first_scrobbled_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "last_played_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "all_time_rank": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "distinct_tracks": {
+                      "type": "number"
+                    },
+                    "distinct_albums": {
+                      "type": "number"
+                    },
                     "genre": {
                       "type": [
                         "string",
@@ -3698,7 +3765,52 @@
                         ]
                       }
                     },
+                    "bio_summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "bio_content": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "bio_synced_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "image": {},
+                    "sparkline": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "granularity": {
+                          "type": "string",
+                          "enum": [
+                            "day",
+                            "week",
+                            "month",
+                            "year"
+                          ]
+                        },
+                        "points": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        }
+                      },
+                      "required": [
+                        "granularity",
+                        "points"
+                      ]
+                    },
                     "top_albums": {
                       "type": "array",
                       "items": {
@@ -3740,6 +3852,18 @@
                           "name": {
                             "type": "string"
                           },
+                          "album_id": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "album_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "scrobble_count": {
                             "type": "number"
                           },
@@ -3754,14 +3878,44 @@
                               "string",
                               "null"
                             ]
-                          }
+                          },
+                          "image": {}
                         },
                         "required": [
                           "id",
                           "name",
+                          "album_id",
+                          "album_name",
                           "scrobble_count",
                           "apple_music_url",
                           "preview_url"
+                        ]
+                      }
+                    },
+                    "similar_artists": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "your_scrobble_count": {
+                            "type": "number"
+                          },
+                          "similarity_score": {
+                            "type": "number"
+                          },
+                          "image": {}
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "your_scrobble_count",
+                          "similarity_score"
                         ]
                       }
                     }
@@ -3774,10 +3928,20 @@
                     "apple_music_url",
                     "playcount",
                     "scrobble_count",
+                    "first_scrobbled_at",
+                    "last_played_at",
+                    "all_time_rank",
+                    "distinct_tracks",
+                    "distinct_albums",
                     "genre",
                     "tags",
+                    "bio_summary",
+                    "bio_content",
+                    "bio_synced_at",
+                    "sparkline",
                     "top_albums",
-                    "top_tracks"
+                    "top_tracks",
+                    "similar_artists"
                   ]
                 },
                 "example": {

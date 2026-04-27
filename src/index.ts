@@ -189,6 +189,29 @@ export default {
                 `[ERROR] Apple Music enrichment failed: ${err instanceof Error ? err.message : String(err)}`
               );
             }
+
+            // Last.fm similar-artists enrichment. Refreshes the user's
+            // top-200 artists by playcount whose `similar_synced_at` is
+            // missing or > 90d old. ~3.5 req/s sustained at the top end of
+            // the batch (well under the 5 req/s rate limit baked into
+            // LastfmClient). Surface for the artist card's
+            // similar-artists footer.
+            try {
+              const { backfillSimilarArtistsForTop } =
+                await import('./services/lastfm/enrichment.js');
+              const simResult = await backfillSimilarArtistsForTop(
+                db,
+                lastfmClient,
+                200
+              );
+              console.log(
+                `[ENRICH] similar-artists ${simResult.refreshed}/${simResult.checked} (refreshed/checked)`
+              );
+            } catch (err) {
+              console.log(
+                `[ERROR] Last.fm similar-artists enrichment failed: ${err instanceof Error ? err.message : String(err)}`
+              );
+            }
           })()
         );
         break;

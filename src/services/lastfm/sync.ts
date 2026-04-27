@@ -1058,7 +1058,9 @@ export async function syncListening(
       | 'stats'
       | 'full'
       | 'backfill'
-      | 'artist_tags';
+      | 'artist_tags'
+      | 'artist_bios'
+      | 'artist_similar';
   }
 ): Promise<{ itemsSynced: number; remaining?: number }> {
   // Load filter rules from DB into memory for this sync run
@@ -1098,6 +1100,24 @@ export async function syncListening(
       const tagResult = await backfillArtistTags(db, client);
       await afterSync(db, { domain: 'listening', feedItems, searchItems });
       return { itemsSynced: tagResult.tagged, remaining: tagResult.remaining };
+    }
+    case 'artist_bios': {
+      const { backfillArtistBios } = await import('./enrichment.js');
+      const bioResult = await backfillArtistBios(db, client);
+      await afterSync(db, { domain: 'listening', feedItems, searchItems });
+      return {
+        itemsSynced: bioResult.filled,
+        remaining: bioResult.remaining,
+      };
+    }
+    case 'artist_similar': {
+      const { backfillSimilarArtistsForTop } = await import('./enrichment.js');
+      const simResult = await backfillSimilarArtistsForTop(db, client, 200);
+      await afterSync(db, { domain: 'listening', feedItems, searchItems });
+      return {
+        itemsSynced: simResult.refreshed,
+        remaining: Math.max(0, simResult.checked - simResult.refreshed),
+      };
     }
   }
 

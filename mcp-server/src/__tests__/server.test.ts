@@ -160,12 +160,32 @@ function getMockResponse(path: string): unknown {
       apple_music_url: 'https://music.apple.com/us/artist/beastie-boys/12',
       playcount: 500,
       scrobble_count: 500,
+      first_scrobbled_at: '2008-01-01T12:00:00.000Z',
+      last_played_at: '2026-04-01T12:00:00.000Z',
+      all_time_rank: 7,
+      distinct_tracks: 42,
+      distinct_albums: 6,
       genre: 'Hip Hop',
+      tags: [
+        { name: 'Hip Hop', count: 100 },
+        { name: 'Rap', count: 80 },
+      ],
+      bio_summary: 'Brooklyn rap trio active 1981–2012.',
+      bio_content: 'The Beastie Boys were an American rap rock group...',
+      bio_synced_at: '2026-04-01T12:00:00.000Z',
       image: {
         cdn_url: 'https://cdn.rewind.rest/listening/artists/10/original.jpg',
         thumbhash: 'x',
         dominant_color: '#111',
         accent_color: '#222',
+      },
+      sparkline: {
+        granularity: 'year',
+        points: [
+          { at: '2024-01-01T00:00:00.000Z', count: 50 },
+          { at: '2025-01-01T00:00:00.000Z', count: 80 },
+          { at: '2026-01-01T00:00:00.000Z', count: 30 },
+        ],
       },
       top_albums: [
         {
@@ -180,9 +200,21 @@ function getMockResponse(path: string): unknown {
         {
           id: 30,
           name: 'Sabotage',
+          album_id: 20,
+          album_name: "Paul's Boutique",
           scrobble_count: 50,
           apple_music_url: null,
           preview_url: null,
+          image: null,
+        },
+      ],
+      similar_artists: [
+        {
+          id: 11,
+          name: 'A Tribe Called Quest',
+          your_scrobble_count: 220,
+          similarity_score: 0.82,
+          image: null,
         },
       ],
     };

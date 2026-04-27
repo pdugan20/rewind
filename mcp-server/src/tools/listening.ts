@@ -76,8 +76,21 @@ type ArtistDetail = {
   apple_music_url: string | null;
   playcount: number;
   scrobble_count: number;
+  first_scrobbled_at: string | null;
+  last_played_at: string | null;
+  all_time_rank: number | null;
+  distinct_tracks: number;
+  distinct_albums: number;
   genre: string | null;
+  tags: Array<{ name: string; count: number }> | null;
+  bio_summary: string | null;
+  bio_content: string | null;
+  bio_synced_at: string | null;
   image: Image;
+  sparkline: {
+    granularity: 'day' | 'week' | 'month' | 'year';
+    points: Array<{ at: string; count: number }>;
+  } | null;
   top_albums: Array<{
     id: number;
     name: string;
@@ -88,9 +101,19 @@ type ArtistDetail = {
   top_tracks: Array<{
     id: number;
     name: string;
+    album_id: number | null;
+    album_name: string | null;
     scrobble_count: number;
     apple_music_url: string | null;
     preview_url: string | null;
+    image: Image;
+  }>;
+  similar_artists: Array<{
+    id: number;
+    name: string;
+    your_scrobble_count: number;
+    similarity_score: number;
+    image: Image;
   }>;
 };
 
@@ -444,9 +467,13 @@ export function registerListeningTools(
   );
 
   // get_top_tracks ─────────────────────────────────────────────────
+  // Accepts an optional artist_id (or artist_name substring resolver) so
+  // the model can answer "what Olivia Rodrigo songs have I been listening to
+  // lately" by composing this tool with the period filter — preferred over
+  // calling get_artist_details and reading its capped embedded top_tracks.
   server.tool(
     'get_top_tracks',
-    'Get top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links.',
+    "Get top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links. Optional `artist_id` or `artist_name` filters to a single artist's catalog — useful for 'what X songs have I been listening to lately' queries. Use after get_artist_details if a longer ranked list is needed; otherwise the embedded top_tracks[] from get_artist_details (capped at 10) is sufficient.",
     {
       period: z
         .enum(PERIOD_ENUM)
@@ -459,28 +486,59 @@ export function registerListeningTools(
         .default(10)
         .describe('Number of tracks to return'),
       page: z.number().min(1).default(1).describe('Page number for pagination'),
+      artist_id: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe(
+          'Filter to a single artist. Stable id from get_artist_details or get_top_artists. Composes with period.'
+        ),
+      artist_name: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          'Substring match against artist names (case-insensitive). Resolves to the highest-playcount match. Use only if no artist_id is available; passing both is a 400.'
+        ),
     },
     READ_ONLY_ANNOTATIONS,
-    async ({ period, limit, page }) =>
+    async ({ period, limit, page, artist_id, artist_name }) =>
       withRichResponse(async () => {
-        const data = await client.get<{ period: string; data: TopItem[] }>(
-          '/listening/top/tracks',
-          { period, limit, page }
-        );
+        const data = await client.get<{
+          period: string;
+          artist_id: number | null;
+          data: TopItem[];
+        }>('/listening/top/tracks', {
+          period,
+          limit,
+          page,
+          ...(artist_id !== undefined ? { artist_id } : {}),
+          ...(artist_name !== undefined ? { artist_name } : {}),
+        });
 
         if (!data.data.length) {
+          const scope =
+            data.artist_id !== null ? ` for artist id ${data.artist_id}` : '';
           return {
-            content: [text(`No top tracks for period: ${period}`)],
+            content: [text(`No top tracks${scope} for period: ${period}`)],
             structuredContent: data,
           };
         }
 
-        const lines = [`Top Tracks (${period}):`];
+        const scope =
+          data.artist_id !== null && data.data.length
+            ? ` by ${data.data[0].detail}`
+            : '';
+        const lines = [`Top Tracks (${period})${scope}:`];
         for (const t of data.data) {
           const linkUrl = t.apple_music_url ?? t.url ?? null;
           const nameMd = linkUrl ? `[${t.name}](${linkUrl})` : `"${t.name}"`;
+          // When filtering to a single artist, drop the redundant "by X"
+          // suffix that would repeat on every line.
+          const byPart = data.artist_id !== null ? '' : ` by ${t.detail}`;
           lines.push(
-            `${t.rank}. ${nameMd} by ${t.detail} -- ${fmt(t.playcount)} plays`
+            `${t.rank}. ${nameMd}${byPart} -- ${fmt(t.playcount)} plays`
           );
         }
 
@@ -542,21 +600,53 @@ export function registerListeningTools(
   );
 
   // get_artist_details ─────────────────────────────────────────────
-  server.tool(
+  // Registered via server.registerTool so we can attach `_meta.ui.resourceUri`.
+  // Hosts that support MCP Apps render an interactive single-artist card
+  // inline; others fall back to the text + image + resource_link response.
+  //
+  // structuredContent uses the DESIGN.md nested shape: { artist, listening_stats,
+  // sparkline, top_tracks, top_albums, similar_artists }. Bio is lazy-filled
+  // by the route handler on first call (~200ms additional latency once,
+  // instant thereafter).
+  server.registerTool(
     'get_artist_details',
-    'Get detailed information about a specific artist by ID: play count, top albums, top tracks, artist image, and Apple Music link.',
-    { id: z.number().describe('Artist ID'), ...includeImagesParam },
-    READ_ONLY_ANNOTATIONS,
+    {
+      title: 'Artist — detail',
+      description:
+        "Detailed listening profile for a single artist by ID: bio, total scrobbles, all-time rank, first/last played, top tracks, top albums, similar artists you've also listened to, and a yearly sparkline of plays. Use for natural-language queries like 'tell me about my X listening history'. In MCP Apps hosts, renders an interactive artist card inline.",
+      inputSchema: {
+        id: z.number().describe('Artist ID'),
+        ...includeImagesParam,
+      },
+      annotations: READ_ONLY_ANNOTATIONS,
+      _meta: {
+        ui: { resourceUri: 'ui://rewind/artist.html' },
+        'ui/resourceUri': 'ui://rewind/artist.html',
+      },
+    },
     async ({ id, include_images }) =>
       withRichResponse(async () => {
         const data = await client.get<ArtistDetail>(`/listening/artists/${id}`);
 
         const lines = [
           data.name,
-          `Total plays: ${fmt(data.playcount)}`,
+          `Total plays: ${fmt(data.playcount)}${data.all_time_rank ? ` (#${data.all_time_rank} all-time)` : ''}`,
           data.genre ? `Genre: ${data.genre}` : null,
+          data.first_scrobbled_at
+            ? `First scrobbled: ${formatDate(data.first_scrobbled_at)}`
+            : null,
+          data.last_played_at
+            ? `Last played: ${timeAgo(data.last_played_at)}`
+            : null,
+          data.distinct_tracks
+            ? `${fmt(data.distinct_tracks)} distinct tracks across ${fmt(data.distinct_albums)} albums`
+            : null,
           '',
         ].filter((l) => l !== null);
+
+        if (data.bio_summary) {
+          lines.push(data.bio_summary, '');
+        }
 
         if (data.top_albums.length) {
           lines.push('Top Albums:');
@@ -570,6 +660,16 @@ export function registerListeningTools(
           lines.push('Top Tracks:');
           for (const t of data.top_tracks.slice(0, 5)) {
             lines.push(`  - "${t.name}" (${fmt(t.scrobble_count)} plays)`);
+          }
+          lines.push('');
+        }
+
+        if (data.similar_artists.length) {
+          lines.push('Similar artists you also listen to:');
+          for (const s of data.similar_artists.slice(0, 5)) {
+            lines.push(
+              `  - ${s.name} (${fmt(s.your_scrobble_count)} of your plays)`
+            );
           }
         }
 
@@ -592,7 +692,55 @@ export function registerListeningTools(
           ...links,
         ];
 
-        return { content, structuredContent: data };
+        // structuredContent: nested DESIGN.md shape. Top tracks capped at 10,
+        // top albums at 5, similar artists at 5. The model gets the data;
+        // the card renders the rich layout from it.
+        const structuredContent = {
+          artist: {
+            id: data.id,
+            name: data.name,
+            mbid: data.mbid,
+            url: data.url,
+            apple_music_url: data.apple_music_url,
+            apple_music_id: null,
+            genre: data.genre,
+            tags: (data.tags ?? []).map((t) => t.name).slice(0, 5),
+            bio_summary: data.bio_summary,
+            bio_content: data.bio_content,
+            image: data.image,
+          },
+          listening_stats: {
+            total_scrobbles: data.scrobble_count,
+            first_scrobble_at: data.first_scrobbled_at,
+            last_played_at: data.last_played_at,
+            all_time_rank: data.all_time_rank,
+            distinct_tracks: data.distinct_tracks,
+            distinct_albums: data.distinct_albums,
+          },
+          sparkline: data.sparkline,
+          top_tracks: data.top_tracks.slice(0, 10).map((t, i) => ({
+            rank: i + 1,
+            id: t.id,
+            name: t.name,
+            album_id: t.album_id,
+            album_name: t.album_name,
+            scrobble_count: t.scrobble_count,
+            apple_music_url: t.apple_music_url,
+            preview_url: t.preview_url,
+            image: t.image,
+          })),
+          top_albums: data.top_albums.slice(0, 5).map((a, i) => ({
+            rank: i + 1,
+            id: a.id,
+            name: a.name,
+            playcount: a.playcount,
+            apple_music_url: a.apple_music_url,
+            image: a.image,
+          })),
+          similar_artists: data.similar_artists.slice(0, 5),
+        };
+
+        return { content, structuredContent };
       })
   );
 

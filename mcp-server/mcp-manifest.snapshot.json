@@ -163,7 +163,7 @@
     },
     {
       "name": "get_artist_details",
-      "description": "Get detailed information about a specific artist by ID: play count, top albums, top tracks, artist image, and Apple Music link.",
+      "description": "Detailed listening profile for a single artist by ID: bio, total scrobbles, all-time rank, first/last played, top tracks, top albums, similar artists you've also listened to, and a yearly sparkline of plays. Use for natural-language queries like 'tell me about my X listening history'. In MCP Apps hosts, renders an interactive artist card inline.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -982,7 +982,7 @@
     },
     {
       "name": "get_top_tracks",
-      "description": "Get top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links.",
+      "description": "Get top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links. Optional `artist_id` or `artist_name` filters to a single artist's catalog — useful for 'what X songs have I been listening to lately' queries. Use after get_artist_details if a longer ranked list is needed; otherwise the embedded top_tracks[] from get_artist_details (capped at 10) is sufficient.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1011,6 +1011,16 @@
             "minimum": 1,
             "default": 1,
             "description": "Page number for pagination"
+          },
+          "artist_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Filter to a single artist. Stable id from get_artist_details or get_top_artists. Composes with period."
+          },
+          "artist_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Substring match against artist names (case-insensitive). Resolves to the highest-playcount match. Use only if no artist_id is available; passing both is a 400."
           }
         },
         "additionalProperties": false,
@@ -1327,6 +1337,12 @@
       "mimeType": "text/html;profile=mcp-app"
     },
     {
+      "uri": "ui://rewind/artist.html",
+      "name": "Rewind -- Artist",
+      "description": "Interactive single-artist card. Hero portrait + name + genre + 2-line bio, stat strip (total plays, listening since year, last played, all-time rank), yearly sparkline, top tracks, top albums grid, similar-artists chips (cross-referenced against the user's own listening), footer link to Apple Music. Consumes get_artist_details structuredContent.",
+      "mimeType": "text/html;profile=mcp-app"
+    },
+    {
       "uri": "ui://rewind/attended-event.html",
       "name": "Rewind -- Attended Event",
       "description": "Interactive game card for a single attended event. Hero block with date / matchup / final score; per-inning linescore for MLB; notable performers with silo headshots and stat-line summaries; ticket section / row / seat / vendor block. Consumes get_attended_event structuredContent.",
@@ -1366,6 +1382,18 @@
       "uri": "ui://rewind/top-artists.html",
       "name": "Rewind -- Top Artists",
       "description": "Interactive artist portrait grid for top listened-to artists. Consumes get_top_artists structuredContent.",
+      "mimeType": "text/html;profile=mcp-app"
+    },
+    {
+      "uri": "ui://rewind/top-tracks-grid.html",
+      "name": "Rewind -- Top Tracks (Grid candidate)",
+      "description": "Candidate UI for top-tracks-by-artist: square album-art tiles in a grid, rank badge top-left, name + album beneath. Consumes get_top_tracks structuredContent.",
+      "mimeType": "text/html;profile=mcp-app"
+    },
+    {
+      "uri": "ui://rewind/top-tracks-list.html",
+      "name": "Rewind -- Top Tracks (List candidate)",
+      "description": "Candidate UI for top-tracks-by-artist: dense ranked rows with rank, mini album art, track name + album, scrobble count + horizontal play-count bar. Consumes get_top_tracks structuredContent.",
       "mimeType": "text/html;profile=mcp-app"
     }
   ],
