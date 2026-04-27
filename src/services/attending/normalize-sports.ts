@@ -245,13 +245,12 @@ export async function pruneJunkVenues(
       result.events_orphaned++;
     }
 
-    if (!dryRun && events.length > 0) {
-      // No events left referencing this junk venue, safe to delete.
+    // Every event has either been repointed or had its venue_id set
+    // to NULL above, so the junk venue row is now safe to delete.
+    if (!dryRun) {
       await db.delete(venues).where(eq(venues.id, v.id));
-    } else if (!dryRun && events.length === 0) {
-      await db.delete(venues).where(eq(venues.id, v.id));
+      result.venues_deleted++;
     }
-    if (!dryRun) result.venues_deleted++;
 
     result.junk_venues.push({
       id: v.id,
