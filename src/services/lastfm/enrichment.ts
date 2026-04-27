@@ -147,30 +147,65 @@ export async function enrichArtistSimilar(
   // sides have one), else by case-insensitive name. Drop entries with no
   // local match — that's what "similar artists you've also listened to"
   // means.
+  //
+  // Run two separate queries (one for mbid, one for name) instead of an
+  // OR'd combined query: D1 caps bind parameters at ~100 per statement,
+  // and a 50-similar-artist response with both fields can exceed that.
   const candidateMbids = candidates
     .map((c) => c.mbid)
     .filter((m): m is string => Boolean(m));
   const candidateNames = candidates.map((c) => c.name.toLowerCase());
 
-  const localMatches = await db
-    .select({
-      id: lastfmArtists.id,
-      name: lastfmArtists.name,
-      mbid: lastfmArtists.mbid,
-    })
-    .from(lastfmArtists)
-    .where(
-      and(
-        eq(lastfmArtists.userId, userId),
-        eq(lastfmArtists.isFiltered, 0),
-        or(
-          candidateMbids.length > 0
-            ? inArray(lastfmArtists.mbid, candidateMbids)
-            : sql`0 = 1`,
-          inArray(sql`lower(${lastfmArtists.name})`, candidateNames)
-        )
-      )
-    );
+  const baseConds = [
+    eq(lastfmArtists.userId, userId),
+    eq(lastfmArtists.isFiltered, 0),
+  ];
+
+  const matchesByMbidPromise =
+    candidateMbids.length > 0
+      ? db
+          .select({
+            id: lastfmArtists.id,
+            name: lastfmArtists.name,
+            mbid: lastfmArtists.mbid,
+          })
+          .from(lastfmArtists)
+          .where(and(...baseConds, inArray(lastfmArtists.mbid, candidateMbids)))
+      : Promise.resolve(
+          [] as Array<{ id: number; name: string; mbid: string | null }>
+        );
+
+  const matchesByNamePromise =
+    candidateNames.length > 0
+      ? db
+          .select({
+            id: lastfmArtists.id,
+            name: lastfmArtists.name,
+            mbid: lastfmArtists.mbid,
+          })
+          .from(lastfmArtists)
+          .where(
+            and(
+              ...baseConds,
+              inArray(sql`lower(${lastfmArtists.name})`, candidateNames)
+            )
+          )
+      : Promise.resolve(
+          [] as Array<{ id: number; name: string; mbid: string | null }>
+        );
+
+  const [byMbidRows, byNameRows] = await Promise.all([
+    matchesByMbidPromise,
+    matchesByNamePromise,
+  ]);
+  const localMatchesById = new Map<
+    number,
+    { id: number; name: string; mbid: string | null }
+  >();
+  for (const m of [...byMbidRows, ...byNameRows]) {
+    localMatchesById.set(m.id, m);
+  }
+  const localMatches = [...localMatchesById.values()];
 
   const byMbid = new Map(
     localMatches.filter((m) => m.mbid).map((m) => [m.mbid as string, m])
