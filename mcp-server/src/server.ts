@@ -259,7 +259,10 @@ export function createServer(client: RewindClient): McpServer {
     description:
       'Interactive game card for a single attended event. Hero block with date / matchup / final score; per-inning linescore for MLB; notable performers with silo headshots and stat-line summaries; ticket section / row / seat / vendor block. Consumes get_attended_event structuredContent.',
     csp: {
-      resourceDomains: ['https://cdn.rewind.rest'],
+      // mlbstatic.com hosts the league SVG cap logos that <TeamLogo> hot-links;
+      // without it the host's default `img-src 'self' data:` blocks the logos
+      // and team slots render empty.
+      resourceDomains: ['https://cdn.rewind.rest', 'https://www.mlbstatic.com'],
     },
   });
 
@@ -270,7 +273,7 @@ export function createServer(client: RewindClient): McpServer {
     description:
       'Interactive single-athlete card. Hero (headshot + team logo + name/#/position + bats/throws), two-column stats panel (live MLB Stats API season + your-attended summary), notable highlights aggregated across attended appearances, recent-appearances list. MLB-only for the live-stats panel. Consumes get_attended_player structuredContent.',
     csp: {
-      resourceDomains: ['https://cdn.rewind.rest'],
+      resourceDomains: ['https://cdn.rewind.rest', 'https://www.mlbstatic.com'],
     },
   });
 

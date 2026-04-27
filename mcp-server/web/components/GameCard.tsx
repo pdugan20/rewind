@@ -133,11 +133,15 @@ export function GameCard({ event }: { event: EventDetail }) {
 
       {(ed.attendance || ed.weather || ed.duration_minutes) && (
         <div style={metaStyle}>
-          {ed.attendance ? `${formatAttendance(ed.attendance)} fans` : null}
-          {ed.weather && (formatWeather(ed.weather) ?? null)}
-          {ed.duration_minutes
-            ? `${formatDuration(ed.duration_minutes)}`
-            : null}
+          {ed.attendance ? (
+            <span>{formatAttendance(ed.attendance)} fans</span>
+          ) : null}
+          {ed.weather && formatWeather(ed.weather) ? (
+            <span>{formatWeather(ed.weather)}</span>
+          ) : null}
+          {ed.duration_minutes ? (
+            <span>{formatDuration(ed.duration_minutes)}</span>
+          ) : null}
         </div>
       )}
 

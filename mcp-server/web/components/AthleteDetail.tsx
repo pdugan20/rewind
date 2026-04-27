@@ -1,5 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
+import { TeamLogo } from './TeamLogo.js';
+import type { Team } from './types.js';
 
 type Image = {
   cdn_url?: string | null;
@@ -9,14 +11,7 @@ type Image = {
   accent_color?: string | null;
 } | null;
 
-export type Team = {
-  id: number;
-  name: string;
-  abbreviation: string;
-  league: 'mlb';
-  primary_color: string | null;
-  logo: Image;
-};
+export type { Team };
 
 export type PlayerMeta = {
   id: number;
@@ -31,7 +26,7 @@ export type PlayerMeta = {
   photo_silo: Image;
   photo_full: Image;
   league: string;
-  team: Team | null;
+  primary_team: Team | null;
 };
 
 export type HitterStats = {
@@ -110,7 +105,6 @@ export type AthletePayload = {
 const HEAD_PX = 120;
 const HEAD_TRANSFORM = `width=${HEAD_PX * 2},height=${HEAD_PX * 2},fit=cover,format=auto,quality=85`;
 const LOGO_PX = 40;
-const LOGO_TRANSFORM = `width=${LOGO_PX * 2},height=${LOGO_PX * 2},fit=contain,format=auto,quality=85`;
 
 function buildSrc(
   image: Image,
@@ -157,7 +151,10 @@ export function AthleteDetail({
     attended_appearances,
     attended_appearance_count,
   } = payload;
-  const teamColor = player.team?.primary_color ?? null;
+  const teamColor =
+    player.primary_team?.ui_tint_color ??
+    player.primary_team?.primary_color ??
+    null;
   const accentColor = teamColor ?? 'var(--color-accent, #4c6ef5)';
 
   return (
@@ -205,9 +202,8 @@ function Hero({
   accentColor: string;
 }) {
   const head = buildSrc(player.photo_full ?? player.photo_silo, HEAD_TRANSFORM);
-  const logo = buildSrc(player.team?.logo ?? null, LOGO_TRANSFORM);
+  const team = player.primary_team;
   const [headLoaded, setHeadLoaded] = useState(false);
-  const [logoLoaded, setLogoLoaded] = useState(false);
 
   return (
     <div style={heroStyle}>
@@ -251,27 +247,12 @@ function Hero({
       <div style={heroTextColStyle}>
         <h1 style={titleStyle}>{player.full_name}</h1>
         <div style={badgeRowStyle}>
-          {logo && (
+          {team && (
             <span style={logoBadgeStyle}>
-              <img
-                src={logo.src}
-                alt={player.team?.abbreviation ?? ''}
-                loading="lazy"
-                onLoad={() => setLogoLoaded(true)}
-                style={{
-                  width: LOGO_PX,
-                  height: LOGO_PX,
-                  objectFit: 'contain',
-                  display: 'block',
-                  opacity: logoLoaded ? 1 : 0,
-                  transition: 'opacity 200ms ease',
-                }}
-              />
+              <TeamLogo team={team} size={LOGO_PX} variant="auto" />
             </span>
           )}
-          {player.team && (
-            <span style={teamNameStyle}>{player.team.abbreviation}</span>
-          )}
+          {team && <span style={teamNameStyle}>{team.abbreviation}</span>}
           {player.primary_position && (
             <span style={positionPillStyle}>{player.primary_position}</span>
           )}
