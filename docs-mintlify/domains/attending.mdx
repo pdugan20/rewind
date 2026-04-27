@@ -50,6 +50,8 @@ The events endpoint supports filtering by:
 
 Sports events are enriched with team and score data from the MLB Stats API (baseball) and ESPN (NFL, NBA, WNBA, MLS, NCAAF, NCAAB). Each row carries league-specific fields in `event_data` — for MLB games that's `home_team`, `away_team`, `home_score`, `away_score`, `winning_pitcher`, `my_team_won`.
 
+`home_team` and `away_team` are full team objects: `id` (league-native), `abbreviation`, `name`, `location`, `primary_color`, `secondary_color`, `ui_tint_color`, `logo_url`, `logo_dark_url`, `logo_light_url`, `conference`, `division`. Same shape appears as `primary_team` on player rows and `team` on per-game appearances, so consumers never need a second call to render a logo or tint.
+
 W/L counts on the [seasons endpoint](/api-reference/attending/get-attended-season) are scoped to events you actually attended (`attended=1`), so a 6-game home season with one no-show reports a 5-1 attended record rather than the team's full 5-2 record.
 
 For MLB games, per-game box scores resolve into per-player appearance lines (batting line, pitching line, decisions) that surface on the players endpoints. Player photos backfill from MLB Stats and ESPN.

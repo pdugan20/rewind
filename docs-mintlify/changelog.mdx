@@ -3,6 +3,20 @@ title: Changelog
 description: API updates and new features.
 ---
 
+<Update label="April 27, 2026" tags={["New features", "Improvements"]}>
+
+## Team logos and colors on attending responses
+
+Team metadata now ships inline on every attending endpoint that mentions a team — no follow-up call to render a logo or tint a card.
+
+- New `teams` reference table seeded from MLB Stats API (roster, division, home venue) and ESPN (brand colors). 30 MLB teams to start; NFL, NBA, MLS, and NCAA can be added on the same shape.
+- `event_data.home_team` and `event_data.away_team` on [`GET /v1/attending/events`](/api-reference/attending/list-attended-events) and [`GET /v1/attending/events/{id}`](/api-reference/attending/get-attended-event) now return a full team object with `logo_url`, `logo_dark_url`, `logo_light_url`, `primary_color`, `secondary_color`, `ui_tint_color`, `conference`, and `division`.
+- `primary_team` on [`GET /v1/attending/players`](/api-reference/attending/list-attended-players) and [`GET /v1/attending/players/{id}`](/api-reference/attending/get-attended-player) replaces the old `primary_team_id` field with the full team shape.
+- Per-game player appearances expose a `team` object instead of `team_id`, reflecting the in-game team — handles mid-season trades correctly without conflating with the player's current primary team.
+- Logos hot-link from `mlbstatic.com` SVG with on-light and on-dark cap variants; `<picture>` + `prefers-color-scheme` picks the right one in both Claude Desktop and iOS hosts.
+
+</Update>
+
 <Update label="April 25, 2026" tags={["New releases", "New features"]}>
 
 ## Attending domain
