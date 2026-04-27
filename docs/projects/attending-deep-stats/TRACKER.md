@@ -135,14 +135,14 @@ Goal: when the user asks about a single game, the response renders an interactiv
 ### 3.5 — Smoke test
 
 - [ ] **3.5.1** Local `npm run dev` against the MCP server. Hit `get_attended_event` with a real event id (e.g. a recent Mariners game with stat lines). Card renders.
-- [ ] **3.5.2** Build + deploy worker to staging or preview. Test in Claude Desktop with a real query — "tell me about my last Mariners game."
+- [ ] **3.5.2** Build + deploy worker to staging or preview. Test in Claude Desktop, Claude web, and Claude iOS with a real query — "tell me about my last Mariners game." All three should render the card inline.
 - [ ] **3.5.3** Verify non-MCP-Apps clients (e.g. text-only CLI) still see the existing rich response unchanged.
 
 ### 3.6 — Ship
 
 - [ ] **3.6.1** Bundle visible in `mcp-server/web/dist/`. Inlined into `src/ui-bundles.ts`.
 - [ ] **3.6.2** Commit + push. CI green. Worker deploy auto-triggered.
-- [ ] **3.6.3** Verify card renders in production Claude Desktop / Claude web.
+- [ ] **3.6.3** Verify card renders in production Claude Desktop, Claude web, and Claude iOS.
 
 ## Phase 4: ITERATION CHECKPOINT — pending
 
@@ -150,7 +150,7 @@ Goal: when the user asks about a single game, the response renders an interactiv
 
 ### 4.1 — Live usage requirement
 
-- [ ] **4.1.1** Run ≥ 5 distinct natural-language queries via Claude Desktop / Claude web over ≥ 1 week of real conversation. Capture screenshots or transcripts.
+- [ ] **4.1.1** Run ≥ 5 distinct natural-language queries via Claude Desktop, Claude web, or Claude iOS over ≥ 1 week of real conversation. Capture screenshots or transcripts. iOS coverage matters because the card pipeline now ships there too — at least one query should be tested on iOS to confirm the inline render works in production.
 - [ ] **4.1.2** At least one query per category: a team filter ("Mariners games"), a player stat ("Julio's average"), a count ("how many times Kirby"), a single-game card render ("tell me about my last game"), and one query you didn't anticipate during planning.
 
 ### 4.2 — Document outcomes
