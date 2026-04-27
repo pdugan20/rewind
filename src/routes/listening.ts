@@ -103,6 +103,21 @@ const SparklineSchema = z.object({
   points: z.array(z.number()),
 });
 
+// Variant used by the artist detail endpoint — points carry their bucket
+// timestamp inline so the artist card's SVG can label its x-axis with
+// years/months without a separate "first/last bucket" derivation. List
+// endpoints (top-artists, top-albums, top-tracks) keep the bare-number
+// shape for backward compatibility.
+const TimestampedSparklineSchema = z.object({
+  granularity: z.enum(['day', 'week', 'month', 'year']),
+  points: z.array(
+    z.object({
+      at: z.string(),
+      count: z.number(),
+    })
+  ),
+});
+
 const TopArtistItemSchema = TopItemSchema.extend({
   sparkline: SparklineSchema.optional(),
 });
@@ -272,7 +287,7 @@ const ArtistDetailSchema = z.object({
   bio_content: z.string().nullable(),
   bio_synced_at: z.string().nullable(),
   image: z.any().nullable(),
-  sparkline: SparklineSchema.nullable(),
+  sparkline: TimestampedSparklineSchema.nullable(),
   top_albums: z.array(
     z.object({
       id: z.number(),
@@ -1051,16 +1066,32 @@ const artistDetailRoute = createRoute({
             playcount: 2179,
             scrobble_count: 2193,
             first_scrobbled_at: '2012-05-02T18:32:15.000Z',
+            last_played_at: '2026-04-12T20:11:00.000Z',
+            all_time_rank: 12,
+            distinct_tracks: 84,
+            distinct_albums: 7,
             genre: 'Grunge',
             tags: [
               { name: 'Grunge', count: 100 },
               { name: 'Rock', count: 49 },
             ],
+            bio_summary:
+              'American rock band formed in Aberdeen, Washington in 1987.',
+            bio_content: null,
+            bio_synced_at: '2026-04-12T20:11:00.000Z',
             image: {
               url: 'https://cdn.rewind.rest/listening/artists/189/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
               thumbhash: 'GggGBwDN+CSBp7VXcmVmlyZ2BgAAAAAA',
               dominant_color: '#191919',
               accent_color: '#7e7e7e',
+            },
+            sparkline: {
+              granularity: 'year',
+              points: [
+                { at: '2024-01-01T00:00:00.000Z', count: 80 },
+                { at: '2025-01-01T00:00:00.000Z', count: 65 },
+                { at: '2026-01-01T00:00:00.000Z', count: 22 },
+              ],
             },
             top_albums: [
               {
@@ -1075,10 +1106,22 @@ const artistDetailRoute = createRoute({
               {
                 id: 595,
                 name: 'Come as You Are',
+                album_id: 300,
+                album_name: 'MTV Unplugged in New York',
                 scrobble_count: 101,
                 apple_music_url:
                   'https://music.apple.com/us/album/come-as-you-are/1440783617?i=1440783636&uo=4',
                 preview_url: null,
+                image: null,
+              },
+            ],
+            similar_artists: [
+              {
+                id: 244,
+                name: 'Pearl Jam',
+                your_scrobble_count: 612,
+                similarity_score: 0.86,
+                image: null,
               },
             ],
           },
