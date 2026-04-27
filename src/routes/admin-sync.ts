@@ -628,6 +628,65 @@ adminSync.openapi(googleTestRoute, async (c) => {
   }
 });
 
+// POST /v1/admin/sync/apple-music-albums
+// Backfill released_year + total_tracks on lastfm_albums by querying
+// Apple Music's catalog API for every album that has an apple_music_id
+// and is missing or stale (>90d) on apple_music_enriched_at. Bounded
+// per call so a heavy library doesn't time the worker out — re-run
+// until `remaining: 0`.
+const AppleMusicAlbumsResponse = z
+  .object({
+    status: z.literal('completed'),
+    items_synced: z.number().int(),
+    skipped: z.number().int(),
+    timestamp: z.string(),
+  })
+  .openapi('AppleMusicAlbumsResponse');
+
+const syncAppleMusicAlbumsRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/apple-music-albums',
+  operationId: 'adminSyncAppleMusicAlbums',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Backfill Apple Music album metadata',
+  description:
+    'Walks lastfm_albums.apple_music_id for albums missing released_year / total_tracks (or stale >90d), calls Apple Music catalog, and persists. Bounded; re-run until remaining: 0.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: AppleMusicAlbumsResponse } },
+      description: 'Backfill batch completed',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminSync.openapi(syncAppleMusicAlbumsRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const token = c.env.APPLE_MUSIC_DEVELOPER_TOKEN;
+  if (!token) {
+    return c.json(
+      { error: 'APPLE_MUSIC_DEVELOPER_TOKEN not set', status: 500 },
+      500
+    ) as any;
+  }
+  try {
+    const { backfillAppleMusicAlbums } =
+      await import('../services/apple-music/album.js');
+    const result = await backfillAppleMusicAlbums(db, token);
+    return c.json({
+      status: 'completed' as const,
+      items_synced: result.filled,
+      skipped: result.skipped,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/sync/apple-music-albums: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
 // POST /v1/admin/sync/mlb-teams
 // Refresh the mlb_teams lookup table from MLB Stats API. Idempotent;
 // safe to run on demand. Logos are NOT pulled here — those live on a

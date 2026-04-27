@@ -1732,6 +1732,32 @@
           "expires_at"
         ]
       },
+      "AppleMusicAlbumsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "items_synced": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "items_synced",
+          "skipped",
+          "timestamp"
+        ]
+      },
       "MlbTeamsSyncResponse": {
         "type": "object",
         "properties": {
@@ -2851,6 +2877,24 @@
                           "album_name": {
                             "type": [
                               "string",
+                              "null"
+                            ]
+                          },
+                          "album_apple_music_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "album_released_year": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "album_total_tracks": {
+                            "type": [
+                              "number",
                               "null"
                             ]
                           }
@@ -24265,6 +24309,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleTestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sync/apple-music-albums": {
+      "post": {
+        "operationId": "adminSyncAppleMusicAlbums",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Backfill Apple Music album metadata",
+        "description": "Walks lastfm_albums.apple_music_id for albums missing released_year / total_tracks (or stale >90d), calls Apple Music catalog, and persists. Bounded; re-run until remaining: 0.",
+        "responses": {
+          "200": {
+            "description": "Backfill batch completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppleMusicAlbumsResponse"
                 }
               }
             }

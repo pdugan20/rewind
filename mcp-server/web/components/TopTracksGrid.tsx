@@ -16,6 +16,9 @@ export type TopTrackItem = {
   detail: string;
   album_id?: number | null;
   album_name?: string | null;
+  album_apple_music_url?: string | null;
+  album_released_year?: number | null;
+  album_total_tracks?: number | null;
   playcount: number;
   image: Image;
   url: string;

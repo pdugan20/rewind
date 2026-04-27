@@ -130,6 +130,9 @@ const TopTrackItemSchema = TopItemSchema.extend({
   sparkline: SparklineSchema.optional(),
   album_id: z.number().nullable().optional(),
   album_name: z.string().nullable().optional(),
+  album_apple_music_url: z.string().nullable().optional(),
+  album_released_year: z.number().nullable().optional(),
+  album_total_tracks: z.number().nullable().optional(),
 });
 
 const includeSparklinesField = z.coerce.boolean().optional().openapi({
@@ -2134,6 +2137,9 @@ listening.openapi(topTracksRoute, async (c) => {
     trackPreviewUrl: string | null;
     albumId: number | null;
     albumName: string | null;
+    albumAppleMusicUrl: string | null;
+    albumReleasedYear: number | null;
+    albumTotalTracks: number | null;
     artistName: string;
   };
 
@@ -2175,6 +2181,9 @@ listening.openapi(topTracksRoute, async (c) => {
         trackPreviewUrl: lastfmTracks.previewUrl,
         albumId: lastfmTracks.albumId,
         albumName: lastfmAlbums.name,
+        albumAppleMusicUrl: lastfmAlbums.appleMusicUrl,
+        albumReleasedYear: lastfmAlbums.releasedYear,
+        albumTotalTracks: lastfmAlbums.totalTracks,
         artistName: lastfmArtists.name,
         playcount: sql<number>`count(${lastfmScrobbles.id})`,
       })
@@ -2198,6 +2207,9 @@ listening.openapi(topTracksRoute, async (c) => {
       trackPreviewUrl: row.trackPreviewUrl,
       albumId: row.albumId,
       albumName: row.albumName,
+      albumAppleMusicUrl: row.albumAppleMusicUrl,
+      albumReleasedYear: row.albumReleasedYear,
+      albumTotalTracks: row.albumTotalTracks,
       artistName: row.artistName,
     }));
   } else {
@@ -2225,6 +2237,9 @@ listening.openapi(topTracksRoute, async (c) => {
         trackPreviewUrl: lastfmTracks.previewUrl,
         albumId: lastfmTracks.albumId,
         albumName: lastfmAlbums.name,
+        albumAppleMusicUrl: lastfmAlbums.appleMusicUrl,
+        albumReleasedYear: lastfmAlbums.releasedYear,
+        albumTotalTracks: lastfmAlbums.totalTracks,
         artistName: lastfmArtists.name,
       })
       .from(lastfmTopTracks)
@@ -2280,6 +2295,9 @@ listening.openapi(topTracksRoute, async (c) => {
         detail: item.artistName,
         album_id: item.albumId,
         album_name: item.albumName ?? null,
+        album_apple_music_url: item.albumAppleMusicUrl ?? null,
+        album_released_year: item.albumReleasedYear ?? null,
+        album_total_tracks: item.albumTotalTracks ?? null,
         playcount: item.playcount,
         image: item.albumId
           ? (albumImageMap.get(String(item.albumId)) ?? null)

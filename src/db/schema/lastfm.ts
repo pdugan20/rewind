@@ -69,6 +69,13 @@ export const lastfmAlbums = sqliteTable(
     appleMusicId: integer('apple_music_id'),
     appleMusicUrl: text('apple_music_url'),
     itunesEnrichedAt: text('itunes_enriched_at'),
+    // Apple Music catalog metadata (releaseDate + trackCount). Populated
+    // by services/apple-music/album.ts via the catalog API; gates the
+    // album-group depth signal on the artist card / top-tracks card
+    // ("2023 · 12 of 13 tracks").
+    releasedYear: integer('released_year'),
+    totalTracks: integer('total_tracks'),
+    appleMusicEnrichedAt: text('apple_music_enriched_at'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
