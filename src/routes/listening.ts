@@ -1120,6 +1120,7 @@ const artistDetailRoute = createRoute({
               {
                 id: 244,
                 name: 'Pearl Jam',
+                genre: 'Grunge',
                 your_scrobble_count: 612,
                 similarity_score: 0.86,
                 image: null,
