@@ -68,7 +68,6 @@
       },
       {
         "tab": "API Reference",
-        "openapi": "openapi.json",
         "groups": [
           {
             "group": "Listening",
