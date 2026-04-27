@@ -982,7 +982,7 @@
     },
     {
       "name": "get_top_tracks",
-      "description": "Get top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links. Optional `artist_id` or `artist_name` filters to a single artist's catalog — useful for 'what X songs have I been listening to lately' queries. Use after get_artist_details if a longer ranked list is needed; otherwise the embedded top_tracks[] from get_artist_details (capped at 10) is sufficient.",
+      "description": "Top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links. Optional `artist_id` or `artist_name` filters to a single artist's catalog — useful for 'what X songs have I been listening to lately' queries. Use after get_artist_details if a longer ranked list is needed; otherwise the embedded top_tracks[] from get_artist_details (capped at 10) is sufficient. In MCP Apps hosts, renders an interactive top-tracks card with a List | By album toggle.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1391,15 +1391,9 @@
       "mimeType": "text/html;profile=mcp-app"
     },
     {
-      "uri": "ui://rewind/top-tracks-grid.html",
-      "name": "Rewind -- Top Tracks (Grid candidate)",
-      "description": "Candidate UI for top-tracks-by-artist: square album-art tiles in a grid, rank badge top-left, name + album beneath. Consumes get_top_tracks structuredContent.",
-      "mimeType": "text/html;profile=mcp-app"
-    },
-    {
-      "uri": "ui://rewind/top-tracks-list.html",
-      "name": "Rewind -- Top Tracks (List candidate)",
-      "description": "Candidate UI for top-tracks-by-artist: dense ranked rows with rank, mini album art, track name + album, scrobble count + horizontal play-count bar. Consumes get_top_tracks structuredContent.",
+      "uri": "ui://rewind/top-tracks.html",
+      "name": "Rewind -- Top Tracks",
+      "description": "Interactive top-tracks list. Subtitle scopes period (e.g. 'Top tracks · All time'). Toggle between flat list and album-grouped views. Each row carries album art + track name + plays; album-grouped view adds an album header with cover, year, depth signal, and a Listen on Apple Music CTA. Consumes get_top_tracks structuredContent.",
       "mimeType": "text/html;profile=mcp-app"
     }
   ],

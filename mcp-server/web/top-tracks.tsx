@@ -1,14 +1,11 @@
 import { StrictMode, useEffect, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useApp, useHostStyles } from '@modelcontextprotocol/ext-apps/react';
-import {
-  TopTracksList,
-  type TopTracksPayload,
-} from './components/TopTracksList.js';
+import { TopTracks, type TopTracksPayload } from './components/TopTracks.js';
 
-function TopTracksListApp() {
+function TopTracksApp() {
   const { app, isConnected, error } = useApp({
-    appInfo: { name: 'rewind-top-tracks-list', version: '0.1.0' },
+    appInfo: { name: 'rewind-top-tracks', version: '0.1.0' },
     capabilities: {},
   });
 
@@ -34,7 +31,7 @@ function TopTracksListApp() {
 
   return (
     <div style={rootStyle}>
-      <TopTracksList
+      <TopTracks
         payload={payload}
         onOpen={(url) => {
           app?.openLink({ url });
@@ -60,6 +57,6 @@ const stateStyle: CSSProperties = {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <TopTracksListApp />
+    <TopTracksApp />
   </StrictMode>
 );

@@ -208,27 +208,12 @@ export function createServer(client: RewindClient): McpServer {
     },
   });
 
-  // Two competing layouts for top-tracks-by-artist. Both registered as
-  // ui:// resources so they preview in MCP Inspector; neither is wired to
-  // _meta.ui.resourceUri yet — Phase 4 picks the winner. Both consume the
-  // same get_top_tracks structuredContent shape.
   registerUiResource(server, {
-    name: 'Rewind -- Top Tracks (Grid candidate)',
-    uri: 'ui://rewind/top-tracks-grid.html',
-    html: UI_BUNDLES['top-tracks-grid.html'],
+    name: 'Rewind -- Top Tracks',
+    uri: 'ui://rewind/top-tracks.html',
+    html: UI_BUNDLES['top-tracks.html'],
     description:
-      'Candidate UI for top-tracks-by-artist: square album-art tiles in a grid, rank badge top-left, name + album beneath. Consumes get_top_tracks structuredContent.',
-    csp: {
-      resourceDomains: ['https://cdn.rewind.rest'],
-    },
-  });
-
-  registerUiResource(server, {
-    name: 'Rewind -- Top Tracks (List candidate)',
-    uri: 'ui://rewind/top-tracks-list.html',
-    html: UI_BUNDLES['top-tracks-list.html'],
-    description:
-      'Candidate UI for top-tracks-by-artist: dense ranked rows with rank, mini album art, track name + album, scrobble count + horizontal play-count bar. Consumes get_top_tracks structuredContent.',
+      "Interactive top-tracks list. Subtitle scopes period (e.g. 'Top tracks · All time'). Toggle between flat list and album-grouped views. Each row carries album art + track name + plays; album-grouped view adds an album header with cover, year, depth signal, and a Listen on Apple Music CTA. Consumes get_top_tracks structuredContent.",
     csp: {
       resourceDomains: ['https://cdn.rewind.rest'],
     },

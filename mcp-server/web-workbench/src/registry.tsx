@@ -9,8 +9,7 @@ import { GameCard } from '../../web/components/GameCard';
 import { ArticleDetail } from '../../web/components/ArticleDetail';
 import { ArtistDetail } from '../../web/components/ArtistDetail';
 import { AthleteDetail } from '../../web/components/AthleteDetail';
-import { TopTracksGrid } from '../../web/components/TopTracksGrid';
-import { TopTracksList } from '../../web/components/TopTracksList';
+import { TopTracks } from '../../web/components/TopTracks';
 
 import {
   fixtures as recentWatchesFixtures,
@@ -40,7 +39,7 @@ import type { EventDetail } from '../../web/components/GameCard';
 import type { ArticlePayload } from '../../web/components/ArticleDetail';
 import type { ArtistPayload } from '../../web/components/ArtistDetail';
 import type { AthletePayload } from '../../web/components/AthleteDetail';
-import type { TopTracksPayload } from '../../web/components/TopTracksGrid';
+import type { TopTracksPayload } from '../../web/components/TopTracks';
 
 /**
  * Lazy raw-text loaders for each built bundle in web/dist/. The map is empty
@@ -192,25 +191,14 @@ export const COMPONENTS: ComponentEntry[] = [
     ),
   },
   {
-    id: 'top-tracks-grid',
-    displayName: 'Top tracks — grid candidate',
+    id: 'top-tracks',
+    displayName: 'Top tracks',
     producedBy: 'get_top_tracks (artist filter)',
     defaultViewport: 'desktop',
     fixtures: topTracksFixtures,
-    getBuiltHtml: makeBuiltLoader('top-tracks-grid.html'),
+    getBuiltHtml: makeBuiltLoader('top-tracks.html'),
     render: (f) => (
-      <TopTracksGrid payload={f as TopTracksPayload} onOpen={defaultOpen} />
-    ),
-  },
-  {
-    id: 'top-tracks-list',
-    displayName: 'Top tracks — list candidate',
-    producedBy: 'get_top_tracks (artist filter)',
-    defaultViewport: 'desktop',
-    fixtures: topTracksFixtures,
-    getBuiltHtml: makeBuiltLoader('top-tracks-list.html'),
-    render: (f) => (
-      <TopTracksList payload={f as TopTracksPayload} onOpen={defaultOpen} />
+      <TopTracks payload={f as TopTracksPayload} onOpen={defaultOpen} />
     ),
   },
 ];

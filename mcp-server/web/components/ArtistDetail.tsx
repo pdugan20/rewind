@@ -347,7 +347,6 @@ function Sparkline({
 
 function TopTracks({
   tracks,
-  accent,
   onOpen,
 }: {
   tracks: TopTrack[];

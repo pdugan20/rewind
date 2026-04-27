@@ -471,38 +471,54 @@ export function registerListeningTools(
   // the model can answer "what Olivia Rodrigo songs have I been listening to
   // lately" by composing this tool with the period filter — preferred over
   // calling get_artist_details and reading its capped embedded top_tracks.
-  server.tool(
+  //
+  // Migrated to server.registerTool to attach _meta.ui.resourceUri so MCP
+  // Apps hosts (Claude Desktop / iOS) render the interactive top-tracks
+  // card inline. Phase 4 winner: list-style with toggle to album-grouped.
+  server.registerTool(
     'get_top_tracks',
-    "Get top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links. Optional `artist_id` or `artist_name` filters to a single artist's catalog — useful for 'what X songs have I been listening to lately' queries. Use after get_artist_details if a longer ranked list is needed; otherwise the embedded top_tracks[] from get_artist_details (capped at 10) is sufficient.",
     {
-      period: z
-        .enum(PERIOD_ENUM)
-        .default('1month')
-        .describe('Time period for rankings'),
-      limit: z
-        .number()
-        .min(1)
-        .max(50)
-        .default(10)
-        .describe('Number of tracks to return'),
-      page: z.number().min(1).default(1).describe('Page number for pagination'),
-      artist_id: z
-        .number()
-        .int()
-        .positive()
-        .optional()
-        .describe(
-          'Filter to a single artist. Stable id from get_artist_details or get_top_artists. Composes with period.'
-        ),
-      artist_name: z
-        .string()
-        .min(1)
-        .optional()
-        .describe(
-          'Substring match against artist names (case-insensitive). Resolves to the highest-playcount match. Use only if no artist_id is available; passing both is a 400.'
-        ),
+      title: 'Top tracks',
+      description:
+        "Top listened-to tracks from Last.fm for a given time period, with top-N Apple Music links. Optional `artist_id` or `artist_name` filters to a single artist's catalog — useful for 'what X songs have I been listening to lately' queries. Use after get_artist_details if a longer ranked list is needed; otherwise the embedded top_tracks[] from get_artist_details (capped at 10) is sufficient. In MCP Apps hosts, renders an interactive top-tracks card with a List | By album toggle.",
+      inputSchema: {
+        period: z
+          .enum(PERIOD_ENUM)
+          .default('1month')
+          .describe('Time period for rankings'),
+        limit: z
+          .number()
+          .min(1)
+          .max(50)
+          .default(10)
+          .describe('Number of tracks to return'),
+        page: z
+          .number()
+          .min(1)
+          .default(1)
+          .describe('Page number for pagination'),
+        artist_id: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(
+            'Filter to a single artist. Stable id from get_artist_details or get_top_artists. Composes with period.'
+          ),
+        artist_name: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Substring match against artist names (case-insensitive). Resolves to the highest-playcount match. Use only if no artist_id is available; passing both is a 400.'
+          ),
+      },
+      annotations: READ_ONLY_ANNOTATIONS,
+      _meta: {
+        ui: { resourceUri: 'ui://rewind/top-tracks.html' },
+        'ui/resourceUri': 'ui://rewind/top-tracks.html',
+      },
     },
-    READ_ONLY_ANNOTATIONS,
     async ({ period, limit, page, artist_id, artist_name }) =>
       withRichResponse(async () => {
         const data = await client.get<{

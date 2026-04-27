@@ -1,4 +1,4 @@
-import type { TopTracksPayload } from './components/TopTracksGrid.js';
+import type { TopTracksPayload } from './components/TopTracks.js';
 import realData from './fixtures/top-tracks.json' with { type: 'json' };
 
 const real = realData as unknown as TopTracksPayload;

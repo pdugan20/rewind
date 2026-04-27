@@ -1,8 +1,36 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
-import type { TopTrackItem, TopTracksPayload } from './TopTracksGrid.js';
 
-export type { TopTrackItem, TopTracksPayload };
+type Image = {
+  cdn_url?: string | null;
+  url?: string | null;
+  thumbhash?: string | null;
+  dominant_color?: string | null;
+  accent_color?: string | null;
+} | null;
+
+export type TopTrackItem = {
+  rank: number;
+  id: number;
+  name: string;
+  detail: string;
+  album_id?: number | null;
+  album_name?: string | null;
+  album_apple_music_url?: string | null;
+  album_released_year?: number | null;
+  album_total_tracks?: number | null;
+  playcount: number;
+  image: Image;
+  url: string;
+  apple_music_url: string | null;
+  preview_url?: string | null;
+};
+
+export type TopTracksPayload = {
+  period: string;
+  artist_id: number | null;
+  data: TopTrackItem[];
+};
 
 const THUMB_PX = 44;
 const TRANSFORM = `width=${THUMB_PX * 2},height=${THUMB_PX * 2},fit=cover,format=auto,quality=85`;
@@ -41,17 +69,28 @@ function periodLabel(period: string): string {
 
 type ViewMode = 'list' | 'album';
 
-export function TopTracksList({
+// Toggle visual treatment. 'A' is the canonical pick — full-width faint
+// pill with active half slightly raised. 'C' is preserved as a fallback
+// option (flush-edge bordered button pair) in case we ever decide the
+// pill feels too soft in a darker host theme. B (inline text + separator)
+// and D (right-aligned chips) were prototyped during the picker pass but
+// archived.
+export type ToggleVariant = 'A' | 'C';
+
+export function TopTracks({
   payload,
   onOpen,
+  toggleVariant = 'A',
 }: {
   payload: TopTracksPayload;
   onOpen?: (url: string) => void;
+  toggleVariant?: ToggleVariant;
 }) {
   const filtered = payload.artist_id !== null && payload.data.length > 0;
-  const heading = filtered
-    ? `Top ${payload.data[0].detail} tracks`
-    : 'Top tracks';
+  const title = filtered ? payload.data[0].detail : 'Top tracks';
+  const subtitle = filtered
+    ? `Top tracks · ${periodLabel(payload.period)}`
+    : periodLabel(payload.period);
   const maxPlaycount = Math.max(...payload.data.map((t) => t.playcount), 1);
 
   // Group + collect distinct album count to gate the toggle. Only show
@@ -67,12 +106,12 @@ export function TopTracksList({
   return (
     <section style={cardStyle}>
       <header style={headerStyle}>
-        <h1 style={titleStyle}>{heading}</h1>
-        <div style={headerRightStyle}>
-          {canGroup && <ViewToggle view={view} onChange={setView} />}
-          <span style={periodStyle}>{periodLabel(payload.period)}</span>
-        </div>
+        <h1 style={titleStyle}>{title}</h1>
+        <div style={subtitleStyle}>{subtitle}</div>
       </header>
+      {canGroup && (
+        <ViewToggle view={view} onChange={setView} variant={toggleVariant} />
+      )}
       {effectiveView === 'list' ? (
         <ol style={listStyle}>
           {payload.data.map((t) => (
@@ -87,8 +126,13 @@ export function TopTracksList({
         </ol>
       ) : (
         <div style={albumGroupsContainerStyle}>
-          {albumGroups.map((g) => (
-            <AlbumGroup key={g.albumKey} group={g} onOpen={onOpen} />
+          {albumGroups.map((g, i) => (
+            <AlbumGroup
+              key={g.albumKey}
+              group={g}
+              isFirst={i === 0}
+              onOpen={onOpen}
+            />
           ))}
         </div>
       )}
@@ -141,78 +185,99 @@ function groupByAlbum(items: TopTrackItem[]): AlbumGroupData[] {
 function ViewToggle({
   view,
   onChange,
+  variant,
 }: {
   view: ViewMode;
   onChange: (v: ViewMode) => void;
+  variant: ToggleVariant;
 }) {
-  return (
-    <div style={toggleWrapStyle} role="tablist" aria-label="View mode">
-      <ToggleButton
-        label="List"
-        active={view === 'list'}
-        onClick={() => onChange('list')}
-      />
-      <ToggleButton
-        label="By album"
-        active={view === 'album'}
-        onClick={() => onChange('album')}
-      />
-    </div>
-  );
-}
+  const items: Array<{ key: ViewMode; label: string }> = [
+    { key: 'list', label: 'List' },
+    { key: 'album', label: 'By album' },
+  ];
 
-function ToggleButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
+  // ── A: faint filled pill, full-width (Spotify Wrapped feel) ──────
+  if (variant === 'A') {
+    return (
+      <div style={pillWrapAStyle} role="tablist" aria-label="View mode">
+        {items.map((it) => (
+          <button
+            key={it.key}
+            type="button"
+            role="tab"
+            aria-selected={view === it.key}
+            onClick={() => onChange(it.key)}
+            style={{
+              ...pillButtonAStyle,
+              ...(view === it.key
+                ? pillButtonAActiveStyle
+                : pillButtonAInactiveStyle),
+            }}
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // ── C: flush-edge bordered button pair (archived fallback) ───────
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      style={{
-        ...toggleButtonStyle,
-        ...(active ? toggleButtonActiveStyle : toggleButtonInactiveStyle),
-      }}
-    >
-      {label}
-    </button>
+    <div style={flushWrapCStyle} role="tablist" aria-label="View mode">
+      {items.map((it) => (
+        <button
+          key={it.key}
+          type="button"
+          role="tab"
+          aria-selected={view === it.key}
+          onClick={() => onChange(it.key)}
+          style={{
+            ...flushButtonCStyle,
+            ...(view === it.key
+              ? flushButtonCActiveStyle
+              : flushButtonCInactiveStyle),
+          }}
+        >
+          {it.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
 function AlbumGroup({
   group,
+  isFirst,
   onOpen,
 }: {
   group: AlbumGroupData;
+  isFirst: boolean;
   onOpen?: (url: string) => void;
 }) {
   const tracksShown = group.tracks.length;
+
+  // Single-line subtitle in user-preferred order: year · plays · tracks-ratio.
+  // Tracks shortened to "12 of 20" (no "tracks" word) to keep the line tight
+  // while still reading in the album-grouped context.
   const subParts: string[] = [];
   if (group.releasedYear) subParts.push(String(group.releasedYear));
+  subParts.push(`${group.totalPlays.toLocaleString()} plays`);
   if (group.totalTracks) {
-    subParts.push(`${tracksShown} of ${group.totalTracks} tracks`);
+    subParts.push(`${tracksShown} of ${group.totalTracks}`);
   } else if (tracksShown > 1) {
     subParts.push(`${tracksShown} tracks`);
   }
-  subParts.push(`${group.totalPlays.toLocaleString()} plays`);
-  const subline = subParts.join(' · ');
+  const subLine = subParts.join(' · ');
 
   const groupMax = Math.max(...group.tracks.map((t) => t.playcount), 1);
 
   return (
-    <section style={albumGroupSectionStyle}>
+    <section style={isFirst ? albumGroupFirstStyle : albumGroupSectionStyle}>
       <div style={albumHeaderStyle}>
         <AlbumThumb image={group.albumImage} />
         <div style={albumHeaderTextStyle}>
           <div style={albumNameStyle}>{group.albumName ?? '(no album)'}</div>
-          <div style={albumSubStyle}>{subline}</div>
+          <div style={albumSubStyle}>{subLine}</div>
         </div>
         {group.albumAppleMusicUrl && (
           <button
@@ -232,25 +297,25 @@ function AlbumGroup({
               type="button"
               onClick={() => t.apple_music_url && onOpen?.(t.apple_music_url)}
               style={{
-                ...nameStyle,
+                ...albumTrackNameStyle,
                 cursor: t.apple_music_url ? 'pointer' : 'default',
               }}
             >
               {t.name}
             </button>
-            <div style={albumTrackCountColStyle}>
-              <span style={countStyle}>{t.playcount.toLocaleString()}</span>
-              <div style={barTrackStyle}>
-                <div
-                  style={{
-                    ...barFillStyle,
-                    width: `${(t.playcount / groupMax) * 100}%`,
-                    background:
-                      t.image?.accent_color ?? 'var(--color-accent, #4c6ef5)',
-                  }}
-                />
-              </div>
+            <div style={albumTrackBarStyle}>
+              <div
+                style={{
+                  ...barFillStyle,
+                  width: `${(t.playcount / groupMax) * 100}%`,
+                  background:
+                    t.image?.accent_color ?? 'var(--color-accent, #4c6ef5)',
+                }}
+              />
             </div>
+            <span style={albumTrackCountStyle}>
+              {t.playcount.toLocaleString()}
+            </span>
           </li>
         ))}
       </ol>
@@ -424,45 +489,81 @@ const cardStyle: CSSProperties = {
 
 const headerStyle: CSSProperties = {
   display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 12,
-  flexWrap: 'wrap',
+  flexDirection: 'column',
+  gap: 2,
 };
 
-const headerRightStyle: CSSProperties = {
+const subtitleStyle: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 500,
+  color: 'var(--color-text-secondary, inherit)',
+  opacity: 0.75,
+};
+
+// ─── Variant A: faint filled pill, full-width ───────────────────────
+const pillWrapAStyle: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-};
-
-const toggleWrapStyle: CSSProperties = {
-  display: 'inline-flex',
-  padding: 2,
+  width: '100%',
+  padding: 3,
   borderRadius: 999,
-  background: 'rgba(127,127,127,0.10)',
+  background: 'rgba(127,127,127,0.08)',
   gap: 0,
 };
 
-const toggleButtonStyle: CSSProperties = {
-  fontSize: 12,
+const pillButtonAStyle: CSSProperties = {
+  flex: 1,
+  fontSize: 13,
   fontWeight: 500,
-  padding: '4px 12px',
+  padding: '6px 0',
   border: 'none',
   borderRadius: 999,
+  background: 'transparent',
   font: 'inherit',
   cursor: 'pointer',
-  background: 'transparent',
+  textAlign: 'center',
   transition: 'background 120ms ease, color 120ms ease',
 };
 
-const toggleButtonActiveStyle: CSSProperties = {
+const pillButtonAActiveStyle: CSSProperties = {
   background: 'var(--color-background-primary, #fff)',
   color: 'var(--color-text-primary, inherit)',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
 };
 
-const toggleButtonInactiveStyle: CSSProperties = {
+const pillButtonAInactiveStyle: CSSProperties = {
+  color: 'var(--color-text-secondary, inherit)',
+  opacity: 0.7,
+};
+
+// ─── Variant C: flush-edge text buttons with faint active bg ────────
+const flushWrapCStyle: CSSProperties = {
+  display: 'flex',
+  width: '100%',
+  borderRadius: 6,
+  overflow: 'hidden',
+  border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+};
+
+const flushButtonCStyle: CSSProperties = {
+  flex: 1,
+  fontSize: 13,
+  fontWeight: 500,
+  padding: '8px 12px',
+  border: 'none',
+  background: 'transparent',
+  font: 'inherit',
+  cursor: 'pointer',
+  textAlign: 'center',
+  transition: 'background 120ms ease, color 120ms ease',
+};
+
+const flushButtonCActiveStyle: CSSProperties = {
+  background: 'rgba(127,127,127,0.06)',
+  color: 'var(--color-text-primary, inherit)',
+};
+
+const flushButtonCInactiveStyle: CSSProperties = {
+  background: 'transparent',
   color: 'var(--color-text-secondary, inherit)',
   opacity: 0.7,
 };
@@ -479,6 +580,15 @@ const albumGroupSectionStyle: CSSProperties = {
   gap: 10,
   paddingTop: 12,
   borderTop: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+};
+
+// First album in the list — same layout, no top divider (the toggle bar
+// already sits as the visual seam above it).
+const albumGroupFirstStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 10,
+  paddingTop: 0,
 };
 
 const albumHeaderStyle: CSSProperties = {
@@ -518,10 +628,11 @@ const albumSubStyle: CSSProperties = {
 const albumCtaStyle: CSSProperties = {
   fontSize: 12,
   fontWeight: 500,
-  padding: '6px 12px',
+  padding: '6px 14px',
   borderRadius: 999,
-  border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.18))',
-  background: 'transparent',
+  border: 'none',
+  background: '#000',
+  color: '#fff',
   font: 'inherit',
   cursor: 'pointer',
   flexShrink: 0,
@@ -530,29 +641,61 @@ const albumCtaStyle: CSSProperties = {
 const albumTrackListStyle: CSSProperties = {
   margin: 0,
   padding: 0,
-  // Hang tracks under the album cover — indent matches the cover width
-  // + the gap from albumHeaderStyle so the track name aligns with the
-  // album name above it.
-  paddingLeft: ALBUM_HEADER_THUMB_PX + 12,
+  // Tracks align flush-left with the album cover's left edge — keeps the
+  // group visually anchored. Bar and count sit inline to the right.
   listStyle: 'none',
   display: 'flex',
   flexDirection: 'column',
-  gap: 6,
+  gap: 7,
 };
 
 const albumTrackRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
+  gap: 8,
 };
 
-const albumTrackCountColStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'flex-end',
-  gap: 4,
-  width: 110,
+const albumTrackNameStyle: CSSProperties = {
+  // Name takes the leftover row width — bar + count are fixed-width and
+  // right-aligned, so the name absorbs the slack and ellipsises if long.
+  flex: 1,
+  minWidth: 0,
+  font: 'inherit',
+  fontSize: 'calc(1em - 1px)',
+  lineHeight: 1.3,
+  border: 'none',
+  background: 'transparent',
+  padding: 0,
+  textAlign: 'left',
+  color: 'inherit',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+// Bar pinned to a fixed width so all rows align vertically — visual scan
+// down the column compares plays at a glance.
+const albumTrackBarStyle: CSSProperties = {
+  width: 80,
+  height: 3,
+  background: 'rgba(127,127,127,0.18)',
+  borderRadius: 2,
+  overflow: 'hidden',
   flexShrink: 0,
+};
+
+const albumTrackCountStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 500,
+  fontVariantNumeric: 'tabular-nums',
+  color: 'var(--color-text-secondary, inherit)',
+  opacity: 0.7,
+  flexShrink: 0,
+  // Width sized for ~3-digit counts (covers 99% of plays); 4-digit
+  // counts are rare and will just edge slightly past — tabular-nums
+  // keeps the digits aligned across rows either way.
+  minWidth: 24,
+  textAlign: 'right',
 };
 
 const titleStyle: CSSProperties = {
@@ -560,14 +703,6 @@ const titleStyle: CSSProperties = {
   fontWeight: 700,
   margin: 0,
   color: 'var(--color-text-primary, inherit)',
-};
-
-const periodStyle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 500,
-  letterSpacing: 0.4,
-  textTransform: 'uppercase',
-  opacity: 0.55,
 };
 
 const listStyle: CSSProperties = {
