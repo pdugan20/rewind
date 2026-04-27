@@ -336,11 +336,16 @@ export const players = sqliteTable(
     primaryNumber: text('primary_number'), // jersey, kept as string ("00", "13", etc.)
     birthDate: text('birth_date'), // YYYY-MM-DD
     birthCity: text('birth_city'),
+    birthStateProvince: text('birth_state_province'), // 'VA', 'BC', 'CA-PV', etc.
     birthCountry: text('birth_country'),
+    height: text('height'), // "6' 2\"" — keep raw upstream format; no UI math on it
+    weight: integer('weight'), // lbs (MLB Stats native unit)
     bats: text('bats'), // L/R/B
     throws: text('throws'), // L/R
     primaryTeamId: integer('primary_team_id'), // league-specific team id
     debutDate: text('debut_date'),
+    collegeName: text('college_name'), // first college from MLB Stats education hydration
+    awards: text('awards'), // JSON array of {season, name, id}
     bioData: text('bio_data'), // JSON: any extra fields we want to keep around
     createdAt: text('created_at')
       .notNull()

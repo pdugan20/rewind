@@ -1249,4 +1249,73 @@ adminAttending.openapi(seedTeamsRoute, async (c) => {
   }
 });
 
+// ─── POST /v1/admin/attending/enrich-player-bio ─────────────────────
+
+const EnrichPlayerBioBody = z
+  .object({
+    player_ids: z.array(z.number().int()).optional(),
+    force: z.boolean().optional().default(false),
+    limit: z.number().int().min(1).max(2000).optional().default(500),
+  })
+  .openapi('AttendingEnrichPlayerBioBody');
+
+const EnrichPlayerBioResponse = z
+  .object({
+    status: z.literal('completed'),
+    scanned: z.number().int(),
+    fetched: z.number().int(),
+    updated: z.number().int(),
+    failures: z.array(
+      z.object({ mlb_stats_id: z.number().int(), reason: z.string() })
+    ),
+  })
+  .openapi('AttendingEnrichPlayerBioResponse');
+
+const enrichPlayerBioRoute = createRoute({
+  method: 'post',
+  path: '/admin/attending/enrich-player-bio',
+  operationId: 'adminAttendingEnrichPlayerBio',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Backfill player bio fields and awards from MLB Stats /people',
+  description:
+    'For every MLB player missing a hydrated bio (`birth_country IS NULL` is the canary), fetches `/api/v1/people?personIds=…&hydrate=education,awards` in chunks of 100 and writes height, weight, birth_state_province, college_name, debut_date, bats/throws, and a filtered awards JSON. Idempotent. Pass `force:true` to re-fetch rows that already have bio data; `player_ids` to scope to specific rows.',
+  request: {
+    body: {
+      content: { 'application/json': { schema: EnrichPlayerBioBody } },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      description: 'Bio backfill completed',
+      content: {
+        'application/json': { schema: EnrichPlayerBioResponse },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminAttending.openapi(enrichPlayerBioRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  type Opts = { player_ids?: number[]; force?: boolean; limit?: number };
+  const body: Opts = await c.req.json<Opts>().catch(() => ({}) as Opts);
+
+  try {
+    const { enrichPlayerBios } =
+      await import('../services/attending/enrich-player-bio.js');
+    const result = await enrichPlayerBios(db, c.env, {
+      playerIds: body.player_ids,
+      force: body.force ?? false,
+      limit: body.limit ?? 500,
+    });
+    return c.json({ status: 'completed' as const, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/attending/enrich-player-bio: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
 export default adminAttending;

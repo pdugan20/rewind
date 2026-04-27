@@ -1539,6 +1539,72 @@
           }
         }
       },
+      "AttendingEnrichPlayerBioResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "scanned": {
+            "type": "integer"
+          },
+          "fetched": {
+            "type": "integer"
+          },
+          "updated": {
+            "type": "integer"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "mlb_stats_id": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "mlb_stats_id",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "scanned",
+          "fetched",
+          "updated",
+          "failures"
+        ]
+      },
+      "AttendingEnrichPlayerBioBody": {
+        "type": "object",
+        "properties": {
+          "player_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "force": {
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 500
+          }
+        }
+      },
       "SyncCompletedResponse": {
         "type": "object",
         "properties": {
@@ -19491,12 +19557,40 @@
                                 ],
                                 "example": "1996-11-26"
                               },
+                              "birth_city": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "Harrisonburg"
+                              },
+                              "birth_state_province": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "VA"
+                              },
                               "birth_country": {
                                 "type": [
                                   "string",
                                   "null"
                                 ],
                                 "example": "USA"
+                              },
+                              "height": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "6' 2\""
+                              },
+                              "weight": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "example": 235
                               },
                               "bats": {
                                 "type": [
@@ -19521,6 +19615,39 @@
                                   "null"
                                 ],
                                 "example": "2021-07-11"
+                              },
+                              "college_name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "example": "Florida State"
+                              },
+                              "awards": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "season": {
+                                      "type": "string",
+                                      "example": "2025"
+                                    },
+                                    "id": {
+                                      "type": "string",
+                                      "example": "ALSS"
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "example": "AL Silver Slugger"
+                                    }
+                                  },
+                                  "required": [
+                                    "season",
+                                    "id",
+                                    "name"
+                                  ]
+                                },
+                                "description": "Filtered to honors that matter (Silver Slugger, Gold Glove, MVP, All-MLB, Cy Young, etc.). Newest season first. Empty array when no qualifying awards or bio not yet enriched."
                               },
                               "photo_silo": {
                                 "type": [
@@ -19608,11 +19735,17 @@
                               "primary_position",
                               "primary_number",
                               "birth_date",
+                              "birth_city",
+                              "birth_state_province",
                               "birth_country",
+                              "height",
+                              "weight",
                               "bats",
                               "throws",
                               "primary_team",
                               "debut_date",
+                              "college_name",
+                              "awards",
                               "photo_silo",
                               "photo_full"
                             ]
@@ -20375,12 +20508,40 @@
                             ],
                             "example": "1996-11-26"
                           },
+                          "birth_city": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "Harrisonburg"
+                          },
+                          "birth_state_province": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "VA"
+                          },
                           "birth_country": {
                             "type": [
                               "string",
                               "null"
                             ],
                             "example": "USA"
+                          },
+                          "height": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "6' 2\""
+                          },
+                          "weight": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "example": 235
                           },
                           "bats": {
                             "type": [
@@ -20405,6 +20566,39 @@
                               "null"
                             ],
                             "example": "2021-07-11"
+                          },
+                          "college_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "example": "Florida State"
+                          },
+                          "awards": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "season": {
+                                  "type": "string",
+                                  "example": "2025"
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "example": "ALSS"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "example": "AL Silver Slugger"
+                                }
+                              },
+                              "required": [
+                                "season",
+                                "id",
+                                "name"
+                              ]
+                            },
+                            "description": "Filtered to honors that matter (Silver Slugger, Gold Glove, MVP, All-MLB, Cy Young, etc.). Newest season first. Empty array when no qualifying awards or bio not yet enriched."
                           },
                           "photo_silo": {
                             "type": [
@@ -20492,11 +20686,17 @@
                           "primary_position",
                           "primary_number",
                           "birth_date",
+                          "birth_city",
+                          "birth_state_province",
                           "birth_country",
+                          "height",
+                          "weight",
                           "bats",
                           "throws",
                           "primary_team",
                           "debut_date",
+                          "college_name",
+                          "awards",
                           "photo_silo",
                           "photo_full"
                         ]
@@ -20603,12 +20803,40 @@
                       ],
                       "example": "1996-11-26"
                     },
+                    "birth_city": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "Harrisonburg"
+                    },
+                    "birth_state_province": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "VA"
+                    },
                     "birth_country": {
                       "type": [
                         "string",
                         "null"
                       ],
                       "example": "USA"
+                    },
+                    "height": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "6' 2\""
+                    },
+                    "weight": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "example": 235
                     },
                     "bats": {
                       "type": [
@@ -20633,6 +20861,39 @@
                         "null"
                       ],
                       "example": "2021-07-11"
+                    },
+                    "college_name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "Florida State"
+                    },
+                    "awards": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "season": {
+                            "type": "string",
+                            "example": "2025"
+                          },
+                          "id": {
+                            "type": "string",
+                            "example": "ALSS"
+                          },
+                          "name": {
+                            "type": "string",
+                            "example": "AL Silver Slugger"
+                          }
+                        },
+                        "required": [
+                          "season",
+                          "id",
+                          "name"
+                        ]
+                      },
+                      "description": "Filtered to honors that matter (Silver Slugger, Gold Glove, MVP, All-MLB, Cy Young, etc.). Newest season first. Empty array when no qualifying awards or bio not yet enriched."
                     },
                     "photo_silo": {
                       "type": [
@@ -20786,11 +21047,17 @@
                     "primary_position",
                     "primary_number",
                     "birth_date",
+                    "birth_city",
+                    "birth_state_province",
                     "birth_country",
+                    "height",
+                    "weight",
                     "bats",
                     "throws",
                     "primary_team",
                     "debut_date",
+                    "college_name",
+                    "awards",
                     "photo_silo",
                     "photo_full",
                     "supported",
@@ -23937,6 +24204,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AttendingSeedTeamsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/attending/enrich-player-bio": {
+      "post": {
+        "operationId": "adminAttendingEnrichPlayerBio",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Backfill player bio fields and awards from MLB Stats /people",
+        "description": "For every MLB player missing a hydrated bio (`birth_country IS NULL` is the canary), fetches `/api/v1/people?personIds=…&hydrate=education,awards` in chunks of 100 and writes height, weight, birth_state_province, college_name, debut_date, bats/throws, and a filtered awards JSON. Idempotent. Pass `force:true` to re-fetch rows that already have bio data; `player_ids` to scope to specific rows.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendingEnrichPlayerBioBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bio backfill completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendingEnrichPlayerBioResponse"
                 }
               }
             }

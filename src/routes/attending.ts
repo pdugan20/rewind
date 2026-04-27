@@ -11,7 +11,10 @@ import {
   venues,
 } from '../db/schema/attending.js';
 import { setCache } from '../lib/cache.js';
-import { getImageAttachmentBatch } from '../lib/images.js';
+import {
+  getImageAttachmentBatch,
+  type ImageAttachment,
+} from '../lib/images.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses, PaginationMeta } from '../lib/schemas/common.js';
@@ -47,6 +50,45 @@ function parseJson<T = unknown>(raw: string | null): T | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Project a `players` row + side data into the wire `player` shape.
+ * All three player-bearing endpoints (attended event, players list,
+ * attended player detail) flow through here so adding a bio field is
+ * a one-line change instead of three.
+ */
+function playerToWire(
+  p: typeof players.$inferSelect,
+  primaryTeam: ReturnType<typeof getTeam>,
+  photo: { silo: ImageAttachment | null; full: ImageAttachment | null }
+) {
+  const awards =
+    parseJson<Array<{ season: string; id: string; name: string }>>(p.awards) ??
+    [];
+  return {
+    id: p.id,
+    league: p.league,
+    mlb_stats_id: p.mlbStatsId,
+    espn_id: p.espnId,
+    full_name: p.fullName,
+    primary_position: p.primaryPosition,
+    primary_number: p.primaryNumber,
+    birth_date: p.birthDate,
+    birth_city: p.birthCity,
+    birth_state_province: p.birthStateProvince,
+    birth_country: p.birthCountry,
+    height: p.height,
+    weight: p.weight,
+    bats: p.bats,
+    throws: p.throws,
+    primary_team: primaryTeam,
+    debut_date: p.debutDate,
+    college_name: p.collegeName,
+    awards,
+    photo_silo: photo.silo,
+    photo_full: photo.full,
+  };
 }
 
 // ─── Schemas ────────────────────────────────────────────────────────
@@ -130,7 +172,11 @@ const PlayerSchema = z.object({
   primary_position: z.string().nullable().openapi({ example: 'C' }),
   primary_number: z.string().nullable().openapi({ example: '29' }),
   birth_date: z.string().nullable().openapi({ example: '1996-11-26' }),
+  birth_city: z.string().nullable().openapi({ example: 'Harrisonburg' }),
+  birth_state_province: z.string().nullable().openapi({ example: 'VA' }),
   birth_country: z.string().nullable().openapi({ example: 'USA' }),
+  height: z.string().nullable().openapi({ example: '6\' 2"' }),
+  weight: z.number().int().nullable().openapi({ example: 235 }),
   bats: z.string().nullable().openapi({ example: 'B' }),
   throws: z.string().nullable().openapi({ example: 'R' }),
   // Full team object (logo + colors inline) when seeded; null when the
@@ -139,6 +185,19 @@ const PlayerSchema = z.object({
   // `primary_team.abbreviation` for display in disambiguation contexts.
   primary_team: Team.nullable(),
   debut_date: z.string().nullable().openapi({ example: '2021-07-11' }),
+  college_name: z.string().nullable().openapi({ example: 'Florida State' }),
+  awards: z
+    .array(
+      z.object({
+        season: z.string().openapi({ example: '2025' }),
+        id: z.string().openapi({ example: 'ALSS' }),
+        name: z.string().openapi({ example: 'AL Silver Slugger' }),
+      })
+    )
+    .openapi({
+      description:
+        'Filtered to honors that matter (Silver Slugger, Gold Glove, MVP, All-MLB, Cy Young, etc.). Newest season first. Empty array when no qualifying awards or bio not yet enriched.',
+    }),
   photo_silo: PlayerPhotoSchema.nullable(),
   photo_full: PlayerPhotoSchema.nullable(),
 });
@@ -507,23 +566,14 @@ attending.openapi(eventDetailRoute, async (c) => {
           const a = r.attended_event_players;
           const eid = String(p.id);
           return {
-            player: {
-              id: p.id,
-              league: p.league,
-              mlb_stats_id: p.mlbStatsId,
-              espn_id: p.espnId,
-              full_name: p.fullName,
-              primary_position: p.primaryPosition,
-              primary_number: p.primaryNumber,
-              birth_date: p.birthDate,
-              birth_country: p.birthCountry,
-              bats: p.bats,
-              throws: p.throws,
-              primary_team: getTeam(teamMap, p.league, p.primaryTeamId),
-              debut_date: p.debutDate,
-              photo_silo: siloMap.get(eid) ?? null,
-              photo_full: fullMap.get(eid) ?? null,
-            },
+            player: playerToWire(
+              p,
+              getTeam(teamMap, p.league, p.primaryTeamId),
+              {
+                silo: siloMap.get(eid) ?? null,
+                full: fullMap.get(eid) ?? null,
+              }
+            ),
             team: getTeam(teamMap, league, a.teamId),
             is_home: a.isHome === 1,
             batting_line: parseJson<Record<string, unknown>>(a.battingLine),
@@ -882,23 +932,12 @@ attending.openapi(playersListRoute, async (c) => {
   setCache(c, 'medium');
   return c.json(
     {
-      data: rows.map((p) => ({
-        id: p.id,
-        league: p.league,
-        mlb_stats_id: p.mlbStatsId,
-        espn_id: p.espnId,
-        full_name: p.fullName,
-        primary_position: p.primaryPosition,
-        primary_number: p.primaryNumber,
-        birth_date: p.birthDate,
-        birth_country: p.birthCountry,
-        bats: p.bats,
-        throws: p.throws,
-        primary_team: getTeam(teamMap, p.league, p.primaryTeamId),
-        debut_date: p.debutDate,
-        photo_silo: siloMap.get(String(p.id)) ?? null,
-        photo_full: fullMap.get(String(p.id)) ?? null,
-      })),
+      data: rows.map((p) =>
+        playerToWire(p, getTeam(teamMap, p.league, p.primaryTeamId), {
+          silo: siloMap.get(String(p.id)) ?? null,
+          full: fullMap.get(String(p.id)) ?? null,
+        })
+      ),
       pagination: paginate(page, limit, count),
     },
     200
@@ -1027,22 +1066,11 @@ attending.openapi(playerDetailRoute, async (c) => {
   setCache(c, 'medium');
   return c.json(
     {
-      id: p.id,
-      league: p.league,
+      ...playerToWire(p, getTeam(teamMap, p.league, p.primaryTeamId), {
+        silo: siloMap.get(eid) ?? null,
+        full: fullMap.get(eid) ?? null,
+      }),
       supported: p.league === 'mlb',
-      mlb_stats_id: p.mlbStatsId,
-      espn_id: p.espnId,
-      full_name: p.fullName,
-      primary_position: p.primaryPosition,
-      primary_number: p.primaryNumber,
-      birth_date: p.birthDate,
-      birth_country: p.birthCountry,
-      bats: p.bats,
-      throws: p.throws,
-      primary_team: getTeam(teamMap, p.league, p.primaryTeamId),
-      debut_date: p.debutDate,
-      photo_silo: siloMap.get(eid) ?? null,
-      photo_full: fullMap.get(eid) ?? null,
       season_stats,
       attended_summary,
       appearances: appearances

@@ -441,14 +441,12 @@ export function registerAttendingTools(
         const data = await client.get<
           Player & {
             supported: boolean;
-            team: {
-              id: number;
-              name: string;
-              abbreviation: string;
-              league: 'mlb';
-              primary_color: string | null;
-              logo: Photo;
-            } | null;
+            birth_city: string | null;
+            birth_state_province: string | null;
+            height: string | null;
+            weight: number | null;
+            college_name: string | null;
+            awards: Array<{ season: string; id: string; name: string }>;
             season_stats: {
               season: number;
               fetched_at: string;
@@ -481,14 +479,22 @@ export function registerAttendingTools(
 
         const bio = [
           `${data.full_name}${data.primary_number ? ` #${data.primary_number}` : ''}${data.primary_position ? ` (${data.primary_position})` : ''}`,
-          data.team
-            ? `Team: ${data.team.name} (${data.team.abbreviation})`
+          data.primary_team
+            ? `Team: ${data.primary_team.full_name ?? data.primary_team.name} (${data.primary_team.abbreviation})`
             : null,
           data.bats || data.throws
             ? `Bats: ${data.bats ?? '?'}, Throws: ${data.throws ?? '?'}`
             : null,
           data.debut_date ? `MLB debut: ${formatDate(data.debut_date)}` : null,
-          data.birth_country ? `From: ${data.birth_country}` : null,
+          data.height || data.weight
+            ? `${data.height ?? ''}${data.weight ? `, ${data.weight} lbs` : ''}`
+                .trim()
+                .replace(/^,\s*/, '')
+            : null,
+          data.birth_city || data.birth_state_province || data.birth_country
+            ? `From: ${[data.birth_city, data.birth_state_province, data.birth_country].filter(Boolean).join(', ')}`
+            : null,
+          data.college_name ? `College: ${data.college_name}` : null,
         ].filter((l) => l !== null);
 
         const lines = [bio.join('\n')];
@@ -560,11 +566,18 @@ export function registerAttendingTools(
             bats: data.bats,
             throws: data.throws,
             debut_date: data.debut_date,
+            birth_date: data.birth_date,
+            birth_city: data.birth_city,
+            birth_state_province: data.birth_state_province,
             birth_country: data.birth_country,
+            height: data.height,
+            weight: data.weight,
+            college_name: data.college_name,
+            awards: data.awards,
             photo_silo: data.photo_silo,
             photo_full: data.photo_full,
             league: data.league,
-            team: data.team,
+            primary_team: data.primary_team,
           },
           supported: data.supported,
           season_stats: data.season_stats,
