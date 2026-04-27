@@ -390,18 +390,59 @@ export function registerAttendingTools(
       })
   );
 
-  server.tool(
+  // get_attended_player ───────────────────────────────────────────
+  // Registered via server.registerTool so we can attach `_meta.ui.resourceUri`.
+  // Hosts that support MCP Apps render the athlete card inline; others fall
+  // back to the text + photo response.
+  //
+  // structuredContent uses the DESIGN.md nested shape: { player, supported,
+  // season_stats, attended_summary, attended_appearances, attended_appearance_count }.
+  // Appearances are capped at 10 most recent to keep the response within the
+  // 8 KB token budget.
+  server.registerTool(
     'get_attended_player',
-    'Get details for a player you have watched play in person, including bio (position, jersey, debut), photos, and every attended event in which they appeared with their stat line for that game.',
     {
-      id: z.number().int().describe('Player id.'),
-      ...includeImagesParam,
+      title: 'Athlete — detail',
+      description:
+        "Profile for a player you've watched play in person. Returns bio (position, jersey, debut), team logo, current-season stats (live MLB Stats API for MLB players, KV-cached 1h), your-attended summary aggregated across every attended game, and the 10 most recent attended appearances with their stat lines. MLB-only for the live-stats panel — non-MLB players surface as supported:false. In MCP Apps hosts, renders an interactive athlete card inline.",
+      inputSchema: {
+        id: z.number().int().describe('Player id.'),
+        ...includeImagesParam,
+      },
+      annotations: READ_ONLY_ANNOTATIONS,
+      _meta: {
+        ui: { resourceUri: 'ui://rewind/attended-player.html' },
+        'ui/resourceUri': 'ui://rewind/attended-player.html',
+      },
     },
-    READ_ONLY_ANNOTATIONS,
     async ({ id, include_images }) =>
       withRichResponse(async () => {
         const data = await client.get<
           Player & {
+            supported: boolean;
+            team: {
+              id: number;
+              name: string;
+              abbreviation: string;
+              league: 'mlb';
+              primary_color: string | null;
+              logo: Photo;
+            } | null;
+            season_stats: {
+              season: number;
+              fetched_at: string;
+              cache_hit: boolean;
+              hitter: Record<string, unknown> | null;
+              pitcher: Record<string, unknown> | null;
+            } | null;
+            attended_summary: {
+              games_attended: number;
+              games_with_box_score: number;
+              wins: number;
+              losses: number;
+              hitter: Record<string, unknown> | null;
+              pitcher: Record<string, unknown> | null;
+            };
             appearances: Array<{
               event_id: number;
               event_date: string;
@@ -413,11 +454,15 @@ export function registerAttendingTools(
               decision: 'W' | 'L' | 'SV' | 'HLD' | 'BS' | null;
               notable: boolean;
             }>;
+            appearance_count: number;
           }
         >(`/attending/players/${id}`);
 
         const bio = [
           `${data.full_name}${data.primary_number ? ` #${data.primary_number}` : ''}${data.primary_position ? ` (${data.primary_position})` : ''}`,
+          data.team
+            ? `Team: ${data.team.name} (${data.team.abbreviation})`
+            : null,
           data.bats || data.throws
             ? `Bats: ${data.bats ?? '?'}, Throws: ${data.throws ?? '?'}`
             : null,
@@ -426,10 +471,44 @@ export function registerAttendingTools(
         ].filter((l) => l !== null);
 
         const lines = [bio.join('\n')];
-        if (data.appearances.length) {
+
+        // This-season stats — for MLB hitters/pitchers.
+        if (data.season_stats?.hitter) {
+          const h = data.season_stats.hitter;
           lines.push(
             '',
-            `${data.appearances.length} attended games featuring this player:`
+            `${data.season_stats.season} season: .${(h.avg ?? '.000').toString().replace(/^\./, '')} / .${(h.slg ?? '.000').toString().replace(/^\./, '')} (AVG / SLG), ${h.hr ?? 0} HR, ${h.rbi ?? 0} RBI in ${h.games_played ?? 0} games`
+          );
+        } else if (data.season_stats?.pitcher) {
+          const p = data.season_stats.pitcher;
+          lines.push(
+            '',
+            `${data.season_stats.season} season: ${p.era ?? '0.00'} ERA, ${p.whip ?? '0.00'} WHIP, ${p.k ?? 0} K in ${p.ip ?? '0'} IP`
+          );
+        }
+
+        // Attended summary — your stat line from games you attended.
+        if (data.attended_summary.hitter) {
+          const h = data.attended_summary.hitter;
+          lines.push(
+            '',
+            `In ${data.attended_summary.games_attended} games you attended: ${h.h ?? 0} hits in ${h.ab ?? 0} AB, ${h.hr ?? 0} HR, ${h.rbi ?? 0} RBI`
+          );
+        } else if (data.attended_summary.pitcher) {
+          const p = data.attended_summary.pitcher;
+          const dec = p.decisions as
+            | { w: number; l: number; sv: number }
+            | undefined;
+          lines.push(
+            '',
+            `In ${data.attended_summary.games_attended} games you attended: ${p.ip ?? '0'} IP, ${p.k ?? 0} K, ${p.era ?? '0.00'} ERA${dec ? ` (${dec.w ?? 0}-${dec.l ?? 0})` : ''}`
+          );
+        }
+
+        if (data.appearance_count > 0) {
+          lines.push(
+            '',
+            `${data.appearance_count} attended appearance${data.appearance_count === 1 ? '' : 's'}:`
           );
           for (const a of data.appearances.slice(0, 25)) {
             const date = formatDate(a.event_date);
@@ -437,8 +516,8 @@ export function registerAttendingTools(
             const decision = a.decision ? ` (${a.decision})` : '';
             lines.push(`${date}: ${a.title}${decision} -- ${stat}`);
           }
-          if (data.appearances.length > 25) {
-            lines.push(`... and ${data.appearances.length - 25} more.`);
+          if (data.appearance_count > 25) {
+            lines.push(`... and ${data.appearance_count - 25} more.`);
           }
         }
 
@@ -448,9 +527,47 @@ export function registerAttendingTools(
           if (silo) images.push(silo);
         }
 
+        // structuredContent: nested DESIGN.md shape. Appearances capped at
+        // 10 most recent for the card; total surfaced via attended_appearance_count.
+        const structuredContent = {
+          player: {
+            id: data.id,
+            mlb_stats_id: data.mlb_stats_id,
+            full_name: data.full_name,
+            primary_position: data.primary_position,
+            primary_number: data.primary_number,
+            bats: data.bats,
+            throws: data.throws,
+            debut_date: data.debut_date,
+            birth_country: data.birth_country,
+            photo_silo: data.photo_silo,
+            photo_full: data.photo_full,
+            league: data.league,
+            team: data.team,
+          },
+          supported: data.supported,
+          season_stats: data.season_stats,
+          attended_summary: data.attended_summary,
+          attended_appearances: data.appearances.slice(0, 10).map((a) => ({
+            event_id: a.event_id,
+            event_date: a.event_date,
+            title: a.title,
+            is_home: a.is_home,
+            batting_line: a.batting_line,
+            pitching_line: a.pitching_line,
+            decision: a.decision,
+            notable: a.notable,
+            // Notable reasons stitched from batting/pitching lines for the
+            // card. Lightweight client-side derivation matches the season
+            // grid card's existing pattern.
+            notable_reasons: deriveNotableReasons(a),
+          })),
+          attended_appearance_count: data.appearance_count,
+        };
+
         return {
           content: [text(lines.join('\n')), ...images],
-          structuredContent: data,
+          structuredContent,
         };
       })
   );
@@ -789,6 +906,39 @@ export function registerAttendingTools(
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
+
+// Reasons a particular attended appearance is "notable" — feeds the
+// athlete card's bullet highlights ("3 HRs you witnessed live", etc.).
+// Cheap and stateless; matches the criteria used by the per-game
+// notable=1 backend flag.
+function deriveNotableReasons(a: {
+  batting_line: Record<string, unknown> | null;
+  pitching_line: Record<string, unknown> | null;
+  decision: string | null;
+}): string[] {
+  const reasons: string[] = [];
+  if (a.batting_line) {
+    const b = a.batting_line as {
+      h?: number;
+      hr?: number;
+      rbi?: number;
+      sb?: number;
+    };
+    if ((b.hr ?? 0) > 0) reasons.push(`${b.hr} HR`);
+    if ((b.h ?? 0) >= 3) reasons.push('multi-hit');
+    if ((b.rbi ?? 0) >= 4) reasons.push(`${b.rbi} RBI`);
+    if ((b.sb ?? 0) >= 2) reasons.push(`${b.sb} SB`);
+  }
+  if (a.pitching_line) {
+    const p = a.pitching_line as { ip?: string; k?: number };
+    const ipNum = parseFloat(p.ip ?? '0');
+    if (ipNum >= 9) reasons.push('complete game');
+    if ((p.k ?? 0) >= 10) reasons.push(`${p.k} K`);
+  }
+  if (a.decision === 'W') reasons.push('win');
+  if (a.decision === 'SV') reasons.push('save');
+  return reasons;
+}
 
 function summarizeAppearance(a: {
   batting_line: Record<string, unknown> | null;

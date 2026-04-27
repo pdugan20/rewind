@@ -1731,6 +1731,25 @@
           "scopes",
           "expires_at"
         ]
+      },
+      "MlbTeamsSyncResponse": {
+        "type": "object",
+        "properties": {
+          "inserted": {
+            "type": "integer"
+          },
+          "updated": {
+            "type": "integer"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "inserted",
+          "updated",
+          "timestamp"
+        ]
       }
     },
     "parameters": {}
@@ -20440,6 +20459,49 @@
                         "accent_color"
                       ]
                     },
+                    "supported": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "team": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "abbreviation": {
+                          "type": "string"
+                        },
+                        "league": {
+                          "type": "string",
+                          "enum": [
+                            "mlb"
+                          ]
+                        },
+                        "primary_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logo": {}
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "abbreviation",
+                        "league",
+                        "primary_color"
+                      ]
+                    },
+                    "season_stats": {},
+                    "attended_summary": {},
                     "appearances": {
                       "type": "array",
                       "items": {
@@ -20499,6 +20561,9 @@
                           "notable"
                         ]
                       }
+                    },
+                    "appearance_count": {
+                      "type": "number"
                     }
                   },
                   "required": [
@@ -20517,7 +20582,10 @@
                     "debut_date",
                     "photo_silo",
                     "photo_full",
-                    "appearances"
+                    "supported",
+                    "team",
+                    "appearances",
+                    "appearance_count"
                   ]
                 }
               }
@@ -24139,6 +24207,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleTestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sync/mlb-teams": {
+      "post": {
+        "operationId": "adminSyncMlbTeams",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Sync MLB teams",
+        "description": "Refresh the mlb_teams lookup table from MLB Stats API (sportId=1). Pulls all 30 active clubs with name/abbr/team_code; logos are not fetched here.",
+        "responses": {
+          "200": {
+            "description": "Teams synced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MlbTeamsSyncResponse"
                 }
               }
             }

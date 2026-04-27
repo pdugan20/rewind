@@ -278,6 +278,17 @@ export function createServer(client: RewindClient): McpServer {
     },
   });
 
+  registerUiResource(server, {
+    name: 'Rewind -- Athlete',
+    uri: 'ui://rewind/attended-player.html',
+    html: UI_BUNDLES['attended-player.html'],
+    description:
+      'Interactive single-athlete card. Hero (headshot + team logo + name/#/position + bats/throws), two-column stats panel (live MLB Stats API season + your-attended summary), notable highlights aggregated across attended appearances, recent-appearances list. MLB-only for the live-stats panel. Consumes get_attended_player structuredContent.',
+    csp: {
+      resourceDomains: ['https://cdn.rewind.rest'],
+    },
+  });
+
   // Debug-only: reinstated alongside Phase 2 to A/B test whether Claude
   // Desktop's "Failed to set up MCP app" is specific to the new resource
   // or symptomatic of the whole rewind MCP server's sandbox state.

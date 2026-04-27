@@ -161,9 +161,19 @@ Two top-tracks UI layouts shipped as candidates — both register as `ui://` res
 - [ ] **2.9.1** Single commit. Subject: `single-entity-cards Phase 2: artist card + top-tracks-by-artist`.
 - [ ] **2.9.2** Push, deploy, verify.
 
-## Phase 3: Athlete card (MLB only) — pending
+## Phase 3: Athlete card (MLB only) — DONE (modulo mlb_teams sync + client smoke test)
 
-Goal: `get_attended_player` renders an MLB athlete card with live season stats + your-attended summary. ~3 days.
+Goal: `get_attended_player` renders an MLB athlete card with live season stats + your-attended summary.
+
+Schema: new `mlb_teams` table (migration `0013_faithful_kang.sql` applied locally) with id/name/abbr/league/colors/logo_image_key. Empty by default; populate via `POST /v1/admin/sync/mlb-teams`.
+
+Services: `services/mlb-stats/client.ts` exposes `fetchPlayerSeasonStats(env, mlbStatsId, season)` with REWIND_CACHE 1h TTL. Built-in 5s timeout + graceful null on any upstream failure. `services/mlb-stats/teams.ts` syncs all 30 active MLB clubs.
+
+Routes: `/v1/attending/players/:id` extended with `team`, `supported`, `season_stats` (live, KV-cached), `attended_summary` (derived from `aggregatePlayerStats`), `appearance_count`. Non-MLB players short-circuit to `supported: false`.
+
+MCP: `get_attended_player` migrated to `server.registerTool` with `_meta.ui.resourceUri = ui://rewind/attended-player.html`. structuredContent reshaped to nested DESIGN.md shape. Appearances capped at 10 most recent with notable_reasons derived from batting/pitching lines.
+
+UI: `ui://rewind/attended-player.html` — Hero (headshot + team logo + name/#/position + bats/throws), two-column stats grid (this season | in attended games — both hitter and pitcher variants), notable highlights chip row, recent-appearances list with show-all expand. Non-MLB renders without season + notable blocks. 3 fixtures: Cal Raleigh (hitter), George Kirby (pitcher), NFL player (unsupported).
 
 ### 3.1 — Schema + table seed
 

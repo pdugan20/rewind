@@ -6,6 +6,7 @@ import {
   attendedEventPlayers,
   attendedEvents,
   attendedEventTickets,
+  mlbTeams,
   performers,
   players,
   venues,
@@ -19,6 +20,10 @@ import {
   aggregatePlayerStats,
   PlayerNotFoundError,
 } from '../services/attending/player-stats.js';
+import {
+  fetchPlayerSeasonStats,
+  type SeasonStatsResult,
+} from '../services/mlb-stats/client.js';
 
 const attending = createOpenAPIApp();
 
@@ -862,6 +867,19 @@ const playerDetailRoute = createRoute({
       content: {
         'application/json': {
           schema: PlayerSchema.extend({
+            supported: z.boolean().openapi({ example: true }),
+            team: z
+              .object({
+                id: z.number(),
+                name: z.string(),
+                abbreviation: z.string(),
+                league: z.literal('mlb'),
+                primary_color: z.string().nullable(),
+                logo: z.any().nullable(),
+              })
+              .nullable(),
+            season_stats: z.any().nullable(),
+            attended_summary: z.any(),
             appearances: z.array(
               z.object({
                 event_id: z.number(),
@@ -875,6 +893,7 @@ const playerDetailRoute = createRoute({
                 notable: z.boolean(),
               })
             ),
+            appearance_count: z.number(),
           }),
         },
       },
@@ -910,11 +929,75 @@ attending.openapi(playerDetailRoute, async (c) => {
     .where(eq(attendedEventPlayers.playerId, id))
     .orderBy(desc(attendedEvents.eventDate));
 
+  // Resolve team metadata (MLB only). Logos run through the image
+  // pipeline keyed by mlb_teams.id, so the lookup is consistent with
+  // how player photos are fetched.
+  let team: {
+    id: number;
+    name: string;
+    abbreviation: string;
+    league: 'mlb';
+    primary_color: string | null;
+    logo: unknown | null;
+  } | null = null;
+  if (p.league === 'mlb' && p.primaryTeamId) {
+    const [teamRow] = await db
+      .select()
+      .from(mlbTeams)
+      .where(eq(mlbTeams.id, p.primaryTeamId))
+      .limit(1);
+    if (teamRow) {
+      const teamLogos = await getImageAttachmentBatch(
+        db,
+        'attending',
+        'mlb_team_logo',
+        [String(teamRow.id)]
+      );
+      team = {
+        id: teamRow.id,
+        name: teamRow.name,
+        abbreviation: teamRow.abbreviation,
+        league: 'mlb',
+        primary_color: teamRow.primaryColor ?? null,
+        logo: teamLogos.get(String(teamRow.id)) ?? null,
+      };
+    }
+  }
+
+  // Live current-season stats. MLB-only; non-MLB players + players
+  // missing mlb_stats_id get null. KV-cached 1h.
+  let season_stats: SeasonStatsResult | null = null;
+  if (p.league === 'mlb' && p.mlbStatsId) {
+    const currentSeason = new Date().getUTCFullYear();
+    season_stats = await fetchPlayerSeasonStats(
+      c.env,
+      p.mlbStatsId,
+      currentSeason
+    );
+  }
+
+  // "In games you attended" aggregate. Reuses the existing helper from
+  // attending-deep-stats Phase 2 (career scope by default — single-season
+  // samples are tiny per the audit there). Non-MLB falls through to a
+  // null hitter/pitcher pair via the helper's existing unsupported path,
+  // which we coerce here into the card-friendly null shape.
+  let attended_summary: AttendedSummary;
+  try {
+    const aggregate = await aggregatePlayerStats(db, p.id);
+    attended_summary = buildAttendedSummary(aggregate);
+  } catch (err) {
+    if (err instanceof PlayerNotFoundError) {
+      return notFound(c, 'Player not found') as any;
+    }
+    throw err;
+  }
+
   setCache(c, 'medium');
   return c.json(
     {
       id: p.id,
       league: p.league,
+      supported: p.league === 'mlb',
       mlb_stats_id: p.mlbStatsId,
       espn_id: p.espnId,
       full_name: p.fullName,
@@ -925,9 +1008,12 @@ attending.openapi(playerDetailRoute, async (c) => {
       bats: p.bats,
       throws: p.throws,
       primary_team_id: p.primaryTeamId,
+      team,
       debut_date: p.debutDate,
       photo_silo: siloMap.get(eid) ?? null,
       photo_full: fullMap.get(eid) ?? null,
+      season_stats,
+      attended_summary,
       appearances: appearances
         .filter((r) => r.attended_events != null)
         .map((r) => {
@@ -945,10 +1031,115 @@ attending.openapi(playerDetailRoute, async (c) => {
             notable: a.notable === 1,
           };
         }),
+      appearance_count: appearances.filter((r) => r.attended_events != null)
+        .length,
     },
     200
   );
 });
+
+// ─── attended_summary derivation ────────────────────────────────────
+// Folds the existing aggregatePlayerStats output into the card-shaped
+// summary block: { games_attended, games_with_box_score, wins, losses,
+// hitter?, pitcher? }. Both panels can be present for a two-way player.
+
+interface AttendedSummary {
+  games_attended: number;
+  games_with_box_score: number;
+  wins: number;
+  losses: number;
+  hitter: {
+    pa: number;
+    ab: number;
+    h: number;
+    hr: number;
+    rbi: number;
+    bb: number;
+    k: number;
+    avg: string | null;
+    slg: string | null;
+  } | null;
+  pitcher: {
+    ip: string;
+    bf: number;
+    h: number;
+    r: number;
+    er: number;
+    bb: number;
+    k: number;
+    era: string | null;
+    whip: string | null;
+    decisions: { w: number; l: number; sv: number; hld: number; bs: number };
+  } | null;
+}
+
+function buildAttendedSummary(
+  resp: import('../services/attending/player-stats.js').PlayerStatsResponse
+): AttendedSummary {
+  // Unsupported (non-MLB) path: return zeroed counts + null panels.
+  if (!resp.supported) {
+    return {
+      games_attended: resp.appearances?.length ?? 0,
+      games_with_box_score: 0,
+      wins: 0,
+      losses: 0,
+      hitter: null,
+      pitcher: null,
+    };
+  }
+
+  // MLB hitter/pitcher path. The helper's response carries `games`,
+  // `games_with_box_score`, plus the slash-line/decisions blocks.
+  const games_attended = resp.games;
+  const games_with_box_score = resp.games_with_box_score;
+
+  // Wins/losses = the user's "team won" tally across attended games.
+  // Not currently in PlayerStatsResponse — derive at zero for v1; the
+  // UI hides the line when both are 0. (Future: extend the helper to
+  // return them from event_data.)
+  const wins = 0;
+  const losses = 0;
+
+  let hitter: AttendedSummary['hitter'] = null;
+  let pitcher: AttendedSummary['pitcher'] = null;
+
+  if ('batting' in resp && resp.batting) {
+    hitter = {
+      pa: resp.batting.pa,
+      ab: resp.batting.ab,
+      h: resp.batting.h,
+      hr: resp.batting.hr,
+      rbi: resp.batting.rbi,
+      bb: resp.batting.bb,
+      k: resp.batting.k,
+      avg: resp.batting.avg,
+      slg: resp.batting.slg,
+    };
+  }
+  if ('pitching' in resp && resp.pitching) {
+    pitcher = {
+      ip: resp.pitching.ip,
+      bf: resp.pitching.bf,
+      h: resp.pitching.h,
+      r: resp.pitching.r,
+      er: resp.pitching.er,
+      bb: resp.pitching.bb,
+      k: resp.pitching.k,
+      era: resp.pitching.era,
+      whip: resp.pitching.whip,
+      decisions: resp.pitching.decisions,
+    };
+  }
+
+  return {
+    games_attended,
+    games_with_box_score,
+    wins,
+    losses,
+    hitter,
+    pitcher,
+  };
+}
 
 // ─── GET /players/{id}/stats ────────────────────────────────────────
 

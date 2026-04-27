@@ -626,6 +626,50 @@ adminSync.openapi(googleTestRoute, async (c) => {
   }
 });
 
+// POST /v1/admin/sync/mlb-teams
+// Refresh the mlb_teams lookup table from MLB Stats API. Idempotent;
+// safe to run on demand. Logos are NOT pulled here — those live on a
+// separate path so a list refresh doesn't always pay the image-pipeline
+// cost.
+const MlbTeamsSyncResponse = z
+  .object({
+    inserted: z.number().int(),
+    updated: z.number().int(),
+    timestamp: z.string(),
+  })
+  .openapi('MlbTeamsSyncResponse');
+
+const syncMlbTeamsRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/mlb-teams',
+  operationId: 'adminSyncMlbTeams',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Sync MLB teams',
+  description:
+    'Refresh the mlb_teams lookup table from MLB Stats API (sportId=1). Pulls all 30 active clubs with name/abbr/team_code; logos are not fetched here.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: MlbTeamsSyncResponse } },
+      description: 'Teams synced',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminSync.openapi(syncMlbTeamsRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  try {
+    const { syncMlbTeamsList } = await import('../services/mlb-stats/teams.js');
+    const result = await syncMlbTeamsList(db);
+    return c.json({ ...result, timestamp: new Date().toISOString() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/sync/mlb-teams: ${message}`);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
 // --- Redirects from old paths ---
 // These handle requests to the legacy paths and redirect to the canonical ones.
 

@@ -267,7 +267,7 @@
     },
     {
       "name": "get_attended_player",
-      "description": "Get details for a player you have watched play in person, including bio (position, jersey, debut), photos, and every attended event in which they appeared with their stat line for that game.",
+      "description": "Profile for a player you've watched play in person. Returns bio (position, jersey, debut), team logo, current-season stats (live MLB Stats API for MLB players, KV-cached 1h), your-attended summary aggregated across every attended game, and the 10 most recent attended appearances with their stat lines. MLB-only for the live-stats panel — non-MLB players surface as supported:false. In MCP Apps hosts, renders an interactive athlete card inline.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1346,6 +1346,12 @@
       "uri": "ui://rewind/attended-event.html",
       "name": "Rewind -- Attended Event",
       "description": "Interactive game card for a single attended event. Hero block with date / matchup / final score; per-inning linescore for MLB; notable performers with silo headshots and stat-line summaries; ticket section / row / seat / vendor block. Consumes get_attended_event structuredContent.",
+      "mimeType": "text/html;profile=mcp-app"
+    },
+    {
+      "uri": "ui://rewind/attended-player.html",
+      "name": "Rewind -- Athlete",
+      "description": "Interactive single-athlete card. Hero (headshot + team logo + name/#/position + bats/throws), two-column stats panel (live MLB Stats API season + your-attended summary), notable highlights aggregated across attended appearances, recent-appearances list. MLB-only for the live-stats panel. Consumes get_attended_player structuredContent.",
       "mimeType": "text/html;profile=mcp-app"
     },
     {

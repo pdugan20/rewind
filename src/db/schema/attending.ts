@@ -300,6 +300,34 @@ export const players = sqliteTable(
   ]
 );
 
+// MLB team metadata. Synced from MLB Stats API `/api/v1/teams?sportId=1`,
+// once on a yearly cron + ad-hoc via admin endpoint. Team logos run through
+// the existing image pipeline so they get thumbhash + dominant/accent
+// colors automatically; the columns here carry the team's *brand* colors
+// (official Pantone equivalents from the MLB Stats API), which differ from
+// the image-derived colors and are useful for badges and accents.
+export const mlbTeams = sqliteTable(
+  'mlb_teams',
+  {
+    id: integer('id').primaryKey(), // MLB Stats API team id (no autoincrement — the upstream id is canonical)
+    name: text('name').notNull(), // "Seattle Mariners"
+    abbreviation: text('abbreviation').notNull(), // "SEA"
+    teamCode: text('team_code'), // "sea"
+    league: text('league').notNull().default('mlb'),
+    primaryColor: text('primary_color'),
+    secondaryColor: text('secondary_color'),
+    logoImageKey: text('logo_image_key'),
+    active: integer('active').notNull().default(1),
+    syncedAt: text('synced_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    index('idx_mlb_teams_abbr').on(table.abbreviation),
+    index('idx_mlb_teams_active').on(table.active),
+  ]
+);
+
 // Per-game appearance: who played in a specific event, and what they did.
 // One row per (event, player). Roles aren't enforced — a player can have
 // both a batting line and a pitching line in the same row (interleague
