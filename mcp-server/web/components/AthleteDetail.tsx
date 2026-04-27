@@ -13,6 +13,8 @@ type Image = {
 
 export type { Team };
 
+export type PlayerAward = { season: string; id: string; name: string };
+
 export type PlayerMeta = {
   id: number;
   mlb_stats_id: number | null;
@@ -22,12 +24,96 @@ export type PlayerMeta = {
   bats: string | null;
   throws: string | null;
   debut_date: string | null;
+  birth_date: string | null;
+  birth_city: string | null;
+  birth_state_province: string | null;
   birth_country: string | null;
+  height: string | null;
+  weight: number | null;
+  college_name: string | null;
+  awards: PlayerAward[];
   photo_silo: Image;
   photo_full: Image;
   league: string;
   primary_team: Team | null;
 };
+
+export type CareerHittingSeason = {
+  season: string;
+  team_id: number | null;
+  team_name: string | null;
+  age: number | null;
+  games_played: number;
+  pa: number;
+  ab: number;
+  r: number;
+  h: number;
+  doubles: number;
+  triples: number;
+  hr: number;
+  rbi: number;
+  bb: number;
+  k: number;
+  sb: number;
+  avg: string | null;
+  obp: string | null;
+  slg: string | null;
+  ops: string | null;
+};
+
+export type CareerPitchingSeason = {
+  season: string;
+  team_id: number | null;
+  team_name: string | null;
+  age: number | null;
+  games_played: number;
+  games_started: number;
+  ip: string | null;
+  bf: number;
+  h: number;
+  r: number;
+  er: number;
+  bb: number;
+  k: number;
+  hr: number;
+  era: string | null;
+  whip: string | null;
+  wins: number;
+  losses: number;
+  saves: number;
+};
+
+export type CareerHistory = {
+  group: 'hitting' | 'pitching';
+  seasons: CareerHittingSeason[] | CareerPitchingSeason[];
+  fetched_at: string;
+  cache_hit: boolean;
+} | null;
+
+export type SplitStats = {
+  avg: string | null;
+  obp: string | null;
+  slg: string | null;
+  ops: string | null;
+  hr: number;
+  rbi: number;
+  ab: number;
+  h: number;
+  era?: string | null;
+  whip?: string | null;
+  k?: number;
+};
+
+export type SeasonSplits = {
+  season: number;
+  group: 'hitting' | 'pitching';
+  home: SplitStats | null;
+  away: SplitStats | null;
+  vs_left: SplitStats | null;
+  vs_right: SplitStats | null;
+  fetched_at: string;
+  cache_hit: boolean;
+} | null;
 
 export type HitterStats = {
   games_played?: number;
@@ -97,6 +183,8 @@ export type AthletePayload = {
   player: PlayerMeta;
   supported: boolean;
   season_stats: SeasonStats;
+  career: CareerHistory;
+  splits: SeasonSplits;
   attended_summary: AttendedSummary;
   attended_appearances: AttendedAppearance[];
   attended_appearance_count: number;

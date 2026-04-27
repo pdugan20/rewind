@@ -9,6 +9,8 @@ import { GameCard } from '../../web/components/GameCard';
 import { ArticleDetail } from '../../web/components/ArticleDetail';
 import { ArtistDetail } from '../../web/components/ArtistDetail';
 import { AthleteDetail } from '../../web/components/AthleteDetail';
+import { AthleteDetailA } from '../../web/components/AthleteDetailA';
+import { AthleteDetailB } from '../../web/components/AthleteDetailB';
 import { TopTracks } from '../../web/components/TopTracks';
 
 import {
@@ -188,6 +190,32 @@ export const COMPONENTS: ComponentEntry[] = [
     getBuiltHtml: makeBuiltLoader('attended-player.html'),
     render: (f) => (
       <AthleteDetail payload={f as AthletePayload} onOpen={defaultOpen} />
+    ),
+  },
+  {
+    // Variant A — encyclopedia / ESPN-deluxe layout. Same fixture as
+    // production attended-player; shares the bundled HTML so we don't
+    // burn another 460KB on a workbench-only entry.
+    id: 'attended-player-a',
+    displayName: 'Attended player — Variant A (deluxe)',
+    producedBy: 'get_attended_player',
+    defaultViewport: 'desktop',
+    fixtures: attendedPlayerFixtures,
+    getBuiltHtml: makeBuiltLoader('attended-player.html'),
+    render: (f) => (
+      <AthleteDetailA payload={f as AthletePayload} onOpen={defaultOpen} />
+    ),
+  },
+  {
+    // Variant B — story-flow / Rewind-personality layout.
+    id: 'attended-player-b',
+    displayName: 'Attended player — Variant B (story flow)',
+    producedBy: 'get_attended_player',
+    defaultViewport: 'desktop',
+    fixtures: attendedPlayerFixtures,
+    getBuiltHtml: makeBuiltLoader('attended-player.html'),
+    render: (f) => (
+      <AthleteDetailB payload={f as AthletePayload} onOpen={defaultOpen} />
     ),
   },
   {
