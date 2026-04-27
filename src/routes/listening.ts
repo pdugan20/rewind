@@ -2708,6 +2708,11 @@ listening.openapi(artistDetailRoute, async (c) => {
       and(
         eq(lastfmAlbums.artistId, id),
         eq(lastfmAlbums.isFiltered, 0),
+        // Drop compilations / soundtracks (e.g. High School Musical, Hunger
+        // Games) from the artist card's "top albums" — these are guest
+        // appearances or contributed tracks, not first-party releases.
+        // is_compilation is set during sync against a Last.fm tag allowlist.
+        eq(lastfmAlbums.isCompilation, 0),
         // Inner-filter on tracks too so a single filtered-out track doesn't
         // skew an album's plays.
         sql`(${lastfmTracks.isFiltered} = 0 OR ${lastfmTracks.isFiltered} IS NULL)`

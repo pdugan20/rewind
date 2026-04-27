@@ -213,17 +213,27 @@ function Hero({
       <div style={heroTextColStyle}>
         <h1 style={titleStyle}>{artist.name}</h1>
         <div style={genreRowStyle}>
-          {artist.genre && <span style={genrePillStyle}>{artist.genre}</span>}
-          {artist.tags
-            .filter(
-              (t) => t.toLowerCase() !== (artist.genre ?? '').toLowerCase()
-            )
-            .slice(0, 3)
-            .map((t) => (
-              <span key={t} style={tagPillStyle}>
-                {t}
+          {(() => {
+            // De-dupe genre against tags (case-insensitive) so we don't
+            // render the same chip twice when Last.fm's primary genre is
+            // also the top tag.
+            const seen = new Set<string>();
+            const chips: string[] = [];
+            const push = (label: string | null) => {
+              if (!label) return;
+              const key = label.toLowerCase();
+              if (seen.has(key)) return;
+              seen.add(key);
+              chips.push(label);
+            };
+            push(artist.genre);
+            for (const t of artist.tags) push(t);
+            return chips.slice(0, 4).map((c) => (
+              <span key={c} style={genrePillStyle}>
+                {c}
               </span>
-            ))}
+            ));
+          })()}
         </div>
         {artist.bio_summary && <p style={bioStyle}>{artist.bio_summary}</p>}
       </div>
@@ -239,7 +249,7 @@ function StatStrip({ stats }: { stats: ListeningStats }) {
   });
   if (stats.first_scrobble_at) {
     tiles.push({
-      label: 'Listening since',
+      label: 'First played',
       value: yearOf(stats.first_scrobble_at) ?? '—',
     });
   }
@@ -281,14 +291,29 @@ function Sparkline({
   const W = 600;
   const H = 56;
   const stepX = W / (points.length - 1);
-  const path = points
-    .map((p, i) => {
-      const x = i * stepX;
-      const y = H - (p.count / max) * (H - 4) - 2;
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(' ');
-  const areaPath = `${path} L ${W.toFixed(1)} ${H} L 0 ${H} Z`;
+
+  // Build smooth Catmull-Rom-style cubic path through every point.
+  // Each segment's control points are derived from the tangent of the
+  // neighboring points scaled by 1/4 — same smoothing approach used by
+  // chart libs like Highcharts / Recharts when curve type is "spline".
+  const xy = points.map((p, i) => ({
+    x: i * stepX,
+    y: H - (p.count / max) * (H - 4) - 2,
+  }));
+  const fmt = (n: number) => n.toFixed(1);
+  let path = `M ${fmt(xy[0].x)} ${fmt(xy[0].y)}`;
+  for (let i = 1; i < xy.length; i++) {
+    const prev = xy[i - 1];
+    const curr = xy[i];
+    const before = xy[i - 2] ?? prev;
+    const after = xy[i + 1] ?? curr;
+    const cp1x = prev.x + (curr.x - before.x) / 6;
+    const cp1y = prev.y + (curr.y - before.y) / 6;
+    const cp2x = curr.x - (after.x - prev.x) / 6;
+    const cp2y = curr.y - (after.y - prev.y) / 6;
+    path += ` C ${fmt(cp1x)} ${fmt(cp1y)}, ${fmt(cp2x)} ${fmt(cp2y)}, ${fmt(curr.x)} ${fmt(curr.y)}`;
+  }
+  const areaPath = `${path} L ${fmt(W)} ${H} L 0 ${H} Z`;
 
   return (
     <div style={sparklineWrapStyle}>
@@ -332,7 +357,6 @@ function TopTracks({
       <ol style={tracksListStyle}>
         {tracks.slice(0, 5).map((t) => (
           <li key={t.id} style={trackRowStyle}>
-            <span style={trackRankStyle}>{t.rank}</span>
             <Thumbnail
               image={t.image}
               transform={TRACK_TRANSFORM}
@@ -341,29 +365,28 @@ function TopTracks({
               alt=""
             />
             <div style={trackTextStyle}>
-              <button
-                type="button"
-                onClick={() => {
-                  const url = t.apple_music_url ?? null;
-                  if (url) onOpen?.(url);
-                }}
-                style={{
-                  ...trackNameStyle,
-                  cursor: t.apple_music_url ? 'pointer' : 'default',
-                  color: t.apple_music_url
-                    ? 'var(--color-text-primary, inherit)'
-                    : 'var(--color-text-primary, inherit)',
-                }}
-              >
-                {t.name}
-              </button>
+              <div style={trackTitleRowStyle}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = t.apple_music_url ?? null;
+                    if (url) onOpen?.(url);
+                  }}
+                  style={{
+                    ...trackNameStyle,
+                    cursor: t.apple_music_url ? 'pointer' : 'default',
+                  }}
+                >
+                  {t.name}
+                </button>
+                <span style={trackPlaysStyle}>
+                  {fmt(t.scrobble_count)} plays
+                </span>
+              </div>
               {t.album_name && (
                 <div style={trackAlbumStyle}>{t.album_name}</div>
               )}
             </div>
-            <span style={{ ...trackPlaysStyle, color: accent }}>
-              {fmt(t.scrobble_count)}
-            </span>
           </li>
         ))}
       </ol>
@@ -384,7 +407,7 @@ function TopAlbums({
     <section style={sectionStyle}>
       <h2 style={sectionHeadingStyle}>Top albums</h2>
       <div style={albumsGridStyle}>
-        {albums.slice(0, 5).map((a) => (
+        {albums.slice(0, 3).map((a) => (
           <button
             key={a.id}
             type="button"
@@ -403,8 +426,10 @@ function TopAlbums({
               alt={a.name}
               fallbackBg={dominant}
             />
-            <div style={albumNameStyle}>{a.name}</div>
-            <div style={albumPlaysStyle}>{fmt(a.playcount)} plays</div>
+            <div style={albumMetaStyle}>
+              <div style={albumNameStyle}>{a.name}</div>
+              <div style={albumPlaysStyle}>{fmt(a.playcount)} plays</div>
+            </div>
           </button>
         ))}
       </div>
@@ -638,17 +663,6 @@ const genreRowStyle: CSSProperties = {
 
 const genrePillStyle: CSSProperties = {
   fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.3,
-  textTransform: 'uppercase',
-  padding: '3px 8px',
-  borderRadius: 999,
-  background: 'rgba(127,127,127,0.18)',
-  color: 'var(--color-text-primary, inherit)',
-};
-
-const tagPillStyle: CSSProperties = {
-  fontSize: 11,
   fontWeight: 500,
   letterSpacing: 0.3,
   padding: '3px 8px',
@@ -754,16 +768,10 @@ const tracksListStyle: CSSProperties = {
 
 const trackRowStyle: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
+  // Top-align so the title + listens line up with the artwork's top edge,
+  // and the album name reads as a sub-line beneath them.
+  alignItems: 'flex-start',
   gap: 10,
-};
-
-const trackRankStyle: CSSProperties = {
-  width: 22,
-  textAlign: 'right',
-  fontSize: 13,
-  fontWeight: 600,
-  opacity: 0.5,
 };
 
 const trackTextStyle: CSSProperties = {
@@ -772,6 +780,13 @@ const trackTextStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 1,
+};
+
+const trackTitleRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  justifyContent: 'space-between',
+  gap: 10,
 };
 
 const trackNameStyle: CSSProperties = {
@@ -787,6 +802,10 @@ const trackNameStyle: CSSProperties = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  // flex: 1 + minWidth: 0 lets the title shrink with ellipsis when the
+  // listens count is on the same line and the track name is long.
+  flex: 1,
+  minWidth: 0,
 };
 
 const trackAlbumStyle: CSSProperties = {
@@ -798,23 +817,25 @@ const trackAlbumStyle: CSSProperties = {
 };
 
 const trackPlaysStyle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
+  fontSize: 12,
+  fontWeight: 500,
   fontVariantNumeric: 'tabular-nums',
+  color: 'var(--color-text-secondary, inherit)',
+  opacity: 0.7,
+  flexShrink: 0,
 };
 
 const albumsGridStyle: CSSProperties = {
   display: 'grid',
-  // Tighten album spacing — the 96px minmax + 10px gap was leaving large
-  // gutters at 720px, especially on a 5-album row.
-  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-  columnGap: 8,
-  rowGap: 12,
+  gridTemplateColumns: 'repeat(3, 1fr)',
+  gap: 8,
 };
 
 const albumTileStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
+  // Tight gap between art and the name/plays meta block. The meta block
+  // itself uses an even tighter gap so name + plays read as one lockup.
   gap: 6,
   padding: 0,
   border: 'none',
@@ -825,8 +846,14 @@ const albumTileStyle: CSSProperties = {
   borderRadius: 8,
 };
 
+const albumMetaStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 1,
+};
+
 const albumNameStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: 500,
   lineHeight: 1.25,
   // 1-line clamp with ellipsis — long names like "SOUR (Video Version)"
@@ -839,8 +866,11 @@ const albumNameStyle: CSSProperties = {
 };
 
 const albumPlaysStyle: CSSProperties = {
-  fontSize: 11,
-  opacity: 0.55,
+  fontSize: 12,
+  fontWeight: 500,
+  color: 'var(--color-text-secondary, inherit)',
+  opacity: 0.7,
+  lineHeight: 1.25,
 };
 
 const similarRowStyle: CSSProperties = {
