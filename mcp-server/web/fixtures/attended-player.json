@@ -34,8 +34,8 @@
   "supported": true,
   "season_stats": {
     "season": 2026,
-    "fetched_at": "2026-04-27T18:59:28.087Z",
-    "cache_hit": true,
+    "fetched_at": "2026-04-27T20:25:34.435Z",
+    "cache_hit": false,
     "hitter": {
       "games_played": 29,
       "pa": 128,

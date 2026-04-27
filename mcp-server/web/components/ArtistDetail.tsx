@@ -85,7 +85,7 @@ const PORTRAIT_TRANSFORM = `width=${HERO_PORTRAIT_PX * 2},height=${HERO_PORTRAIT
 const ALBUM_TRANSFORM = `width=480,height=480,fit=cover,format=auto,quality=85`;
 const TRACK_THUMB_PX = 40;
 const TRACK_TRANSFORM = `width=${TRACK_THUMB_PX * 2},height=${TRACK_THUMB_PX * 2},fit=cover,format=auto,quality=85`;
-const SIMILAR_THUMB_PX = 36;
+const SIMILAR_THUMB_PX = 40;
 const SIMILAR_TRANSFORM = `width=${SIMILAR_THUMB_PX * 2},height=${SIMILAR_THUMB_PX * 2},fit=cover,format=auto,quality=85`;
 
 function buildSrc(
@@ -154,7 +154,7 @@ export function ArtistDetail({
         <SimilarArtists similar={similar_artists} />
       )}
 
-      <Footer artist={artist} accent={accent} onOpen={onOpen} />
+      <Footer artist={artist} onOpen={onOpen} />
     </article>
   );
 }
@@ -461,11 +461,13 @@ function SimilarArtists({
               alt={s.name}
             />
             <div style={similarTextColStyle}>
-              <div style={similarNameStyle}>{s.name}</div>
+              <div style={similarTitleRowStyle}>
+                <div style={similarNameStyle}>{s.name}</div>
+                <span style={similarCountStyle}>
+                  {fmt(s.your_scrobble_count)} plays
+                </span>
+              </div>
               {s.genre && <div style={similarGenreStyle}>{s.genre}</div>}
-            </div>
-            <div style={similarCountStyle}>
-              {fmt(s.your_scrobble_count)} plays
             </div>
           </li>
         ))}
@@ -476,34 +478,44 @@ function SimilarArtists({
 
 function Footer({
   artist,
-  accent,
   onOpen,
 }: {
   artist: ArtistMeta;
-  accent: string;
   onOpen?: (url: string) => void;
 }) {
+  if (!artist.apple_music_url) return null;
   return (
     <div style={footerStyle}>
-      {artist.apple_music_url && (
-        <button
-          type="button"
-          onClick={() => onOpen?.(artist.apple_music_url!)}
-          style={{ ...footerPrimaryStyle, color: accent, borderColor: accent }}
-        >
-          Apple Music →
-        </button>
-      )}
-      {artist.url && (
-        <button
-          type="button"
-          onClick={() => onOpen?.(artist.url!)}
-          style={footerSecondaryStyle}
-        >
-          Last.fm
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => onOpen?.(artist.apple_music_url!)}
+        style={appleMusicButtonStyle}
+      >
+        <span style={appleMusicLabelStyle}>Listen on</span>
+        <AppleMusicLogo />
+      </button>
     </div>
+  );
+}
+
+// Apple Music wordmark (white when color is set on the parent button).
+// Inlined here so the bundle stays a single self-contained HTML file —
+// vite-plugin-singlefile inlines all assets anyway, and a 1.7KB SVG is
+// cheaper as inline JSX than as a separately-loaded file.
+function AppleMusicLogo() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 84.3 20.7"
+      aria-label="Apple Music"
+      role="img"
+      style={appleMusicLogoStyle}
+    >
+      <path
+        fill="currentColor"
+        d="M35.4,20.1V6.6h-0.1l-5.4,13.5h-2.1L22.4,6.6h-0.1v13.5h-2.5V1.8H23l5.8,14.6h0.1l5.8-14.6H38v18.3L35.4,20.1L35.4,20.1z M52.1,20.1h-2.6v-2.3h-0.1c-0.7,1.6-2.1,2.5-4.1,2.5c-2.9,0-4.6-1.9-4.6-5V6.7h2.7v8.1c0,2,1,3.1,2.8,3.1c2,0,3.1-1.4,3.1-3.5V6.7h2.7L52.1,20.1L52.1,20.1z M59.5,6.5c3.1,0,5,1.7,5.1,4.2h-2.5c-0.2-1.3-1.1-2.1-2.6-2.1C58,8.6,57,9.3,57,10.4c0,0.8,0.6,1.4,2,1.7l2.1,0.5c2.7,0.6,3.7,1.7,3.7,3.6c0,2.4-2.2,4.1-5.3,4.1c-3.3,0-5.3-1.6-5.5-4.2h2.7c0.2,1.4,1.2,2.1,2.8,2.1c1.6,0,2.6-0.7,2.6-1.8c0-0.9-0.5-1.4-1.9-1.7l-2.1-0.5c-2.5-0.6-3.7-1.8-3.7-3.8C54.4,8.1,56.4,6.5,59.5,6.5z M66.8,3.2c0-0.9,0.7-1.6,1.6-1.6c0.9,0,1.6,0.7,1.6,1.6c0,0.9-0.7,1.6-1.6,1.6C67.5,4.8,66.8,4.1,66.8,3.2L66.8,3.2z M67,6.7h2.7v13.4H67V6.7z M81.1,11.3c-0.3-1.4-1.3-2.6-3.1-2.6c-2.1,0-3.5,1.8-3.5,4.6c0,2.9,1.4,4.6,3.5,4.6c1.7,0,2.7-0.9,3.1-2.5h2.6c-0.3,2.8-2.5,4.8-5.7,4.8c-3.8,0-6.2-2.6-6.2-6.9c0-4.2,2.4-6.9,6.2-6.9c3.4,0,5.4,2.2,5.7,4.8L81.1,11.3L81.1,11.3z M11.5,3.6C10.8,4.4,9.7,5.1,8.6,5C8.4,3.8,9,2.6,9.6,1.9c0.7-0.9,1.9-1.5,2.9-1.5C12.6,1.5,12.2,2.7,11.5,3.6L11.5,3.6z M12.5,5.2c0.6,0,2.4,0.2,3.6,2c-0.1,0.1-2.1,1.3-2.1,3.8c0,3,2.6,4,2.6,4c0,0.1-0.4,1.4-1.3,2.8c-0.8,1.2-1.7,2.4-3,2.4c-1.3,0-1.7-0.8-3.2-0.8c-1.5,0-2,0.8-3.2,0.8c-1.3,0-2.3-1.3-3.1-2.5c-1.7-2.5-3-7-1.2-10c0.8-1.5,2.4-2.5,4-2.5c1.3,0,2.5,0.9,3.2,0.9C9.5,6.1,10.9,5.1,12.5,5.2L12.5,5.2z"
+      />
+    </svg>
   );
 }
 
@@ -863,14 +875,17 @@ const trackTitleRowStyle: CSSProperties = {
 };
 
 const trackNameStyle: CSSProperties = {
-  fontSize: 14,
-  fontWeight: 500,
+  // Inherit host body font first, then override font-size to be 1px
+  // smaller than the inherited size. Order matters: `font: inherit` is
+  // a shorthand that resets all font longhands, so explicit fontSize
+  // must come AFTER it to win.
+  font: 'inherit',
+  fontSize: 'calc(1em - 1px)',
   lineHeight: 1.3,
   border: 'none',
   background: 'transparent',
   padding: 0,
   textAlign: 'left',
-  font: 'inherit',
   color: 'inherit',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -957,7 +972,9 @@ const similarListStyle: CSSProperties = {
 
 const similarRowItemStyle: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
+  // Top-align like top-tracks rows so the name + count line up with the
+  // top of the avatar and the genre reads as a sub-line beneath them.
+  alignItems: 'flex-start',
   gap: 10,
 };
 
@@ -969,9 +986,22 @@ const similarTextColStyle: CSSProperties = {
   gap: 1,
 };
 
+const similarTitleRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  justifyContent: 'space-between',
+  gap: 10,
+};
+
 const similarNameStyle: CSSProperties = {
-  fontSize: 14,
-  fontWeight: 500,
+  flex: 1,
+  minWidth: 0,
+  // Inherit body font (family + weight) from the host, then dial size
+  // down by 1px relative to whatever Claude Desktop / iOS sets as the
+  // body size. calc(1em - 1px) is "inherited size − 1" regardless of
+  // host font size.
+  font: 'inherit',
+  fontSize: 'calc(1em - 1px)',
   lineHeight: 1.3,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -981,10 +1011,7 @@ const similarNameStyle: CSSProperties = {
 
 const similarGenreStyle: CSSProperties = {
   fontSize: 12,
-  fontWeight: 400,
-  lineHeight: 1.25,
-  color: 'var(--color-text-secondary, inherit)',
-  opacity: 0.7,
+  opacity: 0.55,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -1000,33 +1027,38 @@ const similarCountStyle: CSSProperties = {
 };
 
 const footerStyle: CSSProperties = {
-  paddingTop: 12,
+  paddingTop: 18,
   borderTop: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
   display: 'flex',
   gap: 10,
   flexWrap: 'wrap',
 };
 
-const footerPrimaryStyle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-  padding: '8px 14px',
-  borderRadius: 6,
-  border: '1px solid',
-  background: 'transparent',
+const appleMusicButtonStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  width: '100%',
+  padding: '12px 16px',
+  borderRadius: 999,
+  border: 'none',
+  background: '#000',
+  color: '#fff',
   cursor: 'pointer',
   font: 'inherit',
 };
 
-const footerSecondaryStyle: CSSProperties = {
-  fontSize: 13,
+const appleMusicLabelStyle: CSSProperties = {
+  fontSize: 15,
   fontWeight: 500,
-  padding: '8px 14px',
-  borderRadius: 6,
-  border: 'none',
-  background: 'transparent',
-  cursor: 'pointer',
-  font: 'inherit',
-  opacity: 0.7,
-  color: 'var(--color-text-secondary, inherit)',
+  letterSpacing: 0.1,
+  lineHeight: 1,
+};
+
+const appleMusicLogoStyle: CSSProperties = {
+  height: 16,
+  // Width derives from viewBox aspect; height controls the visual size.
+  width: 'auto',
+  display: 'block',
 };

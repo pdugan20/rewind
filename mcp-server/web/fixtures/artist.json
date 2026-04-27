@@ -254,28 +254,15 @@
     },
     {
       "rank": 4,
-      "id": 11841,
-      "name": "High School Musical: The Musical: The Series (Music from the Disney+ Original Series)",
-      "playcount": 7,
-      "apple_music_url": "https://music.apple.com/us/album/all-i-want/1485659112?i=1485659134&uo=4",
+      "id": 11844,
+      "name": "Best of High School Musical: The Musical: The Series",
+      "playcount": 2,
+      "apple_music_url": "https://music.apple.com/us/album/out-of-the-old-from-high-school-musical/1576278029?i=1576278379&uo=4",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/11841/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
-        "thumbhash": "pUgKBwJpJ+ZziVh4iXd2B4mbuJxgigkD",
-        "dominant_color": "#fdfdfc",
-        "accent_color": "#241615"
-      }
-    },
-    {
-      "rank": 5,
-      "id": 11845,
-      "name": "The Hunger Games: The Ballad of Songbirds & Snakes (Music From & Inspired By)",
-      "playcount": 6,
-      "apple_music_url": "https://music.apple.com/us/album/cant-catch-me-now-from-the-hunger-games-the/1714727603?i=1714727613&uo=4",
-      "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/11845/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
-        "thumbhash": "DDkKFwIIZ4eJZ4eSeneYeHd3h6AoCIoB",
-        "dominant_color": "#120502",
-        "accent_color": "#451f0a"
+        "cdn_url": "https://cdn.rewind.rest/listening/albums/11844/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "thumbhash": "H2gKDwT/sWhuZ4h5l5WmqFt2BnE4eFoA",
+        "dominant_color": "#c68bb5",
+        "accent_color": "#190f0d"
       }
     }
   ],
@@ -283,6 +270,7 @@
     {
       "id": 471,
       "name": "Sabrina Carpenter",
+      "genre": "Pop",
       "your_scrobble_count": 1242,
       "similarity_score": 1,
       "image": {
@@ -295,6 +283,7 @@
     {
       "id": 92,
       "name": "Taylor Swift",
+      "genre": "Country",
       "your_scrobble_count": 3336,
       "similarity_score": 0.941089,
       "image": {
@@ -307,6 +296,7 @@
     {
       "id": 95,
       "name": "Chappell Roan",
+      "genre": "Pop",
       "your_scrobble_count": 330,
       "similarity_score": 0.732114,
       "image": {
@@ -319,6 +309,7 @@
     {
       "id": 587,
       "name": "Harry Styles",
+      "genre": "Pop",
       "your_scrobble_count": 12,
       "similarity_score": 0.683593,
       "image": {
@@ -331,6 +322,7 @@
     {
       "id": 613,
       "name": "Conan Gray",
+      "genre": "Pop",
       "your_scrobble_count": 6,
       "similarity_score": 0.664487,
       "image": {
