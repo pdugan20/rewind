@@ -72,6 +72,11 @@ const HighlightSchema = z.object({
 const ArticleDetailSchema = ArticleSchema.extend({
   excerpt: z.string().nullable(),
   content: z.string().nullable(),
+  // True when the article was ingested via the Instapaper backfill
+  // but body extraction failed (paywalled source, dead link, etc.).
+  // Distinct from "content is null because not yet enriched" — when
+  // this flag is true, the source URL is the only path to read it.
+  body_unavailable: z.boolean().optional(),
   highlights: z.array(HighlightSchema),
 });
 
@@ -183,6 +188,20 @@ const recentRoute = createRoute({
           .optional()
           .default(1)
           .openapi({ example: 1 }),
+        // Articles ingested via the Instapaper backfill where the body
+        // couldn't be retrieved (paywalled source, dead link, etc.) are
+        // tagged enrichment_status='no_body'. They have URL+title but
+        // no readable content, so they're hidden from default lists.
+        // Pass include_no_body=1 to include them when you want a
+        // full-archive view (e.g. statistics, completeness audits).
+        include_no_body: z.coerce
+          .number()
+          .int()
+          .min(0)
+          .max(1)
+          .optional()
+          .default(0)
+          .openapi({ example: 0 }),
       })
       .merge(DateFilterQuery),
   },
@@ -324,6 +343,15 @@ const articlesRoute = createRoute({
           .optional()
           .default('desc')
           .openapi({ example: 'desc' }),
+        // See `recentRoute` for the rationale; same opt-in flag here
+        // for the paginated list endpoint.
+        include_no_body: z.coerce
+          .number()
+          .int()
+          .min(0)
+          .max(1)
+          .optional()
+          .default(0),
       })
       .merge(DateFilterQuery),
   },
@@ -988,7 +1016,7 @@ function formatArticle(
 reading.openapi(recentRoute, async (c) => {
   setCache(c, 'short');
   const db = createDb(c.env.DB);
-  const { limit, page, date, from, to } = c.req.valid('query');
+  const { limit, page, date, from, to, include_no_body } = c.req.valid('query');
   const offset = (page - 1) * limit;
 
   const conditions = [eq(readingItems.userId, 1)];
@@ -998,6 +1026,13 @@ reading.openapi(recentRoute, async (c) => {
     to,
   });
   if (dateCondition) conditions.push(dateCondition);
+  // Hide no_body placeholders from the default list — they have
+  // URL+title only and would render as empty cards in the MCP UI.
+  if (!include_no_body) {
+    conditions.push(
+      sql`(${readingItems.enrichmentStatus} IS NULL OR ${readingItems.enrichmentStatus} != 'no_body')`
+    );
+  }
 
   const rows = await db
     .select()
@@ -1065,6 +1100,7 @@ reading.openapi(articlesRoute, async (c) => {
     date,
     from,
     to,
+    include_no_body,
   } = c.req.valid('query');
 
   const conditions = [eq(readingItems.userId, 1)];
@@ -1073,6 +1109,11 @@ reading.openapi(articlesRoute, async (c) => {
   if (domain) conditions.push(eq(readingItems.domain, domain));
   if (starred !== undefined) conditions.push(eq(readingItems.starred, starred));
   if (tag) conditions.push(sql`${readingItems.tags} LIKE ${'%"' + tag + '"%'}`);
+  if (!include_no_body) {
+    conditions.push(
+      sql`(${readingItems.enrichmentStatus} IS NULL OR ${readingItems.enrichmentStatus} != 'no_body')`
+    );
+  }
 
   const dateCondition = buildDateCondition(readingItems.savedAt, {
     date,
@@ -1147,10 +1188,17 @@ reading.openapi(articleDetailRoute, async (c) => {
   // auth error, deleted Instapaper bookmark, etc.).
   const content = article.content ? htmlToText(article.content) : null;
 
+  // Explicit flag so the article-card UI can render a "Body not
+  // available — read on source" state instead of an empty content
+  // pane. Distinct from "we have body but it's short": when this
+  // flag is true the source URL is the only way to read the article.
+  const bodyUnavailable = article.enrichmentStatus === 'no_body';
+
   return c.json({
     ...formatArticle(article, image),
     excerpt: article.bodyExcerpt ?? null,
     content,
+    body_unavailable: bodyUnavailable,
     highlights: highlights.map((h) => ({
       id: h.id,
       text: h.text,

@@ -55,10 +55,13 @@ const CF_DATABASE_ID = '35a4edf8-0d4f-4cbe-9a6e-6f1525716774';
 const D1_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${CF_DATABASE_ID}/query`;
 const REWIND_API = 'https://api.rewind.rest';
 
-const BOOKMARKS_ADD_DELAY_MS = 250;
-const GET_TEXT_DELAY_MS = 500;
-const ARCHIVE_DELAY_MS = 250;
-const OG_FETCH_DELAY_MS = 300;
+// Halved from the original conservative pacing. Production live sync
+// uses RATE_LIMIT_MS=200 (src/services/instapaper/client.ts) without
+// hitting Instapaper rate limits, so 100ms between our own additional
+// calls leaves headroom and matches that cadence.
+const BOOKMARKS_ADD_DELAY_MS = 100;
+const GET_TEXT_DELAY_MS = 200;
+const OG_FETCH_DELAY_MS = 100;
 const WORDS_PER_MINUTE = 238;
 
 // ─── env ────────────────────────────────────────────────────────────
@@ -478,21 +481,23 @@ interface AddedBookmark {
 // Idempotent URL → bookmark_id resolver. Instapaper's bookmarks/list is
 // capped at 500/folder, but bookmarks/add returns the existing
 // bookmark for any URL already saved, including orphaned ones not in
-// any folder list. Side effect: moves the bookmark to Unread, which
-// we undo via bookmarks/archive after getText below.
-async function bookmarksAdd(url: string): Promise<AddedBookmark | null> {
-  const res = await instapaperRequest('/1/bookmarks/add', { url });
+// any folder list. We pass `archived=1` for non-Unread CSV rows so
+// the bookmark lands directly in Archive — eliminates the Unread
+// folder pollution + iOS push notifications that the old two-call
+// (add → archive) pattern caused. Confirmed empirically that the
+// Unread folder count is unchanged across an `add archived=1` call.
+async function bookmarksAdd(
+  url: string,
+  archived = true
+): Promise<AddedBookmark | null> {
+  const body: Record<string, string> = { url };
+  if (archived) body.archived = '1';
+  const res = await instapaperRequest('/1/bookmarks/add', body);
   const items = JSON.parse(res) as Array<Record<string, unknown>>;
   const bm = items.find((it) => it.type === 'bookmark') as unknown as
     | AddedBookmark
     | undefined;
   return bm ?? null;
-}
-
-async function bookmarksArchive(bookmarkId: number): Promise<void> {
-  await instapaperRequest('/1/bookmarks/archive', {
-    bookmark_id: String(bookmarkId),
-  });
 }
 
 async function ingestBookmark(
@@ -512,7 +517,11 @@ async function ingestBookmark(
       };
     }
     try {
-      const bm = await bookmarksAdd(rec.url);
+      // Pass archived=1 unless the CSV says this row is genuinely in
+      // Unread — that single bit determines whether the bookmark
+      // lands in Archive (default) or stays in Unread.
+      const wantArchived = !rec.folder || rec.folder.toLowerCase() !== 'unread';
+      const bm = await bookmarksAdd(rec.url, wantArchived);
       if (!bm) {
         return {
           bookmarkId: 0,
@@ -550,33 +559,49 @@ async function ingestBookmark(
     }
   }
 
-  // 1. getText — if this fails, the bookmark isn't accessible to us at
-  // all and we should skip rather than insert a content-less row.
+  // 1. getText — Instapaper can't always generate body text (dead
+  // links, image-only pages, paywalled content with no scrape
+  // fallback). Error 1550 is the canonical "no text available" code.
+  // Rather than skip these, we insert a placeholder row with
+  // enrichment_status='no_body' so the bookmark is preserved in the
+  // user's archive and won't be re-fetched on subsequent runs (the
+  // bookmark_id will be in existingIds next time).
   let body: string;
+  let noBody = false;
   try {
     body = await instapaperRequest('/1/bookmarks/get_text', {
       bookmark_id: String(rec.bookmarkId),
     });
   } catch (e) {
-    return {
-      bookmarkId: rec.bookmarkId,
-      status: 'failed',
-      reason: `getText: ${(e as Error).message}`,
-    };
+    const msg = (e as Error).message;
+    if (msg.includes('error_code": 1550') || msg.includes('error_code":1550')) {
+      noBody = true;
+      body = '';
+    } else {
+      return {
+        bookmarkId: rec.bookmarkId,
+        status: 'failed',
+        reason: `getText: ${msg.slice(0, 120)}`,
+      };
+    }
   }
   if (!body || body.length < 20) {
-    return {
-      bookmarkId: rec.bookmarkId,
-      status: 'failed',
-      reason: 'getText returned empty body',
-    };
+    if (!noBody) {
+      // Empty body without the documented 1550 — treat as no_body too.
+      noBody = true;
+      body = '';
+    }
   }
 
   await sleep(GET_TEXT_DELAY_MS);
 
-  // 2. word count + body excerpt (3000 chars matches sync.ts)
-  const { wordCount, estimatedReadMin } = computeWordCount(body);
-  const bodyExcerpt = htmlToText(body).slice(0, 3000);
+  // 2. word count + body excerpt (3000 chars matches sync.ts). When
+  // we have no body, both end up empty/0 — the row still preserves
+  // metadata from the OG fetch (title, image, description).
+  const { wordCount, estimatedReadMin } = noBody
+    ? { wordCount: 0, estimatedReadMin: 0 }
+    : computeWordCount(body);
+  const bodyExcerpt = noBody ? '' : htmlToText(body).slice(0, 3000);
 
   // 3. og fetch (best-effort — failures leave fields null)
   let og: OgResult = {
@@ -637,7 +662,7 @@ async function ingestBookmark(
        ?, ?, ?, ?,
        ?, ?, ?, ?, ?,
        ?,
-       'completed', NULL,
+       ?, ?,
        ?, ?)
      ON CONFLICT(source, source_id, user_id) DO UPDATE SET
        content = excluded.content,
@@ -676,6 +701,8 @@ async function ingestBookmark(
       og.ogImage,
       og.ogDescription,
       og.articleTags ? JSON.stringify(og.articleTags) : null,
+      noBody ? 'no_body' : 'completed',
+      noBody ? 'Instapaper getText 1550: no text available' : null,
       nowIso,
       nowIso,
     ]
@@ -687,23 +714,11 @@ async function ingestBookmark(
   // ingest "complete on body, partial on annotations".
   await ingestHighlights(rec.bookmarkId);
 
-  // 6. Re-archive to undo the side effect of bookmarks/add (which
-  // moves to Unread by default). Skip for genuinely-Unread items per
-  // the CSV — they should stay in Unread. Custom-folder items
-  // flatten to Archive — known limitation; the user can re-categorize
-  // after, and the count is small (~31 across all custom folders).
-  if (rec.folder && rec.folder.toLowerCase() !== 'unread') {
-    try {
-      await bookmarksArchive(rec.bookmarkId);
-      await sleep(ARCHIVE_DELAY_MS);
-    } catch (e) {
-      // Non-fatal — the row is already inserted; failed archive just
-      // means the bookmark stays in Unread until the user moves it.
-      process.stderr.write(
-        `  (archive failed for ${rec.bookmarkId}: ${(e as Error).message})\n`
-      );
-    }
-  }
+  // No re-archive step needed — bookmarks/add was called with
+  // `archived=1` for non-Unread rows, so the bookmark already
+  // landed in the right folder. Saves one API call + one rate-limit
+  // tick per article. Custom-folder items still flatten to Archive
+  // (known limitation, ~31 articles, user can re-categorize after).
 
   return { bookmarkId: rec.bookmarkId, status: 'inserted' };
 }
@@ -854,23 +869,47 @@ async function main() {
     );
   }
 
+  // Concurrency=4: four articles in flight at once. Each worker pulls
+  // the next index off a shared cursor and processes that article
+  // sequentially (add → getText → OG → archive). Network latency
+  // (~3-5s per article) is the bottleneck, not Instapaper rate
+  // limits, so this gives a near-linear 4x speedup. If we start
+  // seeing 429s, drop CONCURRENCY and we're back to safe pacing.
+  const CONCURRENCY = 4;
   const results: IngestResult[] = [];
-  let i = 0;
-  for (const rec of work) {
-    i++;
-    process.stderr.write(
-      `[${i}/${work.length}] ${rec.bookmarkId} ${rec.title.slice(0, 50) || '(no title)'}\n`
-    );
-    try {
-      results.push(await ingestBookmark(rec, existingIds, dryRun));
-    } catch (e) {
-      results.push({
-        bookmarkId: rec.bookmarkId,
-        status: 'failed',
-        reason: (e as Error).message,
-      });
+  let cursor = 0;
+  let completed = 0;
+  const start = Date.now();
+  async function worker() {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= work.length) return;
+      const rec = work[idx];
+      const tag = `[${idx + 1}/${work.length}]`;
+      try {
+        const r = await ingestBookmark(rec, existingIds, dryRun);
+        results.push(r);
+        completed++;
+        if (completed % 25 === 0 || r.status === 'failed') {
+          const rate = (completed / ((Date.now() - start) / 1000)).toFixed(2);
+          process.stderr.write(
+            `${tag} ${r.status} ${rec.bookmarkId || '(unresolved)'} ${rec.title.slice(0, 40)} — ${completed} done @ ${rate}/s\n`
+          );
+        }
+      } catch (e) {
+        results.push({
+          bookmarkId: rec.bookmarkId,
+          status: 'failed',
+          reason: (e as Error).message,
+        });
+        completed++;
+        process.stderr.write(
+          `${tag} FAILED ${rec.bookmarkId} ${rec.title.slice(0, 40)}: ${(e as Error).message.slice(0, 80)}\n`
+        );
+      }
     }
   }
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
   const inserted = results.filter((r) => r.status === 'inserted').length;
   const failed = results.filter((r) => r.status === 'failed');
