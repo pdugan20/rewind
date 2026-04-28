@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.1...mcp-server-v0.8.2) (2026-04-28)
+
+
+### Bug Fixes
+
+* **article-card:** add hero/body divider; drop redundant per-highlight timestamp ([ef442dd](https://github.com/pdugan20/rewind/commit/ef442ddba6bb76eeee078f623a3c5edf2215247a))
+
 ## [0.8.1](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.0...mcp-server-v0.8.1) (2026-04-28)
 
 
