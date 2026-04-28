@@ -136,7 +136,7 @@ export function ArtistDetail({
     <article style={cardStyle}>
       <Hero artist={artist} accent={accent} dominant={dominant} />
 
-      <StatStrip stats={listening_stats} />
+      <StatStrip stats={listening_stats} accent={accent} />
 
       {sparkline && sparkline.points.length > 1 && (
         <Sparkline sparkline={sparkline} accent={accent} />
@@ -231,7 +231,8 @@ function Hero({
             };
             push(artist.genre);
             for (const t of artist.tags) push(t);
-            return chips.slice(0, 4).map((c) => (
+            // Cap at 3 — 4 reliably wraps on common name lengths.
+            return chips.slice(0, 3).map((c) => (
               <span key={c} style={genrePillStyle}>
                 {c}
               </span>
@@ -244,7 +245,13 @@ function Hero({
   );
 }
 
-function StatStrip({ stats }: { stats: ListeningStats }) {
+function StatStrip({
+  stats,
+  accent,
+}: {
+  stats: ListeningStats;
+  accent: string;
+}) {
   const tiles: Array<{ label: string; value: string }> = [];
   tiles.push({
     label: 'Total plays',
@@ -273,8 +280,8 @@ function StatStrip({ stats }: { stats: ListeningStats }) {
     <div style={statStripStyle}>
       {tiles.map((t, i) => (
         <div key={i} style={statTileStyle}>
-          <div style={statValueStyle}>{t.value}</div>
           <div style={statLabelStyle}>{t.label}</div>
+          <div style={{ ...statValueStyle, color: accent }}>{t.value}</div>
         </div>
       ))}
     </div>
@@ -320,7 +327,6 @@ function Sparkline({
 
   return (
     <div style={sparklineWrapStyle}>
-      <div style={sparklineLabelStyle}>Plays per {sparkline.granularity}</div>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
@@ -680,7 +686,9 @@ function Thumbnail({
 const cardStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 18,
+  // Larger inter-section gap (vs the original 18) since the section
+  // dividers were dropped — whitespace is what separates the bands now.
+  gap: 28,
   maxWidth: 720,
   margin: '0 auto',
   padding: '20px 22px 22px',
@@ -738,11 +746,15 @@ const titleStyle: CSSProperties = {
   color: 'var(--color-text-primary, inherit)',
 };
 
+// Single line, no wrap, no scroll. Caller caps the chip count at a
+// number that's known to fit common name widths — see the slice in
+// the renderer.
 const genreRowStyle: CSSProperties = {
   display: 'flex',
-  flexWrap: 'wrap',
+  flexWrap: 'nowrap',
   gap: 6,
   marginTop: 2,
+  overflow: 'hidden',
 };
 
 const genrePillStyle: CSSProperties = {
@@ -753,6 +765,8 @@ const genrePillStyle: CSSProperties = {
   borderRadius: 999,
   background: 'rgba(127,127,127,0.08)',
   color: 'var(--color-text-secondary, inherit)',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 };
 
 const bioStyle: CSSProperties = {
@@ -767,31 +781,37 @@ const bioStyle: CSSProperties = {
   color: 'var(--color-text-primary, inherit)',
 };
 
+// Boxed treatment — matches HitterStatBlock cells: label on top, value
+// big below, faint gray pod, gap-8 between cells. Same visual language
+// as the splits/season blocks in the sports cards.
 const statStripStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-  gap: 10,
-  paddingTop: 8,
-  borderTop: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+  gap: 8,
+  marginTop: -8,
 };
 
 const statTileStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 2,
+  gap: 4,
+  padding: '12px 14px',
+  borderRadius: 10,
+  background: 'rgba(127,127,127,0.06)',
 };
 
 const statValueStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 700,
-  lineHeight: 1.2,
-  color: 'var(--color-text-primary, inherit)',
+  lineHeight: 1.1,
+  fontVariantNumeric: 'tabular-nums',
+  letterSpacing: -0.3,
 };
 
 const statLabelStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 500,
-  letterSpacing: 0.4,
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: 0.6,
   textTransform: 'uppercase',
   opacity: 0.55,
   color: 'var(--color-text-secondary, inherit)',
@@ -801,14 +821,6 @@ const sparklineWrapStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
-};
-
-const sparklineLabelStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 500,
-  letterSpacing: 0.4,
-  textTransform: 'uppercase',
-  opacity: 0.55,
 };
 
 const sparklineSvgStyle: CSSProperties = {
@@ -828,8 +840,6 @@ const sectionStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 10,
-  paddingTop: 12,
-  borderTop: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
 };
 
 const sectionHeadingStyle: CSSProperties = {
@@ -1026,8 +1036,6 @@ const similarCountStyle: CSSProperties = {
 };
 
 const footerStyle: CSSProperties = {
-  paddingTop: 18,
-  borderTop: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
   display: 'flex',
   gap: 10,
   flexWrap: 'wrap',
