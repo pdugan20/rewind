@@ -53,7 +53,9 @@ const results = await Promise.allSettled(
 );
 
 const failures = results
-  .map((r, i) => (r.status === 'rejected' ? { entry: entries[i], reason: r.reason } : null))
+  .map((r, i) =>
+    r.status === 'rejected' ? { entry: entries[i], reason: r.reason } : null
+  )
   .filter(Boolean);
 if (failures.length) {
   for (const f of failures) {
