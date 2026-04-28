@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
 import { timeAgo } from '../lib/time-ago.js';
+import { cardOuterChrome } from '../lib/card-tokens.js';
 
 type Image = {
   cdn_url?: string | null;
@@ -729,8 +730,7 @@ const cardStyle: CSSProperties = {
   margin: '0 auto',
   padding: '20px 22px 22px',
   borderRadius: 12,
-  border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
-  background: 'var(--color-background-primary, transparent)',
+  ...cardOuterChrome,
 };
 
 const heroStyle: CSSProperties = {
@@ -1121,8 +1121,9 @@ const appleMusicButtonStyle: CSSProperties = {
   padding: '12px 16px',
   borderRadius: 999,
   border: 'none',
-  background: '#000',
-  color: '#fff',
+  // Inverts with theme — black-on-white light, white-on-black dark.
+  background: 'var(--color-text-primary, #000)',
+  color: 'var(--card-bg, #fff)',
   cursor: 'pointer',
   font: 'inherit',
 };

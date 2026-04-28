@@ -101,6 +101,11 @@ function injectTheme(doc: Document, theme: Theme): void {
     style.id = STYLE_ID;
     doc.head.appendChild(style);
   }
+  // host-styles.ts now defines `--card-bg` and `--card-border` per
+  // theme — that drives the toggle correctly. The card-tokens.ts
+  // module-side-effect (which uses `prefers-color-scheme: dark`)
+  // is for production where iOS / Desktop reflect the OS theme,
+  // not for the workbench's manual toggle.
   style.textContent = themeStyleSheet(theme);
 }
 

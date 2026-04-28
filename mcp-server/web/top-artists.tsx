@@ -39,13 +39,13 @@ function TopArtistsApp() {
     return <div style={stateStyle}>Waiting for artists…</div>;
   }
 
+  // ArtistGrid renders its own header + period subtitle — no extra
+  // wrapper header here.
   return (
     <div style={rootStyle}>
-      <div style={headerStyle}>
-        Top artists · {formatPeriod(payload.period)}
-      </div>
       <ArtistGrid
         items={payload.data}
+        period={payload.period}
         onOpen={(url) => {
           app?.openLink({ url });
         }}
@@ -54,37 +54,9 @@ function TopArtistsApp() {
   );
 }
 
-function formatPeriod(period: string): string {
-  switch (period) {
-    case '7day':
-      return 'last 7 days';
-    case '1month':
-      return 'last month';
-    case '3month':
-      return 'last 3 months';
-    case '6month':
-      return 'last 6 months';
-    case '12month':
-      return 'last 12 months';
-    case 'overall':
-      return 'all time';
-    default:
-      return period;
-  }
-}
-
 const rootStyle: React.CSSProperties = {
   fontFamily: 'var(--font-sans, system-ui, -apple-system, sans-serif)',
   color: 'var(--color-text-primary, inherit)',
-};
-
-const headerStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-  opacity: 0.7,
-  padding: '12px 12px 0 12px',
-  textTransform: 'uppercase',
-  letterSpacing: 0.5,
 };
 
 const stateStyle: React.CSSProperties = {

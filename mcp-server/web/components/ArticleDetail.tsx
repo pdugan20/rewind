@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
 import { timeAgo } from '../lib/time-ago.js';
+import { cardOuterChrome } from '../lib/card-tokens.js';
 
 type Image = {
   cdn_url?: string | null;
@@ -297,8 +298,7 @@ const cardStyle: CSSProperties = {
   margin: '0 auto',
   borderRadius: 12,
   overflow: 'hidden',
-  border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
-  background: 'var(--color-background-primary, transparent)',
+  ...cardOuterChrome,
 };
 
 const heroBaseStyle: CSSProperties = {
@@ -450,8 +450,8 @@ const readButtonStyle: CSSProperties = {
   padding: '12px 16px',
   borderRadius: 999,
   border: 'none',
-  background: '#000',
-  color: '#fff',
+  background: 'var(--color-text-primary, #000)',
+  color: 'var(--card-bg, #fff)',
   cursor: 'pointer',
   font: 'inherit',
   fontSize: 15,

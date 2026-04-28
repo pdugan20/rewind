@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
+import { cardOuterChrome } from '../lib/card-tokens.js';
 import { TeamLogo } from './TeamLogo.js';
 import { HitterStatBlock } from './HitterStatBlock.js';
 import type {
@@ -671,8 +672,7 @@ const cardStyle: CSSProperties = {
   margin: '0 auto',
   padding: '20px 22px 22px',
   borderRadius: 12,
-  border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
-  background: 'var(--color-background-primary, transparent)',
+  ...cardOuterChrome,
   color: 'var(--color-text-primary, #1a1a1a)',
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',

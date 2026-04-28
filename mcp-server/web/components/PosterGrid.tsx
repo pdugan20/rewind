@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
 import { timeAgo } from '../lib/time-ago.js';
+import { cardOuterChrome } from '../lib/card-tokens.js';
 import { type Watch } from './PosterCard.js';
 
 const ROW_POSTER_W = 72;
@@ -301,8 +302,7 @@ const cardStyle: CSSProperties = {
   margin: '0 auto',
   padding: '20px 22px 22px',
   borderRadius: 12,
-  border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
-  background: 'var(--color-background-primary, transparent)',
+  ...cardOuterChrome,
   color: 'var(--color-text-primary, #1a1a1a)',
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
@@ -522,9 +522,11 @@ const ctaWrapStyle: CSSProperties = {
   marginTop: 4,
 };
 
-// Full-width black pill — same idiom as ArticleDetail's "Read on X" and
-// the artist card's "Listen on Apple Music" CTA. All single-destination
-// CTAs share this style across the workbench.
+// Full-width inverted pill — same idiom as ArticleDetail's "Read on X"
+// and the artist card's "Listen on Apple Music" CTA. Inverts with
+// theme: black-on-white in light mode, white-on-black in dark mode,
+// driven by the host's text-primary / card-bg tokens. Falls back to
+// hard #000/#fff if the host doesn't inject those vars.
 const ctaButtonStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -534,8 +536,8 @@ const ctaButtonStyle: CSSProperties = {
   padding: '12px 16px',
   borderRadius: 999,
   border: 'none',
-  background: '#000',
-  color: '#fff',
+  background: 'var(--color-text-primary, #000)',
+  color: 'var(--card-bg, #fff)',
   cursor: 'pointer',
   font: 'inherit',
   fontSize: 15,

@@ -379,7 +379,10 @@ const shellStyle = (theme: Theme): CSSProperties => ({
   width: '100vw',
   fontFamily: 'system-ui, -apple-system, sans-serif',
   color: '#111',
-  background: theme === 'dark' ? '#0d0d0d' : '#f7f7f8',
+  // Match Claude Desktop's chat surface: #fcfcfc light, #1d1d1c dark.
+  // Iframe page bg in host-styles.ts uses the same values so the
+  // workbench feels continuous from shell → iframe → card.
+  background: theme === 'dark' ? '#1d1d1c' : '#fcfcfc',
 });
 
 const navStyle: CSSProperties = {
@@ -556,12 +559,13 @@ const selectStyle: CSSProperties = {
   lineHeight: 1,
 };
 
-// Match Claude's actual surface colors so the preview reads like a real
-// invocation, not a Storybook-style isolated card.
+// Match Claude Desktop's chat surface so the preview reads like a real
+// invocation. Same values as shellStyle and the iframe page bg —
+// continuous shell -> preview -> iframe -> card.
 const previewStyle = (theme: Theme): CSSProperties => ({
   overflow: 'auto',
   padding: '24px 16px',
-  background: theme === 'dark' ? '#262624' : '#faf9f5',
+  background: theme === 'dark' ? '#1d1d1c' : '#fcfcfc',
 });
 
 const previewWrapStyle: CSSProperties = {
