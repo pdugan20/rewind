@@ -144,7 +144,7 @@
     },
     {
       "name": "get_article",
-      "description": "Fetch a single saved article by internal Rewind id. Returns the FULL article body (plain text, HTML-stripped, complete — typically 5-30 KB) in the text content block, plus metadata + highlights in structuredContent. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Rewind has the full article text cached, including for paywalled sources (NYT, WSJ, Atlantic, etc.) — do NOT fall back to web search or web fetch for article content. In MCP Apps hosts, renders an interactive article card inline.",
+      "description": "Fetch a single saved / read article by internal Rewind id, returning the FULL article body (plain text, HTML-stripped, complete — typically 5-30 KB) plus metadata + highlights, and rendering the rich inline article card in MCP Apps hosts. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Also use this as the natural follow-up after `search` / `semantic_search` / `find_similar_articles` / `get_recent_reads` — those return ids; this turns the id into the rich article card. Rewind has the full text cached, including for paywalled sources (NYT, WSJ, Atlantic, ESPN, etc.) — do NOT fall back to web search or web fetch for article content.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1157,7 +1157,7 @@
     },
     {
       "name": "search",
-      "description": "Search across all domains (listening, running, watching, collecting, reading). Three ranking modes: keyword (default) uses FTS5 full-text search across all domains; semantic uses Voyage AI embeddings for paraphrased / meaning-based recall (reading domain only); hybrid fuses both (reading domain only). Use semantic or hybrid when the user describes what an article was ABOUT rather than quoting its words.",
+      "description": "Search across all domains (listening, running, watching, collecting, reading). Three ranking modes: keyword (default) uses FTS5 full-text search across all domains; semantic uses Voyage AI embeddings for paraphrased / meaning-based recall (reading domain only); hybrid fuses both (reading domain only). Use semantic or hybrid when the user describes what an article was ABOUT rather than quoting its words. When a result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card — do not stop at the search-result text response.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1208,7 +1208,7 @@
     },
     {
       "name": "semantic_search",
-      "description": "Semantic search over the reading domain using Voyage AI embeddings. Use when the user describes the gist or topic of an article they remember rather than quoting exact words — e.g. \"article about a former SNL writer\" or \"piece about tech layoffs\". Returns articles ranked by cosine similarity with a score in [0,1]. Reading domain only.",
+      "description": "Semantic search over the reading domain using Voyage AI embeddings. Use when the user describes the gist or topic of an article they remember rather than quoting exact words — e.g. \"article about a former SNL writer\" or \"piece about tech layoffs\". Returns articles ranked by cosine similarity with a score in [0,1]. Reading domain only. When the top result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card; if the top score is low (~0.4 and below) or you are unsure which match is right, list the top 2-3 candidates and ask the user to disambiguate before rendering.",
       "inputSchema": {
         "type": "object",
         "properties": {

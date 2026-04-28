@@ -49,7 +49,7 @@ export function registerCrossDomainTools(
   // search ─────────────────────────────────────────────────────────
   server.tool(
     'search',
-    'Search across all domains (listening, running, watching, collecting, reading). Three ranking modes: keyword (default) uses FTS5 full-text search across all domains; semantic uses Voyage AI embeddings for paraphrased / meaning-based recall (reading domain only); hybrid fuses both (reading domain only). Use semantic or hybrid when the user describes what an article was ABOUT rather than quoting its words.',
+    'Search across all domains (listening, running, watching, collecting, reading). Three ranking modes: keyword (default) uses FTS5 full-text search across all domains; semantic uses Voyage AI embeddings for paraphrased / meaning-based recall (reading domain only); hybrid fuses both (reading domain only). Use semantic or hybrid when the user describes what an article was ABOUT rather than quoting its words. When a result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card — do not stop at the search-result text response.',
     {
       query: z.string().describe('Search query text'),
       domain: z
@@ -212,7 +212,7 @@ export function registerCrossDomainTools(
   // semantic_search ────────────────────────────────────────────────
   server.tool(
     'semantic_search',
-    'Semantic search over the reading domain using Voyage AI embeddings. Use when the user describes the gist or topic of an article they remember rather than quoting exact words — e.g. "article about a former SNL writer" or "piece about tech layoffs". Returns articles ranked by cosine similarity with a score in [0,1]. Reading domain only.',
+    'Semantic search over the reading domain using Voyage AI embeddings. Use when the user describes the gist or topic of an article they remember rather than quoting exact words — e.g. "article about a former SNL writer" or "piece about tech layoffs". Returns articles ranked by cosine similarity with a score in [0,1]. Reading domain only. When the top result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card; if the top score is low (~0.4 and below) or you are unsure which match is right, list the top 2-3 candidates and ask the user to disambiguate before rendering.',
     {
       query: z.string().describe('Natural-language description of the article'),
       limit: z
