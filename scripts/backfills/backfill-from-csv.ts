@@ -424,35 +424,22 @@ async function fetchExistingState(): Promise<{
   ids: Set<number>;
   urls: Set<string>;
 }> {
-  // Two parallel sets: bookmark_id (canonical) and source_url (cheap
-  // pre-filter so we can skip the bookmarks/add call entirely for
-  // rows whose URL is already in DB). URLs are normalized to
-  // lowercase and stripped of trailing slash for the comparison.
+  // Query D1 directly — one round trip, no pagination, no
+  // rate-limit window. The Rewind /v1/reading/articles endpoint we
+  // were using has a sliding-window 60-RPM limiter and ~73 pages
+  // (3K+ rows / 50 page) tripped it instantly. The CF API token
+  // path has no equivalent quota.
+  const rows = await d1Query<{ source_id: string; url: string | null }>(
+    `SELECT source_id, url
+       FROM reading_items
+      WHERE source = 'instapaper' AND user_id = 1`
+  );
   const ids = new Set<number>();
   const urls = new Set<string>();
-  let page = 1;
-  while (true) {
-    const res = await fetch(
-      `${REWIND_API}/v1/reading/articles?limit=50&page=${page}`,
-      { headers: { Authorization: `Bearer ${ENV.REWIND_ADMIN_KEY}` } }
-    );
-    if (!res.ok) throw new Error(`Rewind API failed: ${res.status}`);
-    const data = (await res.json()) as {
-      data: Array<{
-        source: string;
-        instapaper_url: string | null;
-        url: string | null;
-      }>;
-      pagination: { total_pages: number };
-    };
-    for (const a of data.data) {
-      if (a.source !== 'instapaper') continue;
-      const m = (a.instapaper_url || '').match(/\/read\/(\d+)/);
-      if (m) ids.add(Number(m[1]));
-      if (a.url) urls.add(normalizeUrl(a.url));
-    }
-    if (page >= data.pagination.total_pages) break;
-    page++;
+  for (const r of rows) {
+    const id = Number(r.source_id);
+    if (Number.isFinite(id)) ids.add(id);
+    if (r.url) urls.add(normalizeUrl(r.url));
   }
   return { ids, urls };
 }
