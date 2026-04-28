@@ -794,7 +794,9 @@ const sectionStyle: CSSProperties = {
 
 // Tab nav — bleeds horizontally to the outer card edge (same trick as
 // the soft career table) so the bottom hairline reads as a section
-// divider instead of a floating underline.
+// divider instead of a floating underline. Negative marginTop pulls
+// the strip closer to the bio above so it reads as a continuation of
+// the header rather than its own band.
 const tabNavStyle: CSSProperties = {
   display: 'flex',
   gap: 4,
@@ -803,6 +805,7 @@ const tabNavStyle: CSSProperties = {
   paddingLeft: CARD_PADDING_X,
   paddingRight: CARD_PADDING_X,
   borderBottom: '1px solid rgba(127,127,127,0.12)',
+  marginTop: -7,
 };
 
 const tabButtonStyle: CSSProperties = {

@@ -848,7 +848,7 @@ const tabNavStyle: CSSProperties = {
   borderBottom: '1px solid rgba(127,127,127,0.12)',
   // Pull tighter to the hero block above — the nav reads as a
   // continuation of the header, not its own band.
-  marginTop: -14,
+  marginTop: -7,
 };
 
 const tabButtonStyle: CSSProperties = {

@@ -59,25 +59,6 @@ function buildHeroSrc(
   };
 }
 
-function statusLabel(status: string): { text: string; tone: StatusTone } {
-  switch (status) {
-    case 'archived':
-      return { text: 'Archived', tone: 'subdued' };
-    case 'starred':
-      return { text: 'Starred', tone: 'accent' };
-    case 'reading':
-      return { text: 'Reading', tone: 'active' };
-    case 'unread':
-      return { text: 'Unread', tone: 'neutral' };
-    case 'read':
-      return { text: 'Read', tone: 'subdued' };
-    default:
-      return { text: status, tone: 'neutral' };
-  }
-}
-
-type StatusTone = 'neutral' | 'subdued' | 'accent' | 'active';
-
 export function ArticleDetail({
   payload,
   onOpen,
@@ -91,18 +72,16 @@ export function ArticleDetail({
   const dominant =
     article.image?.dominant_color ?? 'var(--color-surface, #2a2a2a)';
 
-  const instapaperUrl =
-    article.instapaper_app_url ?? article.instapaper_url ?? null;
-
+  // Single-line lockup: domain · author · N min · X ago.
+  // Mirrors the Instapaper card chrome (`nytimes.com · Kate Conger · 2 min`)
+  // with the saved-time tagged on so the user keeps a sense of "when".
   const meta = [
-    article.estimated_read_min
-      ? `${article.estimated_read_min} min read`
-      : null,
-    article.word_count ? `${article.word_count.toLocaleString()} words` : null,
-    `saved ${timeAgo(article.saved_at)}`,
+    article.domain,
+    article.author,
+    article.estimated_read_min ? `${article.estimated_read_min} min` : null,
+    timeAgo(article.saved_at),
   ].filter(Boolean) as string[];
 
-  const status = statusLabel(article.status);
   const showProgress =
     article.progress > 0 &&
     article.progress < 1 &&
@@ -121,16 +100,7 @@ export function ArticleDetail({
 
       <div style={bodyStyle}>
         <h1 style={titleStyle}>{article.title}</h1>
-        <Byline author={article.author} domain={article.domain} />
-
-        <div style={metaRowStyle}>
-          {meta.map((m, i) => (
-            <span key={i} style={metaItemStyle}>
-              {m}
-            </span>
-          ))}
-          <StatusPill text={status.text} tone={status.tone} />
-        </div>
+        <div style={metaLineStyle}>{meta.join(' · ')}</div>
 
         {showProgress && (
           <ProgressBar progress={article.progress} accent={accent} />
@@ -147,12 +117,11 @@ export function ArticleDetail({
           />
         )}
 
-        {instapaperUrl && (
+        {article.url && (
           <Footer
-            url={instapaperUrl}
             sourceUrl={article.url}
+            domain={article.domain}
             onOpen={onOpen}
-            accent={accent}
           />
         )}
       </div>
@@ -236,52 +205,6 @@ function Hero({
   );
 }
 
-function Byline({
-  author,
-  domain,
-}: {
-  author: string | null;
-  domain: string | null;
-}) {
-  if (!author && !domain) return null;
-  const parts: string[] = [];
-  if (author) parts.push(`by ${author}`);
-  if (domain) parts.push(domain);
-  return <div style={bylineStyle}>{parts.join(' · ')}</div>;
-}
-
-function StatusPill({ text, tone }: { text: string; tone: StatusTone }) {
-  const styles: Record<StatusTone, CSSProperties> = {
-    neutral: {
-      background: 'rgba(127,127,127,0.15)',
-      color: 'var(--color-text-primary, inherit)',
-    },
-    subdued: {
-      background: 'rgba(127,127,127,0.08)',
-      color: 'var(--color-text-secondary, inherit)',
-      fontStyle: 'italic',
-    },
-    accent: {
-      background: 'rgba(250, 200, 50, 0.18)',
-      color: '#b58a00',
-    },
-    active: {
-      background: 'rgba(76, 110, 245, 0.15)',
-      color: 'var(--color-accent, #4c6ef5)',
-    },
-  };
-  return (
-    <span
-      style={{
-        ...statusPillBaseStyle,
-        ...styles[tone],
-      }}
-    >
-      {text}
-    </span>
-  );
-}
-
 function ProgressBar({
   progress,
   accent,
@@ -343,38 +266,26 @@ function HighlightsPanel({
 }
 
 function Footer({
-  url,
   sourceUrl,
+  domain,
   onOpen,
-  accent,
 }: {
-  url: string;
-  sourceUrl: string | null;
+  sourceUrl: string;
+  domain: string | null;
   onOpen?: (u: string) => void;
-  accent: string;
 }) {
+  // Black pill matching the artist card's "Listen on Apple Music" CTA
+  // and the TopTracks "Listen ↗" treatment so all single-entity CTAs
+  // share one idiom.
   return (
     <div style={footerStyle}>
       <button
         type="button"
-        onClick={() => onOpen?.(url)}
-        style={{
-          ...footerPrimaryStyle,
-          color: accent,
-          borderColor: accent,
-        }}
+        onClick={() => onOpen?.(sourceUrl)}
+        style={readButtonStyle}
       >
-        Open in Instapaper →
+        Read on {domain ?? 'source'} ↗
       </button>
-      {sourceUrl && (
-        <button
-          type="button"
-          onClick={() => onOpen?.(sourceUrl)}
-          style={footerSecondaryStyle}
-        >
-          Read on source
-        </button>
-      )}
     </div>
   );
 }
@@ -424,33 +335,15 @@ const titleStyle: CSSProperties = {
   color: 'var(--color-text-primary, inherit)',
 };
 
-const bylineStyle: CSSProperties = {
-  fontSize: 14,
+// Single dim line under the title — domain · author · read time · saved.
+// Negative top offset against the bodyStyle gap so the line tucks
+// closer to the title (reads as the title's subline rather than its
+// own band of metadata).
+const metaLineStyle: CSSProperties = {
+  fontSize: 13,
   opacity: 0.7,
   color: 'var(--color-text-secondary, inherit)',
-};
-
-const metaRowStyle: CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-  gap: 10,
-  fontSize: 13,
-  opacity: 0.75,
-  color: 'var(--color-text-secondary, inherit)',
-};
-
-const metaItemStyle: CSSProperties = {
-  whiteSpace: 'nowrap',
-};
-
-const statusPillBaseStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.3,
-  padding: '3px 9px',
-  borderRadius: 999,
-  textTransform: 'uppercase',
+  marginTop: -3,
 };
 
 const progressTrackStyle: CSSProperties = {
@@ -544,34 +437,24 @@ const highlightsMoreStyle: CSSProperties = {
 };
 
 const footerStyle: CSSProperties = {
-  marginTop: 8,
-  paddingTop: 14,
-  borderTop: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
   display: 'flex',
-  gap: 10,
-  flexWrap: 'wrap',
+  marginTop: 4,
 };
 
-const footerPrimaryStyle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-  padding: '8px 14px',
-  borderRadius: 6,
-  border: '1px solid',
-  background: 'transparent',
-  cursor: 'pointer',
-  font: 'inherit',
-};
-
-const footerSecondaryStyle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 500,
-  padding: '8px 14px',
-  borderRadius: 6,
+const readButtonStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  width: '100%',
+  padding: '12px 16px',
+  borderRadius: 999,
   border: 'none',
-  background: 'transparent',
+  background: '#000',
+  color: '#fff',
   cursor: 'pointer',
   font: 'inherit',
-  opacity: 0.7,
-  color: 'var(--color-text-secondary, inherit)',
+  fontSize: 15,
+  fontWeight: 500,
+  letterSpacing: 0.1,
 };
