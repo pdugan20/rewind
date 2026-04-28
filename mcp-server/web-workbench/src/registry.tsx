@@ -121,7 +121,9 @@ export const COMPONENTS: ComponentEntry[] = [
     getBuiltHtml: makeBuiltLoader('top-albums.html'),
     render: (f) => {
       const p = f as TopAlbumsPayload;
-      return <AlbumGrid items={p.data} onOpen={defaultOpen} />;
+      return (
+        <AlbumGrid items={p.data} period={p.period} onOpen={defaultOpen} />
+      );
     },
   },
   {

@@ -1,6 +1,5 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
-import { legibleColor } from '../lib/legible-color.js';
 import { Sparkline } from './Sparkline.js';
 import type { TopItem } from './AlbumCard.js';
 
@@ -83,13 +82,11 @@ function ArtistRow({
 }) {
   const [loaded, setLoaded] = useState(false);
   const portrait = buildThumbUrl(item.image);
-  const dominant = item.image?.dominant_color ?? 'rgba(127,127,127,0.18)';
-  // Sparkline color falls back to currentColor when the brand color
-  // is too light or too dark to render legibly across themes (e.g.
-  // Gorillaz pure-white dominant color → invisible on light bg).
-  const sparkColor = legibleColor(
-    item.image?.accent_color ?? item.image?.dominant_color ?? null
-  );
+  // Sparkline color is uniform across the list — `currentColor`
+  // inherits the row's text color (theme-adaptive) so the trends
+  // read as one consistent visual rhythm down the rail rather than
+  // a noisy spread of brand colors.
+  const sparkColor = 'currentColor';
   // Apple Music is the canonical "Listen" target; fall back to Last.fm
   // so the row still works for artists we haven't matched yet.
   const primaryUrl = item.apple_music_url ?? item.url ?? null;
@@ -107,7 +104,7 @@ function ArtistRow({
         clickable ? `Listen to ${item.name} on Apple Music` : item.name
       }
     >
-      <span style={{ ...thumbStyle, background: dominant }}>
+      <span style={thumbStyle}>
         {portrait?.placeholder && (
           <img
             src={portrait.placeholder}
@@ -204,8 +201,9 @@ const listStyle: CSSProperties = {
 };
 
 const rowStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'auto 1fr 72px auto',
+  // Flex (not grid) — so a missing sparkline cell doesn't leave a
+  // phantom track + gap reserved on the right of the pill.
+  display: 'flex',
   alignItems: 'center',
   gap: 12,
   width: '100%',
@@ -217,6 +215,9 @@ const rowStyle: CSSProperties = {
   color: 'inherit',
 };
 
+// Same canonical border color we use on every other card chrome
+// in the system. No brand-color background — neutral until the
+// image loads, then the image covers it.
 const thumbStyle: CSSProperties = {
   position: 'relative',
   width: THUMB_PX,
@@ -224,6 +225,9 @@ const thumbStyle: CSSProperties = {
   borderRadius: '50%',
   overflow: 'hidden',
   flexShrink: 0,
+  border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+  background: 'rgba(127,127,127,0.06)',
+  boxSizing: 'border-box',
 };
 
 const thumbImgStyle: CSSProperties = {
@@ -240,6 +244,9 @@ const textColStyle: CSSProperties = {
   flexDirection: 'column',
   gap: 2,
   minWidth: 0,
+  // Grow to absorb the row's free space so the trailing sparkline +
+  // pill stay flush right.
+  flex: 1,
 };
 
 const nameStyle: CSSProperties = {
@@ -261,15 +268,15 @@ const sparklineStyle: CSSProperties = {
   justifyContent: 'flex-end',
   alignItems: 'center',
   height: THUMB_PX,
-  opacity: 0.7,
+  opacity: 0.2,
   // Trailing breathing room so the sparkline doesn't crash into the
   // Listen pill in the next column.
   paddingRight: 8,
 };
 
-// Small black pill matching the TopTracks album-CTA treatment. Visual
-// affordance only — the whole row is the click target so this is a
-// span, not a nested button.
+// Inverted variant: white pill with hairline border. Visual affordance
+// only — the whole row is the click target so this is a span, not a
+// nested button.
 const listenPillStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -277,8 +284,9 @@ const listenPillStyle: CSSProperties = {
   fontWeight: 500,
   padding: '6px 12px',
   borderRadius: 999,
-  background: '#000',
-  color: '#fff',
+  background: '#fff',
+  color: '#000',
+  border: '1px solid rgba(0,0,0,0.12)',
   flexShrink: 0,
   whiteSpace: 'nowrap',
 };

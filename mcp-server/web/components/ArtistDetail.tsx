@@ -581,7 +581,7 @@ function FluidThumbnail({
   transform,
   radius,
   alt,
-  fallbackBg,
+  fallbackBg: _fallbackBg,
 }: {
   image: Image;
   transform: string;
@@ -591,31 +591,26 @@ function FluidThumbnail({
 }) {
   const [loaded, setLoaded] = useState(false);
   const src = buildSrc(image, transform);
-  const accent = image?.accent_color ?? fallbackBg ?? 'rgba(127,127,127,0.18)';
-  const dominant =
-    image?.dominant_color ?? fallbackBg ?? 'rgba(127,127,127,0.10)';
 
+  // Same canonical border + neutral fill as the other card thumbnails.
+  // No brand-color background — neutral until the image loads, then
+  // the image covers it.
   const baseStyle: CSSProperties = {
     width: '100%',
     aspectRatio: '1 / 1',
     borderRadius: radius,
     overflow: 'hidden',
     position: 'relative',
+    background: 'rgba(127,127,127,0.06)',
+    border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+    boxSizing: 'border-box',
   };
 
   if (!src) {
-    return (
-      <div
-        style={{
-          ...baseStyle,
-          background: `linear-gradient(135deg, ${dominant} 0%, ${accent} 100%)`,
-        }}
-        aria-hidden
-      />
-    );
+    return <div style={baseStyle} aria-hidden />;
   }
   return (
-    <div style={{ ...baseStyle, background: dominant }}>
+    <div style={baseStyle}>
       {src.placeholder && (
         <img
           src={src.placeholder}
@@ -659,7 +654,7 @@ function Thumbnail({
   size,
   radius,
   alt,
-  fallbackBg,
+  fallbackBg: _fallbackBg,
 }: {
   image: Image;
   transform: string;
@@ -670,36 +665,25 @@ function Thumbnail({
 }) {
   const [loaded, setLoaded] = useState(false);
   const src = buildSrc(image, transform);
-  const accent = image?.accent_color ?? fallbackBg ?? 'rgba(127,127,127,0.18)';
-  const dominant =
-    image?.dominant_color ?? fallbackBg ?? 'rgba(127,127,127,0.10)';
+
+  // Same canonical border + neutral fill as the other card thumbnails.
+  const baseStyle: CSSProperties = {
+    width: size,
+    height: size,
+    borderRadius: radius,
+    overflow: 'hidden',
+    background: 'rgba(127,127,127,0.06)',
+    border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+    boxSizing: 'border-box',
+    flexShrink: 0,
+    position: 'relative',
+  };
 
   if (!src) {
-    return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: radius,
-          background: `linear-gradient(135deg, ${dominant} 0%, ${accent} 100%)`,
-          flexShrink: 0,
-        }}
-        aria-hidden
-      />
-    );
+    return <div style={baseStyle} aria-hidden />;
   }
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: radius,
-        overflow: 'hidden',
-        background: dominant,
-        flexShrink: 0,
-        position: 'relative',
-      }}
-    >
+    <div style={baseStyle}>
       {src.placeholder && (
         <img
           src={src.placeholder}

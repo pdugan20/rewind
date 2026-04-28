@@ -328,7 +328,6 @@ const ALBUM_HEADER_THUMB_PX = 56;
 function AlbumThumb({ image }: { image: TopTrackItem['image'] }) {
   const [loaded, setLoaded] = useState(false);
   const src = buildSrc(image);
-  const dominant = image?.dominant_color ?? 'rgba(127,127,127,0.10)';
   return (
     <div
       style={{
@@ -337,7 +336,10 @@ function AlbumThumb({ image }: { image: TopTrackItem['image'] }) {
         borderRadius: 6,
         overflow: 'hidden',
         flexShrink: 0,
-        background: dominant,
+        background: 'rgba(127,127,127,0.06)',
+        border:
+          '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+        boxSizing: 'border-box',
         position: 'relative',
       }}
     >
@@ -392,7 +394,6 @@ function Row({
   const [loaded, setLoaded] = useState(false);
   const src = buildSrc(track.image);
   const accent = track.image?.accent_color ?? 'var(--color-accent, #4c6ef5)';
-  const dominant = track.image?.dominant_color ?? 'rgba(127,127,127,0.10)';
   const sub = filtered ? track.album_name : track.detail;
   const clickable = Boolean(track.apple_music_url);
   const barPct = (track.playcount / maxPlaycount) * 100;
@@ -406,7 +407,10 @@ function Row({
           borderRadius: 4,
           overflow: 'hidden',
           flexShrink: 0,
-          background: dominant,
+          background: 'rgba(127,127,127,0.06)',
+          border:
+            '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+          boxSizing: 'border-box',
           position: 'relative',
         }}
       >

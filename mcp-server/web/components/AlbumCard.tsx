@@ -70,7 +70,6 @@ export function AlbumCard({
         ...cardStyle,
         cursor: clickable ? 'pointer' : 'default',
         transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
-        boxShadow: hovered ? hoverShadow : restShadow,
       }}
       aria-label={
         clickable ? `Open ${item.name}` : `${item.name} by ${item.detail}`
@@ -137,20 +136,29 @@ function formatPlays(n: number): string {
 const cardStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
+  // Force the button to fill its grid cell. `width: 100%` +
+  // `min-width: 0` are both needed: the user-agent button has an
+  // intrinsic min-content width that prevents it from filling the
+  // cell otherwise, and `align-self: stretch` doesn't override that
+  // intrinsic min-width without `min-width: 0`.
+  width: '100%',
+  minWidth: 0,
+  alignSelf: 'stretch',
+  justifySelf: 'stretch',
+  boxSizing: 'border-box',
   borderRadius: 8,
   overflow: 'hidden',
   border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.15))',
-  background: 'var(--color-background-secondary, transparent)',
+  // Transparent so the meta area inherits the parent article's lighter
+  // cream/white bg instead of the darker color-background-secondary.
+  background: 'transparent',
   textAlign: 'left',
   padding: 0,
   font: 'inherit',
   color: 'inherit',
-  transition: 'transform 150ms ease, box-shadow 150ms ease',
+  transition: 'transform 150ms ease',
   willChange: 'transform',
 };
-
-const restShadow = '0 1px 2px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.12)';
-const hoverShadow = '0 4px 10px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.18)';
 
 const metaStyle: CSSProperties = {
   padding: '8px 10px 10px',
