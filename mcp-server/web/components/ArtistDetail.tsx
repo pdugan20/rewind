@@ -132,25 +132,36 @@ export function ArtistDetail({
   const dominant =
     artist.image?.dominant_color ?? 'var(--color-surface, #2a2a2a)';
 
+  const [tab, setTab] = useState<Tab>('all');
+
+  // Tab → section visibility. "Stats" pairs the stat strip with the
+  // sparkline (numbers about your relationship to the artist); "Music"
+  // pairs top tracks + top albums (their work, your favorites);
+  // "Similar" is the connected-artists rail.
+  const showStats = tab === 'all' || tab === 'stats';
+  const showMusic = tab === 'all' || tab === 'music';
+  const showSimilar = tab === 'all' || tab === 'similar';
+
   return (
     <article style={cardStyle}>
       <Hero artist={artist} accent={accent} dominant={dominant} />
+      <TabNav active={tab} onChange={setTab} accent={accent} />
 
-      <StatStrip stats={listening_stats} accent={accent} />
+      {showStats && <StatStrip stats={listening_stats} accent={accent} />}
 
-      {sparkline && sparkline.points.length > 1 && (
+      {showStats && sparkline && sparkline.points.length > 1 && (
         <Sparkline sparkline={sparkline} accent={accent} />
       )}
 
-      {top_tracks.length > 0 && (
+      {showMusic && top_tracks.length > 0 && (
         <TopTracks tracks={top_tracks} accent={accent} onOpen={onOpen} />
       )}
 
-      {top_albums.length > 0 && (
+      {showMusic && top_albums.length > 0 && (
         <TopAlbums albums={top_albums} dominant={dominant} onOpen={onOpen} />
       )}
 
-      {similar_artists.length > 0 && (
+      {showSimilar && similar_artists.length > 0 && (
         <SimilarArtists similar={similar_artists} />
       )}
 
@@ -242,6 +253,47 @@ function Hero({
         {artist.bio_summary && <p style={bioStyle}>{artist.bio_summary}</p>}
       </div>
     </div>
+  );
+}
+
+type Tab = 'all' | 'stats' | 'music' | 'similar';
+
+function TabNav({
+  active,
+  onChange,
+  accent,
+}: {
+  active: Tab;
+  onChange: (t: Tab) => void;
+  accent: string;
+}) {
+  const tabs: Array<[Tab, string]> = [
+    ['all', 'All'],
+    ['stats', 'Stats'],
+    ['music', 'Music'],
+    ['similar', 'Similar'],
+  ];
+  return (
+    <nav style={tabNavStyle}>
+      {tabs.map(([id, label]) => {
+        const isActive = id === active;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onChange(id)}
+            style={{
+              ...tabButtonStyle,
+              color: isActive ? accent : 'inherit',
+              opacity: isActive ? 1 : 0.55,
+              borderBottomColor: isActive ? accent : 'transparent',
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -781,6 +833,40 @@ const bioStyle: CSSProperties = {
   color: 'var(--color-text-primary, inherit)',
 };
 
+// Tab nav — bleeds horizontally to the outer card edge so the
+// bottom hairline reads as a section divider. Mirrors the athlete
+// card's nav. CARD_PADDING_X must match cardStyle's horizontal pad.
+const CARD_PADDING_X = 22;
+
+const tabNavStyle: CSSProperties = {
+  display: 'flex',
+  gap: 4,
+  marginLeft: -CARD_PADDING_X,
+  marginRight: -CARD_PADDING_X,
+  paddingLeft: CARD_PADDING_X,
+  paddingRight: CARD_PADDING_X,
+  borderBottom: '1px solid rgba(127,127,127,0.12)',
+  // Pull tighter to the hero block above — the nav reads as a
+  // continuation of the header, not its own band.
+  marginTop: -14,
+};
+
+const tabButtonStyle: CSSProperties = {
+  appearance: 'none',
+  background: 'transparent',
+  border: 'none',
+  borderBottom: '2px solid transparent',
+  padding: '8px 12px',
+  marginBottom: -1,
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: 0.6,
+  textTransform: 'uppercase',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  transition: 'color 120ms ease, opacity 120ms ease',
+};
+
 // Boxed treatment — matches HitterStatBlock cells: label on top, value
 // big below, faint gray pod, gap-8 between cells. Same visual language
 // as the splits/season blocks in the sports cards.
@@ -1039,6 +1125,7 @@ const footerStyle: CSSProperties = {
   display: 'flex',
   gap: 10,
   flexWrap: 'wrap',
+  marginTop: -4,
 };
 
 const appleMusicButtonStyle: CSSProperties = {
