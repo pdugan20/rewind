@@ -1,10 +1,12 @@
 import { StrictMode, useEffect, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useApp, useHostStyles } from '@modelcontextprotocol/ext-apps/react';
-import {
-  AthleteDetail,
-  type AthletePayload,
-} from './components/AthleteDetail.js';
+// Production entry uses the AthleteDetailA layout — same one the
+// workbench registry previews. AthletePayload still ships from
+// AthleteDetail.js where it was originally defined; AthleteDetailA
+// re-uses the type unchanged.
+import { AthleteDetailA } from './components/AthleteDetailA.js';
+import type { AthletePayload } from './components/AthleteDetail.js';
 
 function AthleteApp() {
   const { app, isConnected, error } = useApp({
@@ -33,7 +35,7 @@ function AthleteApp() {
 
   return (
     <div style={rootStyle}>
-      <AthleteDetail
+      <AthleteDetailA
         payload={payload}
         onOpen={(url) => {
           app?.openLink({ url });
