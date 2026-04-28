@@ -59,11 +59,8 @@ export function ArticleCard({
   // desktop chat.
   const primaryUrl = article.url ?? article.instapaper_url ?? null;
   const clickable = primaryUrl != null;
-  const [hovered, setHovered] = useState(false);
 
   const thumb = buildThumbUrl(article.image);
-  const accent = article.image?.accent_color ?? '#e5e5e5';
-  const dominant = article.image?.dominant_color ?? '#d4d4d4';
 
   const meta = [
     article.author,
@@ -84,14 +81,9 @@ export function ArticleCard({
     <Tag
       type={clickable ? 'button' : undefined}
       onClick={clickable && primaryUrl ? () => onOpen?.(primaryUrl) : undefined}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       style={{
         ...cardStyle,
         cursor: clickable ? 'pointer' : 'default',
-        background: hovered
-          ? 'var(--color-background-secondary, rgba(127,127,127,0.05))'
-          : 'transparent',
       }}
       aria-label={clickable ? `Open ${article.title}` : article.title}
     >
@@ -100,56 +92,19 @@ export function ArticleCard({
         <div style={metaStyle}>{meta}</div>
         {blurb && <div style={blurbStyle}>{blurb}</div>}
       </div>
-      <Thumbnail
-        thumb={thumb}
-        accent={accent}
-        dominant={dominant}
-        domain={article.domain}
-      />
+      {thumb && <Thumbnail thumb={thumb} />}
     </Tag>
   );
 }
 
 function Thumbnail({
   thumb,
-  accent,
-  dominant,
-  domain,
 }: {
-  thumb: { src: string; placeholder: string | null } | null;
-  accent: string;
-  dominant: string;
-  domain: string | null;
+  thumb: { src: string; placeholder: string | null };
 }) {
   const [loaded, setLoaded] = useState(false);
-
-  if (!thumb) {
-    // No OG image — fallback tile with accent color + domain text.
-    return (
-      <div
-        style={{
-          ...thumbBaseStyle,
-          background: accent,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-        }}
-      >
-        <span style={fallbackLabelStyle}>{domain ?? ''}</span>
-      </div>
-    );
-  }
-
   return (
-    <div
-      style={{
-        ...thumbBaseStyle,
-        background: dominant,
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
+    <div style={thumbBaseStyle}>
       {thumb.placeholder && (
         <img
           src={thumb.placeholder}
@@ -191,16 +146,13 @@ const cardStyle: CSSProperties = {
   display: 'flex',
   gap: 16,
   alignItems: 'flex-start',
-  padding: '14px 12px',
+  padding: '12px 0',
   border: 'none',
-  borderBottom:
-    '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
   width: '100%',
   textAlign: 'left',
   font: 'inherit',
   color: 'inherit',
   background: 'transparent',
-  transition: 'background 120ms ease',
 };
 
 const textColStyle: CSSProperties = {
@@ -241,22 +193,19 @@ const blurbStyle: CSSProperties = {
   color: 'var(--color-text-secondary, inherit)',
 };
 
+// Same canonical border + neutral fill as every other thumb in the
+// system. No brand-color background — neutral until the image loads,
+// then the image covers it. When there's no image we render nothing
+// at all (per Instapaper's own card chrome) so this style is only
+// applied when a thumb is present.
 const thumbBaseStyle: CSSProperties = {
   width: 80,
   height: 80,
   flexShrink: 0,
   borderRadius: 8,
   overflow: 'hidden',
-};
-
-const fallbackLabelStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  textAlign: 'center',
-  color: '#ffffff',
-  mixBlendMode: 'normal',
-  textShadow: '0 1px 2px rgba(0,0,0,0.35)',
-  letterSpacing: 0.3,
-  wordBreak: 'break-word',
-  lineHeight: 1.2,
+  position: 'relative',
+  background: 'rgba(127,127,127,0.06)',
+  border: '1px solid var(--color-border-tertiary, rgba(127,127,127,0.12))',
+  boxSizing: 'border-box',
 };

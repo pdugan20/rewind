@@ -2,9 +2,9 @@ import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
 import { legibleColor } from '../lib/legible-color.js';
 import { Sparkline } from './Sparkline.js';
-import { AlbumCard, type TopItem } from './AlbumCard.js';
+import { type TopItem } from './AlbumCard.js';
 
-const ROW_THUMB_PX = 44;
+const ROW_THUMB_PX = 56;
 const ROW_THUMB_TX = `width=${ROW_THUMB_PX * 2},height=${ROW_THUMB_PX * 2},fit=cover,format=auto,quality=85`;
 
 function buildRowThumbUrl(
@@ -42,8 +42,6 @@ function periodLabel(period: string): string {
   }
 }
 
-type ViewMode = 'list' | 'grid';
-
 export function AlbumGrid({
   items,
   period,
@@ -55,8 +53,6 @@ export function AlbumGrid({
   period?: string;
   onOpen?: (url: string) => void;
 }) {
-  const [view, setView] = useState<ViewMode>('list');
-
   return (
     <article style={cardStyle}>
       <header style={headerStyle}>
@@ -64,11 +60,9 @@ export function AlbumGrid({
         {period && <div style={subtitleStyle}>{periodLabel(period)}</div>}
       </header>
 
-      {items.length > 0 && <ViewToggle view={view} onChange={setView} />}
-
       {items.length === 0 ? (
         <div style={emptyStyle}>No top albums in this window.</div>
-      ) : view === 'list' ? (
+      ) : (
         <ol style={listStyle}>
           {items.map((item) => (
             <li key={`${item.id}-${item.rank}`}>
@@ -76,53 +70,8 @@ export function AlbumGrid({
             </li>
           ))}
         </ol>
-      ) : (
-        <div style={gridStyle}>
-          {items.map((item) => (
-            <AlbumCard
-              key={`${item.id}-${item.rank}`}
-              item={item}
-              onOpen={onOpen}
-            />
-          ))}
-        </div>
       )}
     </article>
-  );
-}
-
-function ViewToggle({
-  view,
-  onChange,
-}: {
-  view: ViewMode;
-  onChange: (v: ViewMode) => void;
-}) {
-  // Same faint-pill toggle as TopTracks's variant 'A'.
-  const items: Array<{ key: ViewMode; label: string }> = [
-    { key: 'list', label: 'List' },
-    { key: 'grid', label: 'Grid' },
-  ];
-  return (
-    <div style={pillWrapStyle} role="tablist" aria-label="View mode">
-      {items.map((it) => (
-        <button
-          key={it.key}
-          type="button"
-          role="tab"
-          aria-selected={view === it.key}
-          onClick={() => onChange(it.key)}
-          style={{
-            ...pillButtonStyle,
-            ...(view === it.key
-              ? pillButtonActiveStyle
-              : pillButtonInactiveStyle),
-          }}
-        >
-          {it.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -242,41 +191,6 @@ const subtitleStyle: CSSProperties = {
   opacity: 0.75,
 };
 
-// ─── Toggle (same as TopTracks variant A) ──────────────────────────
-
-const pillWrapStyle: CSSProperties = {
-  display: 'flex',
-  width: '100%',
-  padding: 3,
-  borderRadius: 999,
-  background: 'rgba(127,127,127,0.08)',
-};
-
-const pillButtonStyle: CSSProperties = {
-  flex: 1,
-  fontSize: 13,
-  fontWeight: 500,
-  padding: '6px 0',
-  border: 'none',
-  borderRadius: 999,
-  background: 'transparent',
-  font: 'inherit',
-  cursor: 'pointer',
-  textAlign: 'center',
-  transition: 'background 120ms ease, color 120ms ease',
-};
-
-const pillButtonActiveStyle: CSSProperties = {
-  background: 'var(--color-background-primary, #fff)',
-  color: 'var(--color-text-primary, inherit)',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-};
-
-const pillButtonInactiveStyle: CSSProperties = {
-  color: 'var(--color-text-secondary, inherit)',
-  opacity: 0.7,
-};
-
 // ─── List view ─────────────────────────────────────────────────────
 
 const listStyle: CSSProperties = {
@@ -374,26 +288,6 @@ const listenPillStyle: CSSProperties = {
   border: '1px solid rgba(0,0,0,0.12)',
   flexShrink: 0,
   whiteSpace: 'nowrap',
-};
-
-// ─── Grid view ─────────────────────────────────────────────────────
-
-const gridStyle: CSSProperties = {
-  display: 'grid',
-  // Fixed 3-up regardless of viewport width — `minmax(0, 1fr)` lets
-  // columns share width equally even if a long album title would
-  // otherwise grow its column past 1fr.
-  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-  gap: 8,
-  // Explicit width — the grid is a child of a `display: flex` column
-  // article and would otherwise shrink to its intrinsic content
-  // width, leaving a gap on the right edge that the tab selector
-  // (which has `width: 100%`) doesn't have.
-  width: '100%',
-  // Match the list view's first-row top padding (rowStyle has
-  // `padding: '8px 0'`) so the gap from the tab toggle reads the
-  // same in both views.
-  paddingTop: 8,
 };
 
 const emptyStyle: CSSProperties = {

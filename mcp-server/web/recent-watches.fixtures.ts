@@ -23,6 +23,7 @@ export const fixtures: Record<string, RecentWatchesPayload> = {
         watched_at: '2026-04-01T20:00:00Z',
         user_rating: 3,
         rewatch: false,
+        review: null,
         review_url: null,
       },
       {
@@ -37,6 +38,8 @@ export const fixtures: Record<string, RecentWatchesPayload> = {
         watched_at: '2026-03-28T19:00:00Z',
         user_rating: 4.5,
         rewatch: true,
+        review:
+          'A surprisingly tender second act gives way to one of the more memorable closing shots of the year.',
         review_url: 'https://letterboxd.com/example/film/long-title/',
       },
     ],

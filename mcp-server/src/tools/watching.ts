@@ -34,6 +34,8 @@ type RecentWatch = {
     year: number | null;
     director: string | null;
     tmdb_id: number | null;
+    summary: string | null;
+    tagline: string | null;
     image: MovieImage;
   };
   watched_at: string;

@@ -11,8 +11,11 @@ export type { Photo };
 
 export type LineScoreInning = {
   inning: number;
-  home_runs: number;
-  away_runs: number;
+  // Nullable: a half-inning that wasn't played (typically bottom 9 when
+  // the home team is already winning) comes back as null from the MLB
+  // feed. The canonical baseball convention for that cell is "X".
+  home_runs: number | null;
+  away_runs: number | null;
   home_hits: number;
   away_hits: number;
   home_errors: number;
@@ -268,7 +271,7 @@ function Linescore({
             </td>
             {awayRuns.map((r, i) => (
               <td key={i} style={lineCellStyle}>
-                {r}
+                {r ?? 'X'}
               </td>
             ))}
           </tr>
@@ -278,7 +281,7 @@ function Linescore({
             </td>
             {homeRuns.map((r, i) => (
               <td key={i} style={lineCellStyle}>
-                {r}
+                {r ?? 'X'}
               </td>
             ))}
           </tr>

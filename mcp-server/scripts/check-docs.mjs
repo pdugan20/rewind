@@ -36,8 +36,12 @@ const UNDOCUMENTED_ALLOWLIST = new Set([
   'ui://rewind/recent-reads.html', // MCP Apps UI asset for get_recent_reads (documented)
   'ui://rewind/top-albums.html', // MCP Apps UI asset for get_top_albums (documented)
   'ui://rewind/top-artists.html', // MCP Apps UI asset for get_top_artists (documented)
+  'ui://rewind/top-tracks.html', // MCP Apps UI asset for get_top_tracks (documented)
+  'ui://rewind/article.html', // MCP Apps UI asset for get_article (documented)
+  'ui://rewind/artist.html', // MCP Apps UI asset for get_artist_details (documented)
   'ui://rewind/attended-season.html', // MCP Apps UI asset for get_attended_season (documented)
   'ui://rewind/attended-event.html', // MCP Apps UI asset for get_attended_event (documented)
+  'ui://rewind/attended-player.html', // MCP Apps UI asset for get_attended_player_stats (documented)
   'ui://rewind/hello.html', // MCP Apps debug UI
 ]);
 
