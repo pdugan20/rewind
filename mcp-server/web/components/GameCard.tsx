@@ -210,7 +210,7 @@ function TeamScore({
 
   return (
     <div style={teamSlotStyle}>
-      <TeamLogo team={team} size={44} variant="auto" />
+      <TeamLogo team={team} size={44} variant="default" />
       <div
         style={{
           ...teamNameStyle,

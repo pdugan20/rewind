@@ -337,7 +337,7 @@ function Hero({
         <div style={badgeRowStyle}>
           {team && (
             <span style={logoBadgeStyle}>
-              <TeamLogo team={team} size={LOGO_PX} variant="auto" />
+              <TeamLogo team={team} size={LOGO_PX} variant="default" />
             </span>
           )}
           {team && <span style={teamNameStyle}>{team.abbreviation}</span>}

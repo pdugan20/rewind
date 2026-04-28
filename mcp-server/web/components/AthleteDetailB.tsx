@@ -208,7 +208,11 @@ function Hero({ player }: { player: PlayerMeta }) {
         <div style={badgeRowStyle}>
           {player.primary_team && (
             <span style={teamBadgeStyle}>
-              <TeamLogo team={player.primary_team} size={28} variant="auto" />
+              <TeamLogo
+                team={player.primary_team}
+                size={28}
+                variant="default"
+              />
               <span style={teamAbbrStyle}>
                 {player.primary_team.abbreviation}
               </span>

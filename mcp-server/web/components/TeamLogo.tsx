@@ -26,10 +26,17 @@ type Props = {
 export function TeamLogo({
   team,
   size = 32,
-  variant = 'auto',
+  variant = 'default',
   alt,
   showFallback = true,
 }: Props) {
+  // Default changed from 'auto' to 'default' on 2026-04-27. The 'auto'
+  // variant uses <picture> + prefers-color-scheme to swap between
+  // cap-on-light and cap-on-dark SVGs, but those variants ship with a
+  // 300x300 viewBox where the cap mark is sized for letterhead use,
+  // not inline display — observed rendering as effectively empty in a
+  // 32-44px box. The plain `logo_url` brand mark (e.g. the Mariners
+  // compass-S) renders cleanly on both light and dark host themes.
   if (!team) {
     return showFallback ? <div style={fallbackStyle(size, null)}>?</div> : null;
   }
