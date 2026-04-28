@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.0...mcp-server-v0.8.1) (2026-04-28)
+
+
+### Bug Fixes
+
+* **web:** drop iframe body margin + rootStyle padding so cards sit flush in iOS host ([46f1653](https://github.com/pdugan20/rewind/commit/46f165318692617e0fc231f8b20dc25e67405127))
+
 ## [0.8.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.7.0...mcp-server-v0.8.0) (2026-04-28)
 
 
