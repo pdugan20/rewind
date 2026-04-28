@@ -180,10 +180,10 @@ export const COMPONENTS: ComponentEntry[] = [
     ),
   },
   {
-    // Renders AthleteDetailA (the in-flight redesign). The legacy
-    // AthleteDetail still backs the bundled production attended-player.html
-    // until we repoint it; this workbench entry shows the React HMR
-    // version we're iterating on.
+    // Renders AthleteDetailA (the in-flight redesign). Production
+    // attended-player.html still ships the legacy AthleteDetail until
+    // we repoint it; this workbench entry is the React HMR surface
+    // we're iterating on.
     id: 'attended-player',
     displayName: 'Attended player',
     producedBy: 'get_attended_player',
