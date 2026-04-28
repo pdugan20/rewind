@@ -55,7 +55,9 @@ const CF_DATABASE_ID = '35a4edf8-0d4f-4cbe-9a6e-6f1525716774';
 const D1_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/d1/database/${CF_DATABASE_ID}/query`;
 const REWIND_API = 'https://api.rewind.rest';
 
+const BOOKMARKS_ADD_DELAY_MS = 250;
 const GET_TEXT_DELAY_MS = 500;
+const ARCHIVE_DELAY_MS = 250;
 const OG_FETCH_DELAY_MS = 300;
 const WORDS_PER_MINUTE = 238;
 
@@ -307,11 +309,15 @@ function sleep(ms: number) {
 // ─── csv parsing ───────────────────────────────────────────────────
 
 interface BookmarkRecord {
-  bookmarkId: number;
+  bookmarkId: number; // 0 if not yet resolved (CSV row, no id column)
   url: string;
   title: string;
-  folder: string | null;
+  folder: string | null; // raw folder string from CSV
   savedAtSec: number | null; // unix seconds
+  csvDescription?: string;
+  starred?: boolean;
+  progress?: number;
+  sourceHash?: string;
 }
 
 function parseCsv(content: string): Record<string, string>[] {
@@ -380,19 +386,18 @@ function recordsFromCsv(content: string): BookmarkRecord[] {
 
   const out: BookmarkRecord[] = [];
   for (const row of rows) {
-    let bookmarkId: number | null = null;
-    if (idKey && row[idKey]) bookmarkId = Number(row[idKey]);
-    // Fallback: extract from URL when Instapaper exports the read URL
-    // (https://instapaper.com/read/{id}) instead of the source URL.
+    let bookmarkId: number | 0 = 0;
+    if (idKey && row[idKey]) bookmarkId = Number(row[idKey]) || 0;
     if (!bookmarkId && urlKey) {
+      // Some Instapaper exports use the read URL form; extract the id.
       const m = row[urlKey].match(/instapaper\.com\/read\/(\d+)/i);
       if (m) bookmarkId = Number(m[1]);
     }
-    if (!bookmarkId || Number.isNaN(bookmarkId)) continue;
     const url = (urlKey && row[urlKey]) || '';
     const title = (titleKey && row[titleKey]) || '';
     const folder = (folderKey && row[folderKey]) || null;
     const ts = timeKey && row[timeKey] ? Number(row[timeKey]) : null;
+    if (!url && !bookmarkId) continue; // need at least one
     out.push({
       bookmarkId,
       url,
@@ -406,11 +411,16 @@ function recordsFromCsv(content: string): BookmarkRecord[] {
 
 // ─── existing-row check ────────────────────────────────────────────
 
-async function fetchExistingSourceIds(): Promise<Set<number>> {
-  // Read via the production API (REWIND_ADMIN_KEY) so we don't depend
-  // on the wrangler OAuth token for the read path. The write path
-  // still needs D1 access and will surface a clean error if missing.
+async function fetchExistingState(): Promise<{
+  ids: Set<number>;
+  urls: Set<string>;
+}> {
+  // Two parallel sets: bookmark_id (canonical) and source_url (cheap
+  // pre-filter so we can skip the bookmarks/add call entirely for
+  // rows whose URL is already in DB). URLs are normalized to
+  // lowercase and stripped of trailing slash for the comparison.
   const ids = new Set<number>();
+  const urls = new Set<string>();
   let page = 1;
   while (true) {
     const res = await fetch(
@@ -419,18 +429,30 @@ async function fetchExistingSourceIds(): Promise<Set<number>> {
     );
     if (!res.ok) throw new Error(`Rewind API failed: ${res.status}`);
     const data = (await res.json()) as {
-      data: Array<{ source: string; instapaper_url: string | null }>;
+      data: Array<{
+        source: string;
+        instapaper_url: string | null;
+        url: string | null;
+      }>;
       pagination: { total_pages: number };
     };
     for (const a of data.data) {
       if (a.source !== 'instapaper') continue;
       const m = (a.instapaper_url || '').match(/\/read\/(\d+)/);
       if (m) ids.add(Number(m[1]));
+      if (a.url) urls.add(normalizeUrl(a.url));
     }
     if (page >= data.pagination.total_pages) break;
     page++;
   }
-  return ids;
+  return { ids, urls };
+}
+
+function normalizeUrl(u: string): string {
+  return u
+    .toLowerCase()
+    .replace(/\/$/, '')
+    .replace(/^https?:\/\//, ''); // strip protocol so http vs https drift doesn't fool the dedup
 }
 
 // ─── per-bookmark ingest ───────────────────────────────────────────
@@ -441,10 +463,93 @@ interface IngestResult {
   reason?: string;
 }
 
+interface AddedBookmark {
+  bookmark_id: number;
+  url: string;
+  title: string;
+  description: string;
+  starred: string; // "0" or "1"
+  progress: number;
+  hash: string;
+  time: number;
+  tags: { id: number; name: string }[];
+}
+
+// Idempotent URL → bookmark_id resolver. Instapaper's bookmarks/list is
+// capped at 500/folder, but bookmarks/add returns the existing
+// bookmark for any URL already saved, including orphaned ones not in
+// any folder list. Side effect: moves the bookmark to Unread, which
+// we undo via bookmarks/archive after getText below.
+async function bookmarksAdd(url: string): Promise<AddedBookmark | null> {
+  const res = await instapaperRequest('/1/bookmarks/add', { url });
+  const items = JSON.parse(res) as Array<Record<string, unknown>>;
+  const bm = items.find((it) => it.type === 'bookmark') as unknown as
+    | AddedBookmark
+    | undefined;
+  return bm ?? null;
+}
+
+async function bookmarksArchive(bookmarkId: number): Promise<void> {
+  await instapaperRequest('/1/bookmarks/archive', {
+    bookmark_id: String(bookmarkId),
+  });
+}
+
 async function ingestBookmark(
   rec: BookmarkRecord,
+  existingIds: Set<number>,
   dryRun: boolean
 ): Promise<IngestResult> {
+  // 0. Resolve URL → bookmark_id. The CSV does not expose
+  // bookmark_id, so we round-trip through bookmarks/add (idempotent
+  // for already-saved URLs).
+  if (!rec.bookmarkId) {
+    if (!rec.url) {
+      return {
+        bookmarkId: 0,
+        status: 'failed',
+        reason: 'no url and no bookmark_id in record',
+      };
+    }
+    try {
+      const bm = await bookmarksAdd(rec.url);
+      if (!bm) {
+        return {
+          bookmarkId: 0,
+          status: 'failed',
+          reason: 'bookmarks/add returned no bookmark',
+        };
+      }
+      rec.bookmarkId = bm.bookmark_id;
+      // Prefer Instapaper's current canonical metadata over the CSV's
+      // historical snapshot — title can differ when Instapaper later
+      // resolves a server-side title that wasn't ready at save time.
+      if (bm.title) rec.title = bm.title;
+      if (bm.description) rec.csvDescription = bm.description;
+      rec.starred = bm.starred === '1';
+      rec.progress = bm.progress;
+      rec.sourceHash = bm.hash;
+      rec.savedAtSec = bm.time;
+    } catch (e) {
+      return {
+        bookmarkId: 0,
+        status: 'failed',
+        reason: `bookmarks/add: ${(e as Error).message}`,
+      };
+    }
+    await sleep(BOOKMARKS_ADD_DELAY_MS);
+    if (existingIds.has(rec.bookmarkId)) {
+      // We had a row by bookmark_id even though the URL didn't match
+      // (URL drift between CSV and what we synced). Skip — already
+      // ingested.
+      return {
+        bookmarkId: rec.bookmarkId,
+        status: 'skipped',
+        reason: 'bookmark_id already in DB',
+      };
+    }
+  }
+
   // 1. getText — if this fails, the bookmark isn't accessible to us at
   // all and we should skip rather than insert a content-less row.
   let body: string;
@@ -582,6 +687,24 @@ async function ingestBookmark(
   // ingest "complete on body, partial on annotations".
   await ingestHighlights(rec.bookmarkId);
 
+  // 6. Re-archive to undo the side effect of bookmarks/add (which
+  // moves to Unread by default). Skip for genuinely-Unread items per
+  // the CSV — they should stay in Unread. Custom-folder items
+  // flatten to Archive — known limitation; the user can re-categorize
+  // after, and the count is small (~31 across all custom folders).
+  if (rec.folder && rec.folder.toLowerCase() !== 'unread') {
+    try {
+      await bookmarksArchive(rec.bookmarkId);
+      await sleep(ARCHIVE_DELAY_MS);
+    } catch (e) {
+      // Non-fatal — the row is already inserted; failed archive just
+      // means the bookmark stays in Unread until the user moves it.
+      process.stderr.write(
+        `  (archive failed for ${rec.bookmarkId}: ${(e as Error).message})\n`
+      );
+    }
+  }
+
   return { bookmarkId: rec.bookmarkId, status: 'inserted' };
 }
 
@@ -687,9 +810,11 @@ async function main() {
     process.exit(2);
   }
 
-  console.log('Loading existing reading_items source_ids from D1...');
-  const existing = await fetchExistingSourceIds();
-  console.log(`  ${existing.size} already in DB`);
+  console.log('Loading existing reading_items state from Rewind API...');
+  const { ids: existingIds, urls: existingUrls } = await fetchExistingState();
+  console.log(
+    `  ${existingIds.size} bookmark_ids in DB, ${existingUrls.size} unique source URLs`
+  );
 
   let records: BookmarkRecord[] = [];
   if (csv) {
@@ -710,8 +835,14 @@ async function main() {
     });
   }
 
-  // Filter out already-ingested
-  const todo = records.filter((r) => !existing.has(r.bookmarkId));
+  // Two-stage filter: drop rows whose bookmark_id OR URL is already
+  // in DB. The URL pre-filter is the big win — saves a bookmarks/add
+  // call per dupe URL.
+  const todo = records.filter((r) => {
+    if (r.bookmarkId && existingIds.has(r.bookmarkId)) return false;
+    if (r.url && existingUrls.has(normalizeUrl(r.url))) return false;
+    return true;
+  });
   console.log(
     `  ${todo.length} to ingest (${records.length - todo.length} already in DB)`
   );
@@ -731,7 +862,7 @@ async function main() {
       `[${i}/${work.length}] ${rec.bookmarkId} ${rec.title.slice(0, 50) || '(no title)'}\n`
     );
     try {
-      results.push(await ingestBookmark(rec, dryRun));
+      results.push(await ingestBookmark(rec, existingIds, dryRun));
     } catch (e) {
       results.push({
         bookmarkId: rec.bookmarkId,
