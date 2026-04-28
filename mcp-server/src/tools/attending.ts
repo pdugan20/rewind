@@ -164,7 +164,7 @@ export function registerAttendingTools(
   // get_attended_events ─────────────────────────────────────────────
   server.tool(
     'get_attended_events',
-    'List events you bought tickets for: sports games, concerts, theater. Filterable by category (sports/music/arts), event_type (mlb_game, concert, etc.), season, year, venue, and team. Includes events you bought tickets for but did not attend (attended=false). Use `team` (substring match like "mariners" or "huskies") for natural-language queries; `team_id` for stable integer-keyed lookups.',
+    'List events you bought tickets for: sports games, concerts, theater. Filterable by category (sports/music/arts), event_type (mlb_game, concert, etc.), season, year, venue, and team. Includes events you bought tickets for but did not attend (attended=false). Use `team` (substring match like "mariners" or "huskies") for natural-language queries; `team_id` for stable integer-keyed lookups. When the user asks about a SINGLE specific event ("last Mariners game I went to", "the Springsteen show I attended"), call this with the appropriate filter + `limit: 1` to find the id, then follow up with `get_attended_event(id)` to render the rich inline card — do not stop at the list-tool text response.',
     {
       page: z.number().min(1).default(1).describe('Page number, 1-indexed.'),
       limit: z
@@ -845,7 +845,7 @@ export function registerAttendingTools(
     {
       title: 'Attended event',
       description:
-        'Get a single attended event in full detail, including venue, tickets, and per-player stat lines (for sports). Use this when the user asks "who was on that team," "what happened in that game," or "tell me about my last [team] game". In MCP Apps hosts, renders an interactive game card with the linescore, top performers (with photos), and ticket info.',
+        'Get a single attended event (sports game, concert, theater show) in full detail, including venue, tickets, and per-player stat lines for sports games. Renders the rich inline event card — linescore, top performers with photos, ticket info — in MCP Apps hosts. Use this when the user asks about ONE specific event: "tell me about my last Mariners game," "who pitched in that Phillies game," "the Springsteen show I went to," "what happened at that game." If you do not have the event id, first call `get_attended_events` with a `team` / `event_type` filter (and `limit: 1` if the user asked for the most recent) to find the id, then call this to render the card.',
       inputSchema: {
         id: z.number().int().describe('Event id.'),
       },
