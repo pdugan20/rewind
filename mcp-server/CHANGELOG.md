@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.15](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.14...mcp-server-v0.8.15) (2026-04-29)
+
+
+### Bug Fixes
+
+* **build:web:** inline bg style on &lt;html&gt; tag for earliest possible paint ([fbedb9b](https://github.com/pdugan20/rewind/commit/fbedb9b0bf6dcfb6dd2ae8a76234e1d0b5c0d52b))
+
 ## [0.8.14](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.13...mcp-server-v0.8.14) (2026-04-29)
 
 
