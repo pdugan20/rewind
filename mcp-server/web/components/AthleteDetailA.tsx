@@ -753,9 +753,14 @@ const numberStyle: CSSProperties = {
 };
 
 const bioStripStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-  gap: 10,
+  // Flex-wrap rather than grid: bios are independent facts, not rows
+  // of related data. With grid + auto-fit, missing items (e.g. no
+  // college on a Dominican-academy player) leave empty cells in the
+  // last row. Flex packs items tight regardless of count, so the
+  // strip just gets shorter for sparser bios.
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '10px 18px',
   margin: 0,
   padding: '12px 14px',
   borderRadius: 10,
@@ -766,6 +771,14 @@ const bioPairStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 2,
+  // Content-width chips: no grow, no shrink. Each fact takes only as
+  // much horizontal space as its longest line needs, items pack
+  // left-to-right with the strip's gap, and wrap naturally. This
+  // avoids the "DEBUT sits alone in a stretched empty row" problem
+  // that flex-grow caused — facts now read as a chip cluster, not a
+  // ragged grid.
+  flex: '0 0 auto',
+  minWidth: 110,
 };
 
 const bioKeyStyle: CSSProperties = {
