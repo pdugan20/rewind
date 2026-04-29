@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.14](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.13...mcp-server-v0.8.14) (2026-04-29)
+
+
+### Bug Fixes
+
+* **build:web:** hoist loading-bg style to top of &lt;head&gt; ([57f3598](https://github.com/pdugan20/rewind/commit/57f3598cd2e8693bae80983dc30d833eb3fe744e))
+
 ## [0.8.13](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.12...mcp-server-v0.8.13) (2026-04-29)
 
 
