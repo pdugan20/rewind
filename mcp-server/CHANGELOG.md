@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.10](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.9...mcp-server-v0.8.10) (2026-04-29)
+
+
+### Bug Fixes
+
+* **web:** transparent body bg + centralized stateStyle for loading states ([87187af](https://github.com/pdugan20/rewind/commit/87187afd28ef68d8ea2965ad1f759f64578081b5))
+
 ## [0.8.9](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.8...mcp-server-v0.8.9) (2026-04-29)
 
 
