@@ -1,6 +1,6 @@
 {
   "name": "rewind-mcp-server",
-  "version": "0.8.11",
+  "version": "0.8.12",
   "description": "MCP server for the Rewind personal data API",
   "type": "module",
   "bin": {

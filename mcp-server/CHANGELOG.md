@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.12](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.11...mcp-server-v0.8.12) (2026-04-29)
+
+
+### Bug Fixes
+
+* **web:** use light-dark() for card text/surface tokens; pin loading bg to Claude colors ([fb2c3a6](https://github.com/pdugan20/rewind/commit/fb2c3a644e346d1e233075ac6ed301edc4bb4a1c))
+
 ## [0.8.11](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.10...mcp-server-v0.8.11) (2026-04-29)
 
 
