@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.7](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.6...mcp-server-v0.8.7) (2026-04-29)
+
+
+### Bug Fixes
+
+* **attending:** expose event id in get_attended_events / get_attended_season text rows ([204601a](https://github.com/pdugan20/rewind/commit/204601a8d48563f78eb79aaf23bcffc0036d7a1d))
+
 ## [0.8.6](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.5...mcp-server-v0.8.6) (2026-04-29)
 
 
