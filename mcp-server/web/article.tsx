@@ -29,9 +29,11 @@ function ArticleApp() {
   }, [app]);
 
   if (error) return <div style={stateStyle}>Error: {error.message}</div>;
-  if (!isConnected) return <div style={stateStyle}>Connecting…</div>;
-  if (payload === null)
-    return <div style={stateStyle}>Waiting for article…</div>;
+  // Transient loading states return null so the host's own shimmer
+  // is the only thing the user sees during connect / waiting. See
+  // also lib/state-style.ts.
+  if (!isConnected) return null;
+  if (payload === null) return null;
 
   return (
     <div style={rootStyle}>

@@ -24,9 +24,8 @@ function AttendedSeasonApp() {
   }, [app]);
 
   if (error) return <div style={stateStyle}>Error: {error.message}</div>;
-  if (!isConnected) return <div style={stateStyle}>Connecting…</div>;
-  if (payload === null)
-    return <div style={stateStyle}>Waiting for season…</div>;
+  if (!isConnected) return null;
+  if (payload === null) return null;
 
   return (
     <div style={rootStyle}>

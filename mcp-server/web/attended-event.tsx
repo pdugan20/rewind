@@ -26,8 +26,8 @@ function AttendedEventApp() {
   }, [app]);
 
   if (error) return <div style={stateStyle}>Error: {error.message}</div>;
-  if (!isConnected) return <div style={stateStyle}>Connecting…</div>;
-  if (event === null) return <div style={stateStyle}>Waiting for event…</div>;
+  if (!isConnected) return null;
+  if (event === null) return null;
 
   return (
     <div style={rootStyle}>

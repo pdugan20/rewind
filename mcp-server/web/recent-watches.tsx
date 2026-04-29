@@ -35,12 +35,8 @@ function RecentWatchesApp() {
   if (error) {
     return <div style={stateStyle}>Error: {error.message}</div>;
   }
-  if (!isConnected) {
-    return <div style={stateStyle}>Connecting…</div>;
-  }
-  if (items === null) {
-    return <div style={stateStyle}>Waiting for watches…</div>;
-  }
+  if (!isConnected) return null;
+  if (items === null) return null;
 
   return (
     <div style={rootStyle}>
