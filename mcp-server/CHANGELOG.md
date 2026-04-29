@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.4](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.3...mcp-server-v0.8.4) (2026-04-29)
+
+
+### Bug Fixes
+
+* **web:** broaden iOS detection for the card-radius override ([26b4756](https://github.com/pdugan20/rewind/commit/26b4756e43c609871a709f8664df90c601978f2e))
+
 ## [0.8.3](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.2...mcp-server-v0.8.3) (2026-04-29)
 
 
