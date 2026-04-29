@@ -23024,15 +23024,6 @@
                         "collecting"
                       ]
                     }
-                  },
-                  "chunk_size": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 5000
-                  },
-                  "chunk_offset": {
-                    "type": "integer",
-                    "minimum": 0
                   }
                 }
               }
@@ -23056,15 +23047,6 @@
                             "type": "number"
                           },
                           "took_ms": {
-                            "type": "number"
-                          },
-                          "total": {
-                            "type": "number"
-                          },
-                          "has_more": {
-                            "type": "boolean"
-                          },
-                          "next_offset": {
                             "type": "number"
                           },
                           "error": {
