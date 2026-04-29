@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.15...mcp-server-v0.9.0) (2026-04-29)
+
+
+### Features
+
+* **attending:** add season_attended_summary to player detail ([f0c38de](https://github.com/pdugan20/rewind/commit/f0c38defd92e4e5e34034fc29127b5c60168e786))
+* **reading-search:** bump body_excerpt cap 3K → 12K + SQL-paginate reindex ([#95](https://github.com/pdugan20/rewind/issues/95)) ([b7d9866](https://github.com/pdugan20/rewind/commit/b7d9866c9822dd22de5d154ee13b84cbbd6760dd))
+
+
+### Bug Fixes
+
+* **card-tokens:** drop card border on iOS so full-bleed children are flush ([650f21f](https://github.com/pdugan20/rewind/commit/650f21f2855ac92bae67286d8be0161e0566836f))
+
 ## [0.8.15](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.14...mcp-server-v0.8.15) (2026-04-29)
 
 
