@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.6](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.5...mcp-server-v0.8.6) (2026-04-29)
+
+
+### Bug Fixes
+
+* **web:** drop card border on iOS so Claude host edge is the only one ([34d38cb](https://github.com/pdugan20/rewind/commit/34d38cb07fdecc9f11c30c4e995c463d3ff4f5ea))
+
 ## [0.8.5](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.4...mcp-server-v0.8.5) (2026-04-29)
 
 
