@@ -3,19 +3,30 @@ title: Changelog
 description: API updates and new features.
 ---
 
-<Update label="April 27, 2026" tags={["New releases", "New features"]}>
+<Update label="April 29, 2026" tags={["Improvements"]}>
+
+## Reading domain: full Instapaper archive
+
+Reading endpoints now serve your full Instapaper archive instead of the live API's recent slice. Older articles are searchable and retrievable via [`get_article`](/mcp-server#get_article).
+
+- [`GET /v1/reading/articles`](/api-reference/reading/list-articles) and [`GET /v1/reading/recent`](/api-reference/reading/recent-reads) accept `include_no_body=1` to include rows that exist but couldn't be body-extracted (paywalled sources). Default hides them.
+- Single-article responses include a `body_unavailable` flag for those placeholder rows so cards can render "read on source" instead of empty content.
+
+</Update>
+
+<Update label="April 27, 2026" tags={["New features"]}>
 
 ## Single-entity cards
 
-Three new interactive cards for MCP Apps clients (Claude Desktop + iOS) that render alongside Claude's text answer when you ask about one specific article, artist, or athlete.
+Three interactive cards for MCP Apps clients (Claude Desktop + iOS) that render alongside Claude's text answer when you ask about one specific article, artist, or athlete.
 
-- **Article card** for `get_article` — hero og:image, title + byline + domain, read time / saved date / status, top highlights, link out to Instapaper.
-- **Artist card** for `get_artist_details` — portrait, bio summary, total plays + all-time rank + first/last played, yearly sparkline of plays, top 5 tracks, top 3 albums, similar artists you've also listened to. The bio comes from a new lazy-fill via Last.fm's `artist.getInfo`; similar artists come from `artist.getSimilar` cross-referenced against your own scrobble history so the only suggestions you see are artists you actually listen to. The daily 3:00 AM Last.fm cron now refreshes `similar_artists` for your top-200 artists by playcount.
-- **Athlete card** for `get_attended_player` — headshot, team logo, position/jersey/bats-throws, live current-season stats from MLB Stats API (KV-cached 1h), your-attended summary aggregated across every game you've seen them play, notable highlights, recent appearances. MLB-only for the live-stats panel; non-MLB players surface as `supported: false` with appearance summaries only.
+- **Article card** — `get_article` — hero image, title, byline, read time, top highlights, link out to source.
+- **Artist card** — `get_artist_details` — portrait, bio, total plays, all-time rank, yearly sparkline, top 5 tracks, top 3 albums, and similar artists scoped to your own scrobble history.
+- **Athlete card** — `get_attended_player` — headshot, team logo, position, current-season stats, your-attended summary across every game you've seen them play, recent appearances. MLB-only for live stats; other leagues surface appearance history.
 
 ## Listening
 
-- **Per-artist top tracks** — [`GET /v1/listening/top/tracks`](/api-reference/listening/top-tracks) accepts optional `artist_id` (or `artist_name` substring resolver) so you can pull "what Olivia Rodrigo songs have I been listening to lately" by composing the new filter with `period`. Both filters supplied returns a 400.
+- **Per-artist top tracks** — [`GET /v1/listening/top/tracks`](/api-reference/listening/top-tracks) accepts `artist_id` or `artist_name` to scope to a single artist. Combine with `period` for "what Olivia Rodrigo songs have I been listening to lately".
 - **Extended artist detail** — [`GET /v1/listening/artists/{id}`](/api-reference/listening/get-artist) now carries bio, last-played timestamp, all-time rank, distinct tracks/albums counts, similar artists, and a yearly sparkline.
 
 </Update>
@@ -31,6 +42,8 @@ Team metadata now ships inline on every attending endpoint that mentions a team 
 - `primary_team` on [`GET /v1/attending/players`](/api-reference/attending/list-attended-players) and [`GET /v1/attending/players/{id}`](/api-reference/attending/get-attended-player) replaces the old `primary_team_id` field with the full team shape.
 - Per-game player appearances expose a `team` object instead of `team_id`, reflecting the in-game team — handles mid-season trades correctly without conflating with the player's current primary team.
 - Logos hot-link from `mlbstatic.com` SVG with on-light and on-dark cap variants; `<picture>` + `prefers-color-scheme` picks the right one in both Claude Desktop and iOS hosts.
+
+</Update>
 
 <Update label="April 25, 2026" tags={["New releases", "New features"]}>
 
