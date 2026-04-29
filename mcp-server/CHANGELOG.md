@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.8](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.7...mcp-server-v0.8.8) (2026-04-29)
+
+
+### Bug Fixes
+
+* **game-card:** hide ticket block behind a SHOW_TICKETS flag for now ([62f3cfc](https://github.com/pdugan20/rewind/commit/62f3cfc112810ff22e2f842df8934af1f58eb1c8))
+
 ## [0.8.7](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.6...mcp-server-v0.8.7) (2026-04-29)
 
 
