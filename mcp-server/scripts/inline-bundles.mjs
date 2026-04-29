@@ -57,15 +57,33 @@ html, body {
 </style>`;
 const injectLoadingBg = {
   name: 'rewind-inject-loading-bg',
-  // Run after vite-plugin-singlefile has inlined the bundle into
-  // <head>. We want this style to be the FIRST element in <head>
-  // so the browser applies the body bg before parsing the giant
-  // inline <script>. Putting it at the end of <head> meant the
-  // 450KB inline script had to be parsed first, producing a brief
-  // white flash on iOS before body bg painted.
+  // Run after vite-plugin-singlefile has inlined the bundle. We
+  // do TWO injections to kill the white flash on iOS:
+  //
+  //   1. Inline `style` attribute on the <html> tag — applied at
+  //      the moment WebKit parses the opening tag, before head,
+  //      before any <style> block, before <body>. This is the
+  //      earliest possible bg signal. Uses light-dark() so a
+  //      single attribute covers both schemes.
+  //
+  //   2. Backup <style> at the top of <head> — defensive
+  //      (CSP / sandbox edge cases) and gives html+body the
+  //      same explicit bg if anything strips the inline attr.
+  //
+  // Earlier attempts (style at end of <head>, style at start of
+  // <head>) didn't fix the flash because WebKit doesn't paint
+  // body bg until it has a <body> element to render on. The
+  // 450KB inline <script> in <head> meant the parser took
+  // long enough to reach <body> that the iframe showed its
+  // intrinsic white default for several frames.
   enforce: 'post',
   transformIndexHtml(html) {
-    return html.replace(/<head>\s*/, `<head>\n${LOADING_BG_STYLE}\n`);
+    let out = html.replace(
+      /<html\b/,
+      '<html style="color-scheme:light dark;background:light-dark(#F3F0EF,#121212)"'
+    );
+    out = out.replace(/<head>\s*/, `<head>\n${LOADING_BG_STYLE}\n`);
+    return out;
   },
 };
 
