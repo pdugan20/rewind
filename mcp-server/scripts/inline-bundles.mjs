@@ -57,8 +57,15 @@ html, body {
 </style>`;
 const injectLoadingBg = {
   name: 'rewind-inject-loading-bg',
+  // Run after vite-plugin-singlefile has inlined the bundle into
+  // <head>. We want this style to be the FIRST element in <head>
+  // so the browser applies the body bg before parsing the giant
+  // inline <script>. Putting it at the end of <head> meant the
+  // 450KB inline script had to be parsed first, producing a brief
+  // white flash on iOS before body bg painted.
+  enforce: 'post',
   transformIndexHtml(html) {
-    return html.replace('</head>', `${LOADING_BG_STYLE}\n</head>`);
+    return html.replace(/<head>\s*/, `<head>\n${LOADING_BG_STYLE}\n`);
   },
 };
 
