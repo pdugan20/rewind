@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.3](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.2...mcp-server-v0.8.3) (2026-04-29)
+
+
+### Bug Fixes
+
+* **web:** host-aware card radius + kill iOS tap-highlight rectangle ([ed8c9bc](https://github.com/pdugan20/rewind/commit/ed8c9bc0ec5ca39361e7e4dc4451ac8a54cdfea3))
+
 ## [0.8.2](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.1...mcp-server-v0.8.2) (2026-04-28)
 
 
