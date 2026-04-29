@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.9](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.8...mcp-server-v0.8.9) (2026-04-29)
+
+
+### Bug Fixes
+
+* **athlete-card:** pack bio strip as content-width chips so missing fields close cleanly ([467d8a3](https://github.com/pdugan20/rewind/commit/467d8a3e35e345bf75e13bfe1f1007b4e5313484))
+
 ## [0.8.8](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.7...mcp-server-v0.8.8) (2026-04-29)
 
 
