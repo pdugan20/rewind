@@ -18,7 +18,7 @@ export interface EmbeddingEnv {
   VECTORIZE_READING: VectorizeIndex;
 }
 
-const MAX_INPUT_CHARS = 3500;
+const MAX_INPUT_CHARS = 12000;
 
 export interface ArticleForEmbedding {
   id: number;

@@ -19,10 +19,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  CARD_BG_DARK,
-  CARD_BG_LIGHT,
-} from '../web/lib/colors.mjs';
+import { CARD_BG_DARK, CARD_BG_LIGHT } from '../web/lib/colors.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const webDir = join(root, 'web');

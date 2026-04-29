@@ -23024,6 +23024,15 @@
                         "collecting"
                       ]
                     }
+                  },
+                  "chunk_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000
+                  },
+                  "chunk_offset": {
+                    "type": "integer",
+                    "minimum": 0
                   }
                 }
               }
@@ -23047,6 +23056,15 @@
                             "type": "number"
                           },
                           "took_ms": {
+                            "type": "number"
+                          },
+                          "total": {
+                            "type": "number"
+                          },
+                          "has_more": {
+                            "type": "boolean"
+                          },
+                          "next_offset": {
                             "type": "number"
                           },
                           "error": {
@@ -23176,7 +23194,7 @@
           "Admin"
         ],
         "summary": "Populate reading_items.body_excerpt from existing content column",
-        "description": "Iterates reading_items WHERE body_excerpt IS NULL AND content IS NOT NULL and applies htmlToText to derive the excerpt. Idempotent: re-running touches nothing already populated.",
+        "description": "Iterates reading_items and applies htmlToText to derive body_excerpt from content. Default path only touches rows where body_excerpt IS NULL. Pass force:true to re-derive every row (necessary after bumping the htmlToText cap); pair with offset for chunked pagination.",
         "requestBody": {
           "required": false,
           "content": {
@@ -23188,6 +23206,13 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 5000
+                  },
+                  "force": {
+                    "type": "boolean"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0
                   }
                 }
               }

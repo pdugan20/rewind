@@ -46,8 +46,8 @@ describe('composeArticleText', () => {
   });
 
   it('truncates at the char cap', () => {
-    const big = 'x'.repeat(5000);
-    expect(composeArticleText(article({ title: big })).length).toBe(3500);
+    const big = 'x'.repeat(15000);
+    expect(composeArticleText(article({ title: big })).length).toBe(12000);
   });
 });
 

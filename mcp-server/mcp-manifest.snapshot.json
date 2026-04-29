@@ -1157,7 +1157,7 @@
     },
     {
       "name": "search",
-      "description": "Search across all domains (listening, running, watching, collecting, reading). Three ranking modes: keyword (default) uses FTS5 full-text search across all domains; semantic uses Voyage AI embeddings for paraphrased / meaning-based recall (reading domain only); hybrid fuses both (reading domain only). Use semantic or hybrid when the user describes what an article was ABOUT rather than quoting its words. When a result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card — do not stop at the search-result text response.",
+      "description": "Search across all domains (listening, running, watching, collecting, reading). Three ranking modes: keyword (default) uses FTS5 full-text search across all domains; semantic uses Voyage AI embeddings for paraphrased / meaning-based recall (reading domain only); hybrid fuses both (reading domain only). Use semantic or hybrid when the user describes what an article was ABOUT rather than quoting its words. **Prefer `mode: hybrid` whenever the user mixes a topic with a recalled keyword or a publisher hint** (\"the ESPN piece about Ichiro\", \"the WSJ article on EVs\") — semantic alone does not see source domains and can drop the publisher signal entirely. When a result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card — do not stop at the search-result text response.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1208,7 +1208,7 @@
     },
     {
       "name": "semantic_search",
-      "description": "Semantic search over the reading domain using Voyage AI embeddings. Use when the user describes the gist or topic of an article they remember rather than quoting exact words — e.g. \"article about a former SNL writer\" or \"piece about tech layoffs\". Returns articles ranked by cosine similarity with a score in [0,1]. Reading domain only. When the top result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card; if the top score is low (~0.4 and below) or you are unsure which match is right, list the top 2-3 candidates and ask the user to disambiguate before rendering.",
+      "description": "Semantic search over the reading domain using Voyage AI embeddings. Use when the user describes the gist or topic of an article they remember rather than quoting exact words — e.g. \"article about a former SNL writer\" or \"piece about tech layoffs\". Returns articles ranked by cosine similarity with a score in [0,1]. Reading domain only. **Important: this tool does NOT see source domains** — embeddings only encode title + description + body. If the user mentions a publisher (ESPN, NYT, WSJ, Atlantic, etc.) or a recalled keyword, prefer `search(mode: \"hybrid\", ...)` so FTS picks up that signal. **If the top scores cluster within ~0.03 of each other, raise `limit` to 15+** — the right match may sit at position 6+ and approximate-nearest-neighbor noise can swap items at the boundary. When the top result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card; if the top score is low (~0.4 and below) or you are unsure which match is right, list the top 2-3 candidates and ask the user to disambiguate before rendering.",
       "inputSchema": {
         "type": "object",
         "properties": {

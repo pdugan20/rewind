@@ -292,7 +292,7 @@ export async function enrichArticle(
     const html = await client.getText(bookmarkId);
     const { wordCount, estimatedReadMin } = computeWordCount(html);
     updates.content = html;
-    updates.bodyExcerpt = htmlToText(html, { maxChars: 3000 });
+    updates.bodyExcerpt = htmlToText(html, { maxChars: 12000 });
     updates.wordCount = wordCount;
     updates.estimatedReadMin = estimatedReadMin;
   } catch (err) {

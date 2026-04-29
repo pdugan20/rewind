@@ -46,6 +46,9 @@ const adminReindex = createOpenAPIApp();
 const DomainResultSchema = z.object({
   indexed: z.number(),
   took_ms: z.number(),
+  total: z.number().optional(),
+  has_more: z.boolean().optional(),
+  next_offset: z.number().optional(),
   error: z.string().optional(),
 });
 
@@ -56,6 +59,12 @@ const ReindexResponseSchema = z.object({
 const ReindexBodySchema = z
   .object({
     domains: z.array(z.enum(ALL_DOMAINS)).optional(),
+    // Chunked reindex: insert at most `chunk_size` rows per call, starting
+    // from `chunk_offset`. The DELETE only runs on chunk_offset === 0.
+    // Necessary for `reading` (~20K rows) where a single-pass rebuild
+    // exceeds the Workers CPU budget (Cloudflare error 1102).
+    chunk_size: z.number().int().min(1).max(5000).optional(),
+    chunk_offset: z.number().int().min(0).optional(),
   })
   .optional();
 
@@ -91,25 +100,83 @@ const reindexRoute = createRoute({
   },
 });
 
+// When the caller doesn't pass chunk_size, we still chunk internally so
+// the reading domain (~20K rows × up to 12K chars body) fits inside the
+// Worker memory budget. 1000 rows per slice keeps any single domain's
+// resident set under ~12 MB.
+const INTERNAL_CHUNK_SIZE = 1000;
+
 adminReindex.openapi(reindexRoute, async (c) => {
   const db = createDb(c.env.DB);
   const body = (await c.req.json().catch(() => undefined)) as
-    | { domains?: Domain[] }
+    | {
+        domains?: Domain[];
+        chunk_size?: number;
+        chunk_offset?: number;
+      }
     | undefined;
   const selected: readonly Domain[] =
     body?.domains && body.domains.length > 0 ? body.domains : ALL_DOMAINS;
+  const chunkSize = body?.chunk_size;
+  const chunkOffset = body?.chunk_offset ?? 0;
 
   const results: Record<string, z.infer<typeof DomainResultSchema>> = {};
 
   for (const domain of selected) {
     const t0 = Date.now();
     try {
-      // Clear existing rows for this domain before inserting
-      await db.run(sql`DELETE FROM search_index WHERE domain = ${domain}`);
+      if (chunkSize === undefined) {
+        // No-chunk-size callers want the legacy single-call rebuild.
+        // We still chunk internally to avoid loading the whole reading
+        // domain into memory at once. Loop until no more rows.
+        await db.run(sql`DELETE FROM search_index WHERE domain = ${domain}`);
+        let offset = 0;
+        let indexed = 0;
+        let total = 0;
+        while (true) {
+          const { items, total: t } = await buildSearchItemsForDomain(
+            db,
+            domain,
+            offset,
+            INTERNAL_CHUNK_SIZE
+          );
+          total = t;
+          if (items.length === 0) break;
+          await upsertSearchIndexBatch(db, items);
+          offset += items.length;
+          indexed += items.length;
+          if (offset >= total) break;
+        }
+        results[domain] = {
+          indexed,
+          took_ms: Date.now() - t0,
+          total,
+          has_more: false,
+          next_offset: indexed,
+        };
+        continue;
+      }
 
-      const items = await buildSearchItemsForDomain(db, domain);
+      // Caller-driven chunked path: only DELETE on the first chunk;
+      // subsequent chunks append. Caller loops until has_more === false.
+      if (chunkOffset === 0) {
+        await db.run(sql`DELETE FROM search_index WHERE domain = ${domain}`);
+      }
+      const { items, total } = await buildSearchItemsForDomain(
+        db,
+        domain,
+        chunkOffset,
+        chunkSize
+      );
       await upsertSearchIndexBatch(db, items);
-      results[domain] = { indexed: items.length, took_ms: Date.now() - t0 };
+      const nextOffset = chunkOffset + items.length;
+      results[domain] = {
+        indexed: items.length,
+        took_ms: Date.now() - t0,
+        total,
+        has_more: nextOffset < total,
+        next_offset: nextOffset,
+      };
     } catch (error) {
       results[domain] = {
         indexed: 0,
@@ -252,6 +319,14 @@ adminReindex.openapi(reenrichRoute, async (c) => {
 const BackfillBodyBodySchema = z
   .object({
     limit: z.number().int().min(1).max(5000).optional(),
+    // When true, ignores the `body_excerpt IS NULL` predicate and
+    // re-derives every row's excerpt from its content column. Use after
+    // bumping the htmlToText maxChars cap so existing rows pick up the
+    // wider window. Pair with `offset` to walk the full archive in
+    // chunks; without `force`, the default path naturally exhausts
+    // since each UPDATE drops a row from the NULL set.
+    force: z.boolean().optional(),
+    offset: z.number().int().min(0).optional(),
   })
   .optional();
 
@@ -269,7 +344,7 @@ const backfillBodyRoute = createRoute({
   tags: ['Admin'],
   summary: 'Populate reading_items.body_excerpt from existing content column',
   description:
-    'Iterates reading_items WHERE body_excerpt IS NULL AND content IS NOT NULL and applies htmlToText to derive the excerpt. Idempotent: re-running touches nothing already populated.',
+    'Iterates reading_items and applies htmlToText to derive body_excerpt from content. Default path only touches rows where body_excerpt IS NULL. Pass force:true to re-derive every row (necessary after bumping the htmlToText cap); pair with offset for chunked pagination.',
   request: {
     body: {
       content: { 'application/json': { schema: BackfillBodyBodySchema } },
@@ -290,24 +365,37 @@ const backfillBodyRoute = createRoute({
 adminReindex.openapi(backfillBodyRoute, async (c) => {
   const db = createDb(c.env.DB);
   const body = (await c.req.json().catch(() => undefined)) as
-    | { limit?: number }
+    | { limit?: number; force?: boolean; offset?: number }
     | undefined;
   const limit = body?.limit ?? 2000;
+  const force = body?.force ?? false;
+  const offset = body?.offset ?? 0;
 
   const t0 = Date.now();
-  const rows = await db
-    .select({ id: readingItems.id, content: readingItems.content })
-    .from(readingItems)
-    .where(
-      sql`${readingItems.userId} = 1
-          AND ${readingItems.bodyExcerpt} IS NULL
-          AND ${readingItems.content} IS NOT NULL`
-    )
-    .limit(limit);
+  const rows = force
+    ? await db
+        .select({ id: readingItems.id, content: readingItems.content })
+        .from(readingItems)
+        .where(
+          sql`${readingItems.userId} = 1
+              AND ${readingItems.content} IS NOT NULL`
+        )
+        .orderBy(readingItems.id)
+        .limit(limit)
+        .offset(offset)
+    : await db
+        .select({ id: readingItems.id, content: readingItems.content })
+        .from(readingItems)
+        .where(
+          sql`${readingItems.userId} = 1
+              AND ${readingItems.bodyExcerpt} IS NULL
+              AND ${readingItems.content} IS NOT NULL`
+        )
+        .limit(limit);
 
   let updated = 0;
   for (const row of rows) {
-    const excerpt = htmlToText(row.content, { maxChars: 3000 });
+    const excerpt = htmlToText(row.content, { maxChars: 12000 });
     if (!excerpt) continue;
     await db
       .update(readingItems)
@@ -448,75 +536,134 @@ adminReindex.openapi(reembedRoute, async (c) => {
   });
 });
 
+type BuiltChunk = { items: SearchIndexItem[]; total: number };
+
 async function buildSearchItemsForDomain(
   db: ReturnType<typeof createDb>,
-  domain: Domain
-): Promise<SearchIndexItem[]> {
+  domain: Domain,
+  offset: number,
+  limit: number
+): Promise<BuiltChunk> {
   switch (domain) {
     case 'reading':
-      return buildReading(db);
+      return buildReading(db, offset, limit);
     case 'watching':
-      return buildWatching(db);
+      return buildAllThenSlice(buildWatching, db, offset, limit);
     case 'listening':
-      return buildListening(db);
+      return buildAllThenSlice(buildListening, db, offset, limit);
     case 'running':
-      return buildRunning(db);
+      return buildAllThenSlice(buildRunning, db, offset, limit);
     case 'collecting':
-      return buildCollecting(db);
+      return buildAllThenSlice(buildCollecting, db, offset, limit);
   }
 }
 
+// Helper for non-reading domains: load all rows (small payloads — under
+// a few thousand items, no body column), then slice in memory. Reading
+// is the only domain that needs SQL-level pagination because of its
+// 12K-char body column × ~20K rows.
+async function buildAllThenSlice(
+  fn: (db: ReturnType<typeof createDb>) => Promise<SearchIndexItem[]>,
+  db: ReturnType<typeof createDb>,
+  offset: number,
+  limit: number
+): Promise<BuiltChunk> {
+  const all = await fn(db);
+  return { items: all.slice(offset, offset + limit), total: all.length };
+}
+
 async function buildReading(
-  db: ReturnType<typeof createDb>
-): Promise<SearchIndexItem[]> {
-  const rows = await db
-    .select({
-      id: readingItems.id,
-      title: readingItems.title,
-      description: readingItems.description,
-      bodyExcerpt: readingItems.bodyExcerpt,
-    })
+  db: ReturnType<typeof createDb>,
+  offset: number,
+  limit: number
+): Promise<BuiltChunk> {
+  // The combined stream is articles first (offsets [0, articleCount))
+  // then highlights ([articleCount, articleCount + highlightCount)).
+  // We always SQL-paginate so a 12K-char body × 20K-row archive never
+  // materializes into a single Worker-resident array.
+  const articleCountRow = await db
+    .select({ c: sql<number>`count(*)` })
     .from(readingItems)
     .where(eq(readingItems.userId, 1));
+  const articleCount = articleCountRow[0]?.c ?? 0;
 
-  const items: SearchIndexItem[] = rows.map((r) => ({
-    domain: 'reading',
-    entityType: 'article',
-    entityId: String(r.id),
-    title: r.title,
-    subtitle: r.description ?? undefined,
-    body: r.bodyExcerpt ?? undefined,
-  }));
-
-  // Highlights: one FTS row per saved highlight. Title = first 80 chars of
-  // the highlight text, subtitle = parent article title, body = the full
-  // highlight text + optional note so long highlights still match on body.
-  const highlightRows = await db
-    .select({
-      id: readingHighlights.id,
-      text: readingHighlights.text,
-      note: readingHighlights.note,
-      parentTitle: readingItems.title,
-    })
+  const highlightCountRow = await db
+    .select({ c: sql<number>`count(*)` })
     .from(readingHighlights)
-    .innerJoin(readingItems, eq(readingHighlights.itemId, readingItems.id))
     .where(eq(readingHighlights.userId, 1));
+  const highlightCount = highlightCountRow[0]?.c ?? 0;
 
-  for (const h of highlightRows) {
-    const text = h.text ?? '';
-    const title = text.length > 80 ? text.slice(0, 80) + '…' : text;
-    const body = h.note ? `${text} ${h.note}` : text;
-    items.push({
-      domain: 'reading',
-      entityType: 'highlight',
-      entityId: String(h.id),
-      title,
-      subtitle: h.parentTitle,
-      body: body.length > title.length ? body : undefined,
-    });
+  const total = articleCount + highlightCount;
+  const items: SearchIndexItem[] = [];
+  let remaining = limit;
+
+  // Phase 1: article rows in [offset, articleCount).
+  if (offset < articleCount && remaining > 0) {
+    const take = Math.min(remaining, articleCount - offset);
+    const rows = await db
+      .select({
+        id: readingItems.id,
+        title: readingItems.title,
+        description: readingItems.description,
+        bodyExcerpt: readingItems.bodyExcerpt,
+      })
+      .from(readingItems)
+      .where(eq(readingItems.userId, 1))
+      .orderBy(readingItems.id)
+      .limit(take)
+      .offset(offset);
+    for (const r of rows) {
+      items.push({
+        domain: 'reading',
+        entityType: 'article',
+        entityId: String(r.id),
+        title: r.title,
+        subtitle: r.description ?? undefined,
+        body: r.bodyExcerpt ?? undefined,
+      });
+    }
+    remaining -= rows.length;
   }
 
-  return items;
+  // Phase 2: highlights, picking up wherever the article phase left off.
+  // Title = first 80 chars of the highlight text, subtitle = parent
+  // article title, body = full text + optional note so long highlights
+  // still match on body.
+  if (remaining > 0) {
+    const consumedSoFar = limit - remaining; // items already pulled
+    const globalCursor = offset + consumedSoFar;
+    const hlOffset = Math.max(0, globalCursor - articleCount);
+    if (hlOffset < highlightCount) {
+      const rows = await db
+        .select({
+          id: readingHighlights.id,
+          text: readingHighlights.text,
+          note: readingHighlights.note,
+          parentTitle: readingItems.title,
+        })
+        .from(readingHighlights)
+        .innerJoin(readingItems, eq(readingHighlights.itemId, readingItems.id))
+        .where(eq(readingHighlights.userId, 1))
+        .orderBy(readingHighlights.id)
+        .limit(remaining)
+        .offset(hlOffset);
+      for (const h of rows) {
+        const text = h.text ?? '';
+        const title = text.length > 80 ? text.slice(0, 80) + '…' : text;
+        const body = h.note ? `${text} ${h.note}` : text;
+        items.push({
+          domain: 'reading',
+          entityType: 'highlight',
+          entityId: String(h.id),
+          title,
+          subtitle: h.parentTitle,
+          body: body.length > title.length ? body : undefined,
+        });
+      }
+    }
+  }
+
+  return { items, total };
 }
 
 async function buildWatching(
