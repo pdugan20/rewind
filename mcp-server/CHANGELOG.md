@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.13](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.12...mcp-server-v0.8.13) (2026-04-29)
+
+
+### Bug Fixes
+
+* **athlete-card:** tone down stat values + tighten splits subtext ([7a0faca](https://github.com/pdugan20/rewind/commit/7a0faca2ee58b47aa9833c5245906ad41c9db614))
+* **build:web:** inject loading-bg style into every HTML head at build time ([bc8a581](https://github.com/pdugan20/rewind/commit/bc8a58107f377dee55690506f9f61df8bec90866))
+
 ## [0.8.12](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.11...mcp-server-v0.8.12) (2026-04-29)
 
 
