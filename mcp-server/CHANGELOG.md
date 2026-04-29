@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.5](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.4...mcp-server-v0.8.5) (2026-04-29)
+
+
+### Bug Fixes
+
+* **web:** trigger 0.8.5 release for diagnostic strip ([bd540a9](https://github.com/pdugan20/rewind/commit/bd540a9836e6582abaedd3b6facf8bac19fdbbc3))
+
 ## [0.8.4](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.3...mcp-server-v0.8.4) (2026-04-29)
 
 
