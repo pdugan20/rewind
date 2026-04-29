@@ -45,15 +45,24 @@ export const CARD_TOKENS_CSS = `
 html, body {
   margin: 0;
   padding: 0;
-  /* Transparent body so the host's container bg shows through —
-     keeps the loading states ("Waiting for article…", etc.) from
-     flashing browser-default white before the card chrome paints.
-     Production hosts (Claude iOS / Desktop) have their own surface
-     under the iframe. The workbench overrides this in
-     host-styles.ts with an explicit page bg per theme. */
-  background: transparent;
+  /* Match Claude's loading-surface colors so the brief paint window
+     before our card mounts blends with the host shimmer. Transparent
+     used to fall through to browser-default white on iOS for a frame
+     before our content rendered. Workbench overrides this via
+     host-styles.ts with a page bg keyed to its manual theme toggle. */
+  background: #F3F0EF;
+}
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background: #121212;
+  }
 }
 :root {
+  /* Opt the iframe into both schemes so light-dark() below resolves
+     against the user agent / host's preferred scheme. Workbench's
+     themeStyleSheet overrides this with the explicit toggle value;
+     iOS WebKit picks up the system theme. */
+  color-scheme: light dark;
   --card-bg: #fcfcfa;
   --card-border: #d9d9d9;
   --rewind-card-radius: 12px;
@@ -67,6 +76,21 @@ html, body {
 .${CARD_OUTER_CLASSNAME} {
   border-radius: var(--rewind-card-radius);
   overflow: hidden;
+  /* Scoped text + surface tokens. We define these on the card root
+     so they contrast with our --card-bg regardless of what the host
+     injects at :root. Claude iOS injects values keyed to Claude's
+     bg, not ours, which produced the muted / barely-legible dark-
+     mode rendering on 0.8.11. Using light-dark() (rather than a
+     media query) keys these to the resolved color-scheme — same
+     mechanism the workbench's manual toggle drives via
+     host-styles.ts — so the workbench preview and production
+     iOS render identically without a split between
+     prefers-color-scheme and the workbench's own theme state. */
+  --color-text-primary: light-dark(#1a1a1a, #f5f5f7);
+  --color-text-secondary: light-dark(rgba(0, 0, 0, 0.62), rgba(255, 255, 255, 0.65));
+  --color-border-tertiary: light-dark(rgba(0, 0, 0, 0.10), rgba(255, 255, 255, 0.12));
+  --color-background-primary: light-dark(#ffffff, #3a3938);
+  --color-background-secondary: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.06));
 }
 /* Kill iOS WebKit's default gray rectangular tap-highlight on every
    interactive element across the iframe — it ignores border-radius
