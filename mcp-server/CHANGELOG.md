@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.11](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.10...mcp-server-v0.8.11) (2026-04-29)
+
+
+### Bug Fixes
+
+* **web:** return null for transient loading states; let host shimmer carry the wait ([5eea77f](https://github.com/pdugan20/rewind/commit/5eea77fe5676f7113bcfd49c7946736de5449ac0))
+
 ## [0.8.10](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.9...mcp-server-v0.8.10) (2026-04-29)
 
 
