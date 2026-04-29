@@ -35,13 +35,40 @@ if (!entries.length) {
 
 const t0 = Date.now();
 
+// Inject the loading-surface body bg directly into each HTML's <head>
+// so the browser paints it as soon as the iframe document loads —
+// before our JS bundle parses and before card-tokens.ts runs its
+// runtime CSS injection. Without this, iOS WebKit briefly shows
+// browser-default white in the gap between Claude's shimmer
+// disappearing and our React app mounting. Values match Claude's
+// known loading-surface colors (#F3F0EF light / #121212 dark) so
+// the transition into our card chrome is seamless.
+const LOADING_BG_STYLE = `<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #F3F0EF;
+}
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background: #121212;
+  }
+}
+</style>`;
+const injectLoadingBg = {
+  name: 'rewind-inject-loading-bg',
+  transformIndexHtml(html) {
+    return html.replace('</head>', `${LOADING_BG_STYLE}\n</head>`);
+  },
+};
+
 // allSettled so a syntax error in one component doesn't mask which other
 // entries succeeded. We surface the failure list explicitly afterward.
 const results = await Promise.allSettled(
   entries.map((entry) =>
     build({
       root: webDir,
-      plugins: [react(), viteSingleFile()],
+      plugins: [react(), injectLoadingBg, viteSingleFile()],
       logLevel: 'warn',
       build: {
         outDir: distDir,
