@@ -58,41 +58,38 @@ Sized the actual benefit before paying for the full backfill.
       embed input ≈ 50M tokens × $0.02/M = **~$1.00** for a full
       reembed pass. No surprises.
 
-## Phase 2: PR — PENDING
+## Phase 2: PR — COMPLETE (2026-04-29)
 
-All edits in a single PR. Order matters within the PR for clean review
-but not for behavior.
+PR #95: https://github.com/pdugan20/rewind/pull/95
+Branch: `reading-search-recall` (12 files changed, +697/-80).
 
-- [ ] **2.1** `src/services/instapaper/sync.ts:295` — bump
+- [x] **2.1** `src/services/instapaper/sync.ts:295` — bumped to
       `htmlToText(html, { maxChars: 12000 })`. New articles use the new
       cap going forward.
-- [ ] **2.2** `src/routes/admin-reindex.ts` — `backfill-body-excerpt`
-      route: bump cap to 12000, add `force: boolean` to body schema. On
-      `force: true`, drop the `body_excerpt IS NULL` predicate so
-      existing rows can be re-derived.
-- [ ] **2.3** `src/routes/admin-reindex.ts` — `buildReading`: push
-      `limit`/`offset` into the SQL SELECT. Currently
-      `buildSearchItemsForDomain` returns the full materialized array
-      and `slice()` is applied in memory after; at 12K-char body that's
-      ~190 MB resident across 19K rows and exceeds Worker's 128 MB cap.
-      Caller signature changes to pass through chunk_size + chunk_offset.
-- [ ] **2.4** `src/services/embeddings/reading.ts` — `MAX_INPUT_CHARS`
-      already at 12000 from Phase 0. Verify no test asserts the old 3500.
-- [ ] **2.5** `src/services/embeddings/reading.test.ts` — review for
-      assertions that depend on 3500-char truncation. Update or relax
-      as needed.
-- [ ] **2.6** `mcp-server/src/tools/cross-domain.ts` — update the
-      `semantic_search` tool description: "if the user mentions a
-      publisher (ESPN, NYT, WSJ, etc.) prefer `search(mode: hybrid)` —
-      semantic search does not see source domains. If top scores
-      cluster within ~0.03, raise `limit` to 15+; the right match may
-      sit at position 6+."
-- [ ] **2.7** `mcp-server/src/tools/cross-domain.ts` — same nudge on
-      `search` tool description, scoped to "use hybrid when the user
-      mixes a publisher hint or recalled keywords with a topic
-      description."
-- [ ] **2.8** Lint + format + type-check + vitest run.
-- [ ] **2.9** Open PR, request review.
+- [x] **2.2** `src/routes/admin-reindex.ts` — `backfill-body-excerpt`:
+      cap bumped to 12000, `force: boolean` + `offset: number` added to
+      body schema. On `force: true`, drops the `body_excerpt IS NULL`
+      predicate and uses ORDER BY id + offset for stable pagination.
+- [x] **2.3** `src/routes/admin-reindex.ts` — `buildReading`:
+      SQL-paginates across the article+highlight stream via LIMIT/OFFSET.
+      `buildSearchItemsForDomain(db, domain, offset, limit)` returns
+      `{ items, total }`. Other domains use `buildAllThenSlice` (small
+      payloads). No-chunk-size callers still get legacy single-call
+      semantics; the route loops internally with INTERNAL_CHUNK_SIZE=1000.
+- [x] **2.4** `src/services/embeddings/reading.ts` — `MAX_INPUT_CHARS`
+      at 12000 (deployed in Phase 0).
+- [x] **2.5** `src/services/embeddings/reading.test.ts` — fixed the
+      `truncates at the char cap` test (uses 15K input now, asserts
+      length === 12000).
+- [x] **2.6/2.7** `mcp-server/src/tools/cross-domain.ts` — both `search`
+      and `semantic_search` tool descriptions updated. Semantic now
+      explicitly tells the model: source domains aren't in the embedding,
+      prefer hybrid for publisher hints, raise `limit` when scores
+      cluster within ~0.03.
+- [x] **2.8** Lint clean, type-check clean, 994/994 vitest passing,
+      99/99 mcp-server vitest passing. OpenAPI + manifest snapshots
+      regenerated.
+- [x] **2.9** PR opened.
 
 ## Phase 3: Backfill — PENDING
 
@@ -101,7 +98,7 @@ to main). Sequence matters: re-derive → FTS → embed.
 
 - [ ] **3.1** Re-derive `body_excerpt` for the full archive.
       `POST /admin/backfill-body-excerpt` with `{ force: true,
-  limit: 2000 }`, looped until `scanned < limit`. Expected: ~10
+limit: 2000 }`, looped until `scanned < limit`. Expected: ~10
       route calls × 30–60s = 5–15 min.
 - [ ] **3.2** Reindex FTS for reading.
       `POST /admin/reindex-search` with
