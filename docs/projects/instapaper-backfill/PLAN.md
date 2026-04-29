@@ -36,7 +36,7 @@ Status: **in progress**
 
 ## Phase 1 — bulk ingest with `archived=1`
 
-Status: **ingest complete (2026-04-29 00:26 PDT) — admin enrichment partial**
+Status: **complete (2026-04-29 07:03 PDT) — ingest + admin enrichment done**
 
 Final ingest numbers:
 
@@ -47,15 +47,19 @@ Final ingest numbers:
 | `no_body` (URL+title only — Phase 2 target) | **3,733**  | **18.7%** |
 | `failed` (transient D1 hiccups)             | 5          | 0.025%    |
 
-Wall time: ~7h 50m for ~16,300 ingested. ~$0.30 in Voyage tokens (only the first 2K embedded — see admin status below).
+Wall time: ~7h 50m ingest + ~1h 30m admin enrichment. ~$0.40 in Voyage tokens.
 
 Post-run admin status:
 
-- ✅ **Image pipeline**: deferred to the live cron (runs every 15 min, will catch up over hours/days)
-- ⚠️ **Reembed-reading**: only 2K of ~20K embedded. The route caps `limit` at 5000 and has no `offset` param, so calling repeatedly returns the same first rows. Need to deploy an `offset` patch (`src/routes/admin-reindex.ts:328-395`, already coded but blocked on wrangler re-auth) and loop 4 batches.
-- ⚠️ **Reindex-search**: Cloudflare 1102 (CPU exhaustion) when rebuilding all five domains at once. Need to retry scoped to `{"domains":["reading"]}` to avoid touching the 45K-row listening index.
+- ✅ **Image pipeline**: deferred to the live cron (runs every 15 min, will catch up over hours/days).
+- ✅ **Reembed-reading**: 19,938 / 19,938 articles embedded. Required two patches and several retries — see "Lessons learned" below.
+- ✅ **Reindex-search**: 21,074 FTS rows (19,938 articles + 1,136 highlights). Required a chunked `chunk_size` / `chunk_offset` patch to fit under the 30s Workers CPU budget.
 
-Next step requires `npx wrangler login` (the user-action API token has D1-only scope; wrangler deploy needs Workers Scripts permissions).
+### Admin-enrichment patches landed during this run
+
+1. **`offset` param on `reembed-reading`** (`src/routes/admin-reindex.ts:328-449`). The route caps `limit` at 5000; without `offset` the same first 5000 rows came back on every call. Patch adds `offset` + deterministic `ORDER BY id`.
+2. **`chunk_size` / `chunk_offset` on `reindex-search`** (`src/routes/admin-reindex.ts:46-123`). A single-pass rebuild for `reading` (21K rows × 2 SQL ops per row) blew the 30s CPU budget (Cloudflare 1102). New params let callers loop in 125-500 row chunks; only the first chunk runs the per-domain `DELETE`.
+3. **Robust loop scripts** at `/tmp/reindex-loop.sh`, `/tmp/reembed-recovery.sh`, `/tmp/reembed-sweep.sh` with retry-on-1102 + auto-shrink. Worth porting into `scripts/backfills/` if a future bulk ingest needs the same admin pipeline.
 
 **Inputs:** updated script, fresh CF API token, full CSV.
 
@@ -105,7 +109,35 @@ node -e "..."  # see scripts/probe-instapaper.ts pattern
 
 ## Phase 2 — ScraperAPI recovery for the no-body set
 
-Status: **pending Phase 1**
+Status: **complete (2026-04-29 12:20 PDT)**
+
+Final numbers (run on 3,683 candidates after smoke-test recoveries; original no-body set was 3,733):
+
+|                                         | Count   | % of candidates |
+| --------------------------------------- | ------- | --------------- |
+| Recovered (body now in DB)              | **561** | **15.2%**       |
+| Failed (body too short / no extraction) | 766     | 20.8%           |
+| Skipped (paywalled — WaPo + WSJ)        | 2,356   | 64.0%           |
+
+ScraperAPI cost:
+
+- Script-reported credits: 15,108
+- Actual account requests consumed: **8,946** (out of 92,390 monthly headroom; ended at 83,444 / 100,000 — leaves comfortable runway for normal OG-fallback traffic)
+- Wall time: ~4h 10m at concurrency 4
+
+Combined with Phase 1, total reading coverage now:
+
+- `completed`: **16,780 / 19,938 (84.2%)** — was 16,200
+- `no_body`: 3,154 / 19,938 (15.8%) — was 3,733
+
+**Why ~15% rescue rate, not the 75% earlier probe predicted:** the no-body set is dominated by paywall-protected publishers. Of 3,733 candidates: WaPo 1,719 + WSJ 652 = 2,371 (64%) were skipped because empirical tests confirmed neither `&render=true` nor `&premium=true` bypasses their paywalls — Readability extracts ~500-800 chars of metered preview regardless. NYT (662) succeeded for the articles where `isAccessibleForFree` was unset; the rest hit no_extraction. Smaller publishers (SF Chronicle, archive.ph snapshots, AP, etc.) recovered cleanly.
+
+Post-Phase-2 admin pipeline (in flight at completion):
+
+- Re-run `reembed-reading` covering all 19,938 rows so the 561 newly-populated body excerpts reach Vectorize.
+- Re-run `reindex-search` (chunked) covering the reading domain so the new bodies surface in FTS.
+
+### Original Phase 2 plan — for reference
 
 **Why:** ~6,000 articles still have no body after Phase 1. ScraperAPI on the source URL recovers ~75% (per empirical test 6/8 across NYT, WaPo, SF Chronicle). WSJ is 0/2 — assume unrecoverable. Cost optimization is the meat of this phase.
 
