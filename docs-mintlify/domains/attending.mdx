@@ -50,24 +50,24 @@ The events endpoint supports filtering by:
 
 Sports events are enriched with team and score data from the MLB Stats API (baseball) and ESPN (NFL, NBA, WNBA, MLS, NCAAF, NCAAB). Each row carries league-specific fields in `event_data`. For MLB games:
 
-| Field             | Description                                  |
-| ----------------- | -------------------------------------------- |
-| `home_team`       | Full team object (see below)                 |
-| `away_team`       | Full team object (see below)                 |
-| `home_score`      | Final score for the home team                |
-| `away_score`      | Final score for the away team                |
-| `winning_pitcher` | Pitcher of record on the winning side        |
-| `my_team_won`     | `true` if the team you root for won          |
+| Field             | Description                           |
+| ----------------- | ------------------------------------- |
+| `home_team`       | Full team object (see below)          |
+| `away_team`       | Full team object (see below)          |
+| `home_score`      | Final score for the home team         |
+| `away_score`      | Final score for the away team         |
+| `winning_pitcher` | Pitcher of record on the winning side |
+| `my_team_won`     | `true` if the team you root for won   |
 
 `home_team` and `away_team` are full team objects. The same shape appears as `primary_team` on player rows and `team` on per-game appearances, so consumers never need a second call to render a logo or tint:
 
-| Field                                                  | Description                                  |
-| ------------------------------------------------------ | -------------------------------------------- |
-| `id`                                                   | League-native team id                        |
-| `abbreviation`, `name`, `location`                     | "SEA", "Mariners", "Seattle"                 |
-| `primary_color`, `secondary_color`, `ui_tint_color`    | Brand hex colors for backgrounds and accents |
-| `logo_url`, `logo_dark_url`, `logo_light_url`          | SVG cap variants for light + dark hosts      |
-| `conference`, `division`                               | League grouping                              |
+| Field                                               | Description                                  |
+| --------------------------------------------------- | -------------------------------------------- |
+| `id`                                                | League-native team id                        |
+| `abbreviation`, `name`, `location`                  | "SEA", "Mariners", "Seattle"                 |
+| `primary_color`, `secondary_color`, `ui_tint_color` | Brand hex colors for backgrounds and accents |
+| `logo_url`, `logo_dark_url`, `logo_light_url`       | SVG cap variants for light + dark hosts      |
+| `conference`, `division`                            | League grouping                              |
 
 W/L counts on the [seasons endpoint](/api-reference/attending/get-attended-season) are scoped to events you actually attended (`attended=1`), so a 6-game home season with one no-show reports a 5-1 attended record rather than the team's full 5-2 record.
 
