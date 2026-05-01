@@ -6,4 +6,5 @@ export { FanartTvClient } from './fanart-tv.js';
 export { TmdbClient } from './tmdb.js';
 export { PlexClient } from './plex.js';
 export { OgImageClient } from './og-image.js';
+export { DirectUrlClient } from './direct-url.js';
 export type { ImageResult, SourceClient, SourceSearchParams } from './types.js';

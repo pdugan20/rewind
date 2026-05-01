@@ -24,6 +24,7 @@ import {
   TmdbClient,
   PlexClient,
   OgImageClient,
+  DirectUrlClient,
 } from './sources/index.js';
 
 export interface PipelineEnv {
@@ -137,6 +138,10 @@ function getSourceClients(
     case 'watching/movies':
     case 'watching/shows':
       return [
+        // DirectUrlClient first so a Letterboxd-supplied poster wins
+        // over TMDB lookup (only fires when directImageUrl is set;
+        // TMDB still handles every standard movie/show row).
+        new DirectUrlClient(),
         ...(env.TMDB_API_KEY ? [new TmdbClient(env.TMDB_API_KEY)] : []),
         ...(env.FANART_TV_API_KEY
           ? [new FanartTvClient(env.FANART_TV_API_KEY)]

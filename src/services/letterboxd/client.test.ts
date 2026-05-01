@@ -104,6 +104,47 @@ describe('parseLetterboxdRss', () => {
     expect(entries[1].tmdbTvId).toBeNull();
   });
 
+  it('extracts the poster URL from the description CDATA when present', () => {
+    const xml = `<?xml version="1.0"?>
+<rss xmlns:letterboxd="https://letterboxd.com" xmlns:tmdb="https://themoviedb.org">
+<channel>
+  <item>
+    <title>Test Movie, 2026 - ★★★</title>
+    <guid>poster-test</guid>
+    <letterboxd:watchedDate>2026-01-01</letterboxd:watchedDate>
+    <letterboxd:filmTitle>Test Movie</letterboxd:filmTitle>
+    <letterboxd:filmYear>2026</letterboxd:filmYear>
+    <description><![CDATA[ <p><img src="https://a.ltrbxd.com/resized/sm/foo.jpg?v=1"/></p> <p>Some review text.</p> ]]></description>
+  </item>
+</channel>
+</rss>`;
+    const entries = parseLetterboxdRss(xml);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].posterUrl).toBe(
+      'https://a.ltrbxd.com/resized/sm/foo.jpg?v=1'
+    );
+    expect(entries[0].review).toBe('Some review text.');
+  });
+
+  it('returns null posterUrl when description has no <img>', () => {
+    const xml = `<?xml version="1.0"?>
+<rss xmlns:letterboxd="https://letterboxd.com" xmlns:tmdb="https://themoviedb.org">
+<channel>
+  <item>
+    <title>No Poster, 2026 - ★★★</title>
+    <guid>no-poster-test</guid>
+    <letterboxd:watchedDate>2026-01-01</letterboxd:watchedDate>
+    <letterboxd:filmTitle>No Poster</letterboxd:filmTitle>
+    <letterboxd:filmYear>2026</letterboxd:filmYear>
+    <description><![CDATA[ <p>Just text, no image.</p> ]]></description>
+  </item>
+</channel>
+</rss>`;
+    const entries = parseLetterboxdRss(xml);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].posterUrl).toBeNull();
+  });
+
   it('extracts guid', () => {
     const entries = parseLetterboxdRss(SAMPLE_RSS);
     expect(entries[0].guid).toBe('letterboxd-watch-117795457');
@@ -141,5 +182,6 @@ describe('parseLetterboxdRss', () => {
     expect(entries[0].rewatch).toBe(false);
     expect(entries[0].tmdbMovieId).toBeNull();
     expect(entries[0].tmdbTvId).toBeNull();
+    expect(entries[0].posterUrl).toBeNull();
   });
 });
