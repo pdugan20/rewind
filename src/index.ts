@@ -369,7 +369,7 @@ export default {
         );
         break;
       }
-      case '0 5 * * 0': {
+      case '0 5 * * SUN': {
         // Weekly Sunday 5:00 AM: full Instapaper deletion reconciliation.
         // The 6-hour bookmarks sync only sees deletions in the 500-newest
         // window per folder; this pass enumerates every folder fully so
