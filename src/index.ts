@@ -28,6 +28,7 @@ import { syncLetterboxd } from './services/letterboxd/sync.js';
 import { syncCollecting } from './services/discogs/sync.js';
 import { syncTraktCollection } from './services/trakt/sync.js';
 import { syncReading } from './services/instapaper/sync.js';
+import { reconcileReadingDeletions } from './services/instapaper/reconcile-deletions.js';
 import { backfillAttending } from './services/attending/backfill.js';
 import {
   processListeningImages,
@@ -365,6 +366,28 @@ export default {
                 `[ERROR] Attending sync/enrich failed: ${err instanceof Error ? err.message : String(err)}`
               )
             )
+        );
+        break;
+      }
+      case '0 5 * * 0': {
+        // Weekly Sunday 5:00 AM: full Instapaper deletion reconciliation.
+        // The 6-hour bookmarks sync only sees deletions in the 500-newest
+        // window per folder; this pass enumerates every folder fully so
+        // older deletions get caught.
+        console.log('[SYNC] Instapaper deletion reconciliation');
+        ctx.waitUntil(
+          (async () => {
+            try {
+              const result = await reconcileReadingDeletions(db, env);
+              console.log(
+                `[SYNC] Reconcile: scanned=${result.foldersScanned} folders, fetched=${result.pagesFetched} pages, seen=${result.bookmarksSeen} bookmarks, candidates=${result.candidates}, deleted=${result.deleted} items + ${result.imagesDeleted} images, took=${result.tookMs}ms`
+              );
+            } catch (error) {
+              console.log(
+                `[ERROR] Reconcile reading deletions failed: ${error instanceof Error ? error.message : String(error)}`
+              );
+            }
+          })()
         );
         break;
       }

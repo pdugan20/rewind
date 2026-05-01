@@ -18952,6 +18952,82 @@
         }
       }
     },
+    "/v1/reading/admin/reconcile-deletions": {
+      "post": {
+        "operationId": "reconcileReadingDeletions",
+        "x-hidden": true,
+        "tags": [
+          "Reading",
+          "Admin"
+        ],
+        "summary": "Reconcile deleted bookmarks against Instapaper",
+        "description": "Walks every Instapaper folder via paginated have= queries to enumerate all source_ids the user still has, then purges reading_items (and associated images) for any source_id that no longer exists anywhere on Instapaper. Catches deletions that the normal sync misses because they fall outside the 500-newest-per-folder window.",
+        "responses": {
+          "200": {
+            "description": "Reconcile results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "folders_scanned": {
+                      "type": "number"
+                    },
+                    "pages_fetched": {
+                      "type": "number"
+                    },
+                    "bookmarks_seen": {
+                      "type": "number"
+                    },
+                    "candidates": {
+                      "type": "number"
+                    },
+                    "deleted": {
+                      "type": "number"
+                    },
+                    "images_deleted": {
+                      "type": "number"
+                    },
+                    "took_ms": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "folders_scanned",
+                    "pages_fetched",
+                    "bookmarks_seen",
+                    "candidates",
+                    "deleted",
+                    "images_deleted",
+                    "took_ms"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/attending/events": {
       "get": {
         "operationId": "listAttendedEvents",

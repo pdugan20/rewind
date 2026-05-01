@@ -1887,6 +1887,7 @@ reading.openapi(yearRoute, async (c) => {
 // ─── Admin: Backfill images ─────────────────────────────────────────
 
 import { processReadingImages } from '../services/images/sync-images.js';
+import { reconcileReadingDeletions } from '../services/instapaper/reconcile-deletions.js';
 import { requireAuth } from '../lib/auth.js';
 
 const backfillImagesRoute = createRoute({
@@ -1941,6 +1942,57 @@ reading.openapi(backfillImagesRoute, async (c) => {
       results: {
         articles: results[0] ?? { total: 0, processed: 0 },
       },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// ─── Admin: Reconcile deletions ─────────────────────────────────────
+
+const reconcileDeletionsRoute = createRoute({
+  method: 'post',
+  path: '/admin/reconcile-deletions',
+  operationId: 'reconcileReadingDeletions',
+  'x-hidden': true,
+  tags: ['Reading', 'Admin'],
+  summary: 'Reconcile deleted bookmarks against Instapaper',
+  description:
+    'Walks every Instapaper folder via paginated have= queries to enumerate all source_ids the user still has, then purges reading_items (and associated images) for any source_id that no longer exists anywhere on Instapaper. Catches deletions that the normal sync misses because they fall outside the 500-newest-per-folder window.',
+  responses: {
+    200: {
+      description: 'Reconcile results',
+      content: {
+        'application/json': {
+          schema: z.object({
+            folders_scanned: z.number(),
+            pages_fetched: z.number(),
+            bookmarks_seen: z.number(),
+            candidates: z.number(),
+            deleted: z.number(),
+            images_deleted: z.number(),
+            took_ms: z.number(),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+reading.openapi(reconcileDeletionsRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  try {
+    const result = await reconcileReadingDeletions(db, c.env);
+    return c.json({
+      folders_scanned: result.foldersScanned,
+      pages_fetched: result.pagesFetched,
+      bookmarks_seen: result.bookmarksSeen,
+      candidates: result.candidates,
+      deleted: result.deleted,
+      images_deleted: result.imagesDeleted,
+      took_ms: result.tookMs,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
