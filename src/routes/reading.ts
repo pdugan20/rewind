@@ -1967,8 +1967,8 @@ const reconcileDeletionsRoute = createRoute({
         'application/json': {
           schema: z.object({
             folders_scanned: z.number(),
-            pages_fetched: z.number(),
-            bookmarks_seen: z.number(),
+            api_calls: z.number(),
+            known_in_db: z.number(),
             candidates: z.number(),
             deleted: z.number(),
             images_deleted: z.number(),
@@ -1988,8 +1988,8 @@ reading.openapi(reconcileDeletionsRoute, async (c) => {
     const result = await reconcileReadingDeletions(db, c.env);
     return c.json({
       folders_scanned: result.foldersScanned,
-      pages_fetched: result.pagesFetched,
-      bookmarks_seen: result.bookmarksSeen,
+      api_calls: result.apiCalls,
+      known_in_db: result.knownInDb,
       candidates: result.candidates,
       deleted: result.deleted,
       images_deleted: result.imagesDeleted,

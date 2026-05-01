@@ -380,7 +380,7 @@ export default {
             try {
               const result = await reconcileReadingDeletions(db, env);
               console.log(
-                `[SYNC] Reconcile: scanned=${result.foldersScanned} folders, fetched=${result.pagesFetched} pages, seen=${result.bookmarksSeen} bookmarks, candidates=${result.candidates}, deleted=${result.deleted} items + ${result.imagesDeleted} images, took=${result.tookMs}ms`
+                `[SYNC] Reconcile: scanned=${result.foldersScanned} folders, api=${result.apiCalls} calls, known=${result.knownInDb} items, candidates=${result.candidates}, deleted=${result.deleted} items + ${result.imagesDeleted} images, took=${result.tookMs}ms${result.abortedReason ? ` ABORTED: ${result.abortedReason}` : ''}`
               );
             } catch (error) {
               console.log(

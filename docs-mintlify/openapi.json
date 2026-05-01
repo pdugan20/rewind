@@ -18973,10 +18973,10 @@
                     "folders_scanned": {
                       "type": "number"
                     },
-                    "pages_fetched": {
+                    "api_calls": {
                       "type": "number"
                     },
-                    "bookmarks_seen": {
+                    "known_in_db": {
                       "type": "number"
                     },
                     "candidates": {
@@ -18997,8 +18997,8 @@
                   },
                   "required": [
                     "folders_scanned",
-                    "pages_fetched",
-                    "bookmarks_seen",
+                    "api_calls",
+                    "known_in_db",
                     "candidates",
                     "deleted",
                     "images_deleted",
