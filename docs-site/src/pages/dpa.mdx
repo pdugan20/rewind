@@ -1,7 +1,7 @@
 ---
 layout: ../layouts/Legal.astro
 title: Data Processing Agreement
-lastUpdated: April 3, 2026
+lastUpdated: May 3, 2026
 ---
 
 ## 1. Introduction
@@ -18,21 +18,22 @@ This Data Processing Agreement ("DPA") forms part of the terms under which Rewin
 
 Rewind processes Personal Data solely to provide the Rewind API service, which includes:
 
-- Syncing activity data from third-party services (Last.fm, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper)
+- Syncing activity data from third-party services (Last.fm, Apple Music, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, Google Calendar, Gmail)
 - Storing synced data in Cloudflare D1 databases and R2 object storage
 - Serving data via the Rewind REST API
 - Providing data access via the MCP connector for Claude (Anthropic)
 
 ## 4. Data Categories
 
-| Category            | Examples                               | Source                     |
-| ------------------- | -------------------------------------- | -------------------------- |
-| Listening history   | Scrobbles, artist/album metadata       | Last.fm                    |
-| Activity data       | Runs, routes, heart rate, pace         | Strava                     |
-| Watch history       | Movies, TV episodes, ratings, reviews  | Plex, Letterboxd           |
-| Collection data     | Vinyl records, physical media          | Discogs, Trakt             |
-| Reading data        | Articles, highlights, reading progress | Instapaper                 |
-| Authentication data | GitHub user ID, OAuth tokens           | GitHub (via MCP connector) |
+| Category            | Examples                                | Source                     |
+| ------------------- | --------------------------------------- | -------------------------- |
+| Listening history   | Scrobbles, artist/album metadata        | Last.fm, Apple Music       |
+| Activity data       | Runs, routes, heart rate, pace          | Strava                     |
+| Watch history       | Movies, TV episodes, ratings, reviews   | Plex, Letterboxd           |
+| Collection data     | Vinyl records, physical media           | Discogs, Trakt             |
+| Reading data        | Articles, highlights, reading progress  | Instapaper                 |
+| Event attendance    | Tickets, sports games, concerts, venues | Google Calendar, Gmail     |
+| Authentication data | GitHub user ID, OAuth tokens            | GitHub (via MCP connector) |
 
 ## 5. Sub-processors
 

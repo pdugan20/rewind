@@ -110,13 +110,7 @@ curl -H "Authorization: Bearer rw_live_..." \
 
 ## OpenAPI spec
 
-The full machine-readable schema for every endpoint is published as an OpenAPI 3.1 document at the API origin -- no auth required:
-
-```bash
-curl https://api.rewind.rest/openapi.json
-```
-
-`https://api.rewind.rest/openapi.json` (root) redirects to the canonical `https://api.rewind.rest/v1/openapi.json`. Use it to generate clients, drive agent tools, or import into Postman / Insomnia.
+Every endpoint is published as a machine-readable [OpenAPI 3.1 document](/openapi-spec) -- use it to generate clients, drive agent tools, or import into Postman.
 
 ## Errors
 
@@ -139,3 +133,5 @@ Explore the domain-specific guides to understand what data is available:
 - [Running](/domains/running) -- Strava
 - [Watching](/domains/watching) -- Plex and Letterboxd
 - [Collecting](/domains/collecting) -- Discogs and Trakt
+- [Reading](/domains/reading) -- Instapaper
+- [Attending](/domains/attending) -- Google Calendar and Gmail

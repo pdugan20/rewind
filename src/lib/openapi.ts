@@ -17,16 +17,18 @@ export const openAPIConfig = {
   info: {
     title: 'Rewind API',
     version: '1.0.0',
-    description: `Personal data aggregation API. Syncs and serves data from Strava, Last.fm, Discogs, Plex, Letterboxd, and Trakt.
+    description: `Personal data aggregation API. Syncs and serves data from Last.fm, Apple Music, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, Google Calendar, and Gmail.
 
 ## Domains
 
 | Domain | Source | Description |
 |--------|--------|-------------|
-| **Listening** | Last.fm | Scrobbles, top artists/albums/tracks, streaks, stats |
+| **Listening** | Last.fm, Apple Music | Scrobbles, top artists/albums/tracks, streaks, stats |
 | **Running** | Strava | Activities, splits, gear, personal records, year summaries |
 | **Watching** | Plex, Letterboxd | Movies, TV shows, watch history, ratings, reviews |
 | **Collecting** | Discogs, Trakt | Vinyl/CD collection, physical media, wantlist |
+| **Reading** | Instapaper | Articles, highlights, reading progress, word count |
+| **Attending** | Google Calendar, Gmail | Live events, tickets, sports games, concerts, venues |
 
 ## Authentication
 

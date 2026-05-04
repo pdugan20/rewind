@@ -58,7 +58,7 @@
           },
           {
             "group": "Integrations",
-            "pages": ["mcp-server"]
+            "pages": ["mcp-server", "openapi-spec"]
           },
           {
             "group": "Updates",
