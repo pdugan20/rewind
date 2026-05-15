@@ -15,6 +15,10 @@ import {
   LIST_IMAGE_PX,
   type ContentBlock,
 } from './helpers.js';
+import {
+  recentListensOutputSchema,
+  listeningStatsOutputSchema,
+} from './schemas/listening.js';
 
 const TOP_N = 5;
 
@@ -222,6 +226,7 @@ export function registerListeningTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: recentListensOutputSchema,
     },
     async ({ limit, page, date, from, to, include_images }) =>
       withRichResponse(async () => {
@@ -280,6 +285,7 @@ export function registerListeningTools(
         'Get overall listening statistics from Last.fm including total scrobbles, unique artists, albums, tracks, and daily average. Supports date filtering.',
       inputSchema: { ...dateFilterParams },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: listeningStatsOutputSchema,
     },
     async ({ date, from, to }) =>
       withRichResponse(async () => {

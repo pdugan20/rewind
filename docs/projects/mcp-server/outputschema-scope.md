@@ -16,118 +16,132 @@ Value:
 - **The model** gets a typed description of what a tool returns, rather than
   inferring shape from one sample response.
 - **The SDK validates** every returned `structuredContent` against the schema
-  at runtime — drift between handler and declared shape becomes a hard error
-  instead of a silent contract break.
-- **Clients** can rely on the declared shape.
+  at runtime — drift between handler and declared shape becomes a hard error.
+- **Clients** can rely on, and render against, the declared shape.
 
-## SDK mechanics
+## Prior art — clickwheel
 
-`registerTool`'s config accepts `outputSchema` alongside `inputSchema`. Like
-`inputSchema`, it takes a `ZodRawShape` — the shape of an **object** — which
-matches the MCP rule that `structuredContent` is a JSON object.
+The sibling `clickwheel` MCP server already did this (its issue #17, branch
+`feat/mcp-output-schemas`). clickwheel is **Python / FastMCP**: it declares a
+Pydantic model per tool and annotates the return type (`-> dict` becomes
+`-> LibraryStats`); FastMCP **auto-derives** the `outputSchema` from the
+annotation. That made it a ~2-line change per tool.
 
-The important behavior: **once `outputSchema` is declared, the SDK validates
-`structuredContent` against it on every call.** A mismatch throws. This is the
-whole reason #105 is a separate effort from the title migration — it is not a
-mechanical wrap; each schema has to actually match what its handler returns.
+**Rewind cannot copy that cheaply.** TypeScript types are erased at runtime, so
+there is no auto-derivation — every schema is hand-authored in Zod and passed
+explicitly. The effort estimate below reflects that; clickwheel is the design
+reference, not an effort comparison.
 
-## Current-state analysis
+## SDK mechanics (verified from the installed SDK source)
 
-A catalog of all tool `structuredContent` returns (see issue #105 for the full
-table) shows the shapes fall into four groups:
+`registerTool`'s config accepts `outputSchema`. It takes either a `ZodRawShape`
+or a full Zod object schema — including `z.object(...).passthrough()` and
+`z.union(...)`.
 
-| Group                  | Count (approx) | Shape                                                                                 | Schema difficulty                          |
-| ---------------------- | -------------- | ------------------------------------------------------------------------------------- | ------------------------------------------ |
-| **List tools**         | ~22            | `{ items: T[] }`, `{ items: T[], pagination }`, or `{ data: T[], pagination }`        | Low — one element schema + shared wrappers |
-| **Stats / flat tools** | ~14            | Flat object of scalars (raw API response, spread)                                     | Low — flat object schema                   |
-| **Detail tools**       | ~9             | A named-type object (`MovieDetail`, `AlbumDetail`, `ActivityDetail`, …)               | Low–medium                                 |
-| **Design-transformed** | 3              | Hand-built nested shapes — `get_artist_details`, `get_article`, `get_attended_player` | High — bespoke schemas                     |
+`validateToolOutput` behavior:
 
-Two findings that make this **easier than the issue body implied**:
+- No `outputSchema` → no validation.
+- `outputSchema` declared **but `structuredContent` missing → throws**. Once
+  declared, every non-error path _must_ return `structuredContent`.
+- `result.isError === true` → validation **skipped**. Error branches (e.g.
+  `withRichResponse`'s catch, which returns `isError` and no
+  `structuredContent`) are safe.
+- Otherwise `structuredContent` is `safeParseAsync`'d against the schema; a
+  failure throws `McpError`. The schema is also converted to JSON Schema and
+  advertised in `tools/list`.
 
-1. **"Varies by branch" is mostly benign.** Many handlers have an empty-state
-   branch (`{ items: [] }`) and a populated branch (`{ items: data }`). Both
-   satisfy the _same_ schema — `z.array(...)` accepts an empty array. Only a
-   handful of tools change top-level keys by branch; those need a union or a
-   widened schema.
-2. **~25 tools already reuse a named TypeScript `type`/`interface`** for their
-   return element (`Scrobble`, `Activity`, `RecentWatch`, `Player`, …). Those
-   types are the starting point for the Zod schemas.
+## Spike results
 
-Harder spots, flagged so they're not a surprise mid-phase:
+A spike (branch `spike/mcp-output-schema`) added `outputSchema` to two
+listening tools — `get_recent_listens` (list shape) and `get_listening_stats`
+(flat shape) — with schemas in a new `src/tools/schemas/` directory, plus an
+end-to-end test (`output-schema-spike.test.ts`). Verified:
 
-- **Opaque sub-objects** — MLB stat lines (`batting_line`, `pitching_line`,
-  `season_stats.hitter/pitcher`) are raw upstream API objects with dynamic
-  keys. Model as `z.record(z.unknown())`; full typing is out of scope.
-- **Nullable nested objects** — `season_attended_summary`, `career`, `splits`
-  can be `null`; needs `.nullable()` throughout `get_attended_player`.
-- **The 3 design-transformed tools** don't mirror an input type — their
-  schemas must be written by hand against the output shape.
+- ✅ Declaring `outputSchema` round-trips through the SDK with no validation
+  error, on both the populated and empty-state branches.
+- ✅ The curated `content` text summary is unaffected — `structuredContent` is
+  validated independently and passes through untouched.
+- ✅ Advertised as JSON Schema with top-level `type: "object"`.
+- ✅ **No `$ref` / `$defs`.** Even though `imageSchema` is imported and shared
+  across files, the SDK's converter fully inlines it. The historical Claude
+  Desktop `$defs` compile bug (mcpb #174, since closed) is moot here.
+- ✅ `tsc` clean, full suite 103/103.
+
+**Finding that changed the approach:** the converter emits
+`"additionalProperties": false` for a plain `z.object`. That makes the
+_advertised_ schema reject any field the Rewind API adds later, even though
+server-side Zod validation would tolerate it. Fix: `.passthrough()` on every
+object schema → advertised schema becomes forward-compatible. (`.passthrough()`
+costs nothing and `tsc` stays clean.)
+
+**Not verifiable in the spike — needs a manual check:** whether Claude Desktop
+/ iOS still render the curated text summary once `outputSchema` is present, vs
+surfacing the raw structured object. Some clients prioritize `structuredContent`
+display. Point a local `rewind-local` build of the spike branch at the client
+and eyeball one tool before committing to the full rollout.
 
 ## Approach
 
 ### 1. Zod as the source of truth
 
-There is no runtime TS-type → Zod conversion. Rather than maintain a hand-
-written `type` _and_ a parallel Zod schema, **define the Zod schema and derive
-the TypeScript type from it** with `z.infer`. Where a tool file already has a
-hand-written `type Scrobble = {...}`, replace it with
-`type Scrobble = z.infer<typeof scrobbleSchema>`. One source, no drift.
+No runtime TS → Zod conversion exists. Define the Zod schema and derive the
+TypeScript type from it (`type Scrobble = z.infer<typeof scrobbleSchema>`),
+replacing the hand-written `type`. One source, no drift.
 
 ### 2. Shared schemas
 
-Several shapes repeat across domains. Define them once:
+Repeated shapes live in `schemas/shared.ts` — `imageSchema` (done in the
+spike), `paginationSchema`, `sparklineSchema`. Sharing is safe: the converter
+inlines them, so no `$ref` reaches the client.
 
-- `paginationSchema` — `{ page, limit, total, total_pages }`
-- `imageRefSchema` — `{ cdn_url?, url?, thumbhash?, dominant_color?, accent_color? }`
-- `sparklineSchema` — used by listening top-lists
+### 3. `.passthrough()` everywhere
 
-### 3. Strictness policy
-
-Use `.passthrough()` (not `.strict()`) on object schemas. If the Rewind API
-adds a field, a passthrough schema keeps validating; a strict schema would
-throw. Forward-compatibility matters more than rejecting extra keys here.
+Every object schema gets `.passthrough()` — confirmed by the spike to keep the
+advertised JSON Schema `additionalProperties`-open and forward-compatible.
 
 ### 4. File organization
 
-The tool files are already large (`listening.ts` ~30 KB). Put schemas in a new
-`mcp-server/src/tools/schemas/` directory — one file per domain plus
-`shared.ts`. Tool files import their schemas. Keeps handlers readable.
+Schemas live in `mcp-server/src/tools/schemas/` — one file per domain plus
+`shared.ts` (directory created in the spike). Tool files import their schemas.
+
+### 5. Schema value form
+
+Pass a full `z.object(...).passthrough()` as `outputSchema` (not a bare
+`ZodRawShape`) so the top-level object is also passthrough. The spike confirmed
+the SDK and `tsc` accept this.
 
 ## Phasing
 
-Ship as one PR per phase so each is independently reviewable.
+One PR per phase, each independently reviewable.
 
-| Phase | Work                                                                                                                   | Est.                   |
-| ----- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| 0     | `schemas/shared.ts` (pagination, image, sparkline); Zod-as-source-of-truth wiring; pick a conformance-test pattern     | 0.5 day                |
-| 1     | **Pilot: listening** (~10 tools). Establishes the per-domain pattern and the test harness                              | 1 day                  |
-| 2–7   | Remaining domains — running, watching, reading, attending, collecting, cross-domain (+ `get_health`, `ui_hello_debug`) | ~0.5 day each, ~3 days |
+| Phase | Work                                                                                                              | Est.                   |
+| ----- | ----------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 0     | `schemas/shared.ts`, test pattern — **done in the spike**                                                         | —                      |
+| 1     | listening (~10 tools) — `get_recent_listens` + `get_listening_stats` **started in the spike**; finish the other 8 | ~0.5 day               |
+| 2–7   | running, watching, reading, attending, collecting, cross-domain (+ `get_health`, `ui_hello_debug`)                | ~0.5 day each, ~3 days |
 
-**Total: ~4.5 focused days, ~7 PRs.** The pilot is deliberately first and
-slowest — it sets conventions the rest copy.
+**Total remaining: ~3.5 focused days, ~7 PRs.** The spike already delivered
+Phase 0 and the test harness.
 
 ## Test strategy
 
-Add a conformance test per domain: for each tool, run its handler against a
-mocked client response (fixtures already exist in the test suite) and assert
-the returned `structuredContent` parses against the tool's `outputSchema`.
-This catches handler/schema drift in CI, independent of the SDK's own runtime
-validation.
+Per-domain conformance test, following the spike's pattern: build the server
+with a mocked client, `callTool` each tool against a fixture, assert it
+resolves (a validation failure throws) and that `structuredContent` matches.
+Also assert the advertised schema has no `$ref` and no
+`"additionalProperties":false`.
 
 ## Open decisions
 
-1. **Zod as source of truth** — recommended above (replace hand-written types
-   with `z.infer`). Alternative: keep both in sync manually. Pick before
-   Phase 0.
-2. **Passthrough vs strict** — recommended `.passthrough()`. Confirm.
-3. **Opaque MLB stat objects** — recommended `z.record(z.unknown())`. Accept
-   the loss of type depth there, or defer `get_attended_player` to last and
-   decide then.
+1. **Zod as source of truth** — recommended (replace hand-written types with
+   `z.infer`). Confirm before Phase 1.
+2. **Opaque MLB stat objects** — `get_attended_player` returns raw upstream
+   stat-line objects with dynamic keys. Model as `z.record(z.unknown())`;
+   accept the loss of type depth, or defer that tool to last.
+3. **Proceed at all** — gated on the manual Desktop/iOS render check above.
 
 ## Out of scope
 
 - Fully typing the MLB Stats API stat-line objects.
-- Changing any `structuredContent` _shape_ — this work describes what tools
-  already return; it does not redesign returns. If a schema reveals a return
-  shape that should change, that's a separate ticket.
+- Changing any `structuredContent` _shape_. This work describes what tools
+  already return; a shape that should change is a separate ticket.
