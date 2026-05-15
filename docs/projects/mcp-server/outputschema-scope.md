@@ -114,35 +114,53 @@ Pass a full `z.object(...).passthrough()` as `outputSchema` (not a bare
 `ZodRawShape`) so the top-level object is also passthrough. The spike confirmed
 the SDK and `tsc` accept this.
 
-## Phasing
+## Status — complete
 
-One PR per phase, each independently reviewable.
+All phases shipped on branch `spike/mcp-output-schema` (PR #109):
 
-| Phase | Work                                                                                                          | Est.                   |
-| ----- | ------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| 0     | `schemas/shared.ts`, test pattern — **done**                                                                  | —                      |
-| 1     | listening — **done**: all 10 tools, conformance test, manifest-snapshot extension, the `$ref` factory finding | —                      |
-| 2–7   | running, watching, reading, attending, collecting, cross-domain (+ `get_health`, `ui_hello_debug`)            | ~0.5 day each, ~3 days |
+| Phase | Work                                                                 | Status |
+| ----- | -------------------------------------------------------------------- | ------ |
+| 0     | `schemas/shared.ts`, conformance-test pattern                        | ✅     |
+| 1     | listening — 10 tools, the `$ref` factory finding                     | ✅     |
+| 2–7   | running, watching, reading, attending, collecting, cross-domain      | ✅     |
+| —     | `get_health` (gained `structuredContent` + schema)                   | ✅     |
+| —     | Consolidation — centralized pagination factories, global guard tests | ✅     |
 
-**Total remaining: ~3 focused days.** Phases 0 and 1 are complete; the
-listening files are the template the remaining domains copy.
+**All 47 shipping tools declare an `outputSchema`.** `ui_hello_debug` was
+removed rather than schema'd — it was a throwaway debug tool. tsc clean,
+162 tests pass.
 
 ## Test strategy
 
-Per-domain conformance test, following the spike's pattern: build the server
-with a mocked client, `callTool` each tool against a fixture, assert it
-resolves (a validation failure throws) and that `structuredContent` matches.
-Also assert the advertised schema has no `$ref` and no
-`"additionalProperties":false`.
+Two layers:
 
-## Open decisions
+- **Per-domain conformance** (`output-schema-<domain>.test.ts`): build the
+  server with a mocked client, `callTool` each tool against a fixture, assert
+  it resolves — a validation failure throws — and `structuredContent` matches.
+- **Global guards** (`output-schema.test.ts`): over _every_ registered tool —
+  each declares an `outputSchema`, and no advertised schema uses `$ref` /
+  `$defs` / `additionalProperties:false`. Catches a future tool regressing
+  regardless of domain.
 
-1. **Zod as source of truth** — recommended (replace hand-written types with
-   `z.infer`). Confirm before Phase 1.
-2. **Opaque MLB stat objects** — `get_attended_player` returns raw upstream
-   stat-line objects with dynamic keys. Model as `z.record(z.unknown())`;
-   accept the loss of type depth, or defer that tool to last.
-3. **Proceed at all** — gated on the manual Desktop/iOS render check above.
+The conformance fixtures are hand-authored, so a schema can still drift from
+the real API. The durable fix — cross-checking against the API's OpenAPI spec
+— is tracked as issue #110.
+
+## Resolved decisions
+
+1. **Zod as source of truth** — adopted. Hand-written `type`s that match a
+   tool's structuredContent are now `z.infer` of the schema.
+2. **Opaque MLB stat objects** — `get_attended_player`'s stat lines are
+   `z.record(z.unknown())`.
+3. **Proceed** — confirmed: the spike's `get_recent_listens` rendered cleanly
+   in Claude Desktop with `outputSchema` present.
+
+## Follow-ups (not blocking)
+
+- An `obj()` helper wrapping `z.object(...).passthrough()` — ergonomic only;
+  the global guard test already catches a forgotten `.passthrough()`.
+- Converting the per-domain test files to the shared `buildTestClient` helper.
+- Issue #110 — OpenAPI cross-check.
 
 ## Out of scope
 
