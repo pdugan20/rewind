@@ -11,15 +11,11 @@
  * adds later does not break client-side validation. See schemas/shared.ts.
  */
 import { z } from 'zod';
-import { imageSchema } from './shared.js';
-
-// Cross-domain search and feed endpoints carry their own minimal
-// pagination shapes, not the canonical { page, limit, total, total_pages }
-// block -- search reports only a result `total`, the feed only `has_more`.
-const searchPaginationSchema = () =>
-  z.object({ total: z.number() }).passthrough();
-const feedPaginationSchema = () =>
-  z.object({ has_more: z.boolean() }).passthrough();
+import {
+  imageSchema,
+  searchPaginationSchema,
+  feedPaginationSchema,
+} from './shared.js';
 
 // --- Element schemas ------------------------------------------------------
 

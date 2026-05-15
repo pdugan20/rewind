@@ -37,15 +37,40 @@ export function imageSchema() {
 }
 
 /**
- * Pagination block on list endpoints -- the `pagination` field of a
- * `{ data: [...], pagination: {...} }` response. Always present on a
- * paginated response (never null).
+ * Canonical pagination block -- the `pagination` field of a
+ * `{ data: [...], pagination: {...} }` response. Used by the browse /
+ * collection list endpoints. Always present on a paginated response.
  */
 export function paginationSchema() {
   return z
     .object({
       page: z.number(),
       limit: z.number(),
+      total: z.number(),
+      total_pages: z.number(),
+    })
+    .passthrough();
+}
+
+/**
+ * Pagination variants that are NOT the canonical four-field block.
+ * Centralised here so a domain does not have to re-discover them:
+ *  - search / semantic_search report only a result `total`
+ *  - the unified feed reports only a `has_more` cursor flag
+ *  - the reading-highlights endpoint omits `limit`
+ */
+export function searchPaginationSchema() {
+  return z.object({ total: z.number() }).passthrough();
+}
+
+export function feedPaginationSchema() {
+  return z.object({ has_more: z.boolean() }).passthrough();
+}
+
+export function highlightsPaginationSchema() {
+  return z
+    .object({
+      page: z.number(),
       total: z.number(),
       total_pages: z.number(),
     })

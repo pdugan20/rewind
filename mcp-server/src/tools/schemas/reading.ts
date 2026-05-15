@@ -11,7 +11,7 @@
  * adds later does not break client-side validation. See schemas/shared.ts.
  */
 import { z } from 'zod';
-import { imageSchema } from './shared.js';
+import { imageSchema, highlightsPaginationSchema } from './shared.js';
 
 // --- Element schemas ------------------------------------------------------
 
@@ -92,16 +92,7 @@ export const recentReadsOutputSchema = z
 export const readingHighlightsOutputSchema = z
   .object({
     items: z.array(highlightSchema),
-    // The /reading/highlights endpoint paginates without a `limit` field
-    // (just page / total / total_pages), so it does not use the canonical
-    // paginationSchema().
-    pagination: z
-      .object({
-        page: z.number(),
-        total: z.number(),
-        total_pages: z.number(),
-      })
-      .passthrough(),
+    pagination: highlightsPaginationSchema(),
   })
   .passthrough();
 
