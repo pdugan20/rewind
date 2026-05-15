@@ -88,11 +88,15 @@ No runtime TS → Zod conversion exists. Define the Zod schema and derive the
 TypeScript type from it (`type Scrobble = z.infer<typeof scrobbleSchema>`),
 replacing the hand-written `type`. One source, no drift.
 
-### 2. Shared schemas
+### 2. Shared schemas — as factory functions
 
-Repeated shapes live in `schemas/shared.ts` — `imageSchema` (done in the
-spike), `paginationSchema`, `sparklineSchema`. Sharing is safe: the converter
-inlines them, so no `$ref` reaches the client.
+Repeated shapes live in `schemas/shared.ts` as **factory functions**
+(`imageSchema()`, not a shared `imageSchema` constant). Phase 1 found that the
+JSON Schema converter emits a `$ref` whenever it sees the _same schema object_
+twice in one conversion — `get_artist_details` uses an image schema four times
+and serialised with `$ref`s. A factory yields a fresh object per call, so every
+occurrence inlines. The conformance test asserts no `$ref` reaches the
+advertised schema, so this can't regress.
 
 ### 3. `.passthrough()` everywhere
 
@@ -114,14 +118,14 @@ the SDK and `tsc` accept this.
 
 One PR per phase, each independently reviewable.
 
-| Phase | Work                                                                                                              | Est.                   |
-| ----- | ----------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| 0     | `schemas/shared.ts`, test pattern — **done in the spike**                                                         | —                      |
-| 1     | listening (~10 tools) — `get_recent_listens` + `get_listening_stats` **started in the spike**; finish the other 8 | ~0.5 day               |
-| 2–7   | running, watching, reading, attending, collecting, cross-domain (+ `get_health`, `ui_hello_debug`)                | ~0.5 day each, ~3 days |
+| Phase | Work                                                                                                          | Est.                   |
+| ----- | ------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 0     | `schemas/shared.ts`, test pattern — **done**                                                                  | —                      |
+| 1     | listening — **done**: all 10 tools, conformance test, manifest-snapshot extension, the `$ref` factory finding | —                      |
+| 2–7   | running, watching, reading, attending, collecting, cross-domain (+ `get_health`, `ui_hello_debug`)            | ~0.5 day each, ~3 days |
 
-**Total remaining: ~3.5 focused days, ~7 PRs.** The spike already delivered
-Phase 0 and the test harness.
+**Total remaining: ~3 focused days.** Phases 0 and 1 are complete; the
+listening files are the template the remaining domains copy.
 
 ## Test strategy
 

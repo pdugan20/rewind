@@ -15,62 +15,34 @@ import {
   LIST_IMAGE_PX,
   type ContentBlock,
 } from './helpers.js';
+import { imageSchema } from './schemas/shared.js';
 import {
+  scrobbleSchema,
+  topItemSchema,
+  nowPlayingOutputSchema,
   recentListensOutputSchema,
   listeningStatsOutputSchema,
+  topListOutputSchema,
+  topTracksOutputSchema,
+  listeningStreaksOutputSchema,
+  albumDetailsOutputSchema,
+  listeningGenresOutputSchema,
+  artistDetailsOutputSchema,
 } from './schemas/listening.js';
 
 const TOP_N = 5;
 
-type Image = {
-  cdn_url?: string | null;
-  url?: string | null;
-  thumbhash?: string | null;
-  dominant_color?: string | null;
-  accent_color?: string | null;
-} | null;
+// Types below are derived from the Zod output schemas (schemas/listening.ts)
+// so the declared schema and the TS type cannot drift. ArtistDetail is left
+// hand-written: it describes the raw API response, which get_artist_details
+// transforms into a different card-shaped payload before returning.
+type Image = z.infer<ReturnType<typeof imageSchema>>;
 
-type NowPlaying = {
-  is_playing: boolean;
-  track: {
-    name: string;
-    artist: { id: number | null; name: string; apple_music_url: string | null };
-    album: { id: number | null; name: string | null; image: Image };
-    url: string | null;
-    apple_music_url: string | null;
-    preview_url: string | null;
-  } | null;
-  scrobbled_at: string | null;
-};
+type NowPlaying = z.infer<typeof nowPlayingOutputSchema>;
 
-type Scrobble = {
-  track: {
-    id: number;
-    name: string;
-    url: string | null;
-    apple_music_url: string | null;
-    preview_url: string | null;
-  };
-  artist: { id: number; name: string };
-  album: { id: number | null; name: string | null; image: Image };
-  scrobbled_at: string;
-};
+type Scrobble = z.infer<typeof scrobbleSchema>;
 
-type TopItem = {
-  rank: number;
-  id: number;
-  name: string;
-  detail: string;
-  playcount: number;
-  image: Image;
-  url: string;
-  apple_music_url: string | null;
-  preview_url?: string | null;
-  sparkline?: {
-    granularity: 'day' | 'week';
-    points: number[];
-  };
-};
+type TopItem = z.infer<typeof topItemSchema>;
 
 type ArtistDetail = {
   id: number;
@@ -121,23 +93,7 @@ type ArtistDetail = {
   }>;
 };
 
-type AlbumDetail = {
-  id: number;
-  name: string;
-  mbid: string | null;
-  url: string | null;
-  apple_music_url: string | null;
-  playcount: number;
-  image: Image;
-  artist: { id: number; name: string };
-  tracks: Array<{
-    id: number;
-    name: string;
-    scrobble_count: number;
-    apple_music_url: string | null;
-    preview_url: string | null;
-  }>;
-};
+type AlbumDetail = z.infer<typeof albumDetailsOutputSchema>;
 
 const PERIOD_ENUM = [
   '7day',
@@ -161,6 +117,7 @@ export function registerListeningTools(
         'Get the track currently playing (or most recently scrobbled) on Last.fm. Returns track + artist + album, album cover image, and Apple Music resource link.',
       inputSchema: { ...includeImagesParam },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: nowPlayingOutputSchema,
     },
     async ({ include_images }) =>
       withRichResponse(async () => {
@@ -351,6 +308,7 @@ export function registerListeningTools(
           ),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: topListOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/top-artists.html' },
         'ui/resourceUri': 'ui://rewind/top-artists.html',
@@ -447,6 +405,7 @@ export function registerListeningTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: topListOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/top-albums.html' },
         'ui/resourceUri': 'ui://rewind/top-albums.html',
@@ -550,6 +509,7 @@ export function registerListeningTools(
         ...dateFilterParams,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: topTracksOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/top-tracks.html' },
         'ui/resourceUri': 'ui://rewind/top-tracks.html',
@@ -621,6 +581,7 @@ export function registerListeningTools(
         'Get listening streak data from Last.fm -- current consecutive days with scrobbles and the longest streak ever.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: listeningStreaksOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -678,6 +639,7 @@ export function registerListeningTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: artistDetailsOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/artist.html' },
         'ui/resourceUri': 'ui://rewind/artist.html',
@@ -815,6 +777,7 @@ export function registerListeningTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: albumDetailsOutputSchema,
     },
     async ({ id, include_images }) =>
       withRichResponse(async () => {
@@ -879,6 +842,7 @@ export function registerListeningTools(
         ...dateFilterParams,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: listeningGenresOutputSchema,
     },
     async ({ group_by, limit, date, from, to }) =>
       withRichResponse(async () => {

@@ -44,6 +44,7 @@ interface ManifestTool {
   name: string;
   description: string;
   inputSchema: unknown;
+  outputSchema: unknown;
 }
 
 interface ManifestPrompt {
@@ -87,6 +88,7 @@ describe('MCP manifest snapshot', () => {
           name: t.name,
           description: t.description ?? '',
           inputSchema: t.inputSchema,
+          outputSchema: t.outputSchema ?? null,
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
       prompts: prompts
