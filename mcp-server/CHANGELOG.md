@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.9.0...mcp-server-v0.10.0) (2026-05-15)
+
+
+### Features
+
+* **listening:** date-range filters on top tracks/artists + 7day sparklines ([ae8accc](https://github.com/pdugan20/rewind/commit/ae8accc6976e3ed0766e1756895f2d0af622692c))
+
+
+### Bug Fixes
+
+* **mcp-ui:** drop sparkline opacity 0.7 → 0.4 for subtler trend hint ([f6c2efb](https://github.com/pdugan20/rewind/commit/f6c2efb4b665c30c091b500d5535df98eb86f447))
+* **mcp-ui:** sparklines invisible on iOS in top-artists/top-albums rows ([a4b10b1](https://github.com/pdugan20/rewind/commit/a4b10b1df4870395554af7e8a79d1ec511bfd4d5))
+
 ## [0.9.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.8.15...mcp-server-v0.9.0) (2026-04-29)
 
 
