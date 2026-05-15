@@ -55,6 +55,146 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "year": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "director": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "genres": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "duration_min": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "tmdb_id": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "tmdb_rating": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "year",
+                "director",
+                "genres",
+                "duration_min",
+                "tmdb_id",
+                "tmdb_rating",
+                "image"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              },
+              "total_pages": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "page",
+              "limit",
+              "total",
+              "total_pages"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -81,6 +221,81 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "instapaper_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "instapaper_app_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "domain": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "score": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "author",
+                "url",
+                "instapaper_url",
+                "instapaper_app_url",
+                "domain",
+                "description",
+                "score"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -99,6 +314,106 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "distance_mi": {
+            "type": "number"
+          },
+          "duration": {
+            "type": "string"
+          },
+          "pace": {
+            "type": "string"
+          },
+          "elevation_ft": {
+            "type": "number"
+          },
+          "heartrate_avg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "heartrate_max": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "cadence": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "calories": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "suffer_score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_race": {
+            "type": "boolean"
+          },
+          "workout_type": {
+            "type": "string"
+          },
+          "strava_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "date",
+          "distance_mi",
+          "duration",
+          "pace",
+          "elevation_ft",
+          "heartrate_avg",
+          "heartrate_max",
+          "cadence",
+          "calories",
+          "suffer_score",
+          "city",
+          "state",
+          "is_race",
+          "workout_type",
+          "strava_url"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -116,6 +431,62 @@
           "id"
         ],
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "activity_id": {
+            "type": "number"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "split": {
+                  "type": "number"
+                },
+                "distance_mi": {
+                  "type": "number"
+                },
+                "moving_time_s": {
+                  "type": "number"
+                },
+                "elapsed_time_s": {
+                  "type": "number"
+                },
+                "elevation_ft": {
+                  "type": "number"
+                },
+                "pace": {
+                  "type": "string"
+                },
+                "heartrate": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "split",
+                "distance_mi",
+                "moving_time_s",
+                "elapsed_time_s",
+                "elevation_ft",
+                "pace",
+                "heartrate"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "activity_id",
+          "items"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -140,6 +511,147 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mbid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "apple_music_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "playcount": {
+            "type": "number"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "cdn_url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "thumbhash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dominant_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "accent_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artist": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": true
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "scrobble_count": {
+                  "type": "number"
+                },
+                "apple_music_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "preview_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "scrobble_count",
+                "apple_music_url",
+                "preview_url"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "mbid",
+          "url",
+          "apple_music_url",
+          "playcount",
+          "image",
+          "artist",
+          "tracks"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -158,6 +670,179 @@
           "id"
         ],
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "article": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "title": {
+                "type": "string"
+              },
+              "author": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "instapaper_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "instapaper_app_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "domain": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "word_count": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "estimated_read_min": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "progress": {
+                "type": "number"
+              },
+              "saved_at": {
+                "type": "string"
+              },
+              "image": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "cdn_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "thumbhash": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "dominant_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "accent_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "author",
+              "url",
+              "instapaper_url",
+              "instapaper_app_url",
+              "domain",
+              "description",
+              "word_count",
+              "estimated_read_min",
+              "status",
+              "progress",
+              "saved_at",
+              "image"
+            ],
+            "additionalProperties": true
+          },
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "created_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "text",
+                "note",
+                "created_at"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "highlight_count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "article",
+          "highlights",
+          "highlight_count"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -182,6 +867,471 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "artist": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "name": {
+                "type": "string"
+              },
+              "mbid": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "apple_music_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "apple_music_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "genre": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "bio_summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bio_content": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "image": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "cdn_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "thumbhash": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "dominant_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "accent_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mbid",
+              "url",
+              "apple_music_url",
+              "apple_music_id",
+              "genre",
+              "tags",
+              "bio_summary",
+              "bio_content",
+              "image"
+            ],
+            "additionalProperties": true
+          },
+          "listening_stats": {
+            "type": "object",
+            "properties": {
+              "total_scrobbles": {
+                "type": "number"
+              },
+              "first_scrobble_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "last_played_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "all_time_rank": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "distinct_tracks": {
+                "type": "number"
+              },
+              "distinct_albums": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "total_scrobbles",
+              "first_scrobble_at",
+              "last_played_at",
+              "all_time_rank",
+              "distinct_tracks",
+              "distinct_albums"
+            ],
+            "additionalProperties": true
+          },
+          "sparkline": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "granularity": {
+                    "type": "string",
+                    "enum": [
+                      "day",
+                      "week",
+                      "month",
+                      "year"
+                    ]
+                  },
+                  "points": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "type": "string"
+                        },
+                        "count": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "count"
+                      ],
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "required": [
+                  "granularity",
+                  "points"
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "top_tracks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rank": {
+                  "type": "number"
+                },
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "album_id": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "album_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "scrobble_count": {
+                  "type": "number"
+                },
+                "apple_music_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "preview_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "rank",
+                "id",
+                "name",
+                "album_id",
+                "album_name",
+                "scrobble_count",
+                "apple_music_url",
+                "preview_url",
+                "image"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "top_albums": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rank": {
+                  "type": "number"
+                },
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "playcount": {
+                  "type": "number"
+                },
+                "apple_music_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "rank",
+                "id",
+                "name",
+                "playcount",
+                "apple_music_url",
+                "image"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "similar_artists": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "your_scrobble_count": {
+                  "type": "number"
+                },
+                "similarity_score": {
+                  "type": "number"
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "your_scrobble_count",
+                "similarity_score",
+                "image"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "artist",
+          "listening_stats",
+          "sparkline",
+          "top_tracks",
+          "top_albums",
+          "similar_artists"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -199,6 +1349,612 @@
           "id"
         ],
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "sports",
+              "music",
+              "arts"
+            ]
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "event_date": {
+            "type": "string"
+          },
+          "event_datetime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "external_source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "event_data": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attended": {
+            "type": "boolean"
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "number"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "state": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "country": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "capacity": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "city",
+                  "state",
+                  "country",
+                  "capacity"
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tickets": {
+            "type": "array",
+            "items": {}
+          },
+          "players": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "player": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "league": {
+                      "type": "string"
+                    },
+                    "mlb_stats_id": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "espn_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "full_name": {
+                      "type": "string"
+                    },
+                    "primary_position": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "primary_number": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "birth_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "birth_country": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "bats": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "throws": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "primary_team": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "number"
+                            },
+                            "league": {
+                              "type": "string"
+                            },
+                            "abbreviation": {
+                              "type": "string"
+                            },
+                            "location": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "full_name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "primary_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "secondary_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "tertiary_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "ui_tint_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "logo_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "logo_dark_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "logo_light_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "conference": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "division": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "league",
+                            "abbreviation",
+                            "location",
+                            "name",
+                            "full_name",
+                            "primary_color",
+                            "secondary_color",
+                            "tertiary_color",
+                            "ui_tint_color",
+                            "logo_url",
+                            "logo_dark_url",
+                            "logo_light_url",
+                            "conference",
+                            "division"
+                          ],
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "debut_date": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "photo_silo": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "cdn_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "thumbhash": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "dominant_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "accent_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "photo_full": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "cdn_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "thumbhash": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "dominant_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "accent_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "league",
+                    "mlb_stats_id",
+                    "espn_id",
+                    "full_name",
+                    "primary_position",
+                    "primary_number",
+                    "birth_date",
+                    "birth_country",
+                    "bats",
+                    "throws",
+                    "primary_team",
+                    "debut_date",
+                    "photo_silo",
+                    "photo_full"
+                  ],
+                  "additionalProperties": true
+                },
+                "team": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "number"
+                        },
+                        "league": {
+                          "type": "string"
+                        },
+                        "abbreviation": {
+                          "type": "string"
+                        },
+                        "location": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "full_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "secondary_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tertiary_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ui_tint_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logo_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logo_dark_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logo_light_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "conference": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "division": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "league",
+                        "abbreviation",
+                        "location",
+                        "name",
+                        "full_name",
+                        "primary_color",
+                        "secondary_color",
+                        "tertiary_color",
+                        "ui_tint_color",
+                        "logo_url",
+                        "logo_dark_url",
+                        "logo_light_url",
+                        "conference",
+                        "division"
+                      ],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "is_home": {
+                  "type": "boolean"
+                },
+                "batting_line": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pitching_line": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "fielding_line": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "W",
+                        "L",
+                        "SV",
+                        "HLD",
+                        "BS"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "notable": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "player",
+                "team",
+                "is_home",
+                "batting_line",
+                "pitching_line",
+                "fielding_line",
+                "decision",
+                "notable"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "event_type",
+          "event_date",
+          "event_datetime",
+          "title",
+          "subtitle",
+          "external_id",
+          "external_source",
+          "event_data",
+          "notes",
+          "attended",
+          "venue",
+          "tickets",
+          "players"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -263,6 +2019,185 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "sports",
+                    "music",
+                    "arts"
+                  ]
+                },
+                "event_type": {
+                  "type": "string"
+                },
+                "event_date": {
+                  "type": "string"
+                },
+                "event_datetime": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "subtitle": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "external_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "external_source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "event_data": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "notes": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "attended": {
+                  "type": "boolean"
+                },
+                "venue": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "city": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "country": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "capacity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "city",
+                        "state",
+                        "country",
+                        "capacity"
+                      ],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "tickets": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "required": [
+                "id",
+                "category",
+                "event_type",
+                "event_date",
+                "event_datetime",
+                "title",
+                "subtitle",
+                "external_id",
+                "external_source",
+                "event_data",
+                "notes",
+                "attended",
+                "venue",
+                "tickets"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              },
+              "total_pages": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "page",
+              "limit",
+              "total",
+              "total_pages"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -286,6 +2221,725 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "player": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "mlb_stats_id": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "full_name": {
+                "type": "string"
+              },
+              "primary_position": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "primary_number": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bats": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "throws": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "debut_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "birth_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "birth_city": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "birth_state_province": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "birth_country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "height": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "weight": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "college_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "awards": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "season": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "season",
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": true
+                }
+              },
+              "photo_silo": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "cdn_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "thumbhash": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "dominant_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "accent_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "photo_full": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "cdn_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "thumbhash": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "dominant_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "accent_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "league": {
+                "type": "string"
+              },
+              "primary_team": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "league": {
+                        "type": "string"
+                      },
+                      "abbreviation": {
+                        "type": "string"
+                      },
+                      "location": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "full_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "primary_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "secondary_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "tertiary_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "ui_tint_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "logo_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "logo_dark_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "logo_light_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "conference": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "division": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "league",
+                      "abbreviation",
+                      "location",
+                      "name",
+                      "full_name",
+                      "primary_color",
+                      "secondary_color",
+                      "tertiary_color",
+                      "ui_tint_color",
+                      "logo_url",
+                      "logo_dark_url",
+                      "logo_light_url",
+                      "conference",
+                      "division"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "mlb_stats_id",
+              "full_name",
+              "primary_position",
+              "primary_number",
+              "bats",
+              "throws",
+              "debut_date",
+              "birth_date",
+              "birth_city",
+              "birth_state_province",
+              "birth_country",
+              "height",
+              "weight",
+              "college_name",
+              "awards",
+              "photo_silo",
+              "photo_full",
+              "league",
+              "primary_team"
+            ],
+            "additionalProperties": true
+          },
+          "supported": {
+            "type": "boolean"
+          },
+          "season_stats": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "season": {
+                    "type": "number"
+                  },
+                  "fetched_at": {
+                    "type": "string"
+                  },
+                  "cache_hit": {
+                    "type": "boolean"
+                  },
+                  "hitter": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "pitcher": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "season",
+                  "fetched_at",
+                  "cache_hit",
+                  "hitter",
+                  "pitcher"
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "career": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "group": {
+                    "type": "string",
+                    "enum": [
+                      "hitting",
+                      "pitching"
+                    ]
+                  },
+                  "seasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "fetched_at": {
+                    "type": "string"
+                  },
+                  "cache_hit": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "group",
+                  "seasons",
+                  "fetched_at",
+                  "cache_hit"
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "splits": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "season": {
+                    "type": "number"
+                  },
+                  "group": {
+                    "type": "string",
+                    "enum": [
+                      "hitting",
+                      "pitching"
+                    ]
+                  },
+                  "home": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "away": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "vs_left": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "vs_right": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "fetched_at": {
+                    "type": "string"
+                  },
+                  "cache_hit": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "season",
+                  "group",
+                  "home",
+                  "away",
+                  "vs_left",
+                  "vs_right",
+                  "fetched_at",
+                  "cache_hit"
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attended_summary": {
+            "type": "object",
+            "properties": {
+              "games_attended": {
+                "type": "number"
+              },
+              "games_with_box_score": {
+                "type": "number"
+              },
+              "wins": {
+                "type": "number"
+              },
+              "losses": {
+                "type": "number"
+              },
+              "hitter": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pitcher": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "games_attended",
+              "games_with_box_score",
+              "wins",
+              "losses",
+              "hitter",
+              "pitcher"
+            ],
+            "additionalProperties": true
+          },
+          "season_attended_summary": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "games_attended": {
+                    "type": "number"
+                  },
+                  "games_with_box_score": {
+                    "type": "number"
+                  },
+                  "wins": {
+                    "type": "number"
+                  },
+                  "losses": {
+                    "type": "number"
+                  },
+                  "hitter": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "pitcher": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "games_attended",
+                  "games_with_box_score",
+                  "wins",
+                  "losses",
+                  "hitter",
+                  "pitcher"
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "season_attended_summary_season": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "attended_appearances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": {
+                  "type": "number"
+                },
+                "event_date": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "is_home": {
+                  "type": "boolean"
+                },
+                "batting_line": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pitching_line": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "W",
+                        "L",
+                        "SV",
+                        "HLD",
+                        "BS"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "notable": {
+                  "type": "boolean"
+                },
+                "notable_reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "event_id",
+                "event_date",
+                "title",
+                "is_home",
+                "batting_line",
+                "pitching_line",
+                "decision",
+                "notable",
+                "notable_reasons"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "attended_appearance_count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "player",
+          "supported",
+          "season_stats",
+          "career",
+          "splits",
+          "attended_summary",
+          "season_attended_summary",
+          "season_attended_summary_season",
+          "attended_appearances",
+          "attended_appearance_count"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -307,6 +2961,360 @@
           "id"
         ],
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "league": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "career",
+              "season"
+            ]
+          },
+          "season": {
+            "type": "number"
+          },
+          "player": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "full_name": {
+                "type": "string"
+              },
+              "primary_position": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "primary_team": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "league": {
+                        "type": "string"
+                      },
+                      "abbreviation": {
+                        "type": "string"
+                      },
+                      "location": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "full_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "primary_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "secondary_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "tertiary_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "ui_tint_color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "logo_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "logo_dark_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "logo_light_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "conference": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "division": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "league",
+                      "abbreviation",
+                      "location",
+                      "name",
+                      "full_name",
+                      "primary_color",
+                      "secondary_color",
+                      "tertiary_color",
+                      "ui_tint_color",
+                      "logo_url",
+                      "logo_dark_url",
+                      "logo_light_url",
+                      "conference",
+                      "division"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "full_name",
+              "primary_position",
+              "primary_team"
+            ],
+            "additionalProperties": true
+          },
+          "hitter": {
+            "type": "boolean",
+            "const": true
+          },
+          "pitcher": {
+            "type": "boolean",
+            "const": true
+          },
+          "games": {
+            "type": "number"
+          },
+          "games_with_box_score": {
+            "type": "number"
+          },
+          "batting": {
+            "type": "object",
+            "properties": {
+              "pa": {
+                "type": "number"
+              },
+              "ab": {
+                "type": "number"
+              },
+              "h": {
+                "type": "number"
+              },
+              "hr": {
+                "type": "number"
+              },
+              "rbi": {
+                "type": "number"
+              },
+              "bb": {
+                "type": "number"
+              },
+              "k": {
+                "type": "number"
+              },
+              "sb": {
+                "type": "number"
+              },
+              "avg": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "slg": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "pa",
+              "ab",
+              "h",
+              "hr",
+              "rbi",
+              "bb",
+              "k",
+              "sb",
+              "avg",
+              "slg"
+            ],
+            "additionalProperties": true
+          },
+          "pitching": {
+            "type": "object",
+            "properties": {
+              "ip": {
+                "type": "string"
+              },
+              "bf": {
+                "type": "number"
+              },
+              "k": {
+                "type": "number"
+              },
+              "bb": {
+                "type": "number"
+              },
+              "er": {
+                "type": "number"
+              },
+              "era": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "whip": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "decisions": {
+                "type": "object",
+                "properties": {
+                  "w": {
+                    "type": "number"
+                  },
+                  "l": {
+                    "type": "number"
+                  },
+                  "sv": {
+                    "type": "number"
+                  },
+                  "hld": {
+                    "type": "number"
+                  },
+                  "bs": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "w",
+                  "l",
+                  "sv",
+                  "hld",
+                  "bs"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "ip",
+              "bf",
+              "k",
+              "bb",
+              "er",
+              "era",
+              "whip",
+              "decisions"
+            ],
+            "additionalProperties": true
+          },
+          "reason": {
+            "type": "string"
+          },
+          "appearances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": {
+                  "type": "number"
+                },
+                "event_date": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "home_team": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "away_team": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "final_score": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "my_team_won": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "event_id",
+                "event_date",
+                "title",
+                "home_team",
+                "away_team",
+                "final_score",
+                "my_team_won"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "supported",
+          "league",
+          "scope",
+          "player"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -344,6 +3352,324 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "league": {
+                  "type": "string"
+                },
+                "mlb_stats_id": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "espn_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "full_name": {
+                  "type": "string"
+                },
+                "primary_position": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "primary_number": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "birth_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "birth_country": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bats": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "throws": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "primary_team": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "number"
+                        },
+                        "league": {
+                          "type": "string"
+                        },
+                        "abbreviation": {
+                          "type": "string"
+                        },
+                        "location": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "full_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "secondary_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tertiary_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ui_tint_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logo_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logo_dark_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logo_light_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "conference": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "division": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "league",
+                        "abbreviation",
+                        "location",
+                        "name",
+                        "full_name",
+                        "primary_color",
+                        "secondary_color",
+                        "tertiary_color",
+                        "ui_tint_color",
+                        "logo_url",
+                        "logo_dark_url",
+                        "logo_light_url",
+                        "conference",
+                        "division"
+                      ],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "debut_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "photo_silo": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "photo_full": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "league",
+                "mlb_stats_id",
+                "espn_id",
+                "full_name",
+                "primary_position",
+                "primary_number",
+                "birth_date",
+                "birth_country",
+                "bats",
+                "throws",
+                "primary_team",
+                "debut_date",
+                "photo_silo",
+                "photo_full"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              },
+              "total_pages": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "page",
+              "limit",
+              "total",
+              "total_pages"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -367,6 +3693,180 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "league": {
+            "type": "string"
+          },
+          "season": {
+            "type": "number"
+          },
+          "attended_count": {
+            "type": "number"
+          },
+          "wins": {
+            "type": "number"
+          },
+          "losses": {
+            "type": "number"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "sports",
+                    "music",
+                    "arts"
+                  ]
+                },
+                "event_type": {
+                  "type": "string"
+                },
+                "event_date": {
+                  "type": "string"
+                },
+                "event_datetime": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "subtitle": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "external_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "external_source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "event_data": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "notes": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "attended": {
+                  "type": "boolean"
+                },
+                "venue": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "city": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "country": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "capacity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "city",
+                        "state",
+                        "country",
+                        "capacity"
+                      ],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "tickets": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "required": [
+                "id",
+                "category",
+                "event_type",
+                "event_date",
+                "event_datetime",
+                "title",
+                "subtitle",
+                "external_id",
+                "external_source",
+                "event_data",
+                "notes",
+                "attended",
+                "venue",
+                "tickets"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "league",
+          "season",
+          "attended_count",
+          "wins",
+          "losses",
+          "data"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -375,6 +3875,83 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "total_events": {
+            "type": "number"
+          },
+          "attended_events": {
+            "type": "number"
+          },
+          "by_category": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "category",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "by_event_type": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_type": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "event_type",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "by_year": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "year": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "year",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "total_events",
+          "attended_events",
+          "by_category",
+          "by_event_type",
+          "by_year"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -393,6 +3970,184 @@
           "year"
         ],
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "number"
+          },
+          "total_events": {
+            "type": "number"
+          },
+          "total_spent_cents": {
+            "type": "number"
+          },
+          "by_category": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "category",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "by_event_type": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_type": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "event_type",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "monthly": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "month": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "month",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "top_venues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "venue_id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "city": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "venue_id",
+                "name",
+                "city",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "top_performers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "performer_id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "performer_id",
+                "name",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "event_date": {
+                  "type": "string"
+                },
+                "event_type": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "subtitle": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "venue_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "event_date",
+                "event_type",
+                "title",
+                "subtitle",
+                "venue_name"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "year",
+          "total_events",
+          "total_spent_cents",
+          "by_category",
+          "by_event_type",
+          "monthly",
+          "top_venues",
+          "top_performers",
+          "events"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -416,6 +4171,76 @@
           }
         },
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "total_items": {
+            "type": "number"
+          },
+          "by_format": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "wantlist_count": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unique_artists": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "estimated_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "top_genre": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "oldest_release_year": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "newest_release_year": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "most_collected_artist": {},
+          "added_this_year": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "total_items",
+          "by_format",
+          "wantlist_count",
+          "unique_artists",
+          "estimated_value",
+          "top_genre",
+          "oldest_release_year",
+          "newest_release_year",
+          "added_this_year"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -458,6 +4283,63 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string"
+                },
+                "event_type": {
+                  "type": "string"
+                },
+                "occurred_at": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "subtitle": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "domain",
+                "event_type",
+                "occurred_at",
+                "title",
+                "subtitle"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "has_more": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "has_more"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -467,7 +4349,8 @@
         "type": "object",
         "properties": {},
         "$schema": "http://json-schema.org/draft-07/schema#"
-      }
+      },
+      "outputSchema": null
     },
     {
       "name": "get_listening_genres",
@@ -507,6 +4390,46 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "period": {
+                  "type": "string"
+                },
+                "genres": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "total": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "period",
+                "genres",
+                "total"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "group_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "group_by"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -530,6 +4453,46 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "total_scrobbles": {
+            "type": "number"
+          },
+          "unique_artists": {
+            "type": "number"
+          },
+          "unique_albums": {
+            "type": "number"
+          },
+          "unique_tracks": {
+            "type": "number"
+          },
+          "registered_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "years_tracking": {
+            "type": "number"
+          },
+          "scrobbles_per_day": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_scrobbles",
+          "unique_artists",
+          "unique_albums",
+          "unique_tracks",
+          "registered_date",
+          "years_tracking",
+          "scrobbles_per_day"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -538,6 +4501,70 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "current": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "number"
+              },
+              "start_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "total_scrobbles": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "days",
+              "start_date",
+              "total_scrobbles"
+            ],
+            "additionalProperties": true
+          },
+          "longest": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "number"
+              },
+              "start_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "end_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "total_scrobbles": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "days",
+              "start_date",
+              "end_date",
+              "total_scrobbles"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "current",
+          "longest"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -562,6 +4589,192 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "director": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "directors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "duration_min": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "rating": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tmdb_id": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tmdb_rating": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tagline": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "imdb_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "cdn_url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "thumbhash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dominant_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "accent_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watch_history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "watched_at": {
+                  "type": "string"
+                },
+                "user_rating": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rewatch": {
+                  "type": "boolean"
+                },
+                "review": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "review_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "watched_at",
+                "user_rating",
+                "rewatch",
+                "review",
+                "review_url",
+                "source"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "year",
+          "director",
+          "directors",
+          "genres",
+          "duration_min",
+          "rating",
+          "tmdb_id",
+          "tmdb_rating",
+          "tagline",
+          "summary",
+          "imdb_id",
+          "image",
+          "watch_history"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -577,6 +4790,161 @@
           }
         },
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "is_playing": {
+            "type": "boolean"
+          },
+          "track": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "artist": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "apple_music_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "apple_music_url"
+                    ],
+                    "additionalProperties": true
+                  },
+                  "album": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "image": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "cdn_url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "thumbhash": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "dominant_color": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "accent_color": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "image"
+                    ],
+                    "additionalProperties": true
+                  },
+                  "url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "apple_music_url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "preview_url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "artist",
+                  "album",
+                  "url",
+                  "apple_music_url",
+                  "preview_url"
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scrobbled_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "is_playing",
+          "track",
+          "scrobbled_at"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -601,6 +4969,70 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "number"
+          },
+          "day": {
+            "type": "number"
+          },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "year": {
+                  "type": "number"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "domain": {
+                        "type": "string"
+                      },
+                      "event_type": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "subtitle": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "domain",
+                      "event_type",
+                      "title",
+                      "subtitle"
+                    ],
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "required": [
+                "year",
+                "items"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "month",
+          "day",
+          "years"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -609,6 +5041,51 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "distance_label": {
+                  "type": "string"
+                },
+                "time": {
+                  "type": "string"
+                },
+                "pace": {
+                  "type": "string"
+                },
+                "date": {
+                  "type": "string"
+                },
+                "activity_name": {
+                  "type": "string"
+                },
+                "activity_id": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "distance_label",
+                "time",
+                "pace",
+                "date",
+                "activity_name",
+                "activity_id"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -652,6 +5129,178 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "year": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "tmdb_id": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "imdb_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "runtime": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "tmdb_rating": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "media_type": {
+                  "type": "string"
+                },
+                "resolution": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "hdr": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "audio": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "audio_channels": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "collected_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "year",
+                "tmdb_id",
+                "imdb_id",
+                "image",
+                "runtime",
+                "tmdb_rating",
+                "media_type",
+                "resolution",
+                "hdr",
+                "audio",
+                "audio_channels",
+                "collected_at"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              },
+              "total_pages": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "page",
+              "limit",
+              "total",
+              "total_pages"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -661,6 +5310,39 @@
         "type": "object",
         "properties": {},
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "formats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "total",
+          "formats"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -669,6 +5351,78 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "article": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "title": {
+                "type": "string"
+              },
+              "author": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "domain": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "instapaper_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "instapaper_app_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "title",
+              "author",
+              "domain"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "text",
+          "note",
+          "created_at",
+          "article"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -694,6 +5448,111 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "article": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "author": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "domain": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "instapaper_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "instapaper_app_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "author",
+                    "domain"
+                  ],
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "text",
+                "note",
+                "created_at",
+                "article"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              },
+              "total_pages": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "page",
+              "total",
+              "total_pages"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -702,6 +5561,39 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "total_articles": {
+            "type": "number"
+          },
+          "finished_count": {
+            "type": "number"
+          },
+          "currently_reading_count": {
+            "type": "number"
+          },
+          "total_highlights": {
+            "type": "number"
+          },
+          "total_word_count": {
+            "type": "number"
+          },
+          "avg_estimated_read_min": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_articles",
+          "finished_count",
+          "currently_reading_count",
+          "total_highlights",
+          "total_word_count",
+          "avg_estimated_read_min"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -744,6 +5636,153 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "track": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "apple_music_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "preview_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "url",
+                    "apple_music_url",
+                    "preview_url"
+                  ],
+                  "additionalProperties": true
+                },
+                "artist": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": true
+                },
+                "album": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "image": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "cdn_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "thumbhash": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "dominant_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "accent_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "image"
+                  ],
+                  "additionalProperties": true
+                },
+                "scrobbled_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "track",
+                "artist",
+                "album",
+                "scrobbled_at"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -785,6 +5824,137 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "instapaper_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "instapaper_app_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "domain": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "estimated_read_min": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "progress": {
+                  "type": "number"
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "saved_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "author",
+                "url",
+                "domain",
+                "estimated_read_min",
+                "status",
+                "progress",
+                "image",
+                "saved_at"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -820,6 +5990,82 @@
           }
         },
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "strava_id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "date": {
+                  "type": "string"
+                },
+                "distance_mi": {
+                  "type": "number"
+                },
+                "duration": {
+                  "type": "string"
+                },
+                "pace": {
+                  "type": "string"
+                },
+                "elevation_ft": {
+                  "type": "number"
+                },
+                "city": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_race": {
+                  "type": "boolean"
+                },
+                "strava_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "date",
+                "distance_mi",
+                "duration",
+                "pace",
+                "elevation_ft",
+                "city",
+                "state",
+                "is_race"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -862,6 +6108,157 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "movie": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "year": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "director": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tmdb_id": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tagline": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "image": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "cdn_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "thumbhash": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "dominant_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "accent_color": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "year",
+                    "director",
+                    "tmdb_id",
+                    "image"
+                  ],
+                  "additionalProperties": true
+                },
+                "watched_at": {
+                  "type": "string"
+                },
+                "user_rating": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rewatch": {
+                  "type": "boolean"
+                },
+                "source": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "review": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "review_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "movie",
+                "watched_at",
+                "user_rating",
+                "rewatch",
+                "source",
+                "review",
+                "review_url"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -870,6 +6267,53 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "total_runs": {
+            "type": "number"
+          },
+          "total_distance_mi": {
+            "type": "number"
+          },
+          "total_elevation_ft": {
+            "type": "number"
+          },
+          "total_duration": {
+            "type": "string"
+          },
+          "avg_pace": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "years_active": {
+            "type": "number"
+          },
+          "first_run": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eddington_number": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_runs",
+          "total_distance_mi",
+          "total_elevation_ft",
+          "total_duration",
+          "avg_pace",
+          "years_active",
+          "first_run",
+          "eddington_number"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -880,6 +6324,69 @@
         "type": "object",
         "properties": {},
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "current": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "number"
+              },
+              "start": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "end": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "days",
+              "start",
+              "end"
+            ],
+            "additionalProperties": true
+          },
+          "longest": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "number"
+              },
+              "start": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "end": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "days",
+              "start",
+              "end"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "current",
+          "longest"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -888,6 +6395,65 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "year": {
+                  "type": "number"
+                },
+                "total_runs": {
+                  "type": "number"
+                },
+                "total_distance_mi": {
+                  "type": "number"
+                },
+                "total_elevation_ft": {
+                  "type": "number"
+                },
+                "total_duration_s": {
+                  "type": "number"
+                },
+                "avg_pace": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "longest_run_mi": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "race_count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "year",
+                "total_runs",
+                "total_distance_mi",
+                "total_elevation_ft",
+                "total_duration_s",
+                "avg_pace",
+                "longest_run_mi",
+                "race_count"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -930,6 +6496,135 @@
           }
         },
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rank": {
+                  "type": "number"
+                },
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "playcount": {
+                  "type": "number"
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "url": {
+                  "type": "string"
+                },
+                "apple_music_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "preview_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sparkline": {
+                  "type": "object",
+                  "properties": {
+                    "granularity": {
+                      "type": "string",
+                      "enum": [
+                        "day",
+                        "week"
+                      ]
+                    },
+                    "points": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "required": [
+                    "granularity",
+                    "points"
+                  ],
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "rank",
+                "id",
+                "name",
+                "detail",
+                "playcount",
+                "image",
+                "url",
+                "apple_music_url"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "period",
+          "data"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -990,6 +6685,135 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rank": {
+                  "type": "number"
+                },
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "playcount": {
+                  "type": "number"
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "url": {
+                  "type": "string"
+                },
+                "apple_music_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "preview_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sparkline": {
+                  "type": "object",
+                  "properties": {
+                    "granularity": {
+                      "type": "string",
+                      "enum": [
+                        "day",
+                        "week"
+                      ]
+                    },
+                    "points": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "required": [
+                    "granularity",
+                    "points"
+                  ],
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "rank",
+                "id",
+                "name",
+                "detail",
+                "playcount",
+                "image",
+                "url",
+                "apple_music_url"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "period",
+          "data"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -1048,6 +6872,142 @@
           }
         },
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "artist_id": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rank": {
+                  "type": "number"
+                },
+                "id": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "playcount": {
+                  "type": "number"
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "url": {
+                  "type": "string"
+                },
+                "apple_music_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "preview_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sparkline": {
+                  "type": "object",
+                  "properties": {
+                    "granularity": {
+                      "type": "string",
+                      "enum": [
+                        "day",
+                        "week"
+                      ]
+                    },
+                    "points": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "required": [
+                    "granularity",
+                    "points"
+                  ],
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "rank",
+                "id",
+                "name",
+                "detail",
+                "playcount",
+                "image",
+                "url",
+                "apple_music_url"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "period",
+          "artist_id",
+          "data"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -1118,6 +7078,169 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number"
+                },
+                "discogs_id": {
+                  "type": "number"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "artists": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "year": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "format": {
+                  "type": "string"
+                },
+                "format_detail": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "genres": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "styles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "date_added": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "rating": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "discogs_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "discogs_id",
+                "title",
+                "artists",
+                "year",
+                "format",
+                "format_detail",
+                "label",
+                "genres",
+                "styles",
+                "image",
+                "date_added",
+                "rating",
+                "discogs_url"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              },
+              "total_pages": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "page",
+              "limit",
+              "total",
+              "total_pages"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -1126,6 +7249,35 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "decade": {
+                  "type": "number"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "decade",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -1145,6 +7297,35 @@
         },
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "count"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -1153,6 +7334,39 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                },
+                "percentage": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "count",
+                "percentage"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -1176,6 +7390,64 @@
           }
         },
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "total_movies": {
+            "type": "number"
+          },
+          "total_watch_time_hours": {
+            "type": "number"
+          },
+          "movies_this_year": {
+            "type": "number"
+          },
+          "avg_per_month": {
+            "type": "number"
+          },
+          "top_genre": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "top_decade": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "top_director": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total_shows": {
+            "type": "number"
+          },
+          "total_episodes_watched": {
+            "type": "number"
+          },
+          "episodes_this_year": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_movies",
+          "total_watch_time_hours",
+          "movies_this_year",
+          "avg_per_month",
+          "top_genre",
+          "top_decade",
+          "top_director",
+          "total_shows",
+          "total_episodes_watched",
+          "episodes_this_year"
+        ],
+        "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
@@ -1228,6 +7500,133 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string"
+                },
+                "entity_type": {
+                  "type": "string"
+                },
+                "entity_id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "subtitle": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "instapaper_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "instapaper_app_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "author": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "score": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "domain",
+                "entity_type",
+                "entity_id",
+                "title",
+                "subtitle"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "total"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -1253,6 +7652,133 @@
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string"
+                },
+                "entity_type": {
+                  "type": "string"
+                },
+                "entity_id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "subtitle": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "image": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cdn_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "thumbhash": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dominant_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "accent_color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "instapaper_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "instapaper_app_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "author": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "score": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "domain",
+                "entity_type",
+                "entity_id",
+                "title",
+                "subtitle"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "total"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     {
@@ -1262,7 +7788,8 @@
         "type": "object",
         "properties": {},
         "$schema": "http://json-schema.org/draft-07/schema#"
-      }
+      },
+      "outputSchema": null
     }
   ],
   "prompts": [

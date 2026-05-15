@@ -13,8 +13,24 @@ import {
   LIST_IMAGE_PX,
   type ContentBlock,
 } from './helpers.js';
+import {
+  searchResultSchema,
+  feedItemSchema,
+  searchOutputSchema,
+  semanticSearchOutputSchema,
+  feedOutputSchema,
+  onThisDayOutputSchema,
+} from './schemas/cross-domain.js';
 
 const SEARCH_TOP_N = 5;
+
+// Types below are derived from the Zod output schemas (schemas/cross-domain.ts)
+// so the declared schema and the TS type cannot drift. The inline result types
+// the handlers use (search results, feed items, on-this-day) match a tool's
+// structuredContent shape exactly, so they are consolidated here.
+type SearchResult = z.infer<typeof searchResultSchema>;
+type FeedItem = z.infer<typeof feedItemSchema>;
+type OnThisDay = z.infer<typeof onThisDayOutputSchema>;
 
 /**
  * Map a cross-domain entity reference to a Rewind resource URI.
@@ -78,6 +94,7 @@ export function registerCrossDomainTools(
           .describe('Page number for pagination'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: searchOutputSchema,
     },
     async ({ query, domain, mode, limit, page }) =>
       withRichResponse(async () => {
@@ -89,23 +106,6 @@ export function registerCrossDomainTools(
         if (domain) params.domain = domain;
         if (mode) params.mode = mode;
 
-        type SearchResult = {
-          domain: string;
-          entity_type: string;
-          entity_id: string;
-          title: string;
-          subtitle: string | null;
-          image: {
-            cdn_url: string;
-            thumbhash: string | null;
-            dominant_color: string | null;
-          } | null;
-          url?: string | null;
-          instapaper_url?: string | null;
-          instapaper_app_url?: string | null;
-          author?: string | null;
-          score?: number;
-        };
         const data = await client.get<{
           data: SearchResult[];
           pagination: { total: number };
@@ -236,6 +236,7 @@ export function registerCrossDomainTools(
           .describe('Number of matches to return'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: semanticSearchOutputSchema,
     },
     async ({ query, limit }) =>
       withRichResponse(async () => {
@@ -388,6 +389,7 @@ export function registerCrossDomainTools(
           .describe('Optional: end of date range (ISO 8601)'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: feedOutputSchema,
     },
     async ({ limit, domain, date, from, to }) =>
       withRichResponse(async () => {
@@ -399,13 +401,6 @@ export function registerCrossDomainTools(
         };
 
         const path = domain ? `/feed/domain/${domain}` : '/feed';
-        type FeedItem = {
-          domain: string;
-          event_type: string;
-          occurred_at: string;
-          title: string;
-          subtitle: string | null;
-        };
         const data = await client.get<{
           data: FeedItem[];
           pagination: { has_more: boolean };
@@ -461,23 +456,11 @@ export function registerCrossDomainTools(
           .describe('Optional: day (1-31). Defaults to current day.'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: onThisDayOutputSchema,
     },
     async ({ month, day }) =>
       withRichResponse(async () => {
         const params: Record<string, number | undefined> = { month, day };
-        type OnThisDay = {
-          month: number;
-          day: number;
-          years: Array<{
-            year: number;
-            items: Array<{
-              domain: string;
-              event_type: string;
-              title: string;
-              subtitle: string | null;
-            }>;
-          }>;
-        };
         const data = await client.get<OnThisDay>('/feed/on-this-day', params);
 
         if (!data.years.length) {

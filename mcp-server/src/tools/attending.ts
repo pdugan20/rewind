@@ -12,29 +12,26 @@ import {
   LIST_IMAGE_PX,
   type ContentBlock,
 } from './helpers.js';
+import {
+  attendedEventSchema,
+  attendedEventsOutputSchema,
+  attendedPlayersOutputSchema,
+  attendedSeasonOutputSchema,
+  attendedEventDetailOutputSchema,
+  attendingStatsOutputSchema,
+  attendingYearInReviewOutputSchema,
+  attendedPlayerStatsOutputSchema,
+  attendedPlayerOutputSchema,
+  playerSchema,
+} from './schemas/attending.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
+//
+// Types below are derived from the Zod output schemas (schemas/attending.ts)
+// where the structuredContent shape is exactly the tool's return shape, so
+// the declared schema and the TS type cannot drift. Team stays hand-written
+// -- it describes the raw-API team fragment used inside PlayerStatsResp.
 
-type Photo = {
-  cdn_url?: string | null;
-  url?: string | null;
-  thumbhash?: string | null;
-  dominant_color?: string | null;
-  accent_color?: string | null;
-} | null;
-
-type Venue = {
-  id: number;
-  name: string;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  capacity: number | null;
-} | null;
-
-// Mirrors src/lib/schemas/team.ts on the API side. The full Team object
-// is attached inline anywhere a team is referenced, so consumers never
-// need a follow-up call for logo / colors.
 type Team = {
   id: number;
   league: string;
@@ -53,64 +50,13 @@ type Team = {
   division: string | null;
 };
 
-type Player = {
-  id: number;
-  league: string;
-  mlb_stats_id: number | null;
-  espn_id: string | null;
-  full_name: string;
-  primary_position: string | null;
-  primary_number: string | null;
-  birth_date: string | null;
-  birth_country: string | null;
-  bats: string | null;
-  throws: string | null;
-  primary_team: Team | null;
-  debut_date: string | null;
-  photo_silo: Photo;
-  photo_full: Photo;
-};
+type Player = z.infer<typeof playerSchema>;
 
-type Appearance = {
-  player: Player;
-  team: Team | null;
-  is_home: boolean;
-  batting_line: Record<string, unknown> | null;
-  pitching_line: Record<string, unknown> | null;
-  fielding_line: Record<string, unknown> | null;
-  decision: 'W' | 'L' | 'SV' | 'HLD' | 'BS' | null;
-  notable: boolean;
-};
+type AttendedEvent = z.infer<typeof attendedEventSchema>;
 
-type AttendedEvent = {
-  id: number;
-  category: 'sports' | 'music' | 'arts';
-  event_type: string;
-  event_date: string;
-  event_datetime: string | null;
-  title: string;
-  subtitle: string | null;
-  external_id: string | null;
-  external_source: string | null;
-  event_data: Record<string, unknown> | null;
-  notes: string | null;
-  attended: boolean;
-  venue: Venue;
-  tickets: unknown[];
-};
+type AttendedEventDetail = z.infer<typeof attendedEventDetailOutputSchema>;
 
-type AttendedEventDetail = AttendedEvent & {
-  players: Appearance[];
-};
-
-type AttendedSeasonResponse = {
-  league: string;
-  season: number;
-  attended_count: number;
-  wins: number;
-  losses: number;
-  data: AttendedEvent[];
-};
+type AttendedSeasonResponse = z.infer<typeof attendedSeasonOutputSchema>;
 
 type Pagination = {
   page: number;
@@ -119,41 +65,9 @@ type Pagination = {
   total_pages: number;
 };
 
-type AttendingStats = {
-  total_events: number;
-  attended_events: number;
-  by_category: Array<{ category: string; count: number }>;
-  by_event_type: Array<{ event_type: string; count: number }>;
-  by_year: Array<{ year: string; count: number }>;
-};
+type AttendingStats = z.infer<typeof attendingStatsOutputSchema>;
 
-type AttendingYearInReview = {
-  year: number;
-  total_events: number;
-  total_spent_cents: number;
-  by_category: Array<{ category: string; count: number }>;
-  by_event_type: Array<{ event_type: string; count: number }>;
-  monthly: Array<{ month: string; count: number }>;
-  top_venues: Array<{
-    venue_id: number;
-    name: string;
-    city: string | null;
-    count: number;
-  }>;
-  top_performers: Array<{
-    performer_id: number;
-    name: string;
-    count: number;
-  }>;
-  events: Array<{
-    id: number;
-    event_date: string;
-    event_type: string;
-    title: string;
-    subtitle: string | null;
-    venue_name: string | null;
-  }>;
-};
+type AttendingYearInReview = z.infer<typeof attendingYearInReviewOutputSchema>;
 
 // ─── Tool registration ───────────────────────────────────────────────
 
@@ -219,6 +133,7 @@ export function registerAttendingTools(
           ),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: attendedEventsOutputSchema,
     },
     async ({
       page,
@@ -299,6 +214,7 @@ export function registerAttendingTools(
           .describe('Season year (e.g. 2024 for the 2024 MLB season).'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: attendedSeasonOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/attended-season.html' },
         'ui/resourceUri': 'ui://rewind/attended-season.html',
@@ -384,6 +300,7 @@ export function registerAttendingTools(
           ),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: attendedPlayersOutputSchema,
     },
     async ({ page, limit, name, league, team_id }) =>
       withRichResponse(async () => {
@@ -444,6 +361,7 @@ export function registerAttendingTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: attendedPlayerOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/attended-player.html' },
         'ui/resourceUri': 'ui://rewind/attended-player.html',
@@ -680,6 +598,12 @@ export function registerAttendingTools(
   // non-MLB players return supported:false with appearance summaries
   // (final scores, opponents) so the model can still answer
   // "what games did I see this player in" cleanly.
+  // Raw `/attending/players/:id/stats` API response — a discriminated union
+  // on `supported`, returned as structuredContent unchanged. Kept hand-written
+  // (not z.infer'd from attendedPlayerStatsOutputSchema): the SDK requires a
+  // single object outputSchema, so that schema flattens both branches into
+  // one permissive object and loses the `supported`-keyed narrowing the
+  // handler relies on here.
   type PlayerStatsResp =
     | {
         supported: true;
@@ -769,6 +693,7 @@ export function registerAttendingTools(
           ),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: attendedPlayerStatsOutputSchema,
     },
     async ({ id, season }) =>
       withRichResponse<PlayerStatsResp>(async () => {
@@ -865,6 +790,7 @@ export function registerAttendingTools(
         'Aggregate counts of attended events broken down by category, event_type, and year.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: attendingStatsOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -909,6 +835,7 @@ export function registerAttendingTools(
         id: z.number().int().describe('Event id.'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: attendedEventDetailOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/attended-event.html' },
         'ui/resourceUri': 'ui://rewind/attended-event.html',
@@ -974,6 +901,7 @@ export function registerAttendingTools(
         year: z.number().int().describe('Calendar year, e.g. 2024.'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: attendingYearInReviewOutputSchema,
     },
     async ({ year }) =>
       withRichResponse(async () => {

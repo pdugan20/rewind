@@ -13,50 +13,24 @@ import {
   LIST_IMAGE_PX,
   type ContentBlock,
 } from './helpers.js';
+import {
+  vinylItemSchema,
+  mediaItemSchema,
+  vinylCollectionOutputSchema,
+  collectingStatsOutputSchema,
+  physicalMediaOutputSchema,
+  physicalMediaStatsOutputSchema,
+} from './schemas/collecting.js';
 
 const TOP_N = 5;
 
-type Image = {
-  cdn_url?: string | null;
-  url?: string | null;
-  thumbhash?: string | null;
-  dominant_color?: string | null;
-  accent_color?: string | null;
-} | null;
+// Types below are derived from the Zod output schemas (schemas/collecting.ts)
+// so the declared schema and the TS type cannot drift.
+type VinylItem = z.infer<typeof vinylItemSchema>;
 
-type VinylItem = {
-  id: number;
-  discogs_id: number;
-  title: string;
-  artists: string[];
-  year: number | null;
-  format: string;
-  format_detail: string;
-  label: string;
-  genres: string[];
-  styles: string[];
-  image: Image;
-  date_added: string | null;
-  rating: number | null;
-  discogs_url: string | null;
-};
+type MediaItem = z.infer<typeof mediaItemSchema>;
 
-type MediaItem = {
-  id: number;
-  title: string;
-  year: number | null;
-  tmdb_id: number | null;
-  imdb_id: string | null;
-  image: Image;
-  runtime: number | null;
-  tmdb_rating: number | null;
-  media_type: string;
-  resolution: string | null;
-  hdr: string | null;
-  audio: string | null;
-  audio_channels: string | null;
-  collected_at: string | null;
-};
+type CollectingStats = z.infer<typeof collectingStatsOutputSchema>;
 
 type Pagination = {
   page: number;
@@ -125,6 +99,7 @@ export function registerCollectingTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: vinylCollectionOutputSchema,
     },
     async ({
       query,
@@ -224,22 +199,11 @@ export function registerCollectingTools(
         'Get overall collection statistics including total items, format breakdown (vinyl, CD, cassette), unique artists, genre data, and year range. Supports date filtering.',
       inputSchema: { ...dateFilterParams },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: collectingStatsOutputSchema,
     },
     async ({ date, from, to }) =>
       withRichResponse(async () => {
-        type Stats = {
-          total_items: number;
-          by_format: Record<string, number>;
-          wantlist_count: number | null;
-          unique_artists: number | null;
-          estimated_value: number | null;
-          top_genre: string | null;
-          oldest_release_year: number | null;
-          newest_release_year: number | null;
-          most_collected_artist: unknown;
-          added_this_year: number | null;
-        };
-        const { data } = await client.get<{ data: Stats }>(
+        const { data } = await client.get<{ data: CollectingStats }>(
           '/collecting/stats',
           {
             date,
@@ -309,6 +273,7 @@ export function registerCollectingTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: physicalMediaOutputSchema,
     },
     async ({ query, media_type, limit, page, include_images }) =>
       withRichResponse(async () => {
@@ -369,6 +334,7 @@ export function registerCollectingTools(
         'Get statistics for the physical media collection including total items and breakdown by format (Blu-ray, 4K UHD, HD DVD).',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: physicalMediaStatsOutputSchema,
     },
     async () =>
       withRichResponse(async () => {

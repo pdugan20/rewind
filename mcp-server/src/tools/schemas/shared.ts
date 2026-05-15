@@ -35,3 +35,19 @@ export function imageSchema() {
     .passthrough()
     .nullable();
 }
+
+/**
+ * Pagination block on list endpoints -- the `pagination` field of a
+ * `{ data: [...], pagination: {...} }` response. Always present on a
+ * paginated response (never null).
+ */
+export function paginationSchema() {
+  return z
+    .object({
+      page: z.number(),
+      limit: z.number(),
+      total: z.number(),
+      total_pages: z.number(),
+    })
+    .passthrough();
+}

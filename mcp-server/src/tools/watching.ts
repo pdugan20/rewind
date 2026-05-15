@@ -16,79 +16,28 @@ import {
   LIST_IMAGE_PX,
   type ContentBlock,
 } from './helpers.js';
+import { paginationSchema } from './schemas/shared.js';
+import {
+  recentWatchesOutputSchema,
+  movieDetailsOutputSchema,
+  watchingStatsOutputSchema,
+  browseMoviesOutputSchema,
+  watchingGenresOutputSchema,
+  watchingDecadesOutputSchema,
+  watchingDirectorsOutputSchema,
+} from './schemas/watching.js';
 
 const POSTER_TOP_N = 5;
 
-type MovieImage = {
-  cdn_url?: string | null;
-  url?: string | null;
-  thumbhash?: string | null;
-  dominant_color?: string | null;
-  accent_color?: string | null;
-} | null;
+// Types below are derived from the Zod output schemas (schemas/watching.ts)
+// so the declared schema and the TS type cannot drift.
+type RecentWatch = z.infer<typeof recentWatchesOutputSchema>['items'][number];
 
-type RecentWatch = {
-  movie: {
-    id: number;
-    title: string;
-    year: number | null;
-    director: string | null;
-    tmdb_id: number | null;
-    summary: string | null;
-    tagline: string | null;
-    image: MovieImage;
-  };
-  watched_at: string;
-  user_rating: number | null;
-  rewatch: boolean;
-  source: string | null;
-  review: string | null;
-  review_url: string | null;
-};
+type MovieDetail = z.infer<typeof movieDetailsOutputSchema>;
 
-type MovieDetail = {
-  id: number;
-  title: string;
-  year: number | null;
-  director: string | null;
-  directors: string[];
-  genres: string[];
-  duration_min: number | null;
-  rating: string | null;
-  tmdb_id: number | null;
-  tmdb_rating: number | null;
-  tagline: string | null;
-  summary: string | null;
-  imdb_id: string | null;
-  image: MovieImage;
-  watch_history: Array<{
-    watched_at: string;
-    user_rating: number | null;
-    rewatch: boolean;
-    review: string | null;
-    review_url: string | null;
-    source: string | null;
-  }>;
-};
+type BrowseMovie = z.infer<typeof browseMoviesOutputSchema>['items'][number];
 
-type BrowseMovie = {
-  id: number;
-  title: string;
-  year: number | null;
-  director: string | null;
-  genres: string[];
-  duration_min: number | null;
-  tmdb_id: number | null;
-  tmdb_rating: number | null;
-  image: MovieImage;
-};
-
-type Pagination = {
-  page: number;
-  limit: number;
-  total: number;
-  total_pages: number;
-};
+type Pagination = z.infer<ReturnType<typeof paginationSchema>>;
 
 export function registerWatchingTools(
   server: McpServer,
@@ -123,6 +72,7 @@ export function registerWatchingTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: recentWatchesOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/recent-watches.html' },
         'ui/resourceUri': 'ui://rewind/recent-watches.html',
@@ -218,6 +168,7 @@ export function registerWatchingTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: movieDetailsOutputSchema,
     },
     async ({ id, include_images }) =>
       withRichResponse(async () => {
@@ -294,6 +245,7 @@ export function registerWatchingTools(
         'Get overall watching statistics including total movies, watch time, movies this year, top genre, top director, TV show counts, and episode counts. Supports date filtering.',
       inputSchema: { ...dateFilterParams },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: watchingStatsOutputSchema,
     },
     async ({ date, from, to }) =>
       withRichResponse(async () => {
@@ -385,6 +337,7 @@ export function registerWatchingTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: browseMoviesOutputSchema,
     },
     async ({
       genre,
@@ -475,6 +428,7 @@ export function registerWatchingTools(
         'Get genre breakdown across all watched movies. Returns each genre with movie count and percentage of total watches.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: watchingGenresOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -512,6 +466,7 @@ export function registerWatchingTools(
         'Get decade breakdown across all watched movies. Returns each decade with movie count.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: watchingDecadesOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -554,6 +509,7 @@ export function registerWatchingTools(
           .describe('Number of directors to return'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: watchingDirectorsOutputSchema,
     },
     async ({ limit }) =>
       withRichResponse(async () => {

@@ -16,6 +16,17 @@ import {
   LIST_IMAGE_PX,
   type ContentBlock,
 } from './helpers.js';
+import { imageSchema } from './schemas/shared.js';
+import {
+  articleSchema,
+  highlightSchema,
+  recentReadsOutputSchema,
+  readingHighlightsOutputSchema,
+  randomHighlightOutputSchema,
+  readingStatsOutputSchema,
+  similarArticlesOutputSchema,
+  articleDetailOutputSchema,
+} from './schemas/reading.js';
 
 const TOP_N = 5;
 
@@ -26,44 +37,13 @@ function truncateAtWord(s: string, maxChars: number): string {
   return (lastSpace > 0 ? slice.slice(0, lastSpace) : slice) + '…';
 }
 
-type Image = {
-  cdn_url?: string | null;
-  url?: string | null;
-  thumbhash?: string | null;
-  dominant_color?: string | null;
-  accent_color?: string | null;
-} | null;
+// Types below are derived from the Zod output schemas (schemas/reading.ts)
+// so the declared schema and the TS type cannot drift.
+type Image = z.infer<ReturnType<typeof imageSchema>>;
 
-type Article = {
-  id: number;
-  title: string;
-  author: string | null;
-  url: string | null;
-  instapaper_url: string | null;
-  instapaper_app_url: string | null;
-  domain: string | null;
-  description: string | null;
-  estimated_read_min: number | null;
-  status: string;
-  progress: number;
-  image: Image;
-  saved_at: string;
-};
+type Article = z.infer<typeof articleSchema>;
 
-type Highlight = {
-  text: string;
-  note: string | null;
-  created_at: string;
-  article: {
-    id?: number;
-    title: string;
-    author: string | null;
-    domain: string | null;
-    url?: string | null;
-    instapaper_url?: string | null;
-    instapaper_app_url?: string | null;
-  };
-};
+type Highlight = z.infer<typeof highlightSchema>;
 
 export function registerReadingTools(
   server: McpServer,
@@ -94,6 +74,7 @@ export function registerReadingTools(
           ),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: articleDetailOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/article.html' },
         'ui/resourceUri': 'ui://rewind/article.html',
@@ -244,6 +225,7 @@ export function registerReadingTools(
         ...includeImagesParam,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: recentReadsOutputSchema,
       _meta: {
         ui: { resourceUri: 'ui://rewind/recent-reads.html' },
         'ui/resourceUri': 'ui://rewind/recent-reads.html',
@@ -356,6 +338,7 @@ export function registerReadingTools(
         page: z.number().min(1).default(1).describe('Page number'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: readingHighlightsOutputSchema,
     },
     async ({ limit, page }) =>
       withRichResponse(async () => {
@@ -444,6 +427,7 @@ export function registerReadingTools(
         'Get a single random highlight from saved Instapaper articles. Great for daily inspiration or reflection.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: randomHighlightOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -494,6 +478,7 @@ export function registerReadingTools(
         'Get overall reading statistics from Instapaper including total articles, finished count, currently reading, highlights, and word count.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: readingStatsOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -543,20 +528,13 @@ export function registerReadingTools(
           .describe('Number of related articles to return'),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: similarArticlesOutputSchema,
     },
     async ({ article_id, limit }) =>
       withRichResponse(async () => {
-        type Related = {
-          id: number;
-          title: string;
-          author: string | null;
-          url: string | null;
-          instapaper_url: string | null;
-          instapaper_app_url: string | null;
-          domain: string | null;
-          description: string | null;
-          score: number;
-        };
+        type Related = z.infer<
+          typeof similarArticlesOutputSchema
+        >['items'][number];
         const data = await client.get<{ data: Related[] }>(
           `/reading/articles/${article_id}/related`,
           { limit }

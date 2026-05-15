@@ -12,41 +12,22 @@ import {
   dateFilterParams,
   type ContentBlock,
 } from './helpers.js';
+import {
+  activitySchema,
+  activityDetailsOutputSchema,
+  runningStatsOutputSchema,
+  recentRunsOutputSchema,
+  personalRecordsOutputSchema,
+  runningStreaksOutputSchema,
+  activitySplitsOutputSchema,
+  runningYearsOutputSchema,
+} from './schemas/running.js';
 
-type Activity = {
-  id: number;
-  strava_id?: number;
-  name: string;
-  date: string;
-  distance_mi: number;
-  duration: string;
-  pace: string;
-  elevation_ft: number;
-  city: string | null;
-  state: string | null;
-  is_race: boolean;
-  strava_url?: string | null;
-};
+// Types below are derived from the Zod output schemas (schemas/running.ts)
+// so the declared schema and the TS type cannot drift.
+type Activity = z.infer<typeof activitySchema>;
 
-type ActivityDetail = {
-  id?: number;
-  name: string;
-  date: string;
-  distance_mi: number;
-  duration: string;
-  pace: string;
-  elevation_ft: number;
-  heartrate_avg: number | null;
-  heartrate_max: number | null;
-  cadence: number | null;
-  calories: number | null;
-  suffer_score: number | null;
-  city: string | null;
-  state: string | null;
-  is_race: boolean;
-  workout_type: string;
-  strava_url: string | null;
-};
+type ActivityDetail = z.infer<typeof activityDetailsOutputSchema>;
 
 export function registerRunningTools(
   server: McpServer,
@@ -61,6 +42,7 @@ export function registerRunningTools(
         'Get overall running statistics from Strava including total runs, distance, elevation, duration, average pace, and Eddington number.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: runningStatsOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -120,6 +102,7 @@ export function registerRunningTools(
         ...dateFilterParams,
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: recentRunsOutputSchema,
     },
     async ({ limit, page, date, from, to }) =>
       withRichResponse(async () => {
@@ -168,6 +151,7 @@ export function registerRunningTools(
         'Get personal running records (PRs) from Strava -- fastest times at standard distances like mile, 5K, 10K, half marathon, marathon.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: personalRecordsOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -222,6 +206,7 @@ export function registerRunningTools(
         'Get running streak data from Strava -- current consecutive days with runs and the longest streak ever.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: runningStreaksOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
@@ -268,6 +253,7 @@ export function registerRunningTools(
           ),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: activityDetailsOutputSchema,
     },
     async ({ id }) =>
       withRichResponse(async () => {
@@ -325,6 +311,7 @@ export function registerRunningTools(
           ),
       },
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: activitySplitsOutputSchema,
     },
     async ({ id }) =>
       withRichResponse(async () => {
@@ -374,6 +361,7 @@ export function registerRunningTools(
         'Get per-year summary of running activity: total runs, distance, elevation, duration, average pace, longest run, and race count for every year on record.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: runningYearsOutputSchema,
     },
     async () =>
       withRichResponse(async () => {
