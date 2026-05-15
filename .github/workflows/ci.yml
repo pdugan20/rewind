@@ -92,3 +92,13 @@ jobs:
 
       - name: Audit dependencies
         run: npm audit --audit-level=moderate --omit=dev
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v5
