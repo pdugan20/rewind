@@ -6,6 +6,7 @@
 ### Features
 
 * **listening:** date-range filters on top tracks/artists + 7day sparklines ([ae8accc](https://github.com/pdugan20/rewind/commit/ae8accc6976e3ed0766e1756895f2d0af622692c))
+* **tools:** every tool, resource, and prompt now has a human-readable display title ("Now playing", "Recent runs") instead of a raw snake_case name ([d63cc8a](https://github.com/pdugan20/rewind/commit/d63cc8ac3aa9f27ea521eb8852261457d6da9715))
 
 
 ### Bug Fixes
