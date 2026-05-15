@@ -4350,7 +4350,53 @@
         "properties": {},
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
-      "outputSchema": null
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "api_status": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "domains": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "last_sync": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "items_synced": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "last_sync",
+                "items_synced"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "api_status",
+          "timestamp",
+          "domains"
+        ],
+        "additionalProperties": true,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
     },
     {
       "name": "get_listening_genres",
@@ -7780,16 +7826,6 @@
         "additionalProperties": true,
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
-    },
-    {
-      "name": "ui_hello_debug",
-      "description": "Show the Rewind MCP Apps diagnostic UI. Invoke this to verify the MCP Apps pipeline end-to-end against a known-working minimal React app.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      },
-      "outputSchema": null
     }
   ],
   "prompts": [
@@ -7909,12 +7945,6 @@
       "uri": "ui://rewind/attended-season.html",
       "name": "Rewind -- Attended Season",
       "description": "Interactive season grid for attended sports games. Each card shows date, score, attendance, weather, and a strip of the game's notable performers as silo headshots. Consumes get_attended_season structuredContent.",
-      "mimeType": "text/html;profile=mcp-app"
-    },
-    {
-      "uri": "ui://rewind/hello.html",
-      "name": "Rewind -- Hello (debug)",
-      "description": "Minimal diagnostic UI. Mirror of the Phase-1 app that rendered cleanly earlier today.",
       "mimeType": "text/html;profile=mcp-app"
     },
     {

@@ -13,7 +13,7 @@ import { registerCollectingTools } from './tools/collecting.js';
 import { registerReadingTools } from './tools/reading.js';
 import { registerCrossDomainTools } from './tools/cross-domain.js';
 import { registerAttendingTools } from './tools/attending.js';
-import { registerDebugTools } from './tools/debug.js';
+import { healthOutputSchema } from './tools/schemas/system.js';
 import { registerResources } from './resources.js';
 import { registerUiResource } from './resources/ui.js';
 import { registerPrompts } from './prompts.js';
@@ -102,6 +102,7 @@ export function createServer(client: RewindClient): McpServer {
         'Check the health and sync status of the Rewind API. Returns API status and last sync times for each data domain.',
       inputSchema: {},
       annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: healthOutputSchema,
     },
     async () => {
       try {
@@ -134,7 +135,14 @@ export function createServer(client: RewindClient): McpServer {
           );
         }
 
-        return { content: [{ type: 'text', text: lines.join('\n') }] };
+        return {
+          content: [{ type: 'text', text: lines.join('\n') }],
+          structuredContent: {
+            api_status: health.status,
+            timestamp: health.timestamp,
+            domains: syncHealth.domains,
+          },
+        };
       } catch (error) {
         return {
           content: [
@@ -280,18 +288,6 @@ export function createServer(client: RewindClient): McpServer {
       resourceDomains: ['https://cdn.rewind.rest', 'https://www.mlbstatic.com'],
     },
   });
-
-  // Debug-only: reinstated alongside Phase 2 to A/B test whether Claude
-  // Desktop's "Failed to set up MCP app" is specific to the new resource
-  // or symptomatic of the whole rewind MCP server's sandbox state.
-  registerUiResource(server, {
-    name: 'Rewind -- Hello (debug)',
-    uri: 'ui://rewind/hello.html',
-    html: UI_BUNDLES['hello.html'],
-    description:
-      'Minimal diagnostic UI. Mirror of the Phase-1 app that rendered cleanly earlier today.',
-  });
-  registerDebugTools(server);
 
   return server;
 }
