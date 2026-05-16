@@ -4794,8 +4794,6 @@
                 "watched_at",
                 "user_rating",
                 "rewatch",
-                "review",
-                "review_url",
                 "source"
               ],
               "additionalProperties": true

@@ -460,7 +460,13 @@ export function registerCrossDomainTools(
     },
     async ({ month, day }) =>
       withRichResponse(async () => {
-        const params: Record<string, number | undefined> = { month, day };
+        // The endpoint requires an explicit date. Default to today --
+        // which is what this tool's input schema already documents.
+        const today = new Date();
+        const params = {
+          month: month ?? today.getUTCMonth() + 1,
+          day: day ?? today.getUTCDate(),
+        };
         const data = await client.get<OnThisDay>('/feed/on-this-day', params);
 
         if (!data.years.length) {

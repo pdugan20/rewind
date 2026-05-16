@@ -93,8 +93,10 @@ export const movieDetailsOutputSchema = z
           watched_at: z.string(),
           user_rating: z.number().nullable(),
           rewatch: z.boolean(),
-          review: z.string().nullable(),
-          review_url: z.string().nullable(),
+          // The API omits review/review_url on watches with no review,
+          // so the keys are optional, not merely nullable.
+          review: z.string().nullish(),
+          review_url: z.string().nullish(),
           source: z.string().nullable(),
         })
         .passthrough()
