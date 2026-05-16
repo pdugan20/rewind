@@ -3,6 +3,18 @@ title: Changelog
 description: API updates and new features.
 ---
 
+<Update label="May 15, 2026" tags={["Improvements"]}>
+
+## MCP server: tool titles and output schemas
+
+MCP tools are now clearer to read in the client and to consume programmatically.
+
+- **Display titles** — every tool, resource, and prompt shows a readable name in Claude Desktop and iOS, like "Now playing" or "Recent runs", instead of a raw identifier like `get_now_playing`.
+- **Output schemas** — schema-aware clients can render labeled fields from a tool's structured response; every tool now declares an `outputSchema`.
+- **`get_on_this_day` fix** — calling [`get_on_this_day`](/mcp-server#get_on_this_day) with no arguments returned an error; it now defaults to today.
+
+</Update>
+
 <Update label="April 29, 2026" tags={["Improvements"]}>
 
 ## Reading domain: full Instapaper archive

@@ -72,6 +72,7 @@ migrations/                -- D1 SQL migration files
 mcp-server/                -- MCP server (npm: rewind-mcp-server), separate package
   src/
     tools/                 -- Tool definitions per domain
+      schemas/             -- Zod outputSchema per domain (z.infer drives the TS types)
     server.ts              -- MCP server setup, tool/resource/prompt registration
     client.ts              -- HTTP client for api.rewind.rest
     worker.ts              -- Cloudflare Worker entry (remote transport)
