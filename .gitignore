@@ -18,3 +18,4 @@ scripts/**/*.csv
 scripts/**/*.log
 docs-site/dist/
 docs-site/.astro/
+d1-snapshots/
