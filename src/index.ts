@@ -215,6 +215,46 @@ export default {
                 `[ERROR] Last.fm similar-artists enrichment failed: ${err instanceof Error ? err.message : String(err)}`
               );
             }
+
+            // Album-attribution-repair integrity watchdog. Counts tracks
+            // whose artist_id doesn't match their album's artist_id
+            // (excluding albums attributed to the canonical Various
+            // Artists row, where the mismatch is correct by design).
+            // Post-Phase-3-apply this should be small and stable; growth
+            // signals a sync regression. See
+            // docs/projects/album-attribution-repair/.
+            try {
+              const { sql } = await import('drizzle-orm');
+              const { lastfmAlbums, lastfmTracks } =
+                await import('./db/schema/lastfm.js');
+              const { getVariousArtistsId } =
+                await import('./services/lastfm/constants.js');
+              const vaId = await getVariousArtistsId(db);
+              const [row] = await db
+                .select({ n: sql<number>`count(*)` })
+                .from(lastfmTracks)
+                .innerJoin(
+                  lastfmAlbums,
+                  sql`${lastfmTracks.albumId} = ${lastfmAlbums.id}`
+                )
+                .where(
+                  vaId === null
+                    ? sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId}`
+                    : sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId} AND ${lastfmAlbums.artistId} != ${vaId}`
+                );
+              const mismatch = Number(row?.n ?? 0);
+              if (mismatch > 0) {
+                console.log(
+                  `[WARN] album-attribution integrity: ${mismatch} tracks where track.artist_id != album.artist_id`
+                );
+              } else {
+                console.log('[INTEGRITY] album attribution clean');
+              }
+            } catch (err) {
+              console.log(
+                `[ERROR] integrity check failed: ${err instanceof Error ? err.message : String(err)}`
+              );
+            }
           })()
         );
         break;
