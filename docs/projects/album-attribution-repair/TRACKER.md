@@ -15,7 +15,7 @@
 ## Phase 0 — Discovery ✅
 
 - [x] Reproduced symptom: `/v1/listening/now-playing` returns `album.image:
-    null` for Porch by Pearl Jam while `/recent` returns Bob Dylan's MTV
+null` for Porch by Pearl Jam while `/recent` returns Bob Dylan's MTV
       Unplugged art for the same track.
 - [x] Identified Bug 1: `migrations/0018_compilation_album_dedup.sql` merged
       same-named albums under 3+ distinct artists, flagged winners
