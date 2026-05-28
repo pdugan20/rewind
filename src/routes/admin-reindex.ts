@@ -550,7 +550,7 @@ async function buildSearchItemsForDomain(
     case 'watching':
       return buildAllThenSlice(buildWatching, db, offset, limit);
     case 'listening':
-      return buildAllThenSlice(buildListening, db, offset, limit);
+      return buildListening(db, offset, limit);
     case 'running':
       return buildAllThenSlice(buildRunning, db, offset, limit);
     case 'collecting':
@@ -687,63 +687,122 @@ async function buildWatching(
   }));
 }
 
+// Streaming reindex for listening. The combined stream is
+//   artists  [0,                   artistCount)
+//   albums   [artistCount,         artistCount + albumCount)
+//   tracks   [artistCount + albumCount, total)
+// Album/track subtitle is the artist name, joined at SQL time to avoid
+// materializing the full artist map. Mirrors buildReading's
+// segment-by-segment cursor so the legacy buildAllThenSlice path
+// (which loaded all ~46K rows into Worker memory) is no longer needed
+// for this domain.
 async function buildListening(
-  db: ReturnType<typeof createDb>
-): Promise<SearchIndexItem[]> {
-  const items: SearchIndexItem[] = [];
-
-  const artists = await db
-    .select({ id: lastfmArtists.id, name: lastfmArtists.name })
+  db: ReturnType<typeof createDb>,
+  offset: number,
+  limit: number
+): Promise<BuiltChunk> {
+  const artistCountRow = await db
+    .select({ c: sql<number>`count(*)` })
     .from(lastfmArtists)
     .where(eq(lastfmArtists.userId, 1));
-  const artistNameById = new Map<number, string>();
-  for (const a of artists) {
-    artistNameById.set(a.id, a.name);
-    items.push({
-      domain: 'listening',
-      entityType: 'artist',
-      entityId: String(a.id),
-      title: a.name,
-    });
-  }
+  const artistCount = Number(artistCountRow[0]?.c ?? 0);
 
-  const albums = await db
-    .select({
-      id: lastfmAlbums.id,
-      name: lastfmAlbums.name,
-      artistId: lastfmAlbums.artistId,
-    })
+  const albumCountRow = await db
+    .select({ c: sql<number>`count(*)` })
     .from(lastfmAlbums)
     .where(eq(lastfmAlbums.userId, 1));
-  for (const al of albums) {
-    items.push({
-      domain: 'listening',
-      entityType: 'album',
-      entityId: String(al.id),
-      title: al.name,
-      subtitle: artistNameById.get(al.artistId),
-    });
-  }
+  const albumCount = Number(albumCountRow[0]?.c ?? 0);
 
-  const tracks = await db
-    .select({
-      id: lastfmTracks.id,
-      name: lastfmTracks.name,
-      artistId: lastfmTracks.artistId,
-    })
+  const trackCountRow = await db
+    .select({ c: sql<number>`count(*)` })
     .from(lastfmTracks)
     .where(eq(lastfmTracks.userId, 1));
-  for (const t of tracks) {
-    items.push({
-      domain: 'listening',
-      entityType: 'track',
-      entityId: String(t.id),
-      title: t.name,
-      subtitle: artistNameById.get(t.artistId),
-    });
+  const trackCount = Number(trackCountRow[0]?.c ?? 0);
+
+  const total = artistCount + albumCount + trackCount;
+  const items: SearchIndexItem[] = [];
+  let cursor = offset;
+  let remaining = limit;
+
+  // Segment 1: artists
+  if (cursor < artistCount && remaining > 0) {
+    const take = Math.min(remaining, artistCount - cursor);
+    const rows = await db
+      .select({ id: lastfmArtists.id, name: lastfmArtists.name })
+      .from(lastfmArtists)
+      .where(eq(lastfmArtists.userId, 1))
+      .orderBy(lastfmArtists.id)
+      .limit(take)
+      .offset(cursor);
+    for (const r of rows) {
+      items.push({
+        domain: 'listening',
+        entityType: 'artist',
+        entityId: String(r.id),
+        title: r.name,
+      });
+    }
+    cursor += rows.length;
+    remaining -= rows.length;
   }
 
-  return items;
+  // Segment 2: albums (with artist-name subtitle via JOIN)
+  if (cursor < artistCount + albumCount && remaining > 0) {
+    const segmentOffset = Math.max(0, cursor - artistCount);
+    const take = Math.min(remaining, artistCount + albumCount - cursor);
+    const rows = await db
+      .select({
+        id: lastfmAlbums.id,
+        name: lastfmAlbums.name,
+        artistName: lastfmArtists.name,
+      })
+      .from(lastfmAlbums)
+      .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
+      .where(eq(lastfmAlbums.userId, 1))
+      .orderBy(lastfmAlbums.id)
+      .limit(take)
+      .offset(segmentOffset);
+    for (const r of rows) {
+      items.push({
+        domain: 'listening',
+        entityType: 'album',
+        entityId: String(r.id),
+        title: r.name,
+        subtitle: r.artistName ?? undefined,
+      });
+    }
+    cursor += rows.length;
+    remaining -= rows.length;
+  }
+
+  // Segment 3: tracks
+  if (cursor < total && remaining > 0) {
+    const segmentOffset = Math.max(0, cursor - artistCount - albumCount);
+    const take = Math.min(remaining, total - cursor);
+    const rows = await db
+      .select({
+        id: lastfmTracks.id,
+        name: lastfmTracks.name,
+        artistName: lastfmArtists.name,
+      })
+      .from(lastfmTracks)
+      .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+      .where(eq(lastfmTracks.userId, 1))
+      .orderBy(lastfmTracks.id)
+      .limit(take)
+      .offset(segmentOffset);
+    for (const r of rows) {
+      items.push({
+        domain: 'listening',
+        entityType: 'track',
+        entityId: String(r.id),
+        title: r.name,
+        subtitle: r.artistName ?? undefined,
+      });
+    }
+  }
+
+  return { items, total };
 }
 
 async function buildRunning(
