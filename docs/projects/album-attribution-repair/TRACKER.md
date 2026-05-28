@@ -15,8 +15,8 @@
 ## Phase 0 — Discovery ✅
 
 - [x] Reproduced symptom: `/v1/listening/now-playing` returns `album.image:
-null` for Porch by Pearl Jam while `/recent` returns Bob Dylan's MTV
-      Unplugged art for the same track.
+  null` for Porch by Pearl Jam while `/recent` returns Bob Dylan's MTV
+  Unplugged art for the same track.
 - [x] Identified Bug 1: `migrations/0018_compilation_album_dedup.sql` merged
       same-named albums under 3+ distinct artists, flagged winners
       `is_compilation = 1`.
@@ -71,28 +71,31 @@ stops.
 Schema-level fix: introduce Various Artists row, lock identity to
 `(name, artist_id)`.
 
-- [ ] **Various Artists artist row**
-  - [ ] Migration: insert into `lastfm_artists` with
-        `mbid = '89ad4ac3-39f7-470e-963a-56509c546377'`, name `'Various Artists'`,
-        `is_filtered = 0`
-  - [ ] Export `VARIOUS_ARTISTS_ID` constant from `src/services/lastfm/sync.ts`
-        or a new `src/services/lastfm/constants.ts`
-- [ ] **`upsertAlbum` becomes strict**
-  - [ ] Remove all fallbacks; only match on `(name, artist_id)`
-  - [ ] If miss: insert new row
-  - [ ] Keep `is_compilation` column writes off (column stays for read-side
-        compat until Phase 6)
-- [ ] **Optional: detect Various-Artists scrobbles at sync time**
-  - [ ] If Last.fm payload's track MBID hits a known Various Artists release
-        (best-effort), or if `artist['#text'] === 'Various Artists'`, point
-        the album row at `VARIOUS_ARTISTS_ID` instead of the track artist
-  - [ ] Defer to a follow-up if cost/complexity is high — Phase 3 will catch
-        the existing cases anyway
-- [ ] Tests
-  - [ ] Strict-identity test: two artists with same album name → two rows
-  - [ ] Various Artists row exists post-migration
-- [ ] `npx tsc --noEmit` clean
-- [ ] `npm test` green
+- [x] **Various Artists artist row**
+  - [x] Migration `0038_seed_various_artists.sql`: inserts canonical row
+        with `mbid = '89ad4ac3-39f7-470e-963a-56509c546377'`, name
+        `'Various Artists'`, `is_filtered = 0` (idempotent via
+        `INSERT OR IGNORE`)
+  - [x] `VARIOUS_ARTISTS_MBID` / `VARIOUS_ARTISTS_NAME` constants +
+        `getVariousArtistsId(db)` helper in
+        `src/services/lastfm/constants.ts`
+- [x] **`upsertAlbum` is strict**
+  - [x] Strictness landed in Phase 1 (compilation fallback removed); Phase 2
+        retains the strict `(name, artist_id)` match plus row creation
+  - [x] `is_compilation` writes remain off; the column stays for read-side
+        compat until Phase 6
+- [x] **MBID-first artist resolution**
+  - [x] `upsertArtist` now prefers an MBID match when present, falling back
+        to name match. Anchors the canonical Various Artists row even if a
+        scrobble's display name drifts; benefits all artists generally
+- [x] Tests
+  - [x] Strict-identity test (Phase 1) confirmed green
+  - [x] Various Artists row exists post-migration; resolves via
+        `getVariousArtistsId`; name-only fallback works
+  - [x] `upsertArtist` MBID-first lookup: drifted-name scrobble resolves
+        to the canonical row without creating a duplicate
+- [x] `npx tsc --noEmit` clean
+- [x] `npm test` green (1006 tests)
 - [ ] PR + deploy
 
 ## Phase 3 — Repair migration

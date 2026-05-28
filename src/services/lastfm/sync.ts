@@ -22,7 +22,10 @@ import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import { cleanArtistName } from '../images/sources/utils.js';
 import { resolveGenre } from './genres.js';
 
-async function upsertArtist(
+// Exported so the album-attribution-repair test suite can assert the
+// MBID-first lookup behavior — anchors the canonical Various Artists
+// row even if the local display name drifts.
+export async function upsertArtist(
   db: Database,
   rawName: string,
   mbid: string | null,
@@ -31,12 +34,25 @@ async function upsertArtist(
   // Strip featured artist suffixes so "Gorillaz feat. IDLES" -> "Gorillaz"
   const name = cleanArtistName(rawName);
 
-  // Try to find existing artist
-  const [existing] = await db
-    .select({ id: lastfmArtists.id })
-    .from(lastfmArtists)
-    .where(eq(lastfmArtists.name, name))
-    .limit(1);
+  // Prefer MBID match when present. Stable across name variants and
+  // anchors the canonical Various Artists row (seeded by migration 0038)
+  // even if a scrobble's artist text drifts. Falls back to name match
+  // for scrobbles Last.fm hasn't mbid-tagged yet.
+  let existing: { id: number } | undefined;
+  if (mbid) {
+    [existing] = await db
+      .select({ id: lastfmArtists.id })
+      .from(lastfmArtists)
+      .where(eq(lastfmArtists.mbid, mbid))
+      .limit(1);
+  }
+  if (!existing) {
+    [existing] = await db
+      .select({ id: lastfmArtists.id })
+      .from(lastfmArtists)
+      .where(eq(lastfmArtists.name, name))
+      .limit(1);
+  }
 
   if (existing) {
     if (mbid) {
