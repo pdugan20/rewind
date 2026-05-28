@@ -132,48 +132,58 @@ The only hard-to-reverse step. Run dry first; full DB backup before live run.
       `docs/projects/album-attribution-repair/dry-run-2026-05-28.csv`
 - [x] **Classifier review** (action distribution: 60 KEEP_AS_VA / 28
       COLLAPSE_TO_PRIMARY / 40 SPLIT_PER_ARTIST)
-- [ ] **Backup**
-  - [ ] Export prod D1 to a dated R2 snapshot
-        (`d1-snapshots/rewind-db-2026-05-28-pre-repair.sql`)
-  - [ ] Document restore steps in this tracker
-- [ ] **Live run**
-  - [ ] `curl -X POST 'https://api.rewind.rest/v1/admin/repair-album-attribution?apply=true'`
-  - [ ] Verify post-run: `integrity.lastfm_album_artist_mismatch_count`
-        drops sharply (feature-credit residue may remain — tracked
-        separately)
-- [x] PR (code + tests + dry-run CSV) opened
+- [x] **Backup** (2026-05-28 19:57 UTC)
+  - [x] Per-table snapshot in `d1-snapshots/rewind-db-2026-05-28-*.sql`:
+        `lastfm_albums`, `lastfm_artists`, `lastfm_tracks`,
+        `lastfm_top_albums`, `images`, `lastfm_album_attribution_audit`.
+        Single-file export via `wrangler d1 export` errors on the FTS5
+        `search_index` virtual table; per-table dumps cover the mutable
+        surface.
+  - [x] Restore: `wrangler d1 execute rewind-db --remote --file <table>.sql`
+        for each table to roll back.
+- [x] **Live run** (2026-05-28 19:58 UTC)
+  - [x] `curl -X POST '/v1/admin/repair-album-attribution?apply=true'`
+  - [x] Verified: `integrity.lastfm_album_artist_mismatch_count` dropped
+        **1,541 → 158** (the residual 158 is feature-credit attribution
+        like `Beyoncé & Rumi Carter` on a Beyoncé album — a separate
+        normalization concern, tracked as a follow-up).
+  - [x] Audit table: 128 distinct albums covered (61 KEEP_AS_VA /
+        27 COLLAPSE_TO_PRIMARY / 40 SPLIT_PER_ARTIST). 50 new per-artist
+        album rows minted, 868 tracks repointed.
+  - [x] Spot-check: Pearl Jam "Porch" now resolves to a Pearl Jam-owned
+        MTV Unplugged row (id 12749) with its own cover; Bob Dylan's MTV
+        Unplugged still owns 128 plays across 24 Dylan tracks.
+- [x] PR (code + tests + dry-run CSV) opened and merged
 
 ## Phase 4 — Art backfill for split rows
 
-Operational; no new code. The Phase 3 apply creates new album rows
-without `image_key`; the existing image pipeline fills them in.
+Operational; no new code. Phase 3 apply created 50 new album rows.
 
-- [ ] After Phase 3 applies, immediately trigger the admin backfill:
-      `curl -X POST -H "Authorization: Bearer rw_..." -H "Content-Type: application/json" \`
-      `-d '{"type":"albums","limit":200}' https://api.rewind.rest/v1/listening/admin/backfill-images`
-      Re-run until `succeeded + skipped` covers all new rows
-      (or wait for the daily `0 3` cron to drain the queue).
-- [ ] After 48 h, query albums still missing art. Acceptable for some to
-      remain placeholders; the bug is wrong-art, not missing-art.
-- [ ] Spot-check on portfolio: Lately card shows the correct Pearl Jam
-      MTV Unplugged cover.
+- [x] After Phase 3 applied, the existing image pipeline auto-picked
+      up the new rows during the deploy-time sync — all 50 new albums
+      have populated `images` entries.
+- [x] Spot-check: Pearl Jam's MTV Unplugged (album id 12749) has its
+      own cover at `https://cdn.rewind.rest/listening/albums/12749/original.jpg`
+      with a thumbhash + dominant color extracted.
 
 ## Phase 5 — Rebuild derived data
 
 Operational; no new code. Playcounts are recomputed by Phase 3 apply.
-The remaining derived data is regenerated via existing admin endpoints
-and the daily cron.
 
-- [ ] **`lastfm_top_albums`** — trigger an immediate rebuild:
-      `curl -X POST -H "Authorization: Bearer rw_..." -H "Content-Type: application/json" \`
-      `-d '{"type":"top_lists"}' https://api.rewind.rest/v1/admin/sync/listening`
-- [ ] **`search_index`** — reindex listening:
-      `curl -X POST -H "Authorization: Bearer rw_..." -H "Content-Type: application/json" \`
-      `-d '{"domains":["listening"]}' https://api.rewind.rest/v1/admin/reindex-search`
-- [ ] **`lastfm_monthly_stats` / `lastfm_yearly_stats`** — kick the stats
-      sync (counts unique albums per period; splits change those counts):
-      `curl -X POST -H "Authorization: Bearer rw_..." -H "Content-Type: application/json" \`
-      `-d '{"type":"stats"}' https://api.rewind.rest/v1/admin/sync/listening`
+- [x] **`lastfm_top_albums`** — rebuilt via
+      `POST /v1/admin/sync/listening {type: 'top_lists'}` (669 entries
+      synced). Spot-check shows Olivia Rodrigo's GUTS / Beastie Boys'
+      Ill Communication / Taylor Swift's Lover at the top with correct
+      artist attribution.
+- [⚠️] **`search_index`** — partial. The legacy reindex implementation
+  loads all 46K listening rows into Worker memory and times out at
+  ~30s CPU. Got ~5K of ~5.6K artists indexed; albums + tracks are
+  pending. **Not blocking the album-attribution fix** — `/recent`,
+  `/now-playing`, `/top/albums` all work via direct joins. The
+  reindex implementation needs SQL-level pagination per entity_type
+  (separate follow-up — issue not caused by this project).
+- [x] **`lastfm_monthly_stats` / `lastfm_yearly_stats`** — rebuilt via
+      `POST /v1/admin/sync/listening {type: 'stats'}`.
 
 ## Phase 6 — Invariants and cleanup
 
