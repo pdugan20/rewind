@@ -281,6 +281,33 @@ export const lastfmMonthlyStats = sqliteTable(
   ]
 );
 
+// Audit log for the album-attribution-repair Phase 3 run. Every action
+// (KEEP_AS_VA, COLLAPSE_TO_PRIMARY, SPLIT_PER_ARTIST) inserts a row so
+// the migration is reviewable and reversible. See
+// docs/projects/album-attribution-repair/.
+export const lastfmAlbumAttributionAudit = sqliteTable(
+  'lastfm_album_attribution_audit',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    originalAlbumId: integer('original_album_id').notNull(),
+    originalAlbumName: text('original_album_name').notNull(),
+    originalArtistId: integer('original_artist_id'),
+    action: text('action').notNull(),
+    newAlbumId: integer('new_album_id'),
+    newArtistId: integer('new_artist_id'),
+    tracksMoved: integer('tracks_moved').notNull().default(0),
+    notes: text('notes'),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    index('idx_album_attribution_audit_original').on(table.originalAlbumId),
+    index('idx_album_attribution_audit_action').on(table.action),
+    index('idx_album_attribution_audit_created').on(table.createdAt),
+  ]
+);
+
 // Precomputed per-year listening stats. Powers GET /v1/listening/years —
 // the year-picker summary used by the portfolio's listening page. Unique
 // counts can't be derived by summing the monthly precompute (an artist

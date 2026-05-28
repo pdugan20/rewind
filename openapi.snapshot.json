@@ -23703,6 +23703,128 @@
         }
       }
     },
+    "/v1/admin/repair-album-attribution": {
+      "post": {
+        "operationId": "repairAlbumAttribution",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Repair album attribution",
+        "description": "Splits or collapses comp-flagged Last.fm albums per the dominant-cluster heuristic. Dry-run by default (pass ?apply=true to execute). Always returns a CSV in the `Content-Type: text/csv` mode when called without `apply`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false",
+              "description": "When true, executes the plan. Otherwise returns CSV."
+            },
+            "required": false,
+            "description": "When true, executes the plan. Otherwise returns CSV.",
+            "name": "apply",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repair plan (dry run) or applied summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "dry_run",
+                        "applied"
+                      ]
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "by_action": {
+                      "type": "object",
+                      "properties": {
+                        "KEEP_AS_VA": {
+                          "type": "integer"
+                        },
+                        "COLLAPSE_TO_PRIMARY": {
+                          "type": "integer"
+                        },
+                        "SPLIT_PER_ARTIST": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "KEEP_AS_VA",
+                        "COLLAPSE_TO_PRIMARY",
+                        "SPLIT_PER_ARTIST"
+                      ]
+                    },
+                    "albums_created": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "tracks_moved": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "audit_rows_written": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "total",
+                    "by_action",
+                    "albums_created",
+                    "tracks_moved",
+                    "audit_rows_written"
+                  ]
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/attending/pending": {
       "get": {
         "operationId": "adminAttendingPending",

@@ -102,41 +102,46 @@ Schema-level fix: introduce Various Artists row, lock identity to
 
 The only hard-to-reverse step. Run dry first; full DB backup before live run.
 
-- [ ] **`_split_audit` table** (lives in production for at least 30 days post-run)
-  - [ ] Columns: `winner_album_id`, `album_name`, `track_artist_id`,
-        `new_album_id`, `tracks_moved`, `action`
-        (`split_per_artist` | `keep_as_various_artists` | `skip_legit_comp`),
+- [x] **`lastfm_album_attribution_audit` table** (migration 0039;
+      lives in production for at least 30 days post-run)
+  - [x] Columns: `original_album_id`, `original_album_name`,
+        `original_artist_id`, `action`
+        (`KEEP_AS_VA` | `COLLAPSE_TO_PRIMARY` | `SPLIT_PER_ARTIST`),
+        `new_album_id`, `new_artist_id`, `tracks_moved`, `notes`,
         `created_at`
-- [ ] **Repair script** at `scripts/backfills/repair-album-attribution.ts`
-  - [ ] Dry-run mode (default): outputs CSV of planned actions, no writes
-  - [ ] For each `lastfm_albums` row with `is_compilation = 1`:
-    - [ ] Group its tracks by `track.artist_id`
-    - [ ] Compute share = `tracks_for_artist / total_tracks_on_album`
-    - [ ] Classify: - dominant artist (share ≥ 0.50): `split_per_artist` — mint new
-          `(name, that_artist_id)` row, copy `mbid`, `url`,
-          re-derive `playcount` from scrobble count, repoint that artist's
-          tracks to the new row - remaining sparse artists (< 0.50 share, ≥ 4 distinct on the
-          album): leave their tracks pointing at the winner row, but
-          re-attribute the winner row's `artist_id` to
-          `VARIOUS_ARTISTS_ID` and re-derive its playcount - all artists below 0.50, only 2-3 distinct: split all to per-artist
-          rows; delete the now-orphaned winner row
-    - [ ] Emit `_split_audit` rows for every action
-  - [ ] Live-run mode (`--apply`): writes to DB inside one D1 batch per album
-- [ ] **Dry-run review**
-  - [ ] Generate dry-run CSV
-  - [ ] Manually spot-check 10 albums (Pearl Jam MTV Unplugged, Aerosmith
-        Greatest Hits, Pulp Fiction Soundtrack, Mamas & Papas "Gold",
-        Tarantino comps, McCartney III Imagined, …)
-  - [ ] Confirm classifications match intent
+- [x] **Repair module** at `src/services/lastfm/repair-attribution.ts`
+  - [x] `planRepair(db)` loads comp-flagged albums + per-artist track
+        shares and classifies each
+  - [x] Refined classifier (cluster-count + comp-name regex + shape-comp
+        signal): - 0 clusters + comp-named OR sparse-shape → `KEEP_AS_VA` - 0 clusters + no comp signal → `SPLIT_PER_ARTIST` (sparse anomaly) - 1 cluster → `COLLAPSE_TO_PRIMARY` - ≥ 2 clusters + comp-named → `KEEP_AS_VA` (preserve group) - ≥ 2 clusters + not comp-named → `SPLIT_PER_ARTIST` (name collision)
+  - [x] `applyRepair(db)` executes: - **KEEP_AS_VA**: re-attribute album.artist_id → Various Artists;
+        recompute playcount; tracks already point at this row - **COLLAPSE_TO_PRIMARY**: mint per-artist row for the primary
+        artist (or reuse the original if album_artist matches),
+        repoint tracks, inherit the image, delete the original row
+        when it becomes empty - **SPLIT_PER_ARTIST**: per artist on the album, mint a row,
+        repoint that artist's tracks. The album_artist's split keeps
+        the original row + image; other splits get fresh rows; their
+        art is deferred to Phase 4
+  - [x] Audit row for every action
+  - [x] Idempotent (tests cover re-run safety)
+- [x] **Admin endpoint** `POST /v1/admin/repair-album-attribution`
+  - [x] Default mode returns JSON summary; `Accept: text/csv` returns
+        the dry-run CSV
+  - [x] `?apply=true` executes the plan
+- [x] **Dry-run CSV** committed at
+      `docs/projects/album-attribution-repair/dry-run-2026-05-28.csv`
+- [x] **Classifier review** (action distribution: 60 KEEP_AS_VA / 28
+      COLLAPSE_TO_PRIMARY / 40 SPLIT_PER_ARTIST)
 - [ ] **Backup**
   - [ ] Export prod D1 to a dated R2 snapshot
-        (`d1-snapshots/rewind-db-<YYYY-MM-DD>-pre-repair.sql`)
+        (`d1-snapshots/rewind-db-2026-05-28-pre-repair.sql`)
   - [ ] Document restore steps in this tracker
 - [ ] **Live run**
-  - [ ] `npx tsx scripts/backfills/repair-album-attribution.ts --apply`
-  - [ ] Verify post-run counts: mismatch count → 0, new album row count =
-        number of `split_per_artist` actions
-- [ ] PR with code + dated `_split_audit` snapshot summary
+  - [ ] `curl -X POST 'https://api.rewind.rest/v1/admin/repair-album-attribution?apply=true'`
+  - [ ] Verify post-run: `integrity.lastfm_album_artist_mismatch_count`
+        drops sharply (feature-credit residue may remain — tracked
+        separately)
+- [x] PR (code + tests + dry-run CSV) opened
 
 ## Phase 4 — Art backfill for split rows
 
