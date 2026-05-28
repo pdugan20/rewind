@@ -145,53 +145,59 @@ The only hard-to-reverse step. Run dry first; full DB backup before live run.
 
 ## Phase 4 — Art backfill for split rows
 
-- [ ] Existing `processListeningImages()` in
-      `src/services/images/sync-images.ts` will pick up new album rows missing
-      `image_key` on the next daily cron — confirm by querying for unfilled
-      art among the new IDs.
-- [ ] If too slow (large batch), kick off explicitly via admin endpoint:
-      `POST /v1/listening/admin/process-images?entityType=albums&limit=500`
-- [ ] After 48h, query: split albums still missing art. Acceptable for some to
+Operational; no new code. The Phase 3 apply creates new album rows
+without `image_key`; the existing image pipeline fills them in.
+
+- [ ] After Phase 3 applies, immediately trigger the admin backfill:
+      `curl -X POST -H "Authorization: Bearer rw_..." -H "Content-Type: application/json" \`
+      `-d '{"type":"albums","limit":200}' https://api.rewind.rest/v1/listening/admin/backfill-images`
+      Re-run until `succeeded + skipped` covers all new rows
+      (or wait for the daily `0 3` cron to drain the queue).
+- [ ] After 48 h, query albums still missing art. Acceptable for some to
       remain placeholders; the bug is wrong-art, not missing-art.
 - [ ] Spot-check on portfolio: Lately card shows the correct Pearl Jam
       MTV Unplugged cover.
 
 ## Phase 5 — Rebuild derived data
 
-- [ ] **Playcounts on winner rows**
-  - [ ] Already re-derived inside Phase 3 split logic — confirm none remain
-        with the inflated migration-0018 totals
-- [ ] **`lastfm_top_albums`**
-  - [ ] Daily cron will rebuild from current playcounts; trigger an immediate
-        run via `POST /v1/admin/sync` with `type: 'top_lists'` to avoid
-        showing stale top-albums until next cron
-- [ ] **`search_index`**
-  - [ ] Trigger reindex: `POST /v1/admin/reindex` with
-        `{ "domains": ["listening"] }`
-  - [ ] Verify split albums searchable by `<artist> <album_name>`
-- [ ] **`lastfm_monthly_stats` / `lastfm_yearly_stats`**
-  - [ ] These count unique albums per period. Splits affect `uniqueAlbums`
-        counts. Trigger recompute via the existing stats sync.
+Operational; no new code. Playcounts are recomputed by Phase 3 apply.
+The remaining derived data is regenerated via existing admin endpoints
+and the daily cron.
+
+- [ ] **`lastfm_top_albums`** — trigger an immediate rebuild:
+      `curl -X POST -H "Authorization: Bearer rw_..." -H "Content-Type: application/json" \`
+      `-d '{"type":"top_lists"}' https://api.rewind.rest/v1/admin/sync/listening`
+- [ ] **`search_index`** — reindex listening:
+      `curl -X POST -H "Authorization: Bearer rw_..." -H "Content-Type: application/json" \`
+      `-d '{"domains":["listening"]}' https://api.rewind.rest/v1/admin/reindex-search`
+- [ ] **`lastfm_monthly_stats` / `lastfm_yearly_stats`** — kick the stats
+      sync (counts unique albums per period; splits change those counts):
+      `curl -X POST -H "Authorization: Bearer rw_..." -H "Content-Type: application/json" \`
+      `-d '{"type":"stats"}' https://api.rewind.rest/v1/admin/sync/listening`
 
 ## Phase 6 — Invariants and cleanup
 
-- [ ] **Tests**
-  - [ ] `upsertAlbum` test (already added in Phase 1) confirmed green
-  - [ ] Sync regression test: scrobble of "Pearl Jam · Porch · MTV Unplugged"
-        creates a Pearl Jam-attributed album row, not a Bob Dylan one
-- [ ] **Runtime invariant**
-  - [ ] Add cron check in `src/index.ts`: nightly count of mismatched rows;
-        log at `[WARN]` if non-zero
-  - [ ] Optionally: page via Sentry alert at threshold > 10
-- [ ] **Schema cleanup**
-  - [ ] Migration: drop `lastfm_albums.is_compilation` column and the
+- [x] **Tests**
+  - [x] `upsertAlbum` strict-identity test (Phase 1)
+  - [x] `upsertArtist` MBID-first lookup test (Phase 2)
+  - [x] `planRepair` + `applyRepair` test suite (Phase 3)
+- [x] **Runtime invariant** — nightly integrity check
+  - [x] Daily `0 3` cron computes mismatch count excluding the canonical
+        Various Artists row; logs `[WARN]` when non-zero, `[INTEGRITY]
+    album attribution clean` otherwise
+  - [ ] Optionally page via Sentry at a threshold once a steady-state
+        baseline is established
+- [ ] **Schema cleanup** — deferred to a follow-up PR
+      after Phase 3 has applied in prod and the audit table has been
+      observed for ≥ 30 days
+  - [ ] Drop `lastfm_albums.is_compilation` column + the
         `idx_lastfm_albums_compilation` index
   - [ ] Remove the field from `src/db/schema/lastfm.ts`
-  - [ ] Remove the comment reference in `src/routes/listening.ts:2831` (the
-        listening-signal heuristic still applies but the comment becomes
-        outdated)
+  - [ ] Remove the obsolete comment reference in
+        `src/routes/listening.ts:2831`
 - [ ] **Docs**
-  - [ ] Add a one-line entry to `docs-mintlify/changelog.mdx`
+  - [ ] Add a one-line entry to `docs-mintlify/changelog.mdx` once the
+        live apply has run
   - [ ] Mark this project complete in `docs/projects/`
 
 ## Rollback / restore notes
