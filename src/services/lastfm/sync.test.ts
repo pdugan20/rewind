@@ -9,7 +9,13 @@ import {
   lastfmYearlyStats,
 } from '../../db/schema/lastfm.js';
 import { setupTestDb } from '../../test-helpers.js';
-import { syncListening, syncYearlyStats, upsertAlbum } from './sync.js';
+import {
+  syncListening,
+  syncYearlyStats,
+  upsertAlbum,
+  upsertArtist,
+} from './sync.js';
+import { VARIOUS_ARTISTS_MBID } from './constants.js';
 import { loadFilters } from './filters.js';
 import { eq } from 'drizzle-orm';
 
@@ -389,5 +395,50 @@ describe('upsertAlbum - strict (name, artist_id) identity', () => {
     expect(first.isNew).toBe(true);
     expect(second.isNew).toBe(false);
     expect(second.id).toBe(first.id);
+  });
+});
+
+describe('upsertArtist - MBID-first lookup', () => {
+  let db: Database;
+
+  beforeAll(async () => {
+    await setupTestDb();
+  });
+
+  beforeEach(async () => {
+    db = createDb(env.DB);
+    await db.delete(lastfmScrobbles);
+    await db.delete(lastfmTracks);
+    await db.delete(lastfmAlbums);
+    await db.delete(lastfmArtists);
+    await loadFilters(db);
+  });
+
+  it('resolves to existing row by MBID even when scrobble carries a different name', async () => {
+    const [canonical] = await db
+      .insert(lastfmArtists)
+      .values({
+        userId: 1,
+        name: 'Various Artists',
+        mbid: VARIOUS_ARTISTS_MBID,
+        isFiltered: 0,
+      })
+      .returning();
+
+    // Scrobble carries the canonical MBID but a casing-drifted display name.
+    const result = await upsertArtist(
+      db,
+      'various artists',
+      VARIOUS_ARTISTS_MBID
+    );
+
+    expect(result.isNew).toBe(false);
+    expect(result.id).toBe(canonical.id);
+
+    const rows = await db
+      .select()
+      .from(lastfmArtists)
+      .where(eq(lastfmArtists.mbid, VARIOUS_ARTISTS_MBID));
+    expect(rows).toHaveLength(1);
   });
 });
