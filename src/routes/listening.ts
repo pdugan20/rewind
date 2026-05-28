@@ -2820,9 +2820,7 @@ listening.openapi(artistDetailRoute, async (c) => {
     // Require ≥ 2 distinct tracks scrobbled — drops one-track guest
     // appearances, singles, and soundtracks where the user only listened
     // to a single contributed song (e.g. Olivia Rodrigo's "All I Want"
-    // from the High School Musical soundtrack). is_compilation isn't
-    // reliably populated by the Last.fm sync so we use this listening
-    // signal instead.
+    // from the High School Musical soundtrack).
     .having(sql`count(distinct ${lastfmTracks.id}) >= 2`)
     .orderBy(desc(sql`count(${lastfmScrobbles.id})`))
     .limit(10);

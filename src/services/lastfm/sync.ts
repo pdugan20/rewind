@@ -107,10 +107,8 @@ export async function upsertAlbum(
     return { id: existing.id, isNew: false };
   }
 
-  // No match — create a new album row. The historical compilation fallback
-  // (reuse any same-named album flagged is_compilation = 1, regardless of
-  // artist) caused cross-artist attribution bugs — e.g. Pearl Jam tracks
-  // linked to Bob Dylan's MTV Unplugged row. See
+  // No match — create a new album row. Strict (name, artist_id)
+  // identity; no cross-artist fallback. See
   // docs/projects/album-attribution-repair/README.md.
   const filtered = isFiltered({ artistName, albumName: name }) ? 1 : 0;
   const result = await db

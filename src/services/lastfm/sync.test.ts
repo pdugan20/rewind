@@ -356,13 +356,8 @@ describe('upsertAlbum - strict (name, artist_id) identity', () => {
     );
     expect(dylanAlbum.isNew).toBe(true);
 
-    // Even if the existing row is flagged as a compilation, the second
-    // artist's identically-named album must land in its own row.
-    await db
-      .update(lastfmAlbums)
-      .set({ isCompilation: 1 })
-      .where(eq(lastfmAlbums.id, dylanAlbum.id));
-
+    // A second artist's identically-named album must land in its own
+    // row — strict (name, artist_id) identity, no cross-artist merge.
     const pearlJamAlbum = await upsertAlbum(
       db,
       'MTV Unplugged',

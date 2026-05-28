@@ -20,7 +20,6 @@ import keys from './routes/keys.js';
 import adminSync from './routes/admin-sync.js';
 import adminReindex from './routes/admin-reindex.js';
 import adminAttending from './routes/admin-attending.js';
-import adminRepair from './routes/admin-repair.js';
 import { LastfmClient } from './services/lastfm/client.js';
 import { syncListening } from './services/lastfm/sync.js';
 import { syncRunning } from './services/strava/sync.js';
@@ -98,7 +97,6 @@ const routes = app
   .route('/admin/export', exportRoute)
   .route('/admin/keys', keys)
   .route('/admin', adminReindex)
-  .route('/admin', adminRepair)
   .route('/', adminAttending)
   .route('/', adminSync);
 
