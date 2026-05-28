@@ -178,12 +178,24 @@
               "artists_missing_apple_music_url",
               "tracks_missing_itunes_enrichment"
             ]
+          },
+          "integrity": {
+            "type": "object",
+            "properties": {
+              "lastfm_album_artist_mismatch_count": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "lastfm_album_artist_mismatch_count"
+            ]
           }
         },
         "required": [
           "status",
           "domains",
-          "enrichment"
+          "enrichment",
+          "integrity"
         ]
       },
       "ErrorResponse": {
@@ -2081,6 +2093,9 @@
                     "artists_missing_apple_music_url_with_plays": 0,
                     "artists_missing_apple_music_url": 0,
                     "tracks_missing_itunes_enrichment": 0
+                  },
+                  "integrity": {
+                    "lastfm_album_artist_mismatch_count": 0
                   }
                 }
               }

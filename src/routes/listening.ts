@@ -1694,7 +1694,7 @@ listening.openapi(nowPlayingRoute, async (c) => {
     const latestTrack = tracks[0];
     const isPlaying = latestTrack['@attr']?.nowplaying === 'true';
 
-    // Look up artist and album in DB for IDs
+    // Look up artist in DB for ID
     const [artist] = await db
       .select({
         id: lastfmArtists.id,
@@ -1705,41 +1705,28 @@ listening.openapi(nowPlayingRoute, async (c) => {
       .where(eq(lastfmArtists.name, latestTrack.artist['#text']))
       .limit(1);
 
-    let albumData: {
-      id: number;
-      name: string;
-    } | null = null;
-    if (latestTrack.album['#text'] && artist) {
-      const [album] = await db
-        .select({
-          id: lastfmAlbums.id,
-          name: lastfmAlbums.name,
-        })
-        .from(lastfmAlbums)
-        .where(
-          and(
-            eq(lastfmAlbums.name, latestTrack.album['#text']),
-            eq(lastfmAlbums.artistId, artist.id)
-          )
-        )
-        .limit(1);
-      albumData = album ?? null;
-    }
-
-    // Look up track in DB for Apple Music data
+    // Resolve track + album via the stored track.album_id link. Mirrors the
+    // /recent endpoint's join shape so attribution stays consistent across
+    // surfaces — see docs/projects/album-attribution-repair/README.md for
+    // why the previous (name, artist_id) album lookup was unreliable.
     let trackData: {
       id: number;
       appleMusicUrl: string | null;
       previewUrl: string | null;
+      albumId: number | null;
+      albumName: string | null;
     } | null = null;
     if (artist) {
-      const [track] = await db
+      const [row] = await db
         .select({
           id: lastfmTracks.id,
           appleMusicUrl: lastfmTracks.appleMusicUrl,
           previewUrl: lastfmTracks.previewUrl,
+          albumId: lastfmTracks.albumId,
+          albumName: lastfmAlbums.name,
         })
         .from(lastfmTracks)
+        .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
         .where(
           and(
             eq(lastfmTracks.name, latestTrack.name),
@@ -1747,8 +1734,13 @@ listening.openapi(nowPlayingRoute, async (c) => {
           )
         )
         .limit(1);
-      trackData = track ?? null;
+      trackData = row ?? null;
     }
+
+    const albumData =
+      trackData?.albumId && trackData.albumName
+        ? { id: trackData.albumId, name: trackData.albumName }
+        : null;
 
     const albumImage = albumData
       ? await getImageAttachment(
@@ -1774,7 +1766,7 @@ listening.openapi(nowPlayingRoute, async (c) => {
         },
         album: {
           id: albumData?.id ?? null,
-          name: latestTrack.album['#text'],
+          name: albumData?.name ?? latestTrack.album['#text'],
           image: albumImage,
         },
         url: latestTrack.url,

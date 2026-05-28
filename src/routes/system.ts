@@ -3,7 +3,11 @@ import { desc, eq, sql, and, isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { createOpenAPIApp } from '../lib/openapi.js';
 import { syncRuns } from '../db/schema/system.js';
-import { lastfmArtists, lastfmTracks } from '../db/schema/lastfm.js';
+import {
+  lastfmArtists,
+  lastfmAlbums,
+  lastfmTracks,
+} from '../db/schema/lastfm.js';
 import { setCache } from '../lib/cache.js';
 
 const DOMAINS = [
@@ -47,11 +51,20 @@ const EnrichmentHealth = z.object({
   tracks_missing_itunes_enrichment: z.number().int(),
 });
 
+const IntegrityHealth = z.object({
+  // Tracks pointing at an album whose artist_id != the track's artist_id —
+  // the cross-artist attribution bug from migration 0018. Phase 1 stops new
+  // corruption; Phase 3 drives this to 0. See
+  // docs/projects/album-attribution-repair/README.md.
+  lastfm_album_artist_mismatch_count: z.number().int(),
+});
+
 const SyncHealthResponse = z
   .object({
     status: z.literal('ok'),
     domains: z.record(z.string(), SyncDomainStatus),
     enrichment: EnrichmentHealth,
+    integrity: IntegrityHealth,
   })
   .openapi('SyncHealthResponse');
 
@@ -127,6 +140,9 @@ const syncHealthRoute = createRoute({
               artists_missing_apple_music_url_with_plays: 0,
               artists_missing_apple_music_url: 0,
               tracks_missing_itunes_enrichment: 0,
+            },
+            integrity: {
+              lastfm_album_artist_mismatch_count: 0,
             },
           },
         },
@@ -238,6 +254,17 @@ system.openapi(syncHealthRoute, async (c) => {
       and(isNull(lastfmTracks.itunesEnrichedAt), eq(lastfmTracks.isFiltered, 0))
     );
 
+  // Data-integrity counter: tracks pointing at an album whose artist
+  // doesn't match. Drops to 0 once the album-attribution-repair project
+  // Phase 3 runs; before then, expect ~1,541 (2026-05-28 baseline).
+  const [integrityRow] = await db
+    .select({
+      mismatchCount: sql<number>`count(*)`,
+    })
+    .from(lastfmTracks)
+    .innerJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+    .where(sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId}`);
+
   return c.json({
     status: 'ok' as const,
     domains,
@@ -246,6 +273,9 @@ system.openapi(syncHealthRoute, async (c) => {
         enrichmentRow?.artistsMissingWithPlays ?? 0,
       artists_missing_apple_music_url: enrichmentRow?.artistsMissing ?? 0,
       tracks_missing_itunes_enrichment: trackRow?.tracksMissing ?? 0,
+    },
+    integrity: {
+      lastfm_album_artist_mismatch_count: integrityRow?.mismatchCount ?? 0,
     },
   });
 });

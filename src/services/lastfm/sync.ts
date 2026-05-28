@@ -62,7 +62,9 @@ async function upsertArtist(
   return { id: result[0].id, isNew: true };
 }
 
-async function upsertAlbum(
+// Exported so the album-attribution-repair test suite can assert the
+// strict (name, artist_id) identity invariant.
+export async function upsertAlbum(
   db: Database,
   name: string,
   artistId: number,
@@ -89,18 +91,11 @@ async function upsertAlbum(
     return { id: existing.id, isNew: false };
   }
 
-  // 2. Compilation fallback: reuse existing compilation album row
-  const [compilation] = await db
-    .select({ id: lastfmAlbums.id })
-    .from(lastfmAlbums)
-    .where(and(eq(lastfmAlbums.name, name), eq(lastfmAlbums.isCompilation, 1)))
-    .limit(1);
-
-  if (compilation) {
-    return { id: compilation.id, isNew: false };
-  }
-
-  // 3. No match — create new album row
+  // No match — create a new album row. The historical compilation fallback
+  // (reuse any same-named album flagged is_compilation = 1, regardless of
+  // artist) caused cross-artist attribution bugs — e.g. Pearl Jam tracks
+  // linked to Bob Dylan's MTV Unplugged row. See
+  // docs/projects/album-attribution-repair/README.md.
   const filtered = isFiltered({ artistName, albumName: name }) ? 1 : 0;
   const result = await db
     .insert(lastfmAlbums)

@@ -9,7 +9,8 @@ import {
   lastfmYearlyStats,
 } from '../../db/schema/lastfm.js';
 import { setupTestDb } from '../../test-helpers.js';
-import { syncListening, syncYearlyStats } from './sync.js';
+import { syncListening, syncYearlyStats, upsertAlbum } from './sync.js';
+import { loadFilters } from './filters.js';
 import { eq } from 'drizzle-orm';
 
 describe('syncListening', () => {
@@ -311,5 +312,82 @@ describe('syncYearlyStats', () => {
     expect(row.scrobbles).toBe(1);
     expect(row.uniqueArtists).toBe(1);
     expect(row.uniqueTracks).toBe(1);
+  });
+});
+
+describe('upsertAlbum - strict (name, artist_id) identity', () => {
+  let db: Database;
+
+  beforeAll(async () => {
+    await setupTestDb();
+  });
+
+  beforeEach(async () => {
+    db = createDb(env.DB);
+    await db.delete(lastfmScrobbles);
+    await db.delete(lastfmTracks);
+    await db.delete(lastfmAlbums);
+    await db.delete(lastfmArtists);
+    await loadFilters(db);
+  });
+
+  it('mints distinct album rows when two artists share an album name', async () => {
+    const [pearlJam] = await db
+      .insert(lastfmArtists)
+      .values({ userId: 1, name: 'Pearl Jam', isFiltered: 0 })
+      .returning();
+    const [bobDylan] = await db
+      .insert(lastfmArtists)
+      .values({ userId: 1, name: 'Bob Dylan', isFiltered: 0 })
+      .returning();
+
+    const dylanAlbum = await upsertAlbum(
+      db,
+      'MTV Unplugged',
+      bobDylan.id,
+      null,
+      'Bob Dylan'
+    );
+    expect(dylanAlbum.isNew).toBe(true);
+
+    // Even if the existing row is flagged as a compilation, the second
+    // artist's identically-named album must land in its own row.
+    await db
+      .update(lastfmAlbums)
+      .set({ isCompilation: 1 })
+      .where(eq(lastfmAlbums.id, dylanAlbum.id));
+
+    const pearlJamAlbum = await upsertAlbum(
+      db,
+      'MTV Unplugged',
+      pearlJam.id,
+      null,
+      'Pearl Jam'
+    );
+
+    expect(pearlJamAlbum.isNew).toBe(true);
+    expect(pearlJamAlbum.id).not.toBe(dylanAlbum.id);
+
+    const rows = await db
+      .select()
+      .from(lastfmAlbums)
+      .where(eq(lastfmAlbums.name, 'MTV Unplugged'));
+    expect(rows).toHaveLength(2);
+    const artistIds = new Set(rows.map((r) => r.artistId));
+    expect(artistIds).toEqual(new Set([bobDylan.id, pearlJam.id]));
+  });
+
+  it('returns the same row on repeat upsert for the same (name, artist_id)', async () => {
+    const [artist] = await db
+      .insert(lastfmArtists)
+      .values({ userId: 1, name: 'Pearl Jam', isFiltered: 0 })
+      .returning();
+
+    const first = await upsertAlbum(db, 'Ten', artist.id, null, 'Pearl Jam');
+    const second = await upsertAlbum(db, 'Ten', artist.id, null, 'Pearl Jam');
+
+    expect(first.isNew).toBe(true);
+    expect(second.isNew).toBe(false);
+    expect(second.id).toBe(first.id);
   });
 });
