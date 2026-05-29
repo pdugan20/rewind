@@ -135,4 +135,40 @@ describe('getImageAttachmentBatch', () => {
     const img200 = result.get('200') as ImageAttachment;
     expect(img200.cdn_url).toContain('v=3');
   });
+
+  it('chunks queries to stay under the D1 100-parameter limit', async () => {
+    // 95 ids would be 2 fixed + 95 = 97 params (fine), but 99 ids tipped
+    // /watching/reviews over D1's 100-param cap. Pass 150 ids and assert
+    // the helper splits into multiple queries and merges all results.
+    const entityIds = Array.from({ length: 150 }, (_, i) => String(i));
+
+    mockWhere.mockImplementation((..._args) => {
+      const callIndex = mockWhere.mock.calls.length - 1;
+      // First chunk owns id "0", second chunk owns id "90".
+      const owned = callIndex === 0 ? '0' : '90';
+      return Promise.resolve([
+        {
+          entityId: owned,
+          r2Key: `watching/movies/${owned}/original.jpg`,
+          thumbhash: null,
+          dominantColor: null,
+          accentColor: null,
+          imageVersion: 1,
+        },
+      ]);
+    });
+
+    const result = await getImageAttachmentBatch(
+      mockDb,
+      'watching',
+      'movies',
+      entityIds
+    );
+
+    // 150 ids / 90 per chunk = 2 queries.
+    expect(mockSelect).toHaveBeenCalledTimes(2);
+    // Results from both chunks are merged.
+    expect(result.has('0')).toBe(true);
+    expect(result.has('90')).toBe(true);
+  });
 });
