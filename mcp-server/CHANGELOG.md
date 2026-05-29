@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.10.0...mcp-server-v0.11.0) (2026-05-29)
+
+
+### Features
+
+* **mcp:** outputSchema for all MCP server tools ([#109](https://github.com/pdugan20/rewind/issues/109)) ([084c8a8](https://github.com/pdugan20/rewind/commit/084c8a87d21864550f2686bcb3a16c83767b62c2))
+
+
+### Bug Fixes
+
+* **mcp:** live output-schema audit, and the two bugs it found ([#112](https://github.com/pdugan20/rewind/issues/112)) ([9fa77f3](https://github.com/pdugan20/rewind/commit/9fa77f334ccee5f597ef573014953af1d82ced95))
+
 ## [0.10.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.9.0...mcp-server-v0.10.0) (2026-05-15)
 
 
