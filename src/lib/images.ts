@@ -70,23 +70,34 @@ export async function getImageAttachmentBatch(
 ): Promise<Map<string, ImageAttachment>> {
   if (entityIds.length === 0) return new Map();
 
-  const rows = await db
-    .select({
-      entityId: images.entityId,
-      r2Key: images.r2Key,
-      thumbhash: images.thumbhash,
-      dominantColor: images.dominantColor,
-      accentColor: images.accentColor,
-      imageVersion: images.imageVersion,
-    })
-    .from(images)
-    .where(
-      and(
-        eq(images.domain, domain),
-        eq(images.entityType, entityType),
-        inArray(images.entityId, entityIds)
-      )
-    );
+  // D1 caps bound parameters at 100 per query. This query uses 2 fixed
+  // params (domain, entityType) plus one per entity id, so chunk the ids to
+  // stay safely under the limit regardless of how many entities are passed.
+  const CHUNK_SIZE = 90;
+  const selectChunk = (chunk: string[]) =>
+    db
+      .select({
+        entityId: images.entityId,
+        r2Key: images.r2Key,
+        thumbhash: images.thumbhash,
+        dominantColor: images.dominantColor,
+        accentColor: images.accentColor,
+        imageVersion: images.imageVersion,
+      })
+      .from(images)
+      .where(
+        and(
+          eq(images.domain, domain),
+          eq(images.entityType, entityType),
+          inArray(images.entityId, chunk)
+        )
+      );
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < entityIds.length; i += CHUNK_SIZE) {
+    chunks.push(entityIds.slice(i, i + CHUNK_SIZE));
+  }
+  const rows = (await Promise.all(chunks.map(selectChunk))).flat();
 
   const map = new Map<string, ImageAttachment>();
   for (const row of rows) {
