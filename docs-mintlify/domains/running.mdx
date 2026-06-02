@@ -1,48 +1,39 @@
 ---
 title: Running
 icon: person-running
-description: Strava activity data
+description: Track running activities synced from Strava, including distance, pace, elevation, splits, gear, and personal records.
 ---
 
 ## Overview
 
 The Running domain tracks running activities from Strava, including distance, pace, elevation, splits, gear, and personal records.
 
-Data syncs daily at 3:00 AM UTC via cron, with real-time updates from Strava webhooks for new activities.
-
-## Key endpoints
-
-| Endpoint                                                                     | Description                                            |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------ |
-| [GET /running/activities](/api-reference/running/list-activities)            | Paginated activity list with filters                   |
-| [GET /running/activities/:id](/api-reference/running/activity-detail)        | Full activity detail including map polyline            |
-| [GET /running/activities/:id/splits](/api-reference/running/activity-splits) | Per-mile or per-km splits                              |
-| [GET /running/stats](/api-reference/running/lifetime-running-statistics)     | Lifetime stats (total runs, distance, elevation, pace) |
-| [GET /running/stats/years/:year](/api-reference/running/single-year-summary) | Year-specific stats                                    |
-| [GET /running/prs](/api-reference/running/personal-records)                  | Personal records by distance                           |
-| [GET /running/streaks](/api-reference/running/running-streaks)               | Run streak data (consecutive days)                     |
-| [GET /running/gear](/api-reference/running/gear-list)                        | Shoe/gear tracker with mileage                         |
-| [GET /running/races](/api-reference/running/race-activities)                 | Race results                                           |
+Activities sync daily, with new runs arriving in real time via Strava webhooks. Browse every endpoint in the [API reference](/api-reference/running/lifetime-running-statistics).
 
 ## Charts
 
-Several endpoints return data formatted for charting:
+Several endpoints return chart-ready series for plotting: cumulative distance, pace trend, time-of-day distribution, and elevation gain over time.
 
-| Endpoint                                                                           | Description                          |
-| ---------------------------------------------------------------------------------- | ------------------------------------ |
-| [GET /running/charts/cumulative](/api-reference/running/cumulative-distance-chart) | Cumulative distance over time        |
-| [GET /running/charts/pace-trend](/api-reference/running/pace-trend-chart)          | Pace trend over time                 |
-| [GET /running/charts/time-of-day](/api-reference/running/time-of-day-chart)        | Activity distribution by time of day |
-| [GET /running/charts/elevation](/api-reference/running/elevation-chart)            | Elevation gain over time             |
-
-## Activity filters
+## Filtering
 
 The activities endpoint supports filtering by:
 
-- `year` — filter to a specific year.
-- `type` — workout type (default, race, long_run, etc.).
-- `city` — filter by city name.
-- `min_distance` / `max_distance` — distance range in miles.
-- `sort` — sort field (date, distance, pace, elevation).
-- `order` — asc or desc.
+- `year`: filter to a specific year.
+- `type`: workout type (default, race, long_run, etc.).
+- `city`: filter by city name.
+- `min_distance` / `max_distance`: distance range in miles.
+- `sort`: sort field (date, distance, pace, elevation).
+- `order`: asc or desc.
 - Standard date filters (`date`, `from`, `to`).
+
+## Year in review
+
+For a per-year breakdown, use [GET /running/stats/years/:year](/api-reference/running/single-year-summary). It returns year-specific stats such as total runs, distance, elevation, and pace for the requested year.
+
+## Images
+
+Running activities carry map artwork generated from Strava map tiles. See [Images](/domains/images) for the source and fallback details.
+
+## From Claude
+
+You can also explore your running history from Claude. Set up the [MCP server](/mcp/overview), then the [running tools](/reference/mcp-tools/running) are yours. Ask how far you ran last month, or for a year-over-year pace trend.

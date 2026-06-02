@@ -1,31 +1,14 @@
 ---
 title: Reading
 icon: book-open
-description: Instapaper articles, reading progress, and highlights
+description: Instapaper articles, reading progress, and highlights, with semantic search across everything you have saved.
 ---
 
 ## Overview
 
 The Reading domain tracks articles and reading activity from Instapaper, including reading progress, starred items, and highlighted passages.
 
-Data syncs every 6 hours via cron. Each sync transfers only new or changed bookmarks and highlights, and deletions from Instapaper propagate through. Reading status is derived from progress data.
-
-## Key endpoints
-
-| Endpoint                                                                     | Description                                           |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [GET /reading/recent](/api-reference/reading/recent-articles)                | Recently saved or finished articles                   |
-| [GET /reading/currently-reading](/api-reference/reading/currently-reading)   | Articles you're in the middle of                      |
-| [GET /reading/articles](/api-reference/reading/list-articles)                | Browse all articles with filters                      |
-| [GET /reading/articles/:id](/api-reference/reading/article-detail)           | Article detail with highlights + body excerpt         |
-| [GET /reading/articles/:id/related](/api-reference/reading/related-articles) | Thematically related articles via semantic similarity |
-| [GET /reading/archive](/api-reference/reading/archived-articles)             | Finished articles                                     |
-| [GET /reading/highlights](/api-reference/reading/list-highlights)            | All highlights across articles                        |
-| [GET /reading/highlights/:id](/api-reference/reading/highlight-detail)       | Highlight detail with parent article context          |
-| [GET /reading/highlights/random](/api-reference/reading/random-highlight)    | Random highlight with article context                 |
-| [GET /reading/stats](/api-reference/reading/reading-stats)                   | Reading statistics                                    |
-| [GET /reading/streaks](/api-reference/reading/reading-streaks)               | Consecutive days with reading activity                |
-| [GET /reading/domains](/api-reference/reading/top-domains)                   | Top source domains                                    |
+Bookmarks and highlights sync a few times a day. Each sync transfers only new or changed items, and deletions from Instapaper propagate through. Reading status is derived from progress data. Browse every endpoint in the [API reference](/api-reference/reading/recent-articles).
 
 ## Reading status
 
@@ -45,29 +28,37 @@ The 0.75 threshold accounts for article footers, author bios, and related links 
 
 Highlighted passages are stored with their position and timestamp. The highlights endpoints return each highlight with parent-article context (title, author, domain, URL), useful for building a highlights collection or a daily-quote feature. Highlights are independently searchable via `/v1/search`.
 
-## Semantic search and related articles
+## Semantic search
 
-Beyond keyword search, the Reading domain supports two meaning-based retrieval paths:
+Reading supports meaning-based retrieval, not just keyword matching:
 
-- `GET /v1/search?mode=semantic&domain=reading` or `?mode=hybrid&domain=reading` — search by what an article was _about_ rather than the exact words in it. Hybrid blends keyword and semantic results. Both return a relevance `score` per result.
-- `GET /v1/reading/articles/:id/related?limit=5` — "what else did I read like this?" for any article.
+- **Search by meaning**: `GET /v1/search?mode=semantic&domain=reading` (or `mode=hybrid` to blend keyword and semantic). Each result is scored by relevance.
+- **Related articles**: `GET /v1/reading/articles/:id/related` for "what else did I read like this?"
 
 ## Article metadata
 
 Each article includes metadata extracted during sync:
 
-- **Title, description** — from Instapaper.
-- **Author, site name** — from the article's OG meta tags.
-- **Domain** — parsed from the URL (e.g., `wired.com`, `theatlantic.com`).
-- **Word count, estimated read time** — computed from the article's processed text.
-- **Thumbnail** — from the article's `og:image`, served via the image pipeline.
+- **Title, description**: from Instapaper.
+- **Author, site name**: from the article's OG meta tags.
+- **Domain**: parsed from the URL (for example, `wired.com`, `theatlantic.com`).
+- **Word count, estimated read time**: computed from the article's processed text.
+- **Thumbnail**: from the article's `og:image`, served via the [image pipeline](/domains/images).
 
 ## Filtering
 
 Articles can be filtered by:
 
-- `status` — unread, reading, finished, skipped, abandoned.
-- `domain` — source domain (e.g., `wired.com`, `theatlantic.com`).
-- `tag` — Instapaper tags.
-- `starred` — true/false.
+- `status`: unread, reading, finished, skipped, abandoned.
+- `domain`: source domain (for example, `wired.com`, `theatlantic.com`).
+- `tag`: Instapaper tags.
+- `starred`: true/false.
 - Standard date filters (`date`, `from`, `to`).
+
+## Year in review
+
+[GET /reading/year/:year](/api-reference/reading/year-in-review) returns a reading summary for a single year, including counts, top domains, and highlights.
+
+## From Claude
+
+You can also explore your reading history from Claude. Set up the [MCP server](/mcp/overview), then the [reading tools](/reference/mcp-tools/reading) are yours. Ask what you have been reading, or to find an article you saved about a topic.

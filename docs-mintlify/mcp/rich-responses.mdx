@@ -1,0 +1,63 @@
+---
+title: Rich responses
+description: How Rewind MCP tools return images, links, structured data, and interactive cards beyond plain text.
+icon: sparkles
+---
+
+Rewind tools return more than a wall of text. Every response follows the MCP content model, so a single tool call can ship a text summary, cover art, links into source platforms, machine-readable JSON, and (in clients that support it) an interactive card. The model reasons over the same response your client renders.
+
+A typical response carries up to four kinds of payload:
+
+- A text block with a human-readable summary.
+- Image blocks for artwork, posters, and portraits.
+- Resource link blocks pointing at the canonical record or the source platform.
+- A `structuredContent` object with the exact numbers and fields.
+
+## Image blocks
+
+Tools attach artwork as `image` content blocks. A detail tool returns the single poster, cover, or portrait for its entity; a list tool returns artwork for its top few items (five by default) and downscales them, so a long page stays well under the client's response-size budget.
+
+Any tool that returns images accepts an `include_images` parameter, defaulting to `true`. Set it to `false` for a compact, text-only response:
+
+```text
+get_top_albums(period: "12m", include_images: false)
+```
+
+See [Troubleshooting](/troubleshooting#claude-and-mcp) if responses feel too image-heavy in your client.
+
+## Resource link blocks
+
+External platform URLs come back as `resource_link` content blocks: Letterboxd reviews, Strava activities, Discogs releases, Apple Music pages, original article URLs, and Last.fm pages. These let a client drill from a result straight into the source.
+
+Resource links arrive as `resource_link` blocks, which clients show in the tool-use accordion rather than inline. When the model lists items, it also renders each title as a markdown link from the URL fields in `structuredContent`, so the links reach you either way.
+
+The cross-domain [`search`](/api-reference/search/cross-domain-search) tool returns resource links pointing at `rewind://` entity URIs, so a match can drill into the full record. See [Resources and prompts](/mcp/resources-and-prompts) for how those URIs map to endpoints.
+
+## Structured content
+
+Every tool also returns a `structuredContent` object: a JSON shape that mirrors the underlying [API response](/openapi-spec). This is where the exact numbers live. The model reads totals, counts, dates, ranks, and URLs from structured fields instead of re-parsing them out of the prose summary, which keeps numeric answers accurate.
+
+When you need precise figures (play counts, distances, ratings, streak lengths), they come from `structuredContent`, not the text block.
+
+## Interactive cards
+
+Several tools advertise [MCP Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/) UI resources. In a client that supports MCP Apps, these render as an inline interactive card that consumes the tool's `structuredContent`. In any other client, the same call returns the standard text, image, resource link, and structured response unchanged, so nothing breaks when cards are not supported.
+
+These tools render cards:
+
+| Tool                  | Card                                                                         |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `get_recent_watches`  | Poster grid of recently watched movies                                       |
+| `get_recent_reads`    | Article card list of recently saved reads                                    |
+| `get_article`         | Single-article card: hero image, byline, meta strip, top highlights          |
+| `get_artist_details`  | Single-artist card: portrait, stats, yearly sparkline, top tracks and albums |
+| `get_top_tracks`      | Top-tracks list with a flat and album-grouped view                           |
+| `get_top_albums`      | Album cover grid                                                             |
+| `get_top_artists`     | Artist portrait grid                                                         |
+| `get_attended_season` | Season grid: per-game score, attendance, weather, performers                 |
+| `get_attended_event`  | Single-game card: linescore, notable performers, ticket info                 |
+| `get_attended_player` | Single-athlete card: headshot, season stats, recent appearances              |
+
+These map to the [listening](/domains/listening), [watching](/domains/watching), [reading](/domains/reading), and [attending](/domains/attending) domains.
+
+Card support depends on the client, not the connection method: the hosted [remote server](/mcp/connect-remote) and the local [stdio server](/mcp/connect-local) both advertise the same UI resources.

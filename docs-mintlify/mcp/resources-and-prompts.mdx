@@ -1,0 +1,72 @@
+---
+title: Resources and prompts
+description: Pull full entity records into a conversation with @-mentionable resources, and kick off multi-step queries with the built-in prompt templates.
+icon: puzzle-piece
+---
+
+Beyond tools, the Rewind MCP server exposes two things you can reference directly: entity resources you `@`-mention to load a full record, and prompt templates that orchestrate a whole multi-step query for you. Tools are how the model fetches data on its own; resources and prompts are how you hand it a starting point.
+
+## Entity resources
+
+Every resource is addressed by a `rewind://` URI and returns the full detail record for one entity, fetched live from the API. Each maps to a specific endpoint, so the data matches what the corresponding [API reference](/openapi-spec) route returns.
+
+| Entity         | URI                             | Source endpoint                                           |
+| -------------- | ------------------------------- | --------------------------------------------------------- |
+| Movie          | `rewind://movie/{id}`           | `/v1/watching/movies/{id}`                                |
+| Show           | `rewind://show/{id}`            | `/v1/watching/shows/{id}`                                 |
+| Album          | `rewind://album/{id}`           | `/v1/listening/albums/{id}`                               |
+| Artist         | `rewind://artist/{id}`          | `/v1/listening/artists/{id}`                              |
+| Vinyl          | `rewind://vinyl/{id}`           | `/v1/collecting/vinyl/{id}`                               |
+| Physical media | `rewind://physical-media/{id}`  | `/v1/collecting/media/{id}`                               |
+| Article        | `rewind://article/{id}`         | `/v1/reading/articles/{id}`                               |
+| Highlight      | `rewind://highlight/{id}`       | `/v1/reading/highlights/{id}`                             |
+| Activity       | `rewind://activity/{id}`        | `/v1/running/activities/{id}`                             |
+| Sync status    | `rewind://sync/status`          | `/v1/health/sync`                                         |
+| Year in review | `rewind://{domain}/year/{year}` | `/v1/{domain}/year/{year}` (listening, running, watching) |
+
+The `{id}` in each URI is the internal Rewind id, not a Last.fm, TMDB, or Discogs id. You usually get one from a tool result or a search hit rather than typing it by hand.
+
+### Reference a resource with @-mention
+
+In a client that supports resource mentions (such as Claude Code), type `@rewind:` followed by the URI to pull the full record into the conversation:
+
+```text
+@rewind://artist/42
+```
+
+That loads the complete artist detail (play count, genre, top albums, top tracks, image metadata, and Apple Music URL) so the model can reason over it directly, without spending a tool call to fetch it.
+
+### From a search hit to a full record
+
+The [`search` tool](/reference/mcp-tools/cross-domain) returns `resource_link` blocks pointing at these URIs. That lets a client drill from a match straight into the full record: search surfaces the candidate, then the resource link resolves to the entity's `rewind://` URI for the complete detail.
+
+<Note>
+  The article resource is the canonical way to read past an excerpt.
+  `rewind://article/{id}` returns the full plain-text body, including for
+  paywalled sources, so the model does not need to fall back to web search or
+  fetch the original URL.
+</Note>
+
+## Prompt templates
+
+Prompt templates are pre-written, multi-step instructions the model can run on your behalf. Each one knows which tools to call, in what order, and how to shape the result. Pick one from your client's prompt menu instead of describing the whole workflow yourself.
+
+| Prompt                    | Arguments                             | What it does                                                                                      |
+| ------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `weekly-summary`          | none                                  | Summarizes activity across all domains for the past week, organized by domain.                    |
+| `year-in-review`          | `year`                                | Generates a comprehensive year-in-review across all domains for the given year.                   |
+| `compare-periods`         | `domain`, `period1`, `period2`        | Compares activity between two time periods for a single domain.                                   |
+| `letterboxd-review-draft` | `title` (optional)                    | Drafts a Letterboxd-style review for a recently watched, rated-but-unreviewed film.               |
+| `training-report`         | `days` (optional, default 7)          | Produces a coach-style running report for the last 7 to 14 days.                                  |
+| `film-diet`               | `period` (optional, default lifetime) | Paints a portrait of your film-watching taste: genre mix, decades, directors, rewatch rate.       |
+| `find-article`            | `description`                         | Recovers a half-remembered article via hybrid plus semantic search, then surfaces related pieces. |
+
+### How a template runs
+
+A template seeds the conversation with a detailed instruction, then the model executes it using ordinary tools. The `training-report` prompt, for example, gathers recent runs, lifetime [running stats](/domains/running), streak state, and per-mile splits on the longest run, then structures a report with a volume headline, a pace trend, and one concrete suggestion for the week ahead.
+
+Templates with optional arguments fall back to sensible defaults: `training-report` covers 7 days when you do not pass `days`, `film-diet` reports on your lifetime when you do not pass `period`, and `letterboxd-review-draft` picks your most recent unreviewed watch when you do not pass a `title`.
+
+### find-article and the article resource
+
+`find-article` is where prompts and resources work together. The template runs a [reading](/domains/reading) search, fetches the `rewind://article/{id}` resource for the top candidates to read each excerpt, and only claims a match after the excerpt actually supports your description. It is built to refuse to invent connecting facts: if nothing clearly matches, it presents the top few candidates and asks which one you meant.

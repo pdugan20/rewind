@@ -1,0 +1,87 @@
+---
+title: Connect via local stdio
+sidebarTitle: Connect locally
+description: Run the Rewind MCP server as a local child process for Claude Desktop and Claude Code, communicating over stdin and stdout.
+icon: plug
+---
+
+Local mode runs the `rewind-mcp-server` package on your own machine. Your MCP client launches it as a child process with `npx`, and the two talk over stdin and stdout using JSON-RPC. Your API key stays in the client config file on your machine and is never sent anywhere except the Rewind API.
+
+This is the right choice for desktop clients you control: [Claude Desktop](#claude-desktop) and the [Claude Code CLI](#claude-code-cli). If you are on mobile, on the web, or want a hosted endpoint instead, use [remote connection](/mcp/connect-remote).
+
+## Prerequisites
+
+You need two things before you connect:
+
+- **Node.js**: the server is published to npm as `rewind-mcp-server` and runs with `npx`, so most clients invoke `npx -y rewind-mcp-server` to download and run the latest version on demand.
+- **A [Rewind API key](/authentication)**: a read key (prefixed `rw_live_`) is enough, since the server only ever makes GET requests.
+
+## Claude Desktop
+
+Add Rewind to your `mcpServers` config. Use a real key in place of the placeholder, then restart the app.
+
+```json claude_desktop_config.json
+{
+  "mcpServers": {
+    "rewind": {
+      "command": "npx",
+      "args": ["-y", "rewind-mcp-server"],
+      "env": {
+        "REWIND_API_KEY": "rw_live_..."
+      }
+    }
+  }
+}
+```
+
+After saving, restart Claude Desktop so it picks up the new server. The client launches the process on startup and tears it down on exit.
+
+## Claude Code CLI
+
+The fastest way to add Rewind in [Claude Code](https://docs.claude.com/en/docs/claude-code) is one command. Everything after `--` is the command the CLI runs to start the server.
+
+```bash
+claude mcp add rewind -- npx -y rewind-mcp-server
+```
+
+Set your key as an environment variable so the spawned process inherits it, or pass it inline with the `--env` flag:
+
+```bash
+claude mcp add rewind --env REWIND_API_KEY=rw_live_... -- npx -y rewind-mcp-server
+```
+
+### Project config with .mcp.json
+
+To share the connection with everyone who works in a repository, commit a `.mcp.json` file to the project root instead. Claude Code reads it automatically when you open the project.
+
+```json .mcp.json
+{
+  "mcpServers": {
+    "rewind": {
+      "command": "npx",
+      "args": ["-y", "rewind-mcp-server"],
+      "env": {
+        "REWIND_API_KEY": "rw_live_..."
+      }
+    }
+  }
+}
+```
+
+<Note>
+  Treat `.mcp.json` like any other file that may contain secrets. If you commit
+  it to a shared repository, reference an environment variable rather than
+  pasting a live key, or keep the key in your shell environment and omit the
+  `env` block.
+</Note>
+
+## Environment variables
+
+The server reads its configuration from two environment variables.
+
+| Variable         | Required | Default                   | Description                                                             |
+| ---------------- | -------- | ------------------------- | ----------------------------------------------------------------------- |
+| `REWIND_API_KEY` | Yes      | none                      | Your Rewind API key. The server exits at startup if it is missing.      |
+| `REWIND_API_URL` | No       | `https://api.rewind.rest` | Base URL for the Rewind API. Override only for self-hosting or testing. |
+
+You almost never need to set `REWIND_API_URL`. Leave it unset to point at the production API. Set it only if you run your own Rewind instance.

@@ -58,6 +58,23 @@ jobs:
       - name: Run tests
         run: npm test
 
+  docs:
+    name: Docs Links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Check MCP tool reference is up to date
+        run: npx tsx scripts/gen-mcp-reference.ts --check
+
+      - name: Check broken links
+        run: npx mint@latest broken-links
+        working-directory: docs-mintlify
+
   build:
     name: Build
     runs-on: ubuntu-latest

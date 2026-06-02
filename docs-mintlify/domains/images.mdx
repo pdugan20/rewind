@@ -37,7 +37,7 @@ The CDN URL supports query parameters for on-the-fly transforms:
 
 ## ThumbHash
 
-Every image includes a `thumbhash` — a compact placeholder (20-30 bytes, base64-encoded) that can be decoded client-side into a blurry preview image. This enables instant placeholder rendering before the full image loads.
+Every image includes a `thumbhash`, a compact placeholder (20-30 bytes, base64-encoded) that can be decoded client-side into a blurry preview image. This enables instant placeholder rendering before the full image loads.
 
 See [thumbhash.io](https://evanw.github.io/thumbhash/) for decoder libraries.
 
@@ -45,8 +45,8 @@ See [thumbhash.io](https://evanw.github.io/thumbhash/) for decoder libraries.
 
 Each image has two extracted colors:
 
-- **`dominant_color`** — the most common color in the image (hex).
-- **`accent_color`** — a secondary color that contrasts with the dominant color (hex).
+- **`dominant_color`**: the most common color in the image (hex).
+- **`accent_color`**: a secondary color that contrasts with the dominant color (hex).
 
 These are useful for dynamic UI theming (e.g., tinting a background based on album art).
 
@@ -56,8 +56,8 @@ These are useful for dynamic UI theming (e.g., tinting a background based on alb
 | ------------------- | ---------------- | ----------------- |
 | Listening (albums)  | Apple Music      | Deezer, iTunes    |
 | Listening (artists) | Apple Music      | Deezer, Fanart.tv |
-| Running             | Strava map tiles | —                 |
+| Running             | Strava map tiles | None              |
 | Watching (movies)   | TMDB             | Fanart.tv, Plex   |
 | Watching (shows)    | TMDB             | Fanart.tv, Plex   |
-| Collecting (vinyl)  | Discogs          | —                 |
-| Collecting (media)  | TMDB             | —                 |
+| Collecting (vinyl)  | Discogs          | None              |
+| Collecting (media)  | TMDB             | None              |

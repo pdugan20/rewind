@@ -39,6 +39,8 @@
     "www:deploy": "cd docs-site && npx astro build && npx wrangler pages deploy dist --project-name rewind-www --commit-dirty=true",
     "docs:dev": "cd docs-mintlify && mint dev",
     "docs:validate": "cd docs-mintlify && mint validate",
+    "docs:links": "cd docs-mintlify && mint broken-links",
+    "docs:gen-mcp": "tsx scripts/gen-mcp-reference.ts",
     "prepare": "husky"
   },
   "lint-staged": {

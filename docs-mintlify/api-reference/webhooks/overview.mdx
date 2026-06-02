@@ -1,0 +1,43 @@
+---
+title: Webhooks
+sidebarTitle: Webhooks
+description: How Rewind receives inbound events from Strava and Plex to keep your data fresh in near real time.
+icon: webhook
+---
+
+Rewind exposes two inbound webhook endpoints so Strava and Plex can push events the moment something happens, instead of waiting for the next cron sync. Finish a run on Strava or a movie on Plex, and the new activity lands in your archive within seconds.
+
+<Note>
+  These are internal integration endpoints. Strava and Plex call them, not you.
+  They take no API key and there is nothing to fetch from them by hand. You
+  configure each one once as the operator, then they run unattended.
+</Note>
+
+## How they work
+
+Every other Rewind route is something you call with a Bearer token. Webhooks invert that: an external service is the caller and Rewind is the receiver. Because Strava and Plex cannot present a Rewind API key, the auth middleware skips any path under `/v1/webhooks/`, and each endpoint verifies its own source instead. The two endpoints live at `/v1/webhooks/strava` and `/v1/webhooks/plex`.
+
+## Strava
+
+Strava webhooks begin with a one-time handshake. When you register a subscription, Strava sends a `GET` to `/v1/webhooks/strava` with `hub.mode`, `hub.verify_token`, and `hub.challenge`. Rewind echoes the challenge back only when the mode is `subscribe` and the token matches `STRAVA_WEBHOOK_VERIFY_TOKEN`; otherwise it returns `400` and the subscription is not established.
+
+```json
+{ "hub.challenge": "<value Strava sent>" }
+```
+
+Once the subscription is active, Strava `POST`s an event for each activity. Rewind acknowledges within Strava's roughly two-second window, dedupes retries, then processes asynchronously: a `create` or `update` syncs that activity, and a `delete` removes it. Events for other object types, such as `athlete`, are ignored.
+
+## Plex
+
+Plex `POST`s a `multipart/form-data` payload to `/v1/webhooks/plex`. Rewind parses it, verifies it against `PLEX_WEBHOOK_SECRET` (returning `403` otherwise), and ingests only `media.scrobble` plays of movies or episodes from your own account, enriching the title with TMDB metadata and recomputing your watch stats. Everything else, other event types, other media, or plays from other users, is acknowledged with a `200` so Plex stops retrying.
+
+## Configuration
+
+Both endpoints depend on operator-set environment variables, not on anything a reader supplies:
+
+| Variable                      | Endpoint | Purpose                                                     |
+| ----------------------------- | -------- | ----------------------------------------------------------- |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Strava   | Matched against `hub.verify_token` during the handshake     |
+| `PLEX_WEBHOOK_SECRET`         | Plex     | Verifies that an inbound Plex payload came from your server |
+
+To learn what happens once an event is ingested, see the [running](/domains/running) and [watching](/domains/watching) domain pages.

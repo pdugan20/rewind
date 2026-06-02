@@ -270,7 +270,7 @@ const eventsRoute = createRoute({
   tags: ['Attending'],
   summary: 'List attended events',
   description:
-    "Returns events you have tickets for, optionally filtered by category, event_type, season, year, venue, team, and attendance status. Includes events you bought tickets for but did not attend (attended=false).\n\n**Team filtering** matches against `event_data.home_team` / `event_data.away_team` (both teams in the game). `team` is a case-insensitive substring match on the team's name (e.g. `mariners`, `huskies`). `team_id` is an exact match on the league's team id (e.g. `136` for Seattle Mariners in MLB Stats; `264` for Washington Huskies in ESPN). Pass either, not both.",
+    'Returns events you have tickets for, filterable by category, type, season, year, venue, team, and attendance status. Includes tickets for events you did not attend.',
   request: {
     query: z.object({
       page: z.coerce
@@ -638,7 +638,7 @@ const seasonRoute = createRoute({
   tags: ['Attending'],
   summary: 'Attended games in a sports season',
   description:
-    'Returns the games you attended (or hold tickets for) in a given league + season. Pair with a public schedule API (MLB Stats API, ESPN, etc.) on the consumer side to overlay attendance on the full schedule.',
+    'Returns the games you attended (or hold tickets for) in a given league and season, with your win-loss record across them.',
   request: {
     params: z.object({
       league: z.string().openapi({
@@ -901,7 +901,7 @@ const playersListRoute = createRoute({
   tags: ['Attending'],
   summary: 'List players you have watched play',
   description:
-    'Returns players who appeared in any attended sports event. Filterable by league, team_id, and `name` (case-insensitive substring match against full_name). Includes both photo variants when available.\n\n**Disambiguating common names**: a `name=will smith` query returns multiple matches. Each player row carries `league`, `primary_team_id`, and `primary_position` — use those to pick the right one without a follow-up turn.',
+    'Returns players who appeared in any event you attended, filterable by league, team, and name. Includes both photo variants when available.',
   request: {
     query: z.object({
       page: z.coerce.number().int().min(1).optional().default(1),
@@ -1424,7 +1424,7 @@ const playerStatsRoute = createRoute({
   tags: ['Attending'],
   summary: 'Per-player aggregate stats across attended games',
   description:
-    'Aggregates per-game stat lines for one player across attended games (`attended=1` only — no-shows excluded). MLB players get a hitter slash line + counting stats, or a pitcher line + decisions, depending on which stat lines exist on their appearances. Non-MLB players return `{ supported: false, ... }` with a list of appearance summaries instead — box-score parsing for non-MLB leagues is tracked in the sports-boxscore-parity project.\n\n**`season` is optional.** Omit for career-across-attended-games (the default — and where meaningful samples live: typical Mariners regulars accumulate 100+ PAs across attended games over multiple seasons). Pass a season for a single-season slice, but expect small samples (max 50 PAs in a single season across the entire dataset). Always cite `pa` (hitter) or `bf` (pitcher) and `games` when phrasing results so consumers can judge confidence.',
+    'Aggregate stat lines for one player across the games you attended (no-shows excluded). MLB players return a hitter or pitcher line; other leagues return appearance summaries.',
   request: {
     params: z.object({
       id: z.coerce

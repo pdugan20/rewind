@@ -551,8 +551,7 @@ const topArtistsRoute = createRoute({
   operationId: 'getListeningTopArtists',
   tags: ['Listening'],
   summary: 'Top artists',
-  description:
-    "Returns top artists for a given time period. Pass `include_sparklines=true` to attach a play-count time series per artist. Rolling periods (1month/3month/6month/12month) return daily or weekly buckets; `overall` returns yearly buckets covering the artist's lifetime; `7day` is unsupported and the field is omitted.",
+  description: 'Returns your top artists for a given time period.',
   request: { query: TopArtistsQuery },
   responses: {
     200: {
@@ -700,7 +699,7 @@ const topTracksRoute = createRoute({
   tags: ['Listening'],
   summary: 'Top tracks',
   description:
-    "Returns top tracks for a given time period. Pass `artist_id` (or `artist_name` substring) to filter to a single artist's catalog — composes with `period` and the date filters. Pass `include_sparklines=true` to attach a play-count time series per track (1month/3month/6month/12month/overall).",
+    'Returns your top tracks for a given time period, optionally scoped to a single artist.',
   request: { query: TopTracksQuery },
   responses: {
     200: {
@@ -1427,7 +1426,7 @@ const yearsRoute = createRoute({
   tags: ['Listening'],
   summary: 'All year summaries',
   description:
-    'Returns one entry per year tracked, with total scrobbles and unique artist/album/track counts. Mirrors the shape of /v1/running/stats/years for symmetry. Reads from the lastfm_yearly_stats precompute (refreshed daily on the 0 3 cron); no live aggregate.',
+    'Returns one entry per year tracked, with total scrobbles and unique artist, album, and track counts.',
   responses: {
     200: {
       description: 'Year summaries, newest first',
@@ -1476,7 +1475,7 @@ const genresRoute = createRoute({
   tags: ['Listening'],
   summary: 'Genre breakdown',
   description:
-    'Returns genre breakdown over time, grouped by period. Designed for stacked bar charts. Pass `compare_to=previous_year` to also receive the same window shifted back by one year as a `compare` array — useful for ghost-overlay charts that need both windows in a single round trip.',
+    'Returns a genre breakdown over time, grouped by period and designed for stacked bar charts.',
   request: {
     query: DateFilterQuery.extend({
       group_by: z

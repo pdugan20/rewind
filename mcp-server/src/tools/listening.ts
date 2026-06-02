@@ -633,7 +633,7 @@ export function registerListeningTools(
     {
       title: 'Artist',
       description:
-        "Detailed listening profile for a single artist by ID: bio, total scrobbles, all-time rank, first/last played, top tracks, top albums, similar artists you've also listened to, and a yearly sparkline of plays. Use for natural-language queries like 'tell me about my X listening history'. In MCP Apps hosts, renders an interactive artist card inline.",
+        "Detailed listening profile for one artist: stats, rank, top tracks and albums, similar artists, and a yearly play sparkline. Includes bio, first/last played, and total scrobbles. Use for natural-language queries like 'tell me about my X listening history'. In MCP Apps hosts, renders an interactive artist card inline.",
       inputSchema: {
         id: z.number().describe('Artist ID'),
         ...includeImagesParam,

@@ -2436,7 +2436,7 @@
           "Listening"
         ],
         "summary": "Top artists",
-        "description": "Returns top artists for a given time period. Pass `include_sparklines=true` to attach a play-count time series per artist. Rolling periods (1month/3month/6month/12month) return daily or weekly buckets; `overall` returns yearly buckets covering the artist's lifetime; `7day` is unsupported and the field is omitted.",
+        "description": "Returns your top artists for a given time period.",
         "parameters": [
           {
             "schema": {
@@ -3024,7 +3024,7 @@
           "Listening"
         ],
         "summary": "Top tracks",
-        "description": "Returns top tracks for a given time period. Pass `artist_id` (or `artist_name` substring) to filter to a single artist's catalog — composes with `period` and the date filters. Pass `include_sparklines=true` to attach a play-count time series per track (1month/3month/6month/12month/overall).",
+        "description": "Returns your top tracks for a given time period, optionally scoped to a single artist.",
         "parameters": [
           {
             "schema": {
@@ -5037,7 +5037,7 @@
           "Listening"
         ],
         "summary": "All year summaries",
-        "description": "Returns one entry per year tracked, with total scrobbles and unique artist/album/track counts. Mirrors the shape of /v1/running/stats/years for symmetry. Reads from the lastfm_yearly_stats precompute (refreshed daily on the 0 3 cron); no live aggregate.",
+        "description": "Returns one entry per year tracked, with total scrobbles and unique artist, album, and track counts.",
         "responses": {
           "200": {
             "description": "Year summaries, newest first",
@@ -5534,7 +5534,7 @@
           "Listening"
         ],
         "summary": "Genre breakdown",
-        "description": "Returns genre breakdown over time, grouped by period. Designed for stacked bar charts. Pass `compare_to=previous_year` to also receive the same window shifted back by one year as a `compare` array — useful for ghost-overlay charts that need both windows in a single round trip.",
+        "description": "Returns a genre breakdown over time, grouped by period and designed for stacked bar charts.",
         "parameters": [
           {
             "schema": {
@@ -17336,7 +17336,7 @@
           "Reading"
         ],
         "summary": "Related articles (semantic similarity)",
-        "description": "Returns articles thematically similar to the given one, ranked by cosine similarity against Voyage embeddings. Requires the article to have been embedded (run the admin reembed endpoint to backfill).",
+        "description": "Returns articles thematically similar to the given one, ranked by semantic similarity.",
         "parameters": [
           {
             "schema": {
@@ -19068,7 +19068,7 @@
           "Attending"
         ],
         "summary": "List attended events",
-        "description": "Returns events you have tickets for, optionally filtered by category, event_type, season, year, venue, team, and attendance status. Includes events you bought tickets for but did not attend (attended=false).\n\n**Team filtering** matches against `event_data.home_team` / `event_data.away_team` (both teams in the game). `team` is a case-insensitive substring match on the team's name (e.g. `mariners`, `huskies`). `team_id` is an exact match on the league's team id (e.g. `136` for Seattle Mariners in MLB Stats; `264` for Washington Huskies in ESPN). Pass either, not both.",
+        "description": "Returns events you have tickets for, filterable by category, type, season, year, venue, team, and attendance status. Includes tickets for events you did not attend.",
         "parameters": [
           {
             "schema": {
@@ -20096,7 +20096,7 @@
           "Attending"
         ],
         "summary": "Attended games in a sports season",
-        "description": "Returns the games you attended (or hold tickets for) in a given league + season. Pair with a public schedule API (MLB Stats API, ESPN, etc.) on the consumer side to overlay attendance on the full schedule.",
+        "description": "Returns the games you attended (or hold tickets for) in a given league and season, with your win-loss record across them.",
         "parameters": [
           {
             "schema": {
@@ -20635,7 +20635,7 @@
           "Attending"
         ],
         "summary": "List players you have watched play",
-        "description": "Returns players who appeared in any attended sports event. Filterable by league, team_id, and `name` (case-insensitive substring match against full_name). Includes both photo variants when available.\n\n**Disambiguating common names**: a `name=will smith` query returns multiple matches. Each player row carries `league`, `primary_team_id`, and `primary_position` — use those to pick the right one without a follow-up turn.",
+        "description": "Returns players who appeared in any event you attended, filterable by league, team, and name. Includes both photo variants when available.",
         "parameters": [
           {
             "schema": {
@@ -21360,7 +21360,7 @@
           "Attending"
         ],
         "summary": "Per-player aggregate stats across attended games",
-        "description": "Aggregates per-game stat lines for one player across attended games (`attended=1` only — no-shows excluded). MLB players get a hitter slash line + counting stats, or a pitcher line + decisions, depending on which stat lines exist on their appearances. Non-MLB players return `{ supported: false, ... }` with a list of appearance summaries instead — box-score parsing for non-MLB leagues is tracked in the sports-boxscore-parity project.\n\n**`season` is optional.** Omit for career-across-attended-games (the default — and where meaningful samples live: typical Mariners regulars accumulate 100+ PAs across attended games over multiple seasons). Pass a season for a single-season slice, but expect small samples (max 50 PAs in a single season across the entire dataset). Always cite `pa` (hitter) or `bf` (pitcher) and `games` when phrasing results so consumers can judge confidence.",
+        "description": "Aggregate stat lines for one player across the games you attended (no-shows excluded). MLB players return a hitter or pitcher line; other leagues return appearance summaries.",
         "parameters": [
           {
             "schema": {

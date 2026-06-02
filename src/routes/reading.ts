@@ -498,7 +498,7 @@ const relatedArticlesRoute = createRoute({
   tags: ['Reading'],
   summary: 'Related articles (semantic similarity)',
   description:
-    'Returns articles thematically similar to the given one, ranked by cosine similarity against Voyage embeddings. Requires the article to have been embedded (run the admin reembed endpoint to backfill).',
+    'Returns articles thematically similar to the given one, ranked by semantic similarity.',
   request: {
     params: z.object({
       id: z.string().openapi({ example: '42' }),

@@ -1,46 +1,37 @@
 ---
 title: Watching
 icon: film
-description: Plex and Letterboxd movie and TV data
+description: Movies and TV shows from Plex and Letterboxd, enriched with TMDB metadata.
 ---
 
 ## Overview
 
 The Watching domain tracks movies and TV shows from two sources:
 
-- **Plex** — real-time watch events via webhooks, plus daily library scans.
-- **Letterboxd** — RSS feed sync for ratings, reviews, and watch history.
+- **Plex**: real-time watch events via webhooks, plus a daily library scan.
+- **Letterboxd**: ratings, reviews, and watch history from the RSS feed, synced a few times a day.
 
-Both sources feed into a unified movie database enriched with TMDB metadata (posters, ratings, genres, directors, summaries).
+Both sources feed into a unified movie database enriched with TMDB metadata such as posters, ratings, genres, directors, and summaries. Browse every endpoint in the [API reference](/api-reference/watching/recent-watches).
 
-## Key endpoints
-
-| Endpoint                                                         | Description                                      |
-| ---------------------------------------------------------------- | ------------------------------------------------ |
-| [GET /watching/recent](/api-reference/watching/recent-watches)   | Recent watch events with full movie details      |
-| [GET /watching/movies](/api-reference/watching/list-movies)      | Browse all movies with filters                   |
-| [GET /watching/movies/:id](/api-reference/watching/movie-detail) | Movie detail with watch history                  |
-| [GET /watching/shows](/api-reference/watching/list-tv-shows)     | TV shows with episode counts                     |
-| [GET /watching/shows/:id](/api-reference/watching/show-detail)   | Show detail with season/episode breakdown        |
-| [GET /watching/stats](/api-reference/watching/watch-stats)       | Watching statistics (total movies, shows, hours) |
-| [GET /watching/ratings](/api-reference/watching/rated-movies)    | User ratings from Letterboxd                     |
-| [GET /watching/reviews](/api-reference/watching/movie-reviews)   | Reviews from Letterboxd                          |
-
-## Movie filters
+## Filtering
 
 The movies endpoint supports filtering by:
 
-- `genre` — filter by genre name.
-- `decade` — filter by decade (e.g., `2020`).
-- `director` — filter by director name.
-- `year` — filter by release year.
-- `sort` — sort field (watched_at, year, title, tmdb_rating).
-- `order` — asc or desc.
-
-## Images
-
-Movie posters and backdrops are sourced from TMDB, with fallbacks to Fanart.tv and Plex. Images include thumbhash placeholders and extracted dominant/accent colors.
+- `genre`: filter by genre name.
+- `decade`: filter by decade (e.g., `2020`).
+- `director`: filter by director name.
+- `year`: filter by release year.
+- `sort`: sort field (watched_at, year, title, tmdb_rating).
+- `order`: asc or desc.
 
 ## Year in review
 
 [GET /watching/year/:year](/api-reference/watching/year-in-review) returns a year summary including total movies watched, top-rated films, genre breakdown, and decade distribution.
+
+## Images
+
+Movie posters and backdrops are sourced from TMDB, with fallbacks to Fanart.tv and Plex. See [Images](/domains/images) for the source and fallback details.
+
+## From Claude
+
+You can also explore your watching history from Claude. Set up the [MCP server](/mcp/overview), then the [watching tools](/reference/mcp-tools/watching) are yours. Ask what you watched last month, or for your top-rated films of a given year.

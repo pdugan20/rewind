@@ -1,5 +1,6 @@
 ---
 title: Changelog
+icon: clock-rotate-left
 description: API updates and new features.
 ---
 
@@ -11,7 +12,7 @@ MCP tools are now clearer to read in the client and to consume programmatically.
 
 - **Display titles** — every tool, resource, and prompt shows a readable name in Claude Desktop and iOS, like "Now playing" or "Recent runs", instead of a raw identifier like `get_now_playing`.
 - **Output schemas** — schema-aware clients can render labeled fields from a tool's structured response; every tool now declares an `outputSchema`.
-- **`get_on_this_day` fix** — calling [`get_on_this_day`](/mcp-server#get_on_this_day) with no arguments returned an error; it now defaults to today.
+- **`get_on_this_day` fix** — calling [`get_on_this_day`](/reference/mcp-tools/cross-domain#get_on_this_day) with no arguments returned an error; it now defaults to today.
 
 </Update>
 
@@ -19,9 +20,9 @@ MCP tools are now clearer to read in the client and to consume programmatically.
 
 ## Reading domain: full Instapaper archive
 
-Reading endpoints now serve your full Instapaper archive instead of the live API's recent slice. Older articles are searchable and retrievable via [`get_article`](/mcp-server#get_article).
+Reading endpoints now serve your full Instapaper archive instead of the live API's recent slice. Older articles are searchable and retrievable via [`get_article`](/reference/mcp-tools/reading#get_article).
 
-- [`GET /v1/reading/articles`](/api-reference/reading/list-articles) and [`GET /v1/reading/recent`](/api-reference/reading/recent-reads) accept `include_no_body=1` to include rows that exist but couldn't be body-extracted (paywalled sources). Default hides them.
+- [`GET /v1/reading/articles`](/api-reference/reading/list-articles) and [`GET /v1/reading/recent`](/api-reference/reading/recent-articles) accept `include_no_body=1` to include rows that exist but couldn't be body-extracted (paywalled sources). Default hides them.
 - Single-article responses include a `body_unavailable` flag for those placeholder rows so cards can render "read on source" instead of empty content.
 
 </Update>
@@ -39,7 +40,7 @@ Three interactive cards for MCP Apps clients (Claude Desktop + iOS) that render 
 ## Listening
 
 - **Per-artist top tracks** — [`GET /v1/listening/top/tracks`](/api-reference/listening/top-tracks) accepts `artist_id` or `artist_name` to scope to a single artist. Combine with `period` for "what Olivia Rodrigo songs have I been listening to lately".
-- **Extended artist detail** — [`GET /v1/listening/artists/{id}`](/api-reference/listening/get-artist) now carries bio, last-played timestamp, all-time rank, distinct tracks/albums counts, similar artists, and a yearly sparkline.
+- **Extended artist detail** — [`GET /v1/listening/artists/{id}`](/api-reference/listening/artist-detail) now carries bio, last-played timestamp, all-time rank, distinct tracks/albums counts, similar artists, and a yearly sparkline.
 
 </Update>
 
@@ -134,7 +135,7 @@ The OpenAPI 3.1 spec is reachable without auth at `https://api.rewind.rest/opena
 
 ## MCP server
 
-New [MCP server](/mcp-server) for connecting AI assistants to your Rewind data. Published as [`rewind-mcp-server`](https://www.npmjs.com/package/rewind-mcp-server) on npm.
+New [MCP server](/mcp/overview) for connecting AI assistants to your Rewind data. Published as [`rewind-mcp-server`](https://www.npmjs.com/package/rewind-mcp-server) on npm.
 
 - 30 tools across all five domains: listening, running, watching, collecting, reading.
 - Cross-domain search, unified feed, and on-this-day.

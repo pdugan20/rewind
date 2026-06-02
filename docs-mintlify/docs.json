@@ -12,6 +12,9 @@
     "default": "system",
     "strict": false
   },
+  "thumbnails": {
+    "appearance": "light"
+  },
   "colors": {
     "primary": "#6874e8",
     "light": "#8b94f0",
@@ -42,10 +45,15 @@
         "groups": [
           {
             "group": "Getting Started",
-            "pages": ["introduction", "quickstart", "authentication"]
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication",
+              "openapi-spec"
+            ]
           },
           {
-            "group": "Basics",
+            "group": "Domains",
             "pages": [
               "domains/listening",
               "domains/running",
@@ -57,12 +65,8 @@
             ]
           },
           {
-            "group": "Integrations",
-            "pages": ["mcp-server", "openapi-spec"]
-          },
-          {
-            "group": "Updates",
-            "pages": ["changelog"]
+            "group": "Help",
+            "pages": ["troubleshooting", "changelog"]
           }
         ]
       },
@@ -208,6 +212,35 @@
           {
             "group": "Images",
             "pages": ["api-reference/images/get-image-by-entity"]
+          },
+          {
+            "group": "Webhooks",
+            "pages": ["api-reference/webhooks/overview"]
+          }
+        ]
+      },
+      {
+        "tab": "MCP",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["mcp/overview", "mcp/connect-local", "mcp/connect-remote"]
+          },
+          {
+            "group": "Capabilities",
+            "pages": ["mcp/rich-responses", "mcp/resources-and-prompts"]
+          },
+          {
+            "group": "Tools",
+            "pages": [
+              "reference/mcp-tools/listening",
+              "reference/mcp-tools/running",
+              "reference/mcp-tools/watching",
+              "reference/mcp-tools/reading",
+              "reference/mcp-tools/collecting",
+              "reference/mcp-tools/attending",
+              "reference/mcp-tools/cross-domain"
+            ]
           }
         ]
       }
@@ -226,9 +259,13 @@
     "drilldown": true
   },
   "contextual": {
-    "options": ["copy", "view"]
+    "options": ["copy", "view", "chatgpt", "claude"]
+  },
+  "feedback": {
+    "thumbsRating": true
   },
   "search": {
     "prompt": "Search docs..."
-  }
+  },
+  "redirects": [{ "source": "/mcp-server", "destination": "/mcp/overview" }]
 }

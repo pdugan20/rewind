@@ -1,30 +1,17 @@
 ---
 title: Attending
 icon: ticket
-description: Live events, tickets, and game attendance
+description: Live events, tickets, and game attendance parsed from your calendar and inbox, with sports score enrichment.
 ---
 
 ## Overview
 
 The Attending domain tracks live events you bought tickets for: sports games, concerts, theater, and other one-off events. Events come from two sources:
 
-- **Google Calendar** — auto-extracts ticketing details from event descriptions when Google's parsers populate them.
-- **Gmail** — per-vendor parsers for the major ticket sellers, with a universal [EventReservation](https://schema.org/EventReservation) schema parser as a fallback for everything else.
+- **Google Calendar**: auto-extracts ticketing details from event descriptions when Google's parsers populate them.
+- **Gmail**: per-vendor parsers for the major ticket sellers, with a universal [EventReservation](https://schema.org/EventReservation) schema parser as a fallback for everything else.
 
-Data syncs daily at 4:00 AM Pacific via cron, with incremental Gmail and Calendar pulls.
-
-## Key endpoints
-
-| Endpoint                                                                               | Description                                                       |
-| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [GET /attending/events](/api-reference/attending/list-attended-events)                 | Attended events with filters                                      |
-| [GET /attending/events/:id](/api-reference/attending/get-attended-event)               | Single event with venue, tickets, and player appearances          |
-| [GET /attending/seasons/:league/:season](/api-reference/attending/get-attended-season) | Attended games in a sports season with W/L record                 |
-| [GET /attending/venues](/api-reference/attending/list-venues)                          | Venue catalog with city, capacity, and lat/long                   |
-| [GET /attending/players](/api-reference/attending/list-attended-players)               | Players you have watched play, with photos                        |
-| [GET /attending/players/:id](/api-reference/attending/get-attended-player)             | Player detail with per-event appearance lines                     |
-| [GET /attending/stats](/api-reference/attending/get-attending-stats)                   | Aggregate counts by category, type, and year                      |
-| [GET /attending/year/:year](/api-reference/attending/year-in-review)                   | Year in review with monthly breakdown, top venues, top performers |
+Events sync daily, with incremental Gmail and Calendar pulls. Browse every endpoint in the [API reference](/api-reference/attending/list-attended-events).
 
 ## Event categories
 
@@ -36,39 +23,28 @@ Every event has a top-level `category` and a more specific `event_type`:
 | `music`  | `concert`                                                                               |
 | `arts`   | `theater`, `comedy`, `other`                                                            |
 
-## Event filters
+## Sports enrichment
+
+Sports events are enriched with team and score data: MLB from the MLB Stats API, and NFL, NBA, WNBA, MLS, NCAAF, and NCAAB from ESPN. Each event carries league-specific fields in `event_data`, such as final scores, the winning pitcher, and `my_team_won`.
+
+The full team object, with name, brand colors, and light and dark logo variants, is denormalized onto every event, player, and appearance, so you never need a second call to render a logo or tint. For MLB, box scores also resolve into per-player appearance lines on the players endpoints.
+
+W/L on the [seasons endpoint](/api-reference/attending/get-attended-season) counts only games you attended (`attended=1`), so a 6-game home season with one no-show reports 5-1, not the team's full 5-2. The exact `event_data` and team field shapes are in the [API reference](/api-reference/attending/get-attended-event).
+
+## Filtering
 
 The events endpoint supports filtering by:
 
-- `category` — `sports`, `music`, or `arts`.
-- `event_type` — specific event type (e.g., `mlb_game`, `concert`).
-- `season` / `year` — sports season or calendar year.
-- `venue_id` — filter to a single venue.
-- `attended` — `1` for confirmed attendance, `0` for tickets bought but not used, omit for both.
+- `category`: `sports`, `music`, or `arts`.
+- `event_type`: specific event type (e.g., `mlb_game`, `concert`).
+- `season` / `year`: sports season or calendar year.
+- `venue_id`: filter to a single venue.
+- `attended`: `1` for confirmed attendance, `0` for tickets bought but not used, omit for both.
 
-## Sports enrichment
+## Year in review
 
-Sports events are enriched with team and score data from the MLB Stats API (baseball) and ESPN (NFL, NBA, WNBA, MLS, NCAAF, NCAAB). Each row carries league-specific fields in `event_data`. For MLB games:
+The [year in review endpoint](/api-reference/attending/year-in-review) returns a monthly breakdown of your attended events for a given year, plus top venues and top performers.
 
-| Field             | Description                           |
-| ----------------- | ------------------------------------- |
-| `home_team`       | Full team object (see below)          |
-| `away_team`       | Full team object (see below)          |
-| `home_score`      | Final score for the home team         |
-| `away_score`      | Final score for the away team         |
-| `winning_pitcher` | Pitcher of record on the winning side |
-| `my_team_won`     | `true` if the team you root for won   |
+## From Claude
 
-`home_team` and `away_team` are full team objects. The same shape appears as `primary_team` on player rows and `team` on per-game appearances, so consumers never need a second call to render a logo or tint:
-
-| Field                                               | Description                                  |
-| --------------------------------------------------- | -------------------------------------------- |
-| `id`                                                | League-native team id                        |
-| `abbreviation`, `name`, `location`                  | "SEA", "Mariners", "Seattle"                 |
-| `primary_color`, `secondary_color`, `ui_tint_color` | Brand hex colors for backgrounds and accents |
-| `logo_url`, `logo_dark_url`, `logo_light_url`       | SVG cap variants for light + dark hosts      |
-| `conference`, `division`                            | League grouping                              |
-
-W/L counts on the [seasons endpoint](/api-reference/attending/get-attended-season) are scoped to events you actually attended (`attended=1`), so a 6-game home season with one no-show reports a 5-1 attended record rather than the team's full 5-2 record.
-
-For MLB games, per-game box scores resolve into per-player appearance lines (batting line, pitching line, decisions) that surface on the players endpoints. Player photos backfill from MLB Stats and ESPN.
+You can also explore your attendance history from Claude. Set up the [MCP server](/mcp/overview), then the [attending tools](/reference/mcp-tools/attending) are yours. Ask which games you went to this season, or your team's attended record.

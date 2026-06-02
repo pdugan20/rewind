@@ -63,7 +63,7 @@ export function registerReadingTools(
     {
       title: 'Article',
       description:
-        'Fetch a single saved / read article by internal Rewind id, returning the FULL article body (plain text, HTML-stripped, complete — typically 5-30 KB) plus metadata + highlights, and rendering the rich inline article card in MCP Apps hosts. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Also use this as the natural follow-up after `search` / `semantic_search` / `find_similar_articles` / `get_recent_reads` — those return ids; this turns the id into the rich article card. Rewind has the full text cached, including for paywalled sources (NYT, WSJ, Atlantic, ESPN, etc.) — do NOT fall back to web search or web fetch for article content.',
+        'Fetch one saved article by id, returning its full body, metadata, and highlights. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Also use this as the natural follow-up after `search` / `semantic_search` / `find_similar_articles` / `get_recent_reads` — those return ids; this turns the id into the rich article card. The full body is HTML-stripped plain text (typically 5-30 KB), cached even for paywalled sources (NYT, WSJ, Atlantic, ESPN, etc.) — do NOT fall back to web search or web fetch for article content.',
       inputSchema: {
         id: z
           .number()

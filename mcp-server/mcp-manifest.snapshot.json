@@ -656,7 +656,7 @@
     },
     {
       "name": "get_article",
-      "description": "Fetch a single saved / read article by internal Rewind id, returning the FULL article body (plain text, HTML-stripped, complete — typically 5-30 KB) plus metadata + highlights, and rendering the rich inline article card in MCP Apps hosts. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Also use this as the natural follow-up after `search` / `semantic_search` / `find_similar_articles` / `get_recent_reads` — those return ids; this turns the id into the rich article card. Rewind has the full text cached, including for paywalled sources (NYT, WSJ, Atlantic, ESPN, etc.) — do NOT fall back to web search or web fetch for article content.",
+      "description": "Fetch one saved article by id, returning its full body, metadata, and highlights. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Also use this as the natural follow-up after `search` / `semantic_search` / `find_similar_articles` / `get_recent_reads` — those return ids; this turns the id into the rich article card. The full body is HTML-stripped plain text (typically 5-30 KB), cached even for paywalled sources (NYT, WSJ, Atlantic, ESPN, etc.) — do NOT fall back to web search or web fetch for article content.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -848,7 +848,7 @@
     },
     {
       "name": "get_artist_details",
-      "description": "Detailed listening profile for a single artist by ID: bio, total scrobbles, all-time rank, first/last played, top tracks, top albums, similar artists you've also listened to, and a yearly sparkline of plays. Use for natural-language queries like 'tell me about my X listening history'. In MCP Apps hosts, renders an interactive artist card inline.",
+      "description": "Detailed listening profile for one artist: stats, rank, top tracks and albums, similar artists, and a yearly play sparkline. Includes bio, first/last played, and total scrobbles. Use for natural-language queries like 'tell me about my X listening history'. In MCP Apps hosts, renders an interactive artist card inline.",
       "inputSchema": {
         "type": "object",
         "properties": {

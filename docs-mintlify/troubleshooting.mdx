@@ -1,0 +1,163 @@
+---
+title: Troubleshooting
+sidebarTitle: Troubleshooting
+icon: screwdriver-wrench
+description: Diagnose authentication failures, rate limits, stale data, MCP setup, and image issues against the Rewind API.
+---
+
+Most problems fall into a handful of buckets: a key the API does not accept, a window you have exhausted, a domain that has not synced recently, or an MCP client that has not picked up your configuration. Run the self-diagnostics first, then open the entry that matches what you see.
+
+## Self-diagnostics first
+
+Two calls answer most questions. Run them before anything below:
+
+```bash
+curl https://api.rewind.rest/v1/health
+
+curl -H "Authorization: Bearer rw_live_..." \
+  https://api.rewind.rest/v1/health/sync
+```
+
+`/v1/health` confirms the API is reachable. `/v1/health/sync` reports each domain's `last_sync`, `status`, and `error_rate`, which separates a stale-data problem from an API outage (see [sync health](/api-reference/system/sync-health-status) for the full response).
+
+## Requests and authentication
+
+<AccordionGroup>
+  <Accordion title="My request returns 401 even though I sent a key">
+    A `401` means the request was not authenticated. Three distinct causes return the same status with a different `error` message:
+
+    - **Malformed header.** The `Authorization` header is missing, or it does not begin with `Bearer rw_`. Check that the prefix is exactly `Bearer rw_`, not `bearer` or a bare token.
+    - **Unknown or revoked key.** The prefix is correct but no active key matches it. A revoked key falls into this bucket once its cache entry expires.
+    - **Expired key.** The key exists and is active, but its expiry has passed. This one returns `{"error":"Token expired","status":401}` so you can tell it apart from the other two.
+
+    Auth lookups are cached in memory for about 60 seconds per Worker isolate, so a newly created or just-revoked key can take up to a minute to take effect. If a brand-new key returns `401`, wait a moment and retry before assuming it is wrong.
+
+    On a remote MCP connection, a `401` means the request reached the server without a valid grant: re-run the [GitHub consent flow](/mcp/connect-remote), or re-check your Bearer token for token-based clients.
+
+  </Accordion>
+
+<Accordion title="I get 403 Forbidden on the REST API">
+  The request authenticated successfully, but the key does not have the scope
+  the endpoint requires. The common case is using a read key (`rw_live_...`) on
+  an admin-only endpoint such as a sync trigger or key management. The fix is an
+  admin key (`rw_admin_...`), not a new read key. See
+  [Authentication](/authentication) for the scope each key type grants.
+</Accordion>
+
+  <Accordion title="I'm getting 429 Too Many Requests">
+    You have exceeded the sliding 60-second window for your key. The response includes a `Retry-After` header (seconds to wait) plus the `X-RateLimit-*` headers; see [Authentication](/authentication) for the limit and what each header means. Back off until `Retry-After` passes, then retry. Heavy automated polling is the usual cause, so space out repeated calls.
+
+    The window is tracked per Worker isolate, so counts reset when an isolate recycles and observed limits can be slightly more generous under load. The remote MCP server enforces its own per-minute limit the same way.
+
+  </Accordion>
+</AccordionGroup>
+
+## Data freshness
+
+<AccordionGroup>
+  <Accordion title="An endpoint returns old or empty data">
+    If a call succeeds but the data looks old or empty, the source sync is the place to look, not the API. Call `GET /v1/health/sync` and read the relevant domain:
+
+    - `status` is `completed`, `failed`, or `never`. A value of `never` means that domain has not run a sync yet.
+    - `error` is populated only when the latest run failed, and carries the failure message from the sync worker.
+    - `error_rate` is the share of runs in the last 24 hours that failed, from `0.0` (all healthy) to `1.0` (all failing).
+    - `last_sync` is the timestamp of the most recent run. Compare it against the domain's cron cadence to judge freshness.
+
+    If a domain is stale and you hold an admin key, you can force a fresh sync through the admin sync endpoint. Read keys cannot trigger syncs and will get a `403`.
+
+  </Accordion>
+
+  <Accordion title="Claude is showing stale or outdated data">
+    Rewind answers from its last successful sync, not this exact moment, so a recent listen, run, or watch can be missing for a while. Ask the model to call `get_health` first: it returns overall API health plus a last-sync timestamp per domain, and a timestamp that is hours or days old explains the gap.
+
+    The MCP server itself is stateless and caches nothing locally, so there is no local store to clear. When results look wrong, the cause is upstream sync timing, not a stale cache. The fix is the same as above: check `get_health`, then trigger a sync with an admin key if needed.
+
+  </Accordion>
+</AccordionGroup>
+
+## Claude and MCP
+
+<AccordionGroup>
+  <Accordion title="The server connects but returns no data, or will not connect">
+    This is almost always configuration. Check these in order:
+
+    - **`REWIND_API_KEY` is set.** The server reads your key from this environment variable; without it, every tool call fails authentication. A read key is sufficient, since the server is read-only.
+    - **You restarted the client.** MCP configuration is read at startup. After editing the Claude Desktop JSON config, a `.mcp.json` file, or running `claude mcp add`, fully quit and reopen the client so it reloads the server definition.
+    - **You are using the right transport.** Local clients run the server through `npx`; the hosted option connects to `https://mcp.rewind.rest/mcp`. Mixing the two in one entry will not connect.
+
+    For the local stdio setup, see [Connect locally](/mcp/connect-local). For the hosted remote transport, see [Connect remotely](/mcp/connect-remote).
+
+  </Accordion>
+
+  <Accordion title="Remote access returns 403 not authorized">
+    A `403` from `https://mcp.rewind.rest/mcp` means your GitHub account authenticated successfully but is not on the access allowlist. The remote server maps each allowed GitHub user to a Rewind account, and any login outside that map is rejected after the consent step.
+
+    Request access from the Rewind admin so your GitHub account can be added, then run the [GitHub consent flow](/mcp/connect-remote) again. A `401` here is different: it means there was no valid grant at all, so re-run the OAuth flow or re-check your Bearer token.
+
+  </Accordion>
+
+<Accordion title="Responses are too image-heavy">
+  Many tools return cover art, posters, and artist imagery as image content
+  blocks, and list tools include the top few by default. If a response is larger
+  than you want, or your client struggles to render the images, pass
+  `include_images: false` to drop the image blocks and keep the text and
+  structured data. See [Rich responses](/mcp/rich-responses) for the full
+  content model.
+</Accordion>
+
+<Accordion title="Interactive cards are not showing up">
+  Some tools advertise [MCP
+  Apps](https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/) UI
+  resources that render as inline cards, but whether you see one depends on your
+  client. Clients that support MCP Apps draw the card; clients that do not still
+  get the full response (text, images, resource links, and structured content),
+  so nothing is lost. If you expected a card and got plain text plus images,
+  your client does not support MCP Apps yet. See [Rich
+  responses](/mcp/rich-responses) for which clients support them.
+</Accordion>
+
+  <Accordion title="How is my API key handled">
+    Key handling depends on the connection mode:
+
+    - **Local stdio.** Your `REWIND_API_KEY` stays on your machine in the client config. The server runs as a child process and talks to your client over stdin and stdout.
+    - **Remote.** You authenticate through GitHub OAuth (or a Bearer token, for clients that take one), and the hosted Cloudflare Worker uses a server-side Rewind key on your behalf after your GitHub identity is matched to your account.
+
+    In both modes the server has read-only access. No write or admin operations are exposed.
+
+  </Accordion>
+</AccordionGroup>
+
+## Images and the CDN
+
+<AccordionGroup>
+  <Accordion title="Artwork is missing or generic">
+    Each image type resolves through a source fallback chain: if the primary source has no art for an item, Rewind tries the next source before giving up. A blank or generic image usually means every source in the chain came up empty for that item, not that the CDN is down.
+  </Accordion>
+
+<Accordion title="A resize or format transform looks ignored">
+  Resize and format transforms are applied through query parameters on the
+  `cdn.rewind.rest` URL. If a transform looks ignored, confirm you are hitting
+  the CDN host and that the parameters are on the CDN URL, not the API URL.
+</Accordion>
+
+  <Accordion title="The placeholder stays blurry">
+    Image responses include a `thumbhash` alongside `dominant_color` and `accent_color`, meant to render as a blurred placeholder while the full image loads. A placeholder that never sharpens means the full-resolution fetch did not complete, so check the image URL.
+  </Accordion>
+</AccordionGroup>
+
+## Error reference
+
+Every error response uses the same `{ "error", "status" }` envelope, where `status` matches the HTTP code.
+
+| Status | Meaning           | Common cause                                                                         |
+| ------ | ----------------- | ------------------------------------------------------------------------------------ |
+| `400`  | Bad request       | Malformed query parameter, invalid body, or unparseable input.                       |
+| `401`  | Unauthorized      | Missing or non-`Bearer rw_` header, unknown or revoked key, or expired key.          |
+| `403`  | Forbidden         | Authenticated, but the key lacks the required scope (read key on an admin endpoint). |
+| `404`  | Not found         | The resource or route does not exist.                                                |
+| `429`  | Too Many Requests | Rate limit exceeded; honor the `Retry-After` header.                                 |
+| `500`  | Server error      | Unexpected failure on the server. Retry, then report if it persists.                 |
+
+## Still stuck
+
+If the self-diagnostics pass but the behavior is still wrong, open an issue at [github.com/pdugan20/rewind/issues](https://github.com/pdugan20/rewind/issues). Include the request URL, the response body, and the HTTP status code so the problem can be reproduced quickly.

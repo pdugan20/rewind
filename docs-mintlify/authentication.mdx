@@ -1,5 +1,6 @@
 ---
 title: Authentication
+icon: key
 description: API keys and authorization
 ---
 
@@ -23,12 +24,14 @@ Read keys are safe to use in client-side applications. Admin keys should only be
 
 ## Rate limiting
 
-The API uses a sliding window rate limiter per API key:
+Each API key gets 100 requests per 60-second sliding window. Every response carries the current state in headers, and exceeding the limit returns `429 Too Many Requests`.
 
-- **Window**: 60 seconds
-- **Limit**: 100 requests per window
-
-When rate limited, the API returns `429 Too Many Requests`.
+| Header                  | Meaning                                           |
+| ----------------------- | ------------------------------------------------- |
+| `X-RateLimit-Limit`     | Requests allowed per window                       |
+| `X-RateLimit-Remaining` | Requests left in the current window               |
+| `X-RateLimit-Reset`     | Unix timestamp (seconds) when the window resets   |
+| `Retry-After`           | Seconds to wait before retrying, sent only on 429 |
 
 ## Unauthorized responses
 

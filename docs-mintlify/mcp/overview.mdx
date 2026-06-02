@@ -1,0 +1,78 @@
+---
+title: MCP Server
+sidebarTitle: Overview
+description: Connect AI assistants to your Rewind data using the Model Context Protocol.
+icon: robot
+---
+
+The Rewind MCP server gives AI assistants direct access to your personal data across every domain. Ask about your listening history, running stats, movie watches, vinyl collection, reading highlights, or events you have attended, all in natural language. It is built on the [Model Context Protocol](https://modelcontextprotocol.io/), an open standard from Anthropic, so it works with any MCP-compatible client such as Claude and ChatGPT.
+
+## When to use it
+
+Reach for Rewind any time the conversation references your own history: things you read, listened to, watched, saved, bookmarked, ran, or collected. Rewind owns this data, so it answers from your archive instead of guessing or falling back to web search.
+
+Questions that route here include:
+
+- "What have I been listening to this week?"
+- "When was the last time I watched a Wes Anderson film?"
+- "What Beastie Boys records do I have on vinyl?"
+- "Find that article I saved about a former SNL writer."
+- "What happened on this day in previous years?"
+
+The server pulls live answers from the same [REST API](/openapi-spec) that powers Rewind, so what an assistant sees matches what your apps see.
+
+## Data domains
+
+Rewind groups your data into domains. Each one exposes a set of tools the assistant can call.
+
+<CardGroup cols={2}>
+  <Card title="Listening" icon="headphones" href="/domains/listening">
+    Now playing, top artists, albums, and tracks, streaks, and stats.
+  </Card>
+  <Card title="Running" icon="person-running" href="/domains/running">
+    Recent runs, per-mile splits, personal records, streaks, and stats.
+  </Card>
+  <Card title="Watching" icon="film" href="/domains/watching">
+    Recent watches, browse by genre, decade, or director, and stats.
+  </Card>
+  <Card title="Collecting" icon="record-vinyl" href="/domains/collecting">
+    Vinyl records, Blu-ray, 4K UHD, HD DVD, and collection stats.
+  </Card>
+  <Card title="Reading" icon="book-open" href="/domains/reading">
+    Articles, highlights, a random highlight, and stats.
+  </Card>
+  <Card title="Attending" icon="ticket" href="/domains/attending">
+    Sports games, concerts, theater, season records, and players you have
+    watched.
+  </Card>
+  <Card
+    title="Cross-domain"
+    icon="layer-group"
+    href="/reference/mcp-tools/cross-domain"
+  >
+    Full-text and semantic search, a unified feed, and on-this-day.
+  </Card>
+</CardGroup>
+
+## Read-only by design
+
+The MCP server has read-only access to your data. It exposes browse, search, and stat tools only. No write or admin operations are reachable through it, so an assistant can read your archive but never change it.
+
+The server is also stateless. It holds no data between calls and caches nothing locally.
+
+## Two ways to connect
+
+Pick the connection style that matches your client.
+
+<CardGroup cols={2}>
+  <Card title="Local stdio" icon="terminal" href="/mcp/connect-local">
+    Run the `rewind-mcp-server` package as a child process on your machine. Best
+    for desktop clients and Claude Code, where your API key stays local.
+  </Card>
+  <Card title="Remote server" icon="cloud" href="/mcp/connect-remote">
+    Connect to the hosted server at `https://mcp.rewind.rest/mcp`. Best for
+    mobile and web clients that talk to a remote endpoint.
+  </Card>
+</CardGroup>
+
+Both modes serve the same tools, resources, and prompts. They differ only in where the server runs and how it is authenticated.

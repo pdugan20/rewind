@@ -9,3 +9,11 @@
 #content-area {
   max-width: 64rem !important; /* 1024px */
 }
+
+/*
+ * Round content/hero images (e.g. the introduction hero). Scoped to /images/
+ * so the navbar logo (served from /logo/) is untouched.
+ */
+img[src*='/images/'] {
+  border-radius: 1rem;
+}

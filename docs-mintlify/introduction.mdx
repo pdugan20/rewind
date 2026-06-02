@@ -1,46 +1,45 @@
 ---
-title: Introduction
-description: Personal data aggregation API
+title: Welcome to Rewind
+sidebarTitle: Welcome
+icon: house
+description: A personal archive of everything you listen to, run, watch, read, collect, and attend, served as one API you and Claude can query.
 ---
 
-# Rewind
+Rewind is a personal archive of everything you listen to, run, watch, read, collect, and attend. It pulls the services that track your life into one API that you, and Claude, can query.
 
-Rewind is a personal data aggregation API that syncs and serves data from the services that track your life. It pulls data from multiple sources into a unified REST API.
+![Rewind answering questions about your listening and attendance history in Claude on iPhone](/images/hero.jpg)
 
-## Domains
+## What it tracks
 
-| Domain         | Sources                | What it tracks                                             |
-| -------------- | ---------------------- | ---------------------------------------------------------- |
-| **Listening**  | Last.fm, Apple Music   | Scrobbles, top artists/albums/tracks, streaks, stats       |
-| **Running**    | Strava                 | Activities, splits, gear, personal records, year summaries |
-| **Watching**   | Plex, Letterboxd       | Movies, TV shows, watch history, ratings, reviews          |
-| **Collecting** | Discogs, Trakt         | Vinyl/CD collection, physical media, wantlist              |
-| **Reading**    | Instapaper             | Articles, reading progress, highlights, word count         |
-| **Attending**  | Google Calendar, Gmail | Live events, tickets, sports games, concerts, venues       |
+| Domain                                | Sources                | What it tracks                                             |
+| ------------------------------------- | ---------------------- | ---------------------------------------------------------- |
+| [**Listening**](/domains/listening)   | Last.fm, Apple Music   | Scrobbles, top artists/albums/tracks, streaks, stats       |
+| [**Running**](/domains/running)       | Strava                 | Activities, splits, gear, personal records, year summaries |
+| [**Watching**](/domains/watching)     | Plex, Letterboxd       | Movies, TV shows, watch history, ratings, reviews          |
+| [**Collecting**](/domains/collecting) | Discogs, Trakt         | Vinyl/CD collection, physical media, wantlist              |
+| [**Reading**](/domains/reading)       | Instapaper             | Articles, reading progress, highlights, word count         |
+| [**Attending**](/domains/attending)   | Google Calendar, Gmail | Live events, tickets, sports games, concerts, venues       |
 
-## How it works
+## How to use it
 
-Rewind runs on Cloudflare Workers with a D1 (SQLite) database. Cron-triggered sync workers pull data from each source on a schedule. Plex and Strava also push real-time updates via webhooks.
+- **As a REST API**: every domain is served from `api.rewind.rest` with consistent pagination, date filters, and an image CDN. Start with the [quickstart](/quickstart).
+- **From Claude**: connect the [MCP server](/mcp/overview) and ask in natural language, like _"what was I listening to last March,"_ _"how far did I run in 2025,"_ or _"find that article I saved about urban design."_
 
-All data is served through a REST API at `api.rewind.rest` with consistent pagination, date filtering, and image CDN support across all domains.
+## Who it's for
 
-## Quick links
+Rewind is single-user by design: it serves one person's archive, read-only. Anyone, or any AI assistant, can explore that data through the API or the MCP server, but it is not multi-tenant. It exists to make one life's data queryable.
 
 <CardGroup cols={2}>
-  <Card title="Quick Start" icon="rocket" href="/quickstart">
-    Make your first API call in 5 minutes
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Make your first authenticated API call in a few minutes.
   </Card>
   <Card title="Authentication" icon="key" href="/authentication">
-    API keys and authorization
+    API keys, Bearer tokens, and the read-versus-admin scopes.
   </Card>
-  <Card title="API Reference" icon="code" href="/api-reference">
-    Full endpoint documentation
+  <Card title="Use it from Claude" icon="robot" href="/mcp/overview">
+    Connect the MCP server and query your data in natural language.
   </Card>
-  <Card
-    title="API Status"
-    icon="heart-pulse"
-    href="https://api.rewind.rest/v1/health"
-  >
-    Check if the API is up
+  <Card title="OpenAPI spec" icon="code" href="/openapi-spec">
+    Every endpoint as a machine-readable schema for client generation.
   </Card>
 </CardGroup>

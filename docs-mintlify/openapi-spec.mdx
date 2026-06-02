@@ -1,5 +1,6 @@
 ---
 title: 'OpenAPI Spec'
+icon: 'code'
 description: 'Machine-readable schema for every Rewind endpoint'
 ---
 
@@ -21,12 +22,3 @@ The shorter `https://api.rewind.rest/openapi.json` 301-redirects to the canonica
 - **Drive agents.** Tools that consume OpenAPI -- function-calling LLMs, agent frameworks -- can ingest the spec and call any endpoint.
 - **Import into Postman / Insomnia / Bruno.** Use the URL as the import source; every endpoint and example is pre-loaded.
 - **Inspect contracts.** Browse the raw spec to see exact response shapes without clicking through the reference.
-
-<CardGroup cols={2}>
-  <Card title="API Reference" icon="code" href="/api-reference">
-    Browse the spec interactively
-  </Card>
-  <Card title="MCP Server" icon="plug" href="/mcp-server">
-    The other way to drive Rewind from agents
-  </Card>
-</CardGroup>

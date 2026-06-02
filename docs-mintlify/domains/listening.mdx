@@ -1,28 +1,17 @@
 ---
 title: Listening
 icon: headphones
-description: Last.fm and Apple Music scrobble data
+description: Last.fm and Apple Music scrobble data, with top lists, streaks, and a year in review.
 ---
 
 ## Overview
 
-The Listening domain tracks music listening history from Last.fm, enriched with Apple Music metadata (artwork, preview URLs, Apple Music links).
+The Listening domain tracks your music history from Last.fm, enriched with Apple Music metadata.
 
-Data syncs every 15 minutes via cron. Each sync fetches recent scrobbles and updates artist/album/track records.
+- **Last.fm:** scrobble history, top artists, albums, and tracks, and listening streaks.
+- **Apple Music:** artwork, preview URLs, and Apple Music links layered onto matched records.
 
-## Key endpoints
-
-| Endpoint                                                             | Description                                                |
-| -------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [GET /listening/recent](/api-reference/listening/recent-scrobbles)   | Recent scrobbles with track, artist, album, and image data |
-| [GET /listening/now-playing](/api-reference/listening/now-playing)   | Currently playing track (if any)                           |
-| [GET /listening/top/artists](/api-reference/listening/top-artists)   | Top artists by play count, filterable by time period       |
-| [GET /listening/top/albums](/api-reference/listening/top-albums)     | Top albums by play count                                   |
-| [GET /listening/top/tracks](/api-reference/listening/top-tracks)     | Top tracks by scrobble count                               |
-| [GET /listening/stats](/api-reference/listening/listening-stats)     | Lifetime listening statistics                              |
-| [GET /listening/streaks](/api-reference/listening/listening-streaks) | Listening streak data (consecutive days)                   |
-| [GET /listening/artists](/api-reference/listening/browse-artists)    | Browse all artists with pagination                         |
-| [GET /listening/artists/:id](/api-reference/listening/artist-detail) | Artist detail with top albums and tracks                   |
+Scrobbles sync every few minutes. Browse every endpoint in the [API reference](/api-reference/listening/now-playing).
 
 ## Time periods
 
@@ -52,8 +41,18 @@ Top list endpoints accept a `period` parameter:
 
 ## Filtering
 
-Audiobooks, podcasts, and holiday music are automatically filtered from all listening endpoints. The filter system uses a combination of artist matching, album/track pattern matching, and Last.fm tag-based auto-detection.
+- Audiobooks, podcasts, and holiday music are automatically filtered from all listening endpoints.
+- The filter system combines artist matching, album and track pattern matching, and Last.fm tag-based auto-detection.
+- Standard date filters (`date`, `from`, `to`).
+
+## Year in review
+
+[GET /listening/year/:year](/api-reference/listening/year-in-review) returns year-in-review listening data for a single year. Optionally pass `?month=N` to scope the summary to a single month.
 
 ## Images
 
-Album and artist artwork is sourced from Apple Music, Deezer, iTunes, and Last.fm. Images are stored in R2 and served via CDN with thumbhash placeholders and extracted dominant/accent colors.
+Album and artist artwork is served through the shared image pipeline, with thumbhash placeholders and extracted dominant and accent colors. See [Images](/domains/images) for the source and fallback details.
+
+## From Claude
+
+You can also explore your listening history from Claude. Set up the [MCP server](/mcp/overview), then the [listening tools](/reference/mcp-tools/listening) are yours. Ask for your top artists this month, or what you played on a given day.
