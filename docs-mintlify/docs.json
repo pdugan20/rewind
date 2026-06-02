@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "theme": "almond",
+  "theme": "maple",
   "name": "Rewind",
   "description": "Personal data aggregation API. Syncs and serves data from the services that track your life.",
   "logo": {

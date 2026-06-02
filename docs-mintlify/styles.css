@@ -1,16 +1,4 @@
 /*
- * Mintlify almond theme caps the main article container (#content-area)
- * at max-w-xl (36rem / 576px). That's too narrow on wide displays and
- * leaves significant unused space to the right of the TOC. Widen to
- * ~1024px for more comfortable reading and to give tables/cards room.
- *
- * Scoped by id so other max-w-xl usages (cards, callouts) are unaffected.
- */
-#content-area {
-  max-width: 64rem !important; /* 1024px */
-}
-
-/*
  * Round content/hero images (e.g. the introduction hero). Scoped to /images/
  * so the navbar logo (served from /logo/) is untouched.
  */
