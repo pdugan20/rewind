@@ -9,9 +9,10 @@
  * Run: npm run check:docs
  *
  * Failure mode: prints every missing identifier and exits 1. Expected
- * fix: add the identifier to the appropriate table in
- * docs-mintlify/mcp-server.mdx (or mark it intentionally UNDOCUMENTED
- * via the allowlist below).
+ * fix: tools live in the generated reference/mcp-tools/*.mdx pages;
+ * prompts and resource URIs live in mcp/resources-and-prompts.mdx. Add
+ * the identifier there (or mark it intentionally UNDOCUMENTED via the
+ * allowlist below).
  */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -46,8 +47,21 @@ const UNDOCUMENTED_ALLOWLIST = new Set([
 ]);
 
 // MDX files we consider the public surface for cross-checking.
+// Tools are documented in the generated per-domain tool reference;
+// prompts and resource URIs in mcp/resources-and-prompts.mdx.
 const MDX_FILES = [
-  'mcp-server.mdx',
+  'mcp/overview.mdx',
+  'mcp/connect-local.mdx',
+  'mcp/connect-remote.mdx',
+  'mcp/rich-responses.mdx',
+  'mcp/resources-and-prompts.mdx',
+  'reference/mcp-tools/listening.mdx',
+  'reference/mcp-tools/running.mdx',
+  'reference/mcp-tools/watching.mdx',
+  'reference/mcp-tools/reading.mdx',
+  'reference/mcp-tools/collecting.mdx',
+  'reference/mcp-tools/attending.mdx',
+  'reference/mcp-tools/cross-domain.mdx',
   'domains/listening.mdx',
   'domains/running.mdx',
   'domains/watching.mdx',

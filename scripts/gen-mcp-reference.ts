@@ -182,7 +182,7 @@ function summarize(description: string): string {
 
 function toolSection(tool: Tool): string {
   const lines: string[] = [
-    `## ${tool.name}`,
+    `## \`${tool.name}\``,
     '',
     escapeMdx(summarize(tool.description)),
     '',
