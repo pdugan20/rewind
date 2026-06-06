@@ -26,22 +26,34 @@ The server pulls live answers from the same [REST API](/openapi-spec) that power
 Rewind groups your data into domains. Each one exposes a set of tools the assistant can call.
 
 <CardGroup cols={2}>
-  <Card title="Listening" icon="headphones" href="/domains/listening">
+  <Card
+    title="Listening"
+    icon="headphones"
+    href="/reference/mcp-tools/listening"
+  >
     Now playing, top artists, albums, and tracks, streaks, and stats.
   </Card>
-  <Card title="Running" icon="person-running" href="/domains/running">
+  <Card
+    title="Running"
+    icon="person-running"
+    href="/reference/mcp-tools/running"
+  >
     Recent runs, per-mile splits, personal records, streaks, and stats.
   </Card>
-  <Card title="Watching" icon="film" href="/domains/watching">
+  <Card title="Watching" icon="film" href="/reference/mcp-tools/watching">
     Recent watches, browse by genre, decade, or director, and stats.
   </Card>
-  <Card title="Collecting" icon="record-vinyl" href="/domains/collecting">
+  <Card
+    title="Collecting"
+    icon="record-vinyl"
+    href="/reference/mcp-tools/collecting"
+  >
     Vinyl records, Blu-ray, 4K UHD, HD DVD, and collection stats.
   </Card>
-  <Card title="Reading" icon="book-open" href="/domains/reading">
+  <Card title="Reading" icon="book-open" href="/reference/mcp-tools/reading">
     Articles, highlights, a random highlight, and stats.
   </Card>
-  <Card title="Attending" icon="ticket" href="/domains/attending">
+  <Card title="Attending" icon="ticket" href="/reference/mcp-tools/attending">
     Sports games, concerts, theater, season records, and players you have
     watched.
   </Card>
@@ -53,6 +65,9 @@ Rewind groups your data into domains. Each one exposes a set of tools the assist
     Full-text and semantic search, a unified feed, and on-this-day.
   </Card>
 </CardGroup>
+
+Each card links to that domain's MCP tools. For background on the underlying
+data sources and their REST endpoints, see the [Domains guides](/domains/listening).
 
 ## Read-only by design
 
