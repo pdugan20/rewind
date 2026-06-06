@@ -20,7 +20,10 @@ import { syncLetterboxd } from '../services/letterboxd/sync.js';
 import { syncCollecting } from '../services/discogs/sync.js';
 import { syncTraktCollection } from '../services/trakt/sync.js';
 import { syncReading } from '../services/instapaper/sync.js';
-import { processReadingImages } from '../services/images/sync-images.js';
+import {
+  processReadingImages,
+  processWatchingImages,
+} from '../services/images/sync-images.js';
 import { backfillAttending } from '../services/attending/backfill.js';
 import { getGoogleAccessToken } from '../services/google/auth.js';
 import { googleTokens } from '../db/schema/google.js';
@@ -243,6 +246,15 @@ adminSync.openapi(syncWatchingRoute, async (c) => {
   try {
     if (source === 'letterboxd') {
       const result = await syncLetterboxd(db, c.env);
+      // Fetch posters for any newly-added movies in the background. The cron
+      // path dedups against the Plex run; a manual sync should always process.
+      c.executionCtx.waitUntil(
+        processWatchingImages(db, c.env).catch((err) =>
+          console.log(
+            `[ERROR] Watching image processing failed: ${err instanceof Error ? err.message : String(err)}`
+          )
+        )
+      );
       return c.json({
         success: true as const,
         source: 'letterboxd' as const,
@@ -251,6 +263,13 @@ adminSync.openapi(syncWatchingRoute, async (c) => {
       });
     } else {
       const result = await syncWatching(db, c.env);
+      c.executionCtx.waitUntil(
+        processWatchingImages(db, c.env).catch((err) =>
+          console.log(
+            `[ERROR] Watching image processing failed: ${err instanceof Error ? err.message : String(err)}`
+          )
+        )
+      );
       return c.json({
         success: true as const,
         source: 'plex' as const,
