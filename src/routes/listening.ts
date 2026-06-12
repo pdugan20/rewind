@@ -22,6 +22,7 @@ import { getImageAttachment, getImageAttachmentBatch } from '../lib/images.js';
 import { images } from '../db/schema/system.js';
 import { LastfmClient } from '../services/lastfm/client.js';
 import type { LastfmPeriod } from '../services/lastfm/client.js';
+import { loadFilters, isFiltered } from '../services/lastfm/filters.js';
 import {
   enrichArtistBio,
   type SimilarArtistEntry,
@@ -1684,26 +1685,68 @@ listening.openapi(nowPlayingRoute, async (c) => {
   const db = createDb(c.env.DB);
 
   try {
-    const response = await client.getRecentTracks({ limit: 1 });
+    // now-playing reads live from Last.fm (the only listening endpoint that
+    // does). Every other endpoint excludes audiobooks/holiday music via the
+    // synced is_filtered columns, so we must apply the same filtering here --
+    // otherwise a stray scrobble (e.g. Plex scrobbling an audiobook) surfaces
+    // as "now playing". Over-fetch so we can fall through to the most recent
+    // track that isn't filtered.
+    await loadFilters(db);
+    const response = await client.getRecentTracks({ limit: 20 });
     const tracks = response.recenttracks.track;
 
     if (!tracks || tracks.length === 0) {
       return c.json({ is_playing: false, track: null, scrobbled_at: null });
     }
 
-    const latestTrack = tracks[0];
-    const isPlaying = latestTrack['@attr']?.nowplaying === 'true';
+    // Walk newest-to-oldest and pick the first track that isn't filtered.
+    // Check both the live filter rules (artist/album/track patterns -- catches
+    // an author blacklist before a sync flags the row) and the synced
+    // is_filtered flag on the artist (catches tag-detected audiobooks).
+    let latestTrack: (typeof tracks)[number] | undefined;
+    let artist:
+      | { id: number; name: string; appleMusicUrl: string | null }
+      | undefined;
 
-    // Look up artist in DB for ID
-    const [artist] = await db
-      .select({
-        id: lastfmArtists.id,
-        name: lastfmArtists.name,
-        appleMusicUrl: lastfmArtists.appleMusicUrl,
-      })
-      .from(lastfmArtists)
-      .where(eq(lastfmArtists.name, latestTrack.artist['#text']))
-      .limit(1);
+    for (const candidate of tracks) {
+      const artistName = candidate.artist['#text'];
+      if (
+        isFiltered({
+          artistName,
+          albumName: candidate.album?.['#text'] || undefined,
+          trackName: candidate.name,
+        })
+      ) {
+        continue;
+      }
+
+      const [row] = await db
+        .select({
+          id: lastfmArtists.id,
+          name: lastfmArtists.name,
+          appleMusicUrl: lastfmArtists.appleMusicUrl,
+          isFiltered: lastfmArtists.isFiltered,
+        })
+        .from(lastfmArtists)
+        .where(eq(lastfmArtists.name, artistName))
+        .limit(1);
+
+      if (row?.isFiltered === 1) {
+        continue;
+      }
+
+      latestTrack = candidate;
+      artist = row
+        ? { id: row.id, name: row.name, appleMusicUrl: row.appleMusicUrl }
+        : undefined;
+      break;
+    }
+
+    if (!latestTrack) {
+      return c.json({ is_playing: false, track: null, scrobbled_at: null });
+    }
+
+    const isPlaying = latestTrack['@attr']?.nowplaying === 'true';
 
     // Resolve track + album via the stored track.album_id link. Mirrors the
     // /recent endpoint's join shape so attribution stays consistent across

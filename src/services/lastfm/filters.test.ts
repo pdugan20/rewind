@@ -251,4 +251,35 @@ describe('hasAudiobookTags', () => {
   it('returns false for empty tags', () => {
     expect(hasAudiobookTags([])).toBe(false);
   });
+
+  it('detects book authors from literary tags (Thomas Pynchon case)', () => {
+    // Real Last.fm top tags for Thomas Pynchon: no "audiobook"/"spoken word"
+    // tag exists, but "literature"/"novel" clearly mark an author whose
+    // "music" is an audiobook.
+    expect(
+      hasAudiobookTags([
+        { name: 'postmodern', count: 100 },
+        { name: 'literature', count: 100 },
+        { name: 'adventure', count: 66 },
+        { name: 'audio', count: 66 },
+        { name: 'novel', count: 33 },
+      ])
+    ).toBe(true);
+  });
+
+  it('detects fiction/author literary tags', () => {
+    expect(hasAudiobookTags([{ name: 'fiction', count: 50 }])).toBe(true);
+    expect(hasAudiobookTags([{ name: 'Author', count: 40 }])).toBe(true);
+    expect(hasAudiobookTags([{ name: 'poetry', count: 30 }])).toBe(true);
+  });
+
+  it('ignores a weak/stray literary tag on a music artist', () => {
+    expect(
+      hasAudiobookTags([
+        { name: 'rock', count: 100 },
+        { name: 'alternative', count: 80 },
+        { name: 'literature', count: 8 },
+      ])
+    ).toBe(false);
+  });
 });

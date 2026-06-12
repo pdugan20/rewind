@@ -134,11 +134,31 @@ const AUDIOBOOK_TAGS = new Set([
   'hörbuch',
   'audio book',
   'audio books',
+  // Literary/written-word tags. Book authors (e.g. Thomas Pynchon, Robert A.
+  // Caro) are rarely tagged "audiobook" on Last.fm, but the crowd reliably
+  // tags them as literature/fiction/etc. Their "music" is an audiobook
+  // scrobbled by Plex/Audiobookshelf, so treat these as audiobook signals.
+  'literature',
+  'literary',
+  'novel',
+  'novels',
+  'fiction',
+  'non-fiction',
+  'nonfiction',
+  'author',
+  'authors',
+  'writer',
+  'writers',
+  'poetry',
+  'poet',
+  'short stories',
+  'essays',
 ]);
 
 /**
  * Check if raw Last.fm tags indicate an audiobook/spoken-word artist.
- * Returns true if any tag with sufficient weight matches.
+ * Returns true if any tag with sufficient weight matches. The weight floor
+ * (25) keeps a stray low-confidence tag on a music artist from tripping it.
  */
 export function hasAudiobookTags(
   tags: { name: string; count: number }[]
