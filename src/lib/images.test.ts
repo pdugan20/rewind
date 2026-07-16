@@ -75,12 +75,13 @@ describe('getImageAttachment', () => {
       'watching',
       'movies',
       '456',
-      'poster'
+      'poster-sm'
     );
 
     expect(result).not.toBeNull();
-    expect(result!.cdn_url).toContain('width=342');
-    expect(result!.cdn_url).toContain('height=513');
+    expect(result?.cdn_url).toContain(
+      '/cdn-cgi/image/width=240,height=360,fit=cover,format=auto,quality=85/'
+    );
   });
 });
 

@@ -13,6 +13,7 @@ export const SIZE_PRESETS: Record<string, SizePreset> = {
   thumbnail: { width: 64, height: 64, fit: 'cover' },
   small: { width: 150, height: 150, fit: 'cover' },
   medium: { width: 300, height: 300, fit: 'cover' },
+  'poster-sm': { width: 240, height: 360, fit: 'cover' },
   large: { width: 600, height: 600, fit: 'cover' },
   poster: { width: 342, height: 513, fit: 'cover' },
   'poster-lg': { width: 500, height: 750, fit: 'cover' },
@@ -57,19 +58,23 @@ export function buildCdnUrl(
   imageVersion: number
 ): string {
   const preset = SIZE_PRESETS[size];
-  if (!preset) {
-    return `${CDN_BASE_URL}/${r2Key}?v=${imageVersion}`;
+  const originalUrl = `${CDN_BASE_URL}/${r2Key}?v=${imageVersion}`;
+
+  if (!preset || (preset.width === null && preset.height === null)) {
+    return originalUrl;
   }
 
-  const params = new URLSearchParams();
-  if (preset.width) params.set('width', String(preset.width));
-  if (preset.height) params.set('height', String(preset.height));
-  params.set('fit', preset.fit);
-  params.set('format', 'auto');
-  params.set('quality', '85');
-  params.set('v', String(imageVersion));
+  const options = [
+    preset.width ? `width=${preset.width}` : null,
+    preset.height ? `height=${preset.height}` : null,
+    `fit=${preset.fit}`,
+    'format=auto',
+    'quality=85',
+  ]
+    .filter(Boolean)
+    .join(',');
 
-  return `${CDN_BASE_URL}/${r2Key}?${params.toString()}`;
+  return `${CDN_BASE_URL}/cdn-cgi/image/${options}/${r2Key}?v=${imageVersion}`;
 }
 
 /**

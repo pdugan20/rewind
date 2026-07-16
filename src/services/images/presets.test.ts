@@ -33,32 +33,35 @@ describe('presets', () => {
       fit: 'scale-down',
     });
   });
+
+  it('defines a 2:3 small poster preset', () => {
+    expect(SIZE_PRESETS['poster-sm']).toEqual({
+      width: 240,
+      height: 360,
+      fit: 'cover',
+    });
+  });
 });
 
 describe('buildCdnUrl', () => {
-  it('builds URL with size params and version', () => {
-    const url = buildCdnUrl('listening/albums/abc/original.jpg', 'medium', 1);
-    expect(url).toContain('cdn.rewind.rest');
-    expect(url).toContain('width=300');
-    expect(url).toContain('height=300');
-    expect(url).toContain('fit=cover');
-    expect(url).toContain('format=auto');
-    expect(url).toContain('v=1');
+  it('builds a Cloudflare transform URL for sized images', () => {
+    expect(
+      buildCdnUrl('watching/movies/456/original.jpg', 'poster-sm', 3)
+    ).toBe(
+      'https://cdn.rewind.rest/cdn-cgi/image/width=240,height=360,fit=cover,format=auto,quality=85/watching/movies/456/original.jpg?v=3'
+    );
   });
 
-  it('builds URL with only version for original size', () => {
-    const url = buildCdnUrl('listening/albums/abc/original.jpg', 'original', 2);
-    expect(url).toContain('fit=scale-down');
-    expect(url).toContain('v=2');
-    expect(url).not.toContain('width=');
+  it('serves original images without a transform segment', () => {
+    expect(
+      buildCdnUrl('listening/albums/abc/original.jpg', 'original', 2)
+    ).toBe('https://cdn.rewind.rest/listening/albums/abc/original.jpg?v=2');
   });
 
-  it('includes version for cache busting', () => {
-    const v1 = buildCdnUrl('test/key', 'medium', 1);
-    const v2 = buildCdnUrl('test/key', 'medium', 2);
-    expect(v1).toContain('v=1');
-    expect(v2).toContain('v=2');
-    expect(v1).not.toBe(v2);
+  it('falls back to the original URL for an unknown preset', () => {
+    expect(buildCdnUrl('test/key.jpg', 'missing', 4)).toBe(
+      'https://cdn.rewind.rest/test/key.jpg?v=4'
+    );
   });
 });
 
