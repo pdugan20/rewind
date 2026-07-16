@@ -8,7 +8,7 @@
       "detail": "Taylor Swift",
       "playcount": 49,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/227/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/227/original.jpg?v=1",
         "thumbhash": "8icGFwT3VpdohHl4hVqWaHZ3GV8U+CoB",
         "dominant_color": "#f5d1dc",
         "accent_color": "#95b3cd"
@@ -23,7 +23,7 @@
       "detail": "Beastie Boys",
       "playcount": 39,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/172/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/172/original.jpg?v=1",
         "thumbhash": "DggGBwD+R5a5l6uKlxdmdqq0Rab5aasP",
         "dominant_color": "#13181d",
         "accent_color": "#353537"
@@ -38,7 +38,7 @@
       "detail": "Beastie Boys",
       "playcount": 36,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/371/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/371/original.jpg?v=1",
         "thumbhash": "FggODwJpiGifd3iGdjV3d4Znh3cIdnYA",
         "dominant_color": "#010101",
         "accent_color": "#f4f3f0"
@@ -53,7 +53,7 @@
       "detail": "Beastie Boys",
       "playcount": 31,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/171/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/171/original.jpg?v=1",
         "thumbhash": "JRoKFwIZZ1hmd3hwkoZoNmh4xvMJKpwA",
         "dominant_color": "#f0d872",
         "accent_color": "#b8af88"
@@ -68,7 +68,7 @@
       "detail": "Beastie Boys",
       "playcount": 31,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/170/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/170/original.jpg?v=1",
         "thumbhash": "JAgKBwBJpYdeZZUvxnh6Zrijytv497cO",
         "dominant_color": "#ece9e4",
         "accent_color": "#bdb7b0"
@@ -83,7 +83,7 @@
       "detail": "Olivia Rodrigo",
       "playcount": 28,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/20/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/20/original.jpg?v=1",
         "thumbhash": "kRcKLwJfZ4aAm5iNZKqZGIZ5egdnamAI",
         "dominant_color": "#07040b",
         "accent_color": "#292346"
@@ -98,7 +98,7 @@
       "detail": "Taylor Swift",
       "playcount": 26,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/214/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/214/original.jpg?v=1",
         "thumbhash": "ZSgODwTNenVfdodrZ5hniHiFBiM6MaAE",
         "dominant_color": "#e9e8e2",
         "accent_color": "#3e202e"
@@ -113,7 +113,7 @@
       "detail": "Olivia Rodrigo",
       "playcount": 24,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/21/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/21/original.jpg?v=1",
         "thumbhash": "4xYGLwL+MY90inhotLhodnd5dlBoCXQF",
         "dominant_color": "#807cbd",
         "accent_color": "#e2bfad"
@@ -128,7 +128,7 @@
       "detail": "Beastie Boys",
       "playcount": 21,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/631/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/631/original.jpg?v=1",
         "thumbhash": "7wgKDwCHmHeld4ivhWeEeJZ8ZWn6tp8M",
         "dominant_color": "#e4dabd",
         "accent_color": "#a59b87"
@@ -143,7 +143,7 @@
       "detail": "Bruno Mars",
       "playcount": 21,
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/albums/12478/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/albums/12478/original.jpg?v=1",
         "thumbhash": "MQgGBwCnB8iVmHd2g61omFh1BwAAAAAA",
         "dominant_color": "#f7f7f7",
         "accent_color": "#8a8a8a"

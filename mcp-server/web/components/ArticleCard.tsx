@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
 import { timeAgo } from '../lib/time-ago.js';
+import { rewriteCdnImageUrl } from '../lib/cdn-image.js';
 
 export type Article = {
   id: number;
@@ -34,11 +35,7 @@ function buildThumbUrl(
   if (!image) return null;
   const base = image.cdn_url ?? image.url ?? null;
   if (!base) return null;
-  // If the CDN URL already carries query params from the API, preserve them
-  // but override the width/height/fit with our tile size.
-  const transformed = base.includes('?')
-    ? `${base.split('?')[0]}?${CDN_TRANSFORM}`
-    : `${base}?${CDN_TRANSFORM}`;
+  const transformed = rewriteCdnImageUrl(base, CDN_TRANSFORM);
   return {
     src: transformed,
     placeholder: thumbhashToDataUrl(image.thumbhash ?? null),

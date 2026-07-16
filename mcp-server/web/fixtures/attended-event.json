@@ -226,13 +226,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/121/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/121/original.png?v=1",
           "thumbhash": "IDmKDQJHiIZwi4d5yFaBYCUICIeGeIZodw==",
           "dominant_color": "#e0a780",
           "accent_color": "#20232b"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/121/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/121/original.png?v=1",
           "thumbhash": "ahiKFQQ3yGdwiXx4qDeKcKMICKhwdolLaA==",
           "dominant_color": "#e3eaf3",
           "accent_color": "#ddb198"
@@ -327,13 +327,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/189/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/189/original.png?v=1",
           "thumbhash": "2iiGDQJHiIdwi4lY2GeAcAYHB4iHeIdodw==",
           "dominant_color": "#242a32",
           "accent_color": "#c2916c"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/189/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/189/original.png?v=1",
           "thumbhash": "ZxiKFQI3x1iAiX1XuDeJcJQHCKeCd3lKdw==",
           "dominant_color": "#eef2f8",
           "accent_color": "#ba8560"
@@ -417,13 +417,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/122/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/122/original.png?v=1",
           "thumbhash": "5TiKDQJHeJdwjIaJt2eBcBcIB4iHeIZodw==",
           "dominant_color": "#e5b398",
           "accent_color": "#1a222a"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/122/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/122/original.png?v=1",
           "thumbhash": "rCiKFQQ3uHaAinqJx0eJcJQHB6iDh3lKiA==",
           "dominant_color": "#ecbea4",
           "accent_color": "#f2f4f9"
@@ -522,13 +522,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/124/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/124/original.png?v=1",
           "thumbhash": "WhiKDQJHmGdwi41Ft1eIcIYICId2iHdoaA==",
           "dominant_color": "#1a1a1b",
           "accent_color": "#a88063"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/124/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/124/original.png?v=1",
           "thumbhash": "JRiKDQI32FeAeH9WqDeLcLQICKhxd4lKeA==",
           "dominant_color": "#f0f3f9",
           "accent_color": "#222428"
@@ -618,13 +618,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/125/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/125/original.png?v=1",
           "thumbhash": "nRiGFQJHiHZxmokJ+Gh4gHYIB4iGiId4Zw==",
           "dominant_color": "#1c1e21",
           "accent_color": "#deaa8a"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/125/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/125/original.png?v=1",
           "thumbhash": "ZxiKFQI36GaAh343yEeLgKQIB6iBh4lKdw==",
           "dominant_color": "#eef2f8",
           "accent_color": "#cf9878"
@@ -708,13 +708,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/774/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/774/original.png?v=1",
           "thumbhash": "nDiKDQJGiHdwjIaZx2h1gFcIB5iHeIdoeA==",
           "dominant_color": "#111017",
           "accent_color": "#d1a591"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/774/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/774/original.png?v=1",
           "thumbhash": "ZyiKFQI3t2iAiXtoyEh5gIQHCJeEd3lJiA==",
           "dominant_color": "#f2f5fc",
           "accent_color": "#c39684"
@@ -795,13 +795,13 @@
         "college_name": "Gonzaga",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/127/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/127/original.png?v=1",
           "thumbhash": "5EiGDQJGZ8iAjHa5uGeCcDYIB5iHeIZodw==",
           "dominant_color": "#edc7b6",
           "accent_color": "#e3a98f"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/127/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/127/original.png?v=1",
           "thumbhash": "bCiKFQQ3uHdwioqIx0eKcKQICKhyd4k6iA==",
           "dominant_color": "#ebb79f",
           "accent_color": "#ecf0f7"
@@ -875,13 +875,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/128/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/128/original.png?v=1",
           "thumbhash": "JDmKDQJHZ6dwjHZ5uGhygEYHCIeHeHZodw==",
           "dominant_color": "#d2a48a",
           "accent_color": "#212326"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/128/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/128/original.png?v=1",
           "thumbhash": "ayiKFQQ3t3eAinqJuDd7gLQHB5iCh3k6iA==",
           "dominant_color": "#e7ecf5",
           "accent_color": "#d4a28a"
@@ -996,13 +996,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/129/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/129/original.png?v=1",
           "thumbhash": "oTiGFQRHiHdwi3VryGeGcGYICId3eIdodw==",
           "dominant_color": "#dfa693",
           "accent_color": "#1d242e"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/129/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/129/original.png?v=1",
           "thumbhash": "LBiKFQQ3yFhweXtouEeKcKQICKhxd4pKaA==",
           "dominant_color": "#eef1f7",
           "accent_color": "#eab2a2"
@@ -1092,13 +1092,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/737/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/737/original.png?v=1",
           "thumbhash": "X3mGBQJGeJVwjHiY2IeDgPi4CJeHeHZodw==",
           "dominant_color": "#ce9b7b",
           "accent_color": "#93644b"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/737/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/737/original.png?v=1",
           "thumbhash": "J1mKDQQ2uGZwin13yCeNcPRIB6h0eIhKhw==",
           "dominant_color": "#f0f4fb",
           "accent_color": "#e4bba2"
@@ -1185,13 +1185,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/132/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/132/original.png?v=1",
           "thumbhash": "4yiKDQJGeIeAjHZ5t2hxcCcHB5iHeIdodw==",
           "dominant_color": "#1c2229",
           "accent_color": "#efd4c4"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/132/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/132/original.png?v=1",
           "thumbhash": "axiKFQI3t2eAinp5uEh6gJQHB6iCh3pKdw==",
           "dominant_color": "#ecf0f6",
           "accent_color": "#edc6b0"
@@ -1275,13 +1275,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/133/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/133/original.png?v=1",
           "thumbhash": "JUmKDQJHaLdwjHaJqGhwgBYHCId3iHZoeA==",
           "dominant_color": "#e7b09c",
           "accent_color": "#1e242a"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/133/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/133/original.png?v=1",
           "thumbhash": "bCiKFQQ2t2eAiXuJx0eKgKQHB6iCh3k6iA==",
           "dominant_color": "#ebeef5",
           "accent_color": "#edbba8"
@@ -1360,13 +1360,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/134/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/134/original.png?v=1",
           "thumbhash": "4DiKDQJHaMZwjXeJt2iAggYYCIeHeHZ4eA==",
           "dominant_color": "#d49e8c",
           "accent_color": "#0c0d16"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/134/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/134/original.png?v=1",
           "thumbhash": "aiiKFQI2qHeAent3uDeJcJQIB6iCiHlKiA==",
           "dominant_color": "#eaecf9",
           "accent_color": "#ecbfb2"
@@ -1440,13 +1440,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/775/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/775/original.png?v=1",
           "thumbhash": "F3mGBQJGaLdziXln9wyolPfIB5iHeHZoeA==",
           "dominant_color": "#754239",
           "accent_color": "#1d1012"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/775/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/775/original.png?v=1",
           "thumbhash": "o0iKDQQ32FeAiH5HyBiPgPI4B6iDh4lJhw==",
           "dominant_color": "#eae9fa",
           "accent_color": "#bc7d6e"
@@ -1551,13 +1551,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/136/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/136/original.png?v=1",
           "thumbhash": "4TiKDQJGiIeAfHdp12eEcEYICJeHeHdodw==",
           "dominant_color": "#e5a98b",
           "accent_color": "#1d2229"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/136/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/136/original.png?v=1",
           "thumbhash": "ayiKFQQ3x2eAeXtoqDeKcKQIB6iBhopKdw==",
           "dominant_color": "#ecf0f8",
           "accent_color": "#ecad8f"
@@ -1644,13 +1644,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/138/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/138/original.png?v=1",
           "thumbhash": "JUmKDQJGaKdwjIWJuHeAcBcICIeHeHZodw==",
           "dominant_color": "#e1a991",
           "accent_color": "#20252d"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/138/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/138/original.png?v=1",
           "thumbhash": "bSiKFQQ2uGdwiouIyDeKcKQIB6hyd4k6hw==",
           "dominant_color": "#ebf0f7",
           "accent_color": "#edbfaa"
@@ -1734,13 +1734,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/139/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/139/original.png?v=1",
           "thumbhash": "3ziGDQJHh4eAe3hJyFd0cFYHCIeHeHdodw==",
           "dominant_color": "#1d2026",
           "accent_color": "#e3aa8d"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/139/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/139/original.png?v=1",
           "thumbhash": "bBiKFQQ3x1eAeX1nqDeLcKMHB6iAh4pLZw==",
           "dominant_color": "#eff3fa",
           "accent_color": "#e6aa8d"
@@ -1834,13 +1834,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/179/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/179/original.png?v=1",
           "thumbhash": "XWmGBQJGiXVwjHpX1zuPlPb4B5iHeIdodw==",
           "dominant_color": "#d6b297",
           "accent_color": "#7a5d47"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/179/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/179/original.png?v=1",
           "thumbhash": "6UiKDQQ3yFdwiX1XuBl/gPNnCKeCd3pKhw==",
           "dominant_color": "#f2f5fd",
           "accent_color": "#cd9975"
@@ -1935,13 +1935,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/140/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/140/original.png?v=1",
           "thumbhash": "3DiKDQJGeKZwjXaJyGdzcDcHCJeHeHdoeA==",
           "dominant_color": "#141115",
           "accent_color": "#c99982"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/140/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/140/original.png?v=1",
           "thumbhash": "aSiKFQI2x1eAinx3uEh7gKQHB6eBh3pKdw==",
           "dominant_color": "#f0f0f5",
           "accent_color": "#cba08c"
@@ -2009,13 +2009,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/141/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/141/original.png?v=1",
           "thumbhash": "5DiKDQRHd6dwjHV6t2d0cEcHCIeHeHZoeA==",
           "dominant_color": "#d2a083",
           "accent_color": "#efcfbe"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/141/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/141/original.png?v=1",
           "thumbhash": "bCiKFQQ3t3iAenpouEeKcKQICKdyd4lKeA==",
           "dominant_color": "#ecf0f8",
           "accent_color": "#ebb59d"
@@ -2083,13 +2083,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/142/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/142/original.png?v=1",
           "thumbhash": "IUmKFQRHeIZwnIaJt2dzcDYHB4iHeIdodw==",
           "dominant_color": "#d89f7d",
           "accent_color": "#161b23"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/142/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/142/original.png?v=1",
           "thumbhash": "qiiKFQQ3uGdwiXt4yEeKcJQHCJeCd4lKdw==",
           "dominant_color": "#ecf0f7",
           "accent_color": "#e7ab89"
@@ -2229,13 +2229,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/143/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/143/original.png?v=1",
           "thumbhash": "HkmGDQJGiHdwjHh4x2hzgDYHCIeHeHZodw==",
           "dominant_color": "#a47656",
           "accent_color": "#d39975"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/143/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/143/original.png?v=1",
           "thumbhash": "qCiKFQQ2uFeAen1nyEeKcKQIB6hziIlKhw==",
           "dominant_color": "#ebeff7",
           "accent_color": "#d39671"
@@ -2319,13 +2319,13 @@
         "college_name": "Texas A&M",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/306/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/306/original.png?v=1",
           "thumbhash": "4ziGDQJHWNdwjYRqt2dxcBYHCIeHeHZ4eA==",
           "dominant_color": "#1f1f23",
           "accent_color": "#e7b59e"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/306/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/306/original.png?v=1",
           "thumbhash": "ayiKFQQ3t4eAiXtpyEd6gKQHB6iCh3lKiA==",
           "dominant_color": "#eceff6",
           "accent_color": "#f0c3b0"
@@ -2393,13 +2393,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/144/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/144/original.png?v=1",
           "thumbhash": "3SiGFQJHmGeAenpIx1h4gIYHCIeGeHZ4Zw==",
           "dominant_color": "#c8916a",
           "accent_color": "#1d2023"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/144/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/144/original.png?v=1",
           "thumbhash": "ahiKFQI32FeAeH5mpzeLgLMIF5iAh4lbZw==",
           "dominant_color": "#eef1f6",
           "accent_color": "#ce956e"
@@ -2478,13 +2478,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/454/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/454/original.png?v=1",
           "thumbhash": "GkiGFQJGmGdwi4tnp2hzcGUHCJeGeHdodw==",
           "dominant_color": "#b96d54",
           "accent_color": "#1a1b6c"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/454/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/454/original.png?v=1",
           "thumbhash": "5ieKFQQ3yFeAiX1mqEeIcLMIB6iBh4pKdw==",
           "dominant_color": "#d6dbf5",
           "accent_color": "#bd7966"
@@ -2568,13 +2568,13 @@
         "college_name": "Lake Erie College",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/145/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/145/original.png?v=1",
           "thumbhash": "6DiGDQJHiIdwjHZKqGd1cFYHCIeHeIdodw==",
           "dominant_color": "#f4c1b0",
           "accent_color": "#cda591"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/145/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/145/original.png?v=1",
           "thumbhash": "cBiGFQQ3x2iAiXtouDeLcLMHB6eAd3pKdw==",
           "dominant_color": "#ecf0f7",
           "accent_color": "#f0bead"
@@ -2642,13 +2642,13 @@
         "college_name": "Georgia",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/146/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/146/original.png?v=1",
           "thumbhash": "5EiKDQJGeKZwjXWKt2dxcAYXCJeHeHdodw==",
           "dominant_color": "#f2c4b8",
           "accent_color": "#d6a28f"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/146/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/146/original.png?v=1",
           "thumbhash": "ayiKFQQ2qHaAinp5xzeKcJQIB6iDh3lJhw==",
           "dominant_color": "#f1bfb2",
           "accent_color": "#eaeff8"
@@ -2716,13 +2716,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/239/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/239/original.png?v=1",
           "thumbhash": "XUmGFQJHWMiAfYaJ12eAcgYoB4iHeIZ4dw==",
           "dominant_color": "#e3ad83",
           "accent_color": "#be875b"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/239/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/239/original.png?v=1",
           "thumbhash": "6DiKFQQ3uHeAiXxoyCeJcIMIB5iDh3lKhw==",
           "dominant_color": "#eff2f8",
           "accent_color": "#e7af83"
@@ -2790,13 +2790,13 @@
         "college_name": "Ohio State",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/790/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/790/original.png?v=1",
           "thumbhash": "3ziKDQJGeIdwjHeYuGeAYAYYB5iHeIdodw==",
           "dominant_color": "#dfbeab",
           "accent_color": "#c5957b"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/790/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/790/original.png?v=1",
           "thumbhash": "qSiOFQI3t2eAinp4pzh5cJMHB6iDdnpJhw==",
           "dominant_color": "#eeeff3",
           "accent_color": "#d9b4a3"
@@ -2864,13 +2864,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/538/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/538/original.png?v=1",
           "thumbhash": "HkmKDQJGeIdwjHeZuGdwcQYXB5eHeHdoeA==",
           "dominant_color": "#cf9880",
           "accent_color": "#171513"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/538/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/538/original.png?v=1",
           "thumbhash": "pjiOFQRHuGeAinppuCh4cIMHB5eEh3lJhw==",
           "dominant_color": "#e5e4ec",
           "accent_color": "#c38972"
@@ -2954,13 +2954,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/791/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/791/original.png?v=1",
           "thumbhash": "3jiKDQJHeJdwjIeJx2eAYQYIB4iHeIZoeA==",
           "dominant_color": "#c4937a",
           "accent_color": "#dcb8a5"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/791/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/791/original.png?v=1",
           "thumbhash": "qCiKFQI3uGdwint4uDeKcKMHCJeCd3lKdw==",
           "dominant_color": "#d2a68e",
           "accent_color": "#e7e8ed"
@@ -3028,13 +3028,13 @@
         "college_name": "Indiana",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/792/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/792/original.png?v=1",
           "thumbhash": "4EiKDQJGeJdwjXaZuHdwcgcXCJeHeIZodw==",
           "dominant_color": "#d09c8b",
           "accent_color": "#171613"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/792/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/792/original.png?v=1",
           "thumbhash": "qDiKDQJGqGdwi3p4yEd5cIQHCKeEd3lJhw==",
           "dominant_color": "#e9e8ef",
           "accent_color": "#dfb3a4"
@@ -3108,13 +3108,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/793/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/793/original.png?v=1",
           "thumbhash": "3EiGDQJGiIZwjHaZuGhxgBYHCJd3iIdoeA==",
           "dominant_color": "#b07961",
           "accent_color": "#191716"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/793/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/793/original.png?v=1",
           "thumbhash": "piiKFQQ3yFdweYtot0h6gKQHCKhzh4lKiA==",
           "dominant_color": "#f1f3f5",
           "accent_color": "#cb9881"
@@ -3182,13 +3182,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/794/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/794/original.png?v=1",
           "thumbhash": "2miGBQJGeJdziYpX92ePe/fIB4iHeIZodw==",
           "dominant_color": "#a16d64",
           "accent_color": "#d1a49c"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/794/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/794/original.png?v=1",
           "thumbhash": "ZRiKDQI22FZwiH5GuCh8gMMHB6iBh3pKdw==",
           "dominant_color": "#ebf4fb",
           "accent_color": "#b58568"
@@ -3288,13 +3288,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/157/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/157/original.png?v=1",
           "thumbhash": "FjmGBQJHplmAeolY+Algg0UHCIeHeHdoeA==",
           "dominant_color": "#c08358",
           "accent_color": "#281e1a"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/157/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/157/original.png?v=1",
           "thumbhash": "YxiKDQI310iAeX5mpxh9gMIHB6eAhopKZw==",
           "dominant_color": "#dddee0",
           "accent_color": "#28221f"
@@ -3362,13 +3362,13 @@
         "college_name": "Texas Tech",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/795/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/795/original.png?v=1",
           "thumbhash": "3jiKDQJGeJZwjId4x2eCcCYIB5iHeHZodw==",
           "dominant_color": "#d8a892",
           "accent_color": "#181614"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/795/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/795/original.png?v=1",
           "thumbhash": "aCiKDQI2uGdwinxnuDh6gKQHCKeCd3lKhw==",
           "dominant_color": "#e3e2ea",
           "accent_color": "#d4a594"
@@ -3436,13 +3436,13 @@
         "college_name": "Evansville",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/796/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/796/original.png?v=1",
           "thumbhash": "HEmGDQJGeJZwjHWJyHdwcgcXCIeHeIZodw==",
           "dominant_color": "#181716",
           "accent_color": "#c58e75"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/796/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/796/original.png?v=1",
           "thumbhash": "pziKDQI2uFdwinxnyDh5gJMHCKeDd3lKhw==",
           "dominant_color": "#e9e9ee",
           "accent_color": "#d7ac9a"
@@ -3510,13 +3510,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/229/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/229/original.png?v=1",
           "thumbhash": "HEmKDQJGeIZwjHeIx2eAcgYIB5iHeHZodw==",
           "dominant_color": "#ca9a7e",
           "accent_color": "#161513"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/229/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/229/original.png?v=1",
           "thumbhash": "pyiKFQI2uFeAenx3uDeKcKQIB6iCh4lKhw==",
           "dominant_color": "#ebecef",
           "accent_color": "#ce9e83"
@@ -3584,13 +3584,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/797/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/797/original.png?v=1",
           "thumbhash": "F0mGDQJGiHVwm3iJt0hycBQHB5iHeHdodw==",
           "dominant_color": "#ab6d50",
           "accent_color": "#824f3f"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/797/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/797/original.png?v=1",
           "thumbhash": "pSiKFQQ3yFaAiX1ntzh6gKMHBqiBh3pKdw==",
           "dominant_color": "#eaebf0",
           "accent_color": "#ac6b4c"
@@ -3664,13 +3664,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/798/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/798/original.png?v=1",
           "thumbhash": "10iGFQRGl3eAenhq6GeIcHYICIeHeHdodw==",
           "dominant_color": "#141316",
           "accent_color": "#9e5d3c"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/798/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/798/original.png?v=1",
           "thumbhash": "pyiKFQQ32FdwiX5mqDeLcLMICKdwd4pKZw==",
           "dominant_color": "#f4f3f4",
           "accent_color": "#bc7856"
@@ -3754,13 +3754,13 @@
         "college_name": "Kentucky",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/799/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/799/original.png?v=1",
           "thumbhash": "GUmGDQJHeJaAfHeZuGhwgwYnCId3iIZoeA==",
           "dominant_color": "#c18463",
           "accent_color": "#171716"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/799/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/799/original.png?v=1",
           "thumbhash": "pCiKFQQ3uGeAenxot0eJcJQIB5hzh4lJiA==",
           "dominant_color": "#c68867",
           "accent_color": "#ebecf0"
@@ -3828,13 +3828,13 @@
         "college_name": "Mississippi College",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/800/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/800/original.png?v=1",
           "thumbhash": "4EiKDQJGiHZwjHiIt2eCcBYIB5iHiHdodw==",
           "dominant_color": "#d7a79b",
           "accent_color": "#1a1918"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/800/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/800/original.png?v=1",
           "thumbhash": "aiiKDQI3uGaAenuHuDeKcKQIB6iCh3lKdw==",
           "dominant_color": "#f1f2f4",
           "accent_color": "#daa99c"
@@ -3934,13 +3934,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/801/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/801/original.png?v=1",
           "thumbhash": "3DiGDQJHaKZwjHWa2GdwcgYXB4iHeHZoeA==",
           "dominant_color": "#d9ac97",
           "accent_color": "#191817"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/801/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/801/original.png?v=1",
           "thumbhash": "piiKFQQ3yGaAiXtpx0h6gJQHB5iDh3lKhw==",
           "dominant_color": "#d7a68f",
           "accent_color": "#f1f2f5"
@@ -4030,13 +4030,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/379/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/379/original.png?v=1",
           "thumbhash": "XmmGDQJHd5hwjHd5yGhwgDcHCIeHeHdodw==",
           "dominant_color": "#eca986",
           "accent_color": "#1c181d"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/379/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/379/original.png?v=1",
           "thumbhash": "p0iGBQAjtyhwjYHbpwh9huBnB6eJdYKahw==",
           "dominant_color": "#e5e5f5",
           "accent_color": "#c77e5b"
@@ -4104,13 +4104,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/802/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/802/original.png?v=1",
           "thumbhash": "IEmKDQJHd4iAfIaZt3eAcwcYB4iHeHZodw==",
           "dominant_color": "#e2b69d",
           "accent_color": "#1e1c19"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/802/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/802/original.png?v=1",
           "thumbhash": "qyiKDQQ2t1eAinyIyDeJcJMHB6iCd3lKhw==",
           "dominant_color": "#f5f9fa",
           "accent_color": "#deaf96"
@@ -4178,13 +4178,13 @@
         "college_name": "East Carolina",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/803/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/803/original.png?v=1",
           "thumbhash": "3jiKDQJHiHZwi3mIp2eFcFYIB4iHeIdodw==",
           "dominant_color": "#c6977a",
           "accent_color": "#181715"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/803/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/803/original.png?v=1",
           "thumbhash": "aCiKFQI3uGdwinx3qDeLcKQIB5iBd4lKdw==",
           "dominant_color": "#edeef0",
           "accent_color": "#c79576"
@@ -4258,13 +4258,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/804/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/804/original.png?v=1",
           "thumbhash": "HkmGDQJHaaVwjHaJx2iAcwYoCId3iIZ4dw==",
           "dominant_color": "#c28a6f",
           "accent_color": "#dbaa92"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/804/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/804/original.png?v=1",
           "thumbhash": "qDiKFQI3uGdwinxntzeKcKMICJdyh4lKiA==",
           "dominant_color": "#d19b82",
           "accent_color": "#e8e8ed"
@@ -4348,13 +4348,13 @@
         "college_name": "Indiana",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/805/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/805/original.png?v=1",
           "thumbhash": "30iGDQJGaKZwjXWKyHeAcgcoB5iHeIZodw==",
           "dominant_color": "#be8d78",
           "accent_color": "#ddb1a0"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/805/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/805/original.png?v=1",
           "thumbhash": "pziKFQI2qHdwi3poyEh5cJQHB6eEd3lJhw==",
           "dominant_color": "#dbb0a2",
           "accent_color": "#ebedf1"
@@ -4451,13 +4451,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/806/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/806/original.png?v=1",
           "thumbhash": "3TiKDQJGeJZwjXaI2HdwcBcIB5iHeIZodw==",
           "dominant_color": "#d3ac98",
           "accent_color": "#a57b66"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/806/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/806/original.png?v=1",
           "thumbhash": "piiKDQJGqGeAi3touEd6cJQHB6iEh3lJiA==",
           "dominant_color": "#d3b7af",
           "accent_color": "#e4e4e9"
@@ -4531,13 +4531,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/807/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/807/original.png?v=1",
           "thumbhash": "FkmGDQJGeJZwjHap2HhwhAdHCJd3iHZoeA==",
           "dominant_color": "#ad7154",
           "accent_color": "#201d1a"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/807/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/807/original.png?v=1",
           "thumbhash": "oziKFQI3yFdweXxnxzh5gJMIB6hzh4lKiA==",
           "dominant_color": "#e8e9ee",
           "accent_color": "#c18364"
@@ -4632,13 +4632,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/507/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/507/original.png?v=1",
           "thumbhash": "WlmGDQJHl2iAe3h52GhxgCUHCIeHeHdodw==",
           "dominant_color": "#cb8557",
           "accent_color": "#221d1f"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/507/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/507/original.png?v=1",
           "thumbhash": "pziKHQQ3x1iAeX1nuDh6cLMIB6iBh3pKdw==",
           "dominant_color": "#e9eaf7",
           "accent_color": "#d49063"
@@ -4722,13 +4722,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/808/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/808/original.png?v=1",
           "thumbhash": "G0mGDQJGh4hwm4WK6Gd0cFcHCJeHeHZodw==",
           "dominant_color": "#d4916d",
           "accent_color": "#15171e"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/808/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/808/original.png?v=1",
           "thumbhash": "qSiKFQQ310hwiY1nuDiLgLQHCKdxd3pKdw==",
           "dominant_color": "#f7f7f8",
           "accent_color": "#de9b76"
@@ -4796,13 +4796,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/809/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/809/original.png?v=1",
           "thumbhash": "kDiGDQJGWOeBe3eJ+GdwgwY3CJeHeIZodw==",
           "dominant_color": "#754e3d",
           "accent_color": "#4c342c"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/809/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/809/original.png?v=1",
           "thumbhash": "YyiKDQI22EdwiI5WyDeKcKMICKhxd4o6eA==",
           "dominant_color": "#f0eef0",
           "accent_color": "#a66c55"
@@ -4889,13 +4889,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/810/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/810/original.png?v=1",
           "thumbhash": "2DiGDQJGmVZwi3h52GeCcCYICJd3eIdodw==",
           "dominant_color": "#bf876a",
           "accent_color": "#191816"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/810/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/810/original.png?v=1",
           "thumbhash": "ZSiKFQI32EdwiX1nuDeLcKQHCKdxd3pKeA==",
           "dominant_color": "#dedee7",
           "accent_color": "#c68e72"
@@ -4976,13 +4976,13 @@
         "college_name": "Louisiana State",
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/811/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/811/original.png?v=1",
           "thumbhash": "1TiGDQJGiHZwi3d56FhxcAUHCJeHeIdodw==",
           "dominant_color": "#171614",
           "accent_color": "#825641"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/811/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/811/original.png?v=1",
           "thumbhash": "YyiKFQI3yFdwiX1XuDeLcKMHB6hzh4pJdw==",
           "dominant_color": "#ecedf2",
           "accent_color": "#b27c62"
@@ -5061,13 +5061,13 @@
           }
         ],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/812/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/812/original.png?v=1",
           "thumbhash": "HEmGDQJGabVwjXZ5yGhwhAYnCJeHiHZ4dw==",
           "dominant_color": "#d4a087",
           "accent_color": "#171513"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/812/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/812/original.png?v=1",
           "thumbhash": "pTiKDQJHuGaAintYuCh5gJMHB5iEh3lJiA==",
           "dominant_color": "#d4a28d",
           "accent_color": "#e9eaee"
@@ -5151,13 +5151,13 @@
         "college_name": null,
         "awards": [],
         "photo_silo": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_silo/813/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/813/original.png?v=1",
           "thumbhash": "GUmGDQJGiYZwjIeJ12eAcQYYCJd3iIdodw==",
           "dominant_color": "#bc7d5e",
           "accent_color": "#7f5445"
         },
         "photo_full": {
-          "cdn_url": "https://cdn.rewind.rest/attending/player_full/813/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/813/original.png?v=1",
           "thumbhash": "pTiKFQQ2yFdwiY1nyDeKcJMICKdyd4lKhw==",
           "dominant_color": "#e2e1e9",
           "accent_color": "#ad7054"

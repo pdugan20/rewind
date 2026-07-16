@@ -9,7 +9,7 @@
       "playcount": 200,
       "genre": "Hip-Hop",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/130/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/130/original.jpg?v=1",
         "thumbhash": "XwcKDwLGx4lvhXaNh0WIuHh4SflGZXgA",
         "dominant_color": "#1f1938",
         "accent_color": "#62596d"
@@ -32,7 +32,7 @@
       "playcount": 90,
       "genre": "Country",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/92/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/92/original.jpg?v=1",
         "thumbhash": "FRcKHwSYZ4dllXd/hUaHd3mJt4A5j5YI",
         "dominant_color": "#615592",
         "accent_color": "#100d15"
@@ -55,7 +55,7 @@
       "playcount": 52,
       "genre": "Pop",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/37/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/37/original.jpg?v=1",
         "thumbhash": "h0gKFwQHtWloiHh1ioeIdod4KPV3UV8I",
         "dominant_color": "#390201",
         "accent_color": "#512f3d"
@@ -78,7 +78,7 @@
       "playcount": 30,
       "genre": "Pop",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/483/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/483/original.jpg?v=1",
         "thumbhash": "0PgJHwJMhXW/ZGeFZ3eHKaZzmPR6UFIC",
         "dominant_color": "#494e34",
         "accent_color": "#262d1b"
@@ -101,7 +101,7 @@
       "playcount": 23,
       "genre": "Rock",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/636/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/636/original.jpg?v=1",
         "thumbhash": "TQgGBwCTeZZ/eHeNZ7h4h3iG+bWrBa0M",
         "dominant_color": "#241e16",
         "accent_color": "#655c54"
@@ -124,7 +124,7 @@
       "playcount": 22,
       "genre": "Pop",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/471/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/471/original.jpg?v=1",
         "thumbhash": "GQgKBwBAmnhLeIecW6h3qIiWJjDqAIcO",
         "dominant_color": "#827b79",
         "accent_color": "#c6c2c2"
@@ -147,7 +147,7 @@
       "playcount": 21,
       "genre": "Pop",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/867/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/867/original.jpg?v=1",
         "thumbhash": "0jgKFwQAbXiDeYhxe5mHd4l5NyAYBnQA",
         "dominant_color": "#080706",
         "accent_color": "#9e6c46"
@@ -170,7 +170,7 @@
       "playcount": 18,
       "genre": "Soul",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/709/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/709/original.jpg?v=1",
         "thumbhash": "WkkODwI3Z3iQd4d2d6hoZ4l3iIC7B8MK",
         "dominant_color": "#d7aa91",
         "accent_color": "#b37356"
@@ -193,7 +193,7 @@
       "playcount": 10,
       "genre": "Electronic",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/2405/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/2405/original.jpg?v=1",
         "thumbhash": "6/cRDwL3uIiLd3d6hqd3h3eJeAPrBrAG",
         "dominant_color": "#ffffff",
         "accent_color": "#ffffff"
@@ -216,7 +216,7 @@
       "playcount": 10,
       "genre": "Electronic",
       "image": {
-        "cdn_url": "https://cdn.rewind.rest/listening/artists/5725/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+        "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/listening/artists/5725/original.jpg?v=1",
         "thumbhash": "HggOFwRKl3egmHlsaGeIZ4h5Z7BYA3kF",
         "dominant_color": "#6b7871",
         "accent_color": "#cececf"

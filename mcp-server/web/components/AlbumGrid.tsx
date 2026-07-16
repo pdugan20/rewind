@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
 import { legibleColor } from '../lib/legible-color.js';
 import { cardOuterChrome, CARD_OUTER_CLASSNAME } from '../lib/card-tokens.js';
+import { rewriteCdnImageUrl } from '../lib/cdn-image.js';
 import { Sparkline } from './Sparkline.js';
 import { type TopItem } from './AlbumCard.js';
 
@@ -14,9 +15,7 @@ function buildRowThumbUrl(
   if (!image) return null;
   const base = image.cdn_url ?? image.url ?? null;
   if (!base) return null;
-  const transformed = base.includes('?')
-    ? `${base.split('?')[0]}?${ROW_THUMB_TX}`
-    : `${base}?${ROW_THUMB_TX}`;
+  const transformed = rewriteCdnImageUrl(base, ROW_THUMB_TX);
   return {
     src: transformed,
     placeholder: thumbhashToDataUrl(image.thumbhash ?? null),

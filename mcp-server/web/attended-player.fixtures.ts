@@ -49,7 +49,7 @@ const jpCrawford: AthletePayload = {
     awards: [{ season: '2020', id: 'ALGG', name: 'Rawlings AL Gold Glove' }],
     photo_silo: {
       cdn_url:
-        'https://cdn.rewind.rest/attending/player_silo/125/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+        'https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/125/original.png?v=1',
       url: null,
       thumbhash: 'nRiGFQJHiHZxmokJ+Gh4gHYIB4iGiId4Zw==',
       dominant_color: '#1c1e21',
@@ -57,7 +57,7 @@ const jpCrawford: AthletePayload = {
     },
     photo_full: {
       cdn_url:
-        'https://cdn.rewind.rest/attending/player_full/125/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+        'https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/125/original.png?v=1',
       url: null,
       thumbhash: 'ZxiKFQI36GaAh343yEeLgKQIB6iBh4lKdw==',
       dominant_color: '#eef2f8',
@@ -405,7 +405,7 @@ const julioRodriguez: AthletePayload = {
     ],
     photo_silo: {
       cdn_url:
-        'https://cdn.rewind.rest/attending/player_silo/143/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+        'https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/143/original.png?v=1',
       url: null,
       thumbhash: 'HkmGDQJGiHdwjHh4x2hzgDYHCIeHeHZodw==',
       dominant_color: '#a47656',
@@ -413,7 +413,7 @@ const julioRodriguez: AthletePayload = {
     },
     photo_full: {
       cdn_url:
-        'https://cdn.rewind.rest/attending/player_full/143/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+        'https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/143/original.png?v=1',
       url: null,
       thumbhash: 'qCiKFQQ2uFeAen1nyEeKcKQIB6hziIlKhw==',
       dominant_color: '#ebeff7',

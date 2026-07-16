@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
 import { cardOuterChrome, CARD_OUTER_CLASSNAME } from '../lib/card-tokens.js';
+import { rewriteCdnImageUrl } from '../lib/cdn-image.js';
 import { TeamLogo } from './TeamLogo.js';
 import type { Team } from './types.js';
 
@@ -222,9 +223,7 @@ function buildSrc(
   if (!image) return null;
   const base = image.cdn_url ?? image.url ?? null;
   if (!base) return null;
-  const transformed = base.includes('?')
-    ? `${base.split('?')[0]}?${transform}`
-    : `${base}?${transform}`;
+  const transformed = rewriteCdnImageUrl(base, transform);
   return {
     src: transformed,
     placeholder: thumbhashToDataUrl(image.thumbhash ?? null),

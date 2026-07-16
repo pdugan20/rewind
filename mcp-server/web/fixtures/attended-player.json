@@ -48,13 +48,13 @@
       }
     ],
     "photo_silo": {
-      "cdn_url": "https://cdn.rewind.rest/attending/player_silo/129/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+      "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_silo/129/original.png?v=1",
       "thumbhash": "oTiGFQRHiHdwi3VryGeGcGYICId3eIdodw==",
       "dominant_color": "#dfa693",
       "accent_color": "#1d242e"
     },
     "photo_full": {
-      "cdn_url": "https://cdn.rewind.rest/attending/player_full/129/original.png?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+      "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/attending/player_full/129/original.png?v=1",
       "thumbhash": "LBiKFQQ3yFhweXtouEeKcKQICKhxd4pKaA==",
       "dominant_color": "#eef1f7",
       "accent_color": "#eab2a2"

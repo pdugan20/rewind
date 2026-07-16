@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { thumbhashToDataUrl } from '../lib/thumbhash.js';
+import { rewriteCdnImageUrl } from '../lib/cdn-image.js';
 import type { TopItem } from './AlbumCard.js';
 import { Sparkline } from './Sparkline.js';
 
@@ -12,9 +13,7 @@ function buildPortraitUrl(
   if (!image) return null;
   const base = image.cdn_url ?? image.url ?? null;
   if (!base) return null;
-  const transformed = base.includes('?')
-    ? `${base.split('?')[0]}?${CDN_TRANSFORM}`
-    : `${base}?${CDN_TRANSFORM}`;
+  const transformed = rewriteCdnImageUrl(base, CDN_TRANSFORM);
   return {
     src: transformed,
     placeholder: thumbhashToDataUrl(image.thumbhash ?? null),

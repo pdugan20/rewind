@@ -11,7 +11,7 @@
         "duration_min": 97,
         "rating": null,
         "image": {
-          "cdn_url": "https://cdn.rewind.rest/watching/movies/710/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/watching/movies/710/original.jpg?v=1",
           "thumbhash": "6hcODwT2Z4ediIdyd7p3SIh6uIC1CWkN",
           "dominant_color": "#e2e5eb",
           "accent_color": "#2a223b"
@@ -41,7 +41,7 @@
         "duration_min": 101,
         "rating": null,
         "image": {
-          "cdn_url": "https://cdn.rewind.rest/watching/movies/707/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/watching/movies/707/original.jpg?v=1",
           "thumbhash": "bSgSFwb3d2h2eIl5hraIiHiKh4CICIYK",
           "dominant_color": "#f5f5f5",
           "accent_color": "#f5f5f5"
@@ -71,7 +71,7 @@
         "duration_min": 105,
         "rating": "R",
         "image": {
-          "cdn_url": "https://cdn.rewind.rest/watching/movies/706/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=2",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/watching/movies/706/original.jpg?v=2",
           "thumbhash": "lygKHwZtVXpyeIh/h0eIt3d1+IUYX4oB",
           "dominant_color": "#252830",
           "accent_color": "#5d3526"
@@ -101,7 +101,7 @@
         "duration_min": 85,
         "rating": "R",
         "image": {
-          "cdn_url": "https://cdn.rewind.rest/watching/movies/209/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/watching/movies/209/original.jpg?v=1",
           "thumbhash": "HQgODwS4inlvmXiWdceJx3aWqvqYmp8K",
           "dominant_color": "#101110",
           "accent_color": "#dfd5cd"
@@ -131,7 +131,7 @@
         "duration_min": 85,
         "rating": "R",
         "image": {
-          "cdn_url": "https://cdn.rewind.rest/watching/movies/209/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/watching/movies/209/original.jpg?v=1",
           "thumbhash": "HQgODwS4inlvmXiWdceJx3aWqvqYmp8K",
           "dominant_color": "#101110",
           "accent_color": "#dfd5cd"
@@ -161,7 +161,7 @@
         "duration_min": 110,
         "rating": "PG",
         "image": {
-          "cdn_url": "https://cdn.rewind.rest/watching/movies/296/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/watching/movies/296/original.jpg?v=1",
           "thumbhash": "WxgODwL7p8aJiWhclUeWuJhzvTX6H5IM",
           "dominant_color": "#181516",
           "accent_color": "#846551"
@@ -191,7 +191,7 @@
         "duration_min": 121,
         "rating": null,
         "image": {
-          "cdn_url": "https://cdn.rewind.rest/watching/movies/705/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/watching/movies/705/original.jpg?v=1",
           "thumbhash": "1EgKHQhWeHl4qmjXV3CIZ5NvW/m3",
           "dominant_color": "#231916",
           "accent_color": "#5a271d"
@@ -221,7 +221,7 @@
         "duration_min": 157,
         "rating": "PG-13",
         "image": {
-          "cdn_url": "https://cdn.rewind.rest/watching/movies/704/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+          "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/watching/movies/704/original.jpg?v=1",
           "thumbhash": "1OcFFwQFSYxDqXZ1WSmoZXlcWQp1tmAG",
           "dominant_color": "#132c33",
           "accent_color": "#635f53"

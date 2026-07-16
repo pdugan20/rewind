@@ -79,7 +79,7 @@ const archivedWithQuoteFixture: ArticlePayload = {
     saved_at: '2018-03-15T05:00:00.000Z',
     image: {
       cdn_url:
-        'https://cdn.rewind.rest/reading/articles/1121/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1',
+        'https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/reading/articles/1121/original.jpg?v=1',
       url: null,
       thumbhash: 'XPcNDwJ3mHegZ4dGmTiHqGl4+Dhob4ME',
       dominant_color: '#132132',

@@ -14,7 +14,7 @@
     "progress": 0,
     "saved_at": "2026-04-27T17:58:50.000Z",
     "image": {
-      "cdn_url": "https://cdn.rewind.rest/reading/articles/1118/original.jpg?width=300&height=300&fit=cover&format=auto&quality=85&v=1",
+      "cdn_url": "https://cdn.rewind.rest/cdn-cgi/image/width=300,height=300,fit=cover,format=auto,quality=85/reading/articles/1118/original.jpg?v=1",
       "thumbhash": "lygOJwSolGh3Z5dwdoiImXmHh5cGkHsB",
       "dominant_color": "#0c0e16",
       "accent_color": "#d09d6c"
