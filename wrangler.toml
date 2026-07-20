@@ -4,16 +4,17 @@ compatibility_date = "2026-03-12"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-# Custom domain
+# Custom domain (zone dinakartumu.com on this Cloudflare account).
+# The *.workers.dev URL stays active as well (workers_dev = true).
 routes = [
-  { pattern = "api.rewind.rest", custom_domain = true }
+  { pattern = "rewind.dinakartumu.com", custom_domain = true }
 ]
 
 # D1 Database
 [[d1_databases]]
 binding = "DB"
 database_name = "rewind-db"
-database_id = "35a4edf8-0d4f-4cbe-9a6e-6f1525716774"
+database_id = "cd52eb43-e7e7-4781-b185-171f2afa163c"
 migrations_dir = "migrations"
 
 # R2 Bucket
@@ -35,20 +36,20 @@ index_name = "rewind-reading"
 # distinguish purposes: `mlb_stats:player:{id}:{season}`, `mlb_stats:teams:{season}`.
 [[kv_namespaces]]
 binding = "REWIND_CACHE"
-id = "e34b3662616b43048f3b7397f2fb9bac"
-preview_id = "b8773815b40f4bc5b739f5c3768457b1"
+id = "0c656a4610914eccb67a8b93cf186aa3"
+preview_id = "0c656a4610914eccb67a8b93cf186aa3"
 
-# Cron Triggers
+# Cron Triggers -- free Workers plan allows max 5. The Plex scan
+# (30 3 * * *), attending refresh (0 4 * * *), and Instapaper weekly
+# reconciliation (0 5 * * SUN) are dropped: no credentials for those
+# sources on this instance. Restore them if those integrations return.
 [triggers]
 crons = [
   "*/15 * * * *",   # Every 15 min: Last.fm scrobble sync
   "0 3 * * *",      # Daily 3:00 AM: Last.fm top lists + stats
   "15 3 * * *",     # Daily 3:15 AM: Strava activities
-  "30 3 * * *",     # Daily 3:30 AM: Plex library scan
   "45 3 * * SUN",   # Sunday 3:45 AM: Discogs + Trakt collections
-  "0 */6 * * *",    # Every 6 hours: Letterboxd RSS sync
-  "0 4 * * *",      # Daily 4:00 AM: Attending (Calendar + Gmail incremental)
-  "0 5 * * SUN",    # Sunday 5:00 AM: Instapaper full deletion reconciliation
+  "0 */6 * * *",    # Every 6 hours: Trakt watch history + Instapaper
 ]
 
 # Cloudflare Images (for thumbhash/color extraction)
@@ -56,5 +57,6 @@ crons = [
 binding = "IMAGE_TRANSFORMS"
 
 [vars]
-ALLOWED_ORIGINS = "patdugan.me,docs.rewind.rest,localhost:3000"
-PLEX_OWNER_ACCOUNT_TITLE = "patdugan"
+ALLOWED_ORIGINS = "localhost:3000"
+PLEX_OWNER_ACCOUNT_TITLE = "dinakartumu"
+LASTFM_USERNAME = "dinakartumu"
