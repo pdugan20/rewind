@@ -279,8 +279,15 @@ export async function syncRecentScrobbles(
       const attr = response.recenttracks['@attr'];
       totalPages = parseInt(attr.totalPages);
 
-      const tracks = response.recenttracks.track;
-      if (!tracks || tracks.length === 0) break;
+      // Last.fm returns a bare object (not a 1-element array) when the page
+      // holds exactly one track — normalize before iterating.
+      const rawTracks = response.recenttracks.track;
+      const tracks = Array.isArray(rawTracks)
+        ? rawTracks
+        : rawTracks
+          ? [rawTracks]
+          : [];
+      if (tracks.length === 0) break;
 
       for (const rawTrack of tracks) {
         const track = normalizeScrobble(rawTrack);
@@ -889,8 +896,14 @@ export async function backfillScrobbles(
         `[SYNC] Backfill page ${page}/${totalPages} (${totalSynced} synced so far)`
       );
 
-      const tracks = response.recenttracks.track;
-      if (!tracks || tracks.length === 0) break;
+      // Same single-object normalization as the scrobble sync above.
+      const rawTracks = response.recenttracks.track;
+      const tracks = Array.isArray(rawTracks)
+        ? rawTracks
+        : rawTracks
+          ? [rawTracks]
+          : [];
+      if (tracks.length === 0) break;
 
       for (const rawTrack of tracks) {
         const track = normalizeScrobble(rawTrack);
