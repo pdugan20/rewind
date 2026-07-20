@@ -13,6 +13,7 @@ import imagesRoute from './routes/images.js';
 import collecting from './routes/collecting.js';
 import feed from './routes/feed.js';
 import reading from './routes/reading.js';
+import places from './routes/places.js';
 import attending from './routes/attending.js';
 import search from './routes/search.js';
 import exportRoute from './routes/export.js';
@@ -29,6 +30,7 @@ import { syncCollecting } from './services/discogs/sync.js';
 import { syncTraktCollection } from './services/trakt/sync.js';
 import { syncTraktHistory } from './services/trakt/history-sync.js';
 import { syncReading } from './services/instapaper/sync.js';
+import { syncPlaces } from './services/foursquare/sync.js';
 import { reconcileReadingDeletions } from './services/instapaper/reconcile-deletions.js';
 import { backfillAttending } from './services/attending/backfill.js';
 import {
@@ -92,6 +94,7 @@ const routes = app
   .route('/', imagesRoute)
   .route('/', collecting)
   .route('/reading', reading)
+  .route('/places', places)
   .route('/attending', attending)
   .route('/feed', feed)
   .route('/search', search)
@@ -378,6 +381,17 @@ export default {
                 );
               }
             })()
+          );
+        }
+
+        if (env.FOURSQUARE_ACCESS_TOKEN) {
+          console.log('[SYNC] Foursquare check-in sync');
+          ctx.waitUntil(
+            syncPlaces(env).catch((error) =>
+              console.log(
+                `[ERROR] Foursquare sync failed: ${error instanceof Error ? error.message : String(error)}`
+              )
+            )
           );
         }
 

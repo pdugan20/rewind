@@ -17,7 +17,7 @@ export const openAPIConfig = {
   info: {
     title: 'Rewind API',
     version: '1.0.0',
-    description: `Personal data aggregation API. Syncs and serves data from Last.fm, Apple Music, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, Google Calendar, and Gmail.
+    description: `Personal data aggregation API. Syncs and serves data from Last.fm, Apple Music, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, Foursquare/Swarm, Google Calendar, and Gmail.
 
 ## Domains
 
@@ -28,6 +28,7 @@ export const openAPIConfig = {
 | **Watching** | Plex, Letterboxd | Movies, TV shows, watch history, ratings, reviews |
 | **Collecting** | Discogs, Trakt | Vinyl/CD collection, physical media, wantlist |
 | **Reading** | Instapaper | Articles, highlights, reading progress, word count |
+| **Places** | Foursquare/Swarm | Check-ins, venues, categories, cities |
 | **Attending** | Google Calendar, Gmail | Live events, tickets, sports games, concerts, venues |
 
 ## Authentication
@@ -109,6 +110,10 @@ Common status codes: 400 (bad request), 401 (unauthorized), 404 (not found), 500
     {
       name: 'Reading',
       description: 'Articles, highlights, and reading stats from Instapaper.',
+    },
+    {
+      name: 'Places',
+      description: 'Foursquare/Swarm check-ins, venues, and stats.',
     },
     {
       name: 'Attending',

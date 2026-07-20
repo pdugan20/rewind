@@ -1,6 +1,6 @@
 # Rewind
 
-Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, Letterboxd, and Instapaper into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`. MCP server published as `rewind-mcp-server` on npm, deployed as a Cloudflare Worker at `mcp.rewind.rest`.
+Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, Letterboxd, Instapaper, and Foursquare/Swarm into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`. MCP server published as `rewind-mcp-server` on npm, deployed as a Cloudflare Worker at `mcp.rewind.rest`.
 
 ## Development Commands
 
@@ -21,7 +21,7 @@ npm test             # Vitest
 
 Hono on Cloudflare Workers with D1 (SQLite) for structured data, R2 for image storage, and Cloudflare Images for on-the-fly transforms. Drizzle ORM for type-safe database access. Hono RPC for end-to-end type inference with consuming clients. All routes prefixed with `/v1/`. API key authentication on all endpoints (Bearer token). Multi-user ready (`user_id` on all tables).
 
-Five data domains: listening (Last.fm + Apple Music), running (Strava), watching (Plex + Letterboxd + Trakt + manual), collecting (Discogs + Trakt), reading (Instapaper). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
+Six data domains: listening (Last.fm + Apple Music), running (Strava), watching (Plex + Letterboxd + Trakt + manual), collecting (Discogs + Trakt), reading (Instapaper), places (Foursquare/Swarm). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
 
 ## Project Structure
 
@@ -35,6 +35,7 @@ src/
     watching.ts            -- Watching endpoints (movies, TV shows, manual entry, ratings/reviews, year-in-review)
     collecting.ts          -- Collection endpoints (vinyl, media, calendar, cross-reference)
     reading.ts             -- Reading endpoints (articles, highlights, stats, streaks, domains)
+    places.ts              -- Places endpoints (recent check-ins, stats)
     feed.ts                -- Cross-domain feed endpoints (feed, on-this-day)
     images.ts              -- Image endpoints (proxy + admin overrides)
     webhooks.ts            -- Strava + Plex webhook receivers
@@ -48,6 +49,7 @@ src/
       watching.ts           -- Watching domain tables (movies, watch_history, shows, episodes)
       discogs.ts           -- Discogs domain tables
       reading.ts           -- Reading domain tables (reading_items, reading_highlights)
+      places.ts            -- Places domain tables (checkins)
   services/
     lastfm/                -- Last.fm API client, transforms, filters, sync
     strava/                -- Strava OAuth, API client, transforms, sync
@@ -57,6 +59,7 @@ src/
     discogs/               -- Discogs API client, transforms, cross-ref, sync
     trakt/                 -- Trakt OAuth, API client, collection + watch history sync
     instapaper/            -- Instapaper OAuth 1.0a client, transforms, sync
+    foursquare/            -- Foursquare check-ins API client, sync
     images/                -- Image pipeline (sources, storage, thumbhash, color extraction)
   lib/
     auth.ts                -- API key authentication middleware (Bearer token, in-memory cache, rate limiting)
@@ -120,6 +123,7 @@ docs/                      -- Project documentation
 | `INSTAPAPER_CONSUMER_SECRET`     | Reading              | Instapaper OAuth consumer secret                                            |
 | `INSTAPAPER_ACCESS_TOKEN`        | Reading              | Instapaper OAuth access token (from xAuth)                                  |
 | `INSTAPAPER_ACCESS_TOKEN_SECRET` | Reading              | Instapaper OAuth token secret                                               |
+| `FOURSQUARE_ACCESS_TOKEN`        | Places               | Foursquare/Swarm OAuth user token (does not expire)                         |
 | `APPLE_MUSIC_DEVELOPER_TOKEN`    | Images               | Apple Music JWT                                                             |
 | `FANART_TV_API_KEY`              | Images               | Fanart.tv project API key                                                   |
 

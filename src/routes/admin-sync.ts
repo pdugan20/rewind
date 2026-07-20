@@ -21,6 +21,7 @@ import { syncCollecting } from '../services/discogs/sync.js';
 import { syncTraktCollection } from '../services/trakt/sync.js';
 import { syncTraktHistory } from '../services/trakt/history-sync.js';
 import { syncReading } from '../services/instapaper/sync.js';
+import { syncPlaces } from '../services/foursquare/sync.js';
 import {
   processReadingImages,
   processWatchingImages,
@@ -414,6 +415,52 @@ adminSync.openapi(syncReadingRoute, async (c) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message, status: 500 }, 500) as any;
+  }
+});
+
+// POST /v1/admin/sync/places
+// Bounded batch (default 8 pages of 250): returns `remaining` so the
+// caller can loop until 0 during the initial backfill.
+const PlacesSyncResponse = z
+  .object({
+    status: z.literal('completed'),
+    items_synced: z.number().int().openapi({ example: 250 }),
+    remaining: z.number().int().openapi({ example: 1830 }),
+    timestamp: z.string().datetime(),
+  })
+  .openapi('PlacesSyncResponse');
+
+const syncPlacesRoute = createRoute({
+  method: 'post',
+  path: '/admin/sync/places',
+  operationId: 'adminSyncPlaces',
+  'x-hidden': true,
+  tags: ['Admin'],
+  summary: 'Trigger Foursquare check-in sync',
+  description:
+    'Runs one bounded batch of the Foursquare check-in walk (oldest first, resumable). Re-run until remaining: 0.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PlacesSyncResponse } },
+      description: 'Sync batch completed',
+    },
+    ...errorResponses(401, 500),
+  },
+});
+
+adminSync.openapi(syncPlacesRoute, async (c) => {
+  try {
+    const result = await syncPlaces(c.env);
+    return c.json({
+      status: 'completed' as const,
+      items_synced: result.synced,
+      remaining: result.remaining,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[ERROR] POST /admin/sync/places: ${message}`);
     return c.json({ error: message, status: 500 }, 500) as any;
   }
 });

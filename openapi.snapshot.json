@@ -3,7 +3,7 @@
   "info": {
     "title": "Rewind API",
     "version": "1.0.0",
-    "description": "Personal data aggregation API. Syncs and serves data from Last.fm, Apple Music, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, Google Calendar, and Gmail.\n\n## Domains\n\n| Domain | Source | Description |\n|--------|--------|-------------|\n| **Listening** | Last.fm, Apple Music | Scrobbles, top artists/albums/tracks, streaks, stats |\n| **Running** | Strava | Activities, splits, gear, personal records, year summaries |\n| **Watching** | Plex, Letterboxd | Movies, TV shows, watch history, ratings, reviews |\n| **Collecting** | Discogs, Trakt | Vinyl/CD collection, physical media, wantlist |\n| **Reading** | Instapaper | Articles, highlights, reading progress, word count |\n| **Attending** | Google Calendar, Gmail | Live events, tickets, sports games, concerts, venues |\n\n## Authentication\n\nAll endpoints require a Bearer token. There are two key types:\n\n- **Read keys** (`rw_live_...`) — access all GET endpoints\n- **Admin keys** (`rw_admin_...`) — access all endpoints including sync triggers and data management\n\nPass your key in the Authorization header: `Authorization: Bearer rw_live_...`\n\n## Pagination\n\nList endpoints return paginated responses:\n\n```json\n{\n  \"data\": [...],\n  \"pagination\": { \"page\": 1, \"limit\": 20, \"total\": 150, \"total_pages\": 8 }\n}\n```\n\nThe activity feed uses cursor-based pagination instead.\n\n## Quick Start\n\n```bash\n# Check the API is up\ncurl https://api.rewind.rest/v1/health\n\n# Fetch recent scrobbles (requires read key)\ncurl -H \"Authorization: Bearer rw_live_...\" \\\n  https://api.rewind.rest/v1/listening/recent\n\n# Fetch running stats\ncurl -H \"Authorization: Bearer rw_live_...\" \\\n  https://api.rewind.rest/v1/running/stats\n```\n\n## Errors\n\nAll errors follow the same envelope:\n\n```json\n{ \"error\": \"Not found\", \"status\": 404 }\n```\n\nCommon status codes: 400 (bad request), 401 (unauthorized), 404 (not found), 500 (server error).",
+    "description": "Personal data aggregation API. Syncs and serves data from Last.fm, Apple Music, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, Foursquare/Swarm, Google Calendar, and Gmail.\n\n## Domains\n\n| Domain | Source | Description |\n|--------|--------|-------------|\n| **Listening** | Last.fm, Apple Music | Scrobbles, top artists/albums/tracks, streaks, stats |\n| **Running** | Strava | Activities, splits, gear, personal records, year summaries |\n| **Watching** | Plex, Letterboxd | Movies, TV shows, watch history, ratings, reviews |\n| **Collecting** | Discogs, Trakt | Vinyl/CD collection, physical media, wantlist |\n| **Reading** | Instapaper | Articles, highlights, reading progress, word count |\n| **Places** | Foursquare/Swarm | Check-ins, venues, categories, cities |\n| **Attending** | Google Calendar, Gmail | Live events, tickets, sports games, concerts, venues |\n\n## Authentication\n\nAll endpoints require a Bearer token. There are two key types:\n\n- **Read keys** (`rw_live_...`) — access all GET endpoints\n- **Admin keys** (`rw_admin_...`) — access all endpoints including sync triggers and data management\n\nPass your key in the Authorization header: `Authorization: Bearer rw_live_...`\n\n## Pagination\n\nList endpoints return paginated responses:\n\n```json\n{\n  \"data\": [...],\n  \"pagination\": { \"page\": 1, \"limit\": 20, \"total\": 150, \"total_pages\": 8 }\n}\n```\n\nThe activity feed uses cursor-based pagination instead.\n\n## Quick Start\n\n```bash\n# Check the API is up\ncurl https://api.rewind.rest/v1/health\n\n# Fetch recent scrobbles (requires read key)\ncurl -H \"Authorization: Bearer rw_live_...\" \\\n  https://api.rewind.rest/v1/listening/recent\n\n# Fetch running stats\ncurl -H \"Authorization: Bearer rw_live_...\" \\\n  https://api.rewind.rest/v1/running/stats\n```\n\n## Errors\n\nAll errors follow the same envelope:\n\n```json\n{ \"error\": \"Not found\", \"status\": 404 }\n```\n\nCommon status codes: 400 (bad request), 401 (unauthorized), 404 (not found), 500 (server error).",
     "contact": {
       "url": "https://github.com/pdugan20/rewind"
     }
@@ -34,6 +34,10 @@
     {
       "name": "Reading",
       "description": "Articles, highlights, and reading stats from Instapaper."
+    },
+    {
+      "name": "Places",
+      "description": "Foursquare/Swarm check-ins, venues, and stats."
     },
     {
       "name": "Attending",
@@ -1756,6 +1760,35 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "PlacesSyncResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "items_synced": {
+            "type": "integer",
+            "example": 250
+          },
+          "remaining": {
+            "type": "integer",
+            "example": 1830
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "items_synced",
+          "remaining",
+          "timestamp"
         ]
       },
       "ActivityDeletedResponse": {
@@ -19094,6 +19127,328 @@
         }
       }
     },
+    "/v1/places/recent": {
+      "get": {
+        "operationId": "getPlacesRecent",
+        "tags": [
+          "Places"
+        ],
+        "summary": "Recent check-ins",
+        "description": "Returns Foursquare/Swarm check-ins, newest first.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "example": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "example": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent check-ins",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "venue_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "venue_name": {
+                            "type": "string"
+                          },
+                          "venue_category": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "venue_city": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "venue_state": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "venue_country": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lat": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "lng": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "checked_in_at": {
+                            "type": "string"
+                          },
+                          "shout": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "venue_id",
+                          "venue_name",
+                          "venue_category",
+                          "venue_city",
+                          "venue_state",
+                          "venue_country",
+                          "lat",
+                          "lng",
+                          "checked_in_at",
+                          "shout"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 4821,
+                      "venue_id": "4b5b3f2af964a520fb0029e3",
+                      "venue_name": "Analog Coffee",
+                      "venue_category": "Coffee Shop",
+                      "venue_city": "Seattle",
+                      "venue_state": "WA",
+                      "venue_country": "United States",
+                      "lat": 47.6205,
+                      "lng": -122.3212,
+                      "checked_in_at": "2026-03-18T17:05:00.000Z",
+                      "shout": "Morning cortado"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 4821,
+                    "total_pages": 242
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/places/stats": {
+      "get": {
+        "operationId": "getPlacesStats",
+        "tags": [
+          "Places"
+        ],
+        "summary": "Check-in stats",
+        "description": "Returns aggregate check-in statistics: total check-ins, unique venues, this-year count, top categories, and top cities.",
+        "responses": {
+          "200": {
+            "description": "Check-in statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "number"
+                    },
+                    "unique_venues": {
+                      "type": "number"
+                    },
+                    "this_year": {
+                      "type": "number"
+                    },
+                    "top_categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "category",
+                          "count"
+                        ]
+                      }
+                    },
+                    "top_cities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "city": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "city",
+                          "count"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "unique_venues",
+                    "this_year",
+                    "top_categories",
+                    "top_cities"
+                  ]
+                },
+                "example": {
+                  "total": 4821,
+                  "unique_venues": 1289,
+                  "this_year": 143,
+                  "top_categories": [
+                    {
+                      "category": "Coffee Shop",
+                      "count": 612
+                    },
+                    {
+                      "category": "Bar",
+                      "count": 402
+                    }
+                  ],
+                  "top_cities": [
+                    {
+                      "city": "Seattle",
+                      "count": 3120
+                    },
+                    {
+                      "city": "Portland",
+                      "count": 288
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/attending/events": {
       "get": {
         "operationId": "listAttendedEvents",
@@ -24910,6 +25265,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SyncCompletedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sync/places": {
+      "post": {
+        "operationId": "adminSyncPlaces",
+        "x-hidden": true,
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Trigger Foursquare check-in sync",
+        "description": "Runs one bounded batch of the Foursquare check-in walk (oldest first, resumable). Re-run until remaining: 0.",
+        "responses": {
+          "200": {
+            "description": "Sync batch completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacesSyncResponse"
                 }
               }
             }
