@@ -80,6 +80,18 @@ describe('Places endpoints', () => {
         venueCountry: 'United States',
         checkedInAt: `${CURRENT_YEAR}-04-20T21:00:00.000Z`,
       },
+      // Two venue_id-less check-ins at the same named venue: top_venues
+      // must fall back to grouping by name when venue_id is null.
+      {
+        foursquareId: 'fsq-5',
+        venueName: 'Street Taco Cart',
+        checkedInAt: '2019-03-11T20:00:00.000Z',
+      },
+      {
+        foursquareId: 'fsq-6',
+        venueName: 'Street Taco Cart',
+        checkedInAt: '2019-03-12T20:00:00.000Z',
+      },
     ]);
   });
 
@@ -101,8 +113,8 @@ describe('Places endpoints', () => {
         }>;
         pagination: { page: number; limit: number; total: number };
       };
-      expect(body.pagination.total).toBe(4);
-      expect(body.data.length).toBe(4);
+      expect(body.pagination.total).toBe(6);
+      expect(body.data.length).toBe(6);
       expect(body.data[0].venue_name).toBe("Powell's Books");
       expect(body.data[0].venue_icon).toBe(BOOK_ICON);
       expect(body.data[body.data.length - 1].shout).toBe('Morning cortado');
@@ -132,11 +144,11 @@ describe('Places endpoints', () => {
       expect(body.pagination).toEqual({
         page: 2,
         limit: 2,
-        total: 4,
-        total_pages: 2,
+        total: 6,
+        total_pages: 3,
       });
       expect(body.data.length).toBe(2);
-      expect(body.data[1].venue_name).toBe('Analog Coffee');
+      expect(body.data[1].venue_name).toBe('Street Taco Cart');
     });
 
     it('filters by date', async () => {
@@ -163,8 +175,9 @@ describe('Places endpoints', () => {
         data: Array<{ venue_name: string }>;
         pagination: { total: number };
       };
-      expect(body.pagination.total).toBe(1);
-      expect(body.data[0].venue_name).toBe('Analog Coffee');
+      expect(body.pagination.total).toBe(3);
+      expect(body.data[0].venue_name).toBe('Street Taco Cart');
+      expect(body.data[2].venue_name).toBe('Analog Coffee');
     });
 
     it('requires auth', async () => {
@@ -189,8 +202,14 @@ describe('Places endpoints', () => {
           icon: string | null;
         }>;
         top_cities: Array<{ city: string; count: number }>;
+        top_venues: Array<{
+          venue_name: string;
+          count: number;
+          icon: string | null;
+          city: string | null;
+        }>;
       };
-      expect(body.total).toBe(4);
+      expect(body.total).toBe(6);
       expect(body.unique_venues).toBe(3);
       expect(body.this_year).toBe(3);
       expect(body.top_categories[0]).toEqual({
@@ -208,6 +227,91 @@ describe('Places endpoints', () => {
       expect(barCat?.icon).toBeNull();
       expect(body.top_cities[0]).toEqual({ city: 'Seattle', count: 3 });
       expect(body.top_cities[1]).toEqual({ city: 'Portland', count: 1 });
+      // Ties on count break alphabetically by venue name; venue_id-less
+      // check-ins at the same named venue group together by name.
+      expect(body.top_venues).toEqual([
+        {
+          venue_name: 'Analog Coffee',
+          count: 2,
+          icon: COFFEE_ICON,
+          city: 'Seattle',
+        },
+        { venue_name: 'Street Taco Cart', count: 2, icon: null, city: null },
+        { venue_name: 'Bait Shop', count: 1, icon: null, city: 'Seattle' },
+        {
+          venue_name: "Powell's Books",
+          count: 1,
+          icon: BOOK_ICON,
+          city: 'Portland',
+        },
+      ]);
+    });
+
+    it('scopes aggregates to a from/to range while this_year stays global', async () => {
+      const res = await SELF.fetch(
+        'http://localhost/v1/places/stats?from=2019-01-01T00:00:00Z&to=2019-12-31T23:59:59Z',
+        { headers: { Authorization: `Bearer ${readToken}` } }
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        total: number;
+        unique_venues: number;
+        this_year: number;
+        top_categories: Array<{
+          category: string;
+          count: number;
+          icon: string | null;
+        }>;
+        top_cities: Array<{ city: string; count: number }>;
+        top_venues: Array<{
+          venue_name: string;
+          count: number;
+          icon: string | null;
+          city: string | null;
+        }>;
+      };
+      expect(body.total).toBe(3);
+      expect(body.unique_venues).toBe(1);
+      // this_year ignores date filters: it always counts the current UTC year.
+      expect(body.this_year).toBe(3);
+      expect(body.top_categories).toEqual([
+        { category: 'Coffee Shop', count: 1, icon: COFFEE_ICON },
+      ]);
+      expect(body.top_cities).toEqual([{ city: 'Seattle', count: 1 }]);
+      expect(body.top_venues).toEqual([
+        { venue_name: 'Street Taco Cart', count: 2, icon: null, city: null },
+        {
+          venue_name: 'Analog Coffee',
+          count: 1,
+          icon: COFFEE_ICON,
+          city: 'Seattle',
+        },
+      ]);
+    });
+
+    it('scopes aggregates to a single day via date', async () => {
+      const res = await SELF.fetch(
+        `http://localhost/v1/places/stats?date=${CURRENT_YEAR}-04-20`,
+        { headers: { Authorization: `Bearer ${readToken}` } }
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        total: number;
+        unique_venues: number;
+        this_year: number;
+        top_venues: Array<{ venue_name: string; count: number }>;
+      };
+      expect(body.total).toBe(1);
+      expect(body.unique_venues).toBe(1);
+      expect(body.this_year).toBe(3);
+      expect(body.top_venues).toEqual([
+        {
+          venue_name: "Powell's Books",
+          count: 1,
+          icon: BOOK_ICON,
+          city: 'Portland',
+        },
+      ]);
     });
   });
 
@@ -223,7 +327,7 @@ describe('Places endpoints', () => {
       };
       expect(body.period).toBe('monthly');
       expect(body.data).toEqual([
-        { period: '2019-03', count: 1 },
+        { period: '2019-03', count: 3 },
         { period: `${CURRENT_YEAR}-03`, count: 2 },
         { period: `${CURRENT_YEAR}-04`, count: 1 },
       ]);
@@ -239,7 +343,7 @@ describe('Places endpoints', () => {
         period: string;
         data: Array<{ period: string; count: number }>;
       };
-      expect(body.data).toEqual([{ period: '2019-03', count: 1 }]);
+      expect(body.data).toEqual([{ period: '2019-03', count: 3 }]);
     });
 
     it('requires auth', async () => {

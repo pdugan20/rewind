@@ -19383,7 +19383,43 @@
           "Places"
         ],
         "summary": "Check-in stats",
-        "description": "Returns aggregate check-in statistics: total check-ins, unique venues, this-year count, top categories, and top cities.",
+        "description": "Returns aggregate check-in statistics: total check-ins, unique venues, this-year count, top categories, top cities, and top venues. Optional date/from/to params scope every aggregation to the range except this_year, which always counts the current UTC year.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+              "example": "2025-02-17"
+            },
+            "required": false,
+            "description": "Single day (YYYY-MM-DD). Overrides from/to.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range start, inclusive (ISO 8601)",
+              "example": "2025-02-01T00:00:00Z"
+            },
+            "required": false,
+            "description": "Range start, inclusive (ISO 8601)",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Range end, inclusive (ISO 8601)",
+              "example": "2025-02-28T23:59:59Z"
+            },
+            "required": false,
+            "description": "Range end, inclusive (ISO 8601)",
+            "name": "to",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Check-in statistics",
@@ -19443,6 +19479,38 @@
                           "count"
                         ]
                       }
+                    },
+                    "top_venues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "venue_name": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          },
+                          "icon": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "city": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "venue_name",
+                          "count",
+                          "icon",
+                          "city"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -19450,7 +19518,8 @@
                     "unique_venues",
                     "this_year",
                     "top_categories",
-                    "top_cities"
+                    "top_cities",
+                    "top_venues"
                   ]
                 },
                 "example": {
@@ -19478,7 +19547,31 @@
                       "city": "Portland",
                       "count": 288
                     }
+                  ],
+                  "top_venues": [
+                    {
+                      "venue_name": "Analog Coffee",
+                      "count": 96,
+                      "icon": "https://ss3.4sqi.net/img/categories_v2/food/coffeeshop_64.png",
+                      "city": "Seattle"
+                    },
+                    {
+                      "venue_name": "Bait Shop",
+                      "count": 71,
+                      "icon": "https://ss3.4sqi.net/img/categories_v2/nightlife/pub_64.png",
+                      "city": "Seattle"
+                    }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

@@ -1,5 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { eq, and, asc, desc, sql, count } from 'drizzle-orm';
+import { eq, and, asc, desc, gte, sql, count } from 'drizzle-orm';
 import { createDb } from '../db/client.js';
 import { checkins } from '../db/schema/places.js';
 import { setCache } from '../lib/cache.js';
@@ -57,12 +57,20 @@ const TrendEntrySchema = z.object({
   count: z.number(),
 });
 
+const VenueCountSchema = z.object({
+  venue_name: z.string(),
+  count: z.number(),
+  icon: z.string().nullable(),
+  city: z.string().nullable(),
+});
+
 const PlacesStatsSchema = z.object({
   total: z.number(),
   unique_venues: z.number(),
   this_year: z.number(),
   top_categories: z.array(CategoryCountSchema),
   top_cities: z.array(CityCountSchema),
+  top_venues: z.array(VenueCountSchema),
 });
 
 // ─── Routes ──────────────────────────────────────────────────────────
@@ -122,7 +130,10 @@ const statsRoute = createRoute({
   tags: ['Places'],
   summary: 'Check-in stats',
   description:
-    'Returns aggregate check-in statistics: total check-ins, unique venues, this-year count, top categories, and top cities.',
+    'Returns aggregate check-in statistics: total check-ins, unique venues, this-year count, top categories, top cities, and top venues. Optional date/from/to params scope every aggregation to the range except this_year, which always counts the current UTC year.',
+  request: {
+    query: DateFilterQuery,
+  },
   responses: {
     200: {
       description: 'Check-in statistics',
@@ -149,11 +160,25 @@ const statsRoute = createRoute({
               { city: 'Seattle', count: 3120 },
               { city: 'Portland', count: 288 },
             ],
+            top_venues: [
+              {
+                venue_name: 'Analog Coffee',
+                count: 96,
+                icon: 'https://ss3.4sqi.net/img/categories_v2/food/coffeeshop_64.png',
+                city: 'Seattle',
+              },
+              {
+                venue_name: 'Bait Shop',
+                count: 71,
+                icon: 'https://ss3.4sqi.net/img/categories_v2/nightlife/pub_64.png',
+                city: 'Seattle',
+              },
+            ],
           },
         },
       },
     },
-    ...errorResponses(401),
+    ...errorResponses(400, 401),
   },
 });
 
@@ -252,6 +277,17 @@ places.openapi(recentRoute, async (c) => {
 places.openapi(statsRoute, async (c) => {
   setCache(c, 'medium');
   const db = createDb(c.env.DB);
+  const { date, from, to } = c.req.valid('query');
+
+  const conditions = [eq(checkins.userId, 1)];
+  const dateCondition = buildDateCondition(checkins.checkedInAt, {
+    date,
+    from,
+    to,
+  });
+  if (dateCondition) conditions.push(dateCondition);
+
+  const whereClause = and(...conditions);
 
   const yearStart = `${new Date().getUTCFullYear()}-01-01T00:00:00.000Z`;
 
@@ -259,10 +295,16 @@ places.openapi(statsRoute, async (c) => {
     .select({
       total: count(),
       uniqueVenues: sql<number>`count(distinct ${checkins.venueId})`,
-      thisYear: sql<number>`coalesce(sum(case when ${checkins.checkedInAt} >= ${yearStart} then 1 else 0 end), 0)`,
     })
     .from(checkins)
-    .where(eq(checkins.userId, 1));
+    .where(whereClause);
+
+  // this_year is deliberately unscoped: it always counts the current UTC
+  // year regardless of any date/from/to filters.
+  const [thisYearRow] = await db
+    .select({ thisYear: count() })
+    .from(checkins)
+    .where(and(eq(checkins.userId, 1), gte(checkins.checkedInAt, yearStart)));
 
   const topCategories = await db
     .select({
@@ -273,9 +315,7 @@ places.openapi(statsRoute, async (c) => {
       icon: sql<string | null>`max(${checkins.venueIcon})`,
     })
     .from(checkins)
-    .where(
-      and(eq(checkins.userId, 1), sql`${checkins.venueCategory} IS NOT NULL`)
-    )
+    .where(and(whereClause, sql`${checkins.venueCategory} IS NOT NULL`))
     .groupBy(checkins.venueCategory)
     .orderBy(desc(sql`count(*)`))
     .limit(10);
@@ -286,21 +326,43 @@ places.openapi(statsRoute, async (c) => {
       count: sql<number>`count(*)`,
     })
     .from(checkins)
-    .where(and(eq(checkins.userId, 1), sql`${checkins.venueCity} IS NOT NULL`))
+    .where(and(whereClause, sql`${checkins.venueCity} IS NOT NULL`))
     .groupBy(checkins.venueCity)
     .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  // Group by venue_id when present, otherwise by name: legacy venueless
+  // check-ins still collapse into one entry per named venue.
+  const venueKey = sql`coalesce(${checkins.venueId}, ${checkins.venueName})`;
+  const topVenues = await db
+    .select({
+      venueName: sql<string>`max(${checkins.venueName})`,
+      count: sql<number>`count(*)`,
+      icon: sql<string | null>`max(${checkins.venueIcon})`,
+      city: sql<string | null>`max(${checkins.venueCity})`,
+    })
+    .from(checkins)
+    .where(whereClause)
+    .groupBy(venueKey)
+    .orderBy(desc(sql`count(*)`), asc(sql`max(${checkins.venueName})`))
     .limit(10);
 
   return c.json({
     total: totals?.total ?? 0,
     unique_venues: totals?.uniqueVenues ?? 0,
-    this_year: totals?.thisYear ?? 0,
+    this_year: thisYearRow?.thisYear ?? 0,
     top_categories: topCategories.map((r) => ({
       category: r.category!,
       count: r.count,
       icon: r.icon,
     })),
     top_cities: topCities.map((r) => ({ city: r.city!, count: r.count })),
+    top_venues: topVenues.map((r) => ({
+      venue_name: r.venueName,
+      count: r.count,
+      icon: r.icon,
+      city: r.city,
+    })),
   });
 });
 
