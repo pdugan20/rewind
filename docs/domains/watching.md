@@ -1,12 +1,13 @@
 # Watching Domain
 
-Movie and TV show watch history from three sources: Plex webhooks (real-time), Letterboxd RSS feed (periodic sync), and manual entry (admin endpoint). All movies are enriched with TMDB metadata for genres, directors, posters, and ratings.
+Movie and TV show watch history from four sources: Plex webhooks (real-time), Letterboxd RSS feed (periodic sync), Trakt API (periodic sync), and manual entry (admin endpoint). All movies are enriched with TMDB metadata for genres, directors, posters, and ratings.
 
 ## Data Sources
 
 - Plex -- movie and TV show library and watch history. Plex Pass subscription for webhooks.
 - Letterboxd -- movie diary via public RSS feed. Captures movies watched outside Plex (theater, streaming, etc.).
-- Manual entry -- admin endpoint for logging movies not tracked by either source.
+- Trakt -- movie and episode watch history via the Trakt API. Captures watches logged in Trakt apps; also applies Trakt movie ratings.
+- Manual entry -- admin endpoint for logging movies not tracked by another source.
 - TMDB -- movie and TV metadata enrichment: genres, directors, cast, posters, ratings.
 
 ## Plex API
@@ -144,6 +145,8 @@ Plex sends `multipart/form-data`, not JSON. Use a multipart parser to extract th
 
 **From Letterboxd:** Use `<tmdb:movieId>` directly from RSS feed (exact match).
 
+**From Trakt:** Use `ids.tmdb` from history items directly (exact match). Items without a TMDB ID are skipped.
+
 **From manual entry:** Accept `tmdb_id` directly, or search by title + year.
 
 ### Image Sizes
@@ -195,6 +198,30 @@ Standard RSS fields plus Letterboxd extensions:
 </item>
 ```
 
+## Trakt Watch History
+
+### Configuration
+
+- Base URL: `https://api.trakt.tv`
+- Auth: OAuth bearer token (refresh handled by `src/services/trakt/auth.ts`) plus `trakt-api-key` header
+- Reuses the collecting domain's Trakt OAuth app (`TRAKT_CLIENT_ID` / `TRAKT_CLIENT_SECRET`)
+
+### Key Endpoints
+
+| Method | Endpoint               | Description                      |
+| ------ | ---------------------- | -------------------------------- |
+| GET    | /sync/history/movies   | Movie watch events (paginated)   |
+| GET    | /sync/history/episodes | Episode watch events (paginated) |
+| GET    | /sync/ratings/movies   | Movie ratings                    |
+
+### Sync Behavior
+
+- Incremental: cursor is the most recent Trakt-sourced watch. Each run pins `start_at`/`end_at` and walks pages oldest-first, so interrupted runs resume without gaps.
+- Dedup: every history item carries a unique Trakt history ID, stored as `trakt_history_id` -- re-walks are idempotent.
+- Full re-walk: `POST /v1/admin/sync/watching?source=trakt&full=true` ignores the cursor. Escape hatch for watches back-dated in Trakt to before an already-advanced cursor.
+- Trakt movie ratings are applied to Trakt-sourced watch events.
+- Shows and episodes are matched by TMDB ID -- the `shows` and `episodes_watched` tables are source-neutral (Plex or Trakt).
+
 ## Manual Movie Entry
 
 Movies can be logged manually via admin endpoints when they are not tracked by Plex or Letterboxd (e.g., watched at a friend's house, at a theater without logging to Letterboxd, etc.).
@@ -213,6 +240,8 @@ POST accepts either a `tmdb_id` (preferred, triggers TMDB enrichment) or `title`
 
 Same movie + same calendar date (UTC) = same watch event, regardless of source. This prevents double-counting when the same movie is logged on both Plex and Letterboxd.
 
+Trakt is the exception: it dedups on the per-event Trakt history ID (`trakt_history_id`) rather than same-day matching. This instance runs Trakt-only for watch history, so no cross-source dedup against Plex/Letterboxd is needed.
+
 ### Source Priority
 
 When a duplicate is detected during sync, the higher-priority source wins:
@@ -230,6 +259,7 @@ Watching the same movie on different dates always creates separate watch events.
 - **Plex webhooks**: `media.scrobble` events (real-time)
 - **Plex catch-up cron** (daily 5 AM): scan Plex library for watched items not in DB
 - **Letterboxd cron** (every 6 hours): fetch RSS feed, insert new entries not already in DB
+- **Trakt cron** (every 6 hours): incremental fetch of movie + episode history from the Trakt API, apply movie ratings, dedup on Trakt history ID
 - **Letterboxd initial import**: one-time import from `https://letterboxd.com/settings/data/` export. Merges diary.csv (watch dates + rewatch), ratings.csv (ratings for movies not in diary), and reviews.csv (review text). Adds `review` column to watch_history.
 - **Manual entry**: on-demand via admin endpoint
 - **TMDB enrichment**: on first encounter of a movie from any source, fetch TMDB details + credits + images. Store in `movies` table with genres/directors in join tables.
@@ -287,7 +317,7 @@ interface Movie {
 interface WatchEvent {
   movie: Movie;
   watched_at: string;
-  source: 'plex' | 'letterboxd' | 'manual';
+  source: 'plex' | 'letterboxd' | 'trakt' | 'manual';
   user_rating: number | null;
   percent_complete: number | null;
   rewatch: boolean;
@@ -349,13 +379,15 @@ Required attribution for any project using the TMDB API:
 
 ## Environment Variables
 
-| Variable            | Description                                      |
-| ------------------- | ------------------------------------------------ |
-| PLEX_URL            | Plex server URL (e.g., https://plex.example.com) |
-| PLEX_TOKEN          | Plex authentication token                        |
-| PLEX_WEBHOOK_SECRET | Shared secret for webhook verification           |
-| TMDB_API_KEY        | TMDB v4 read access token                        |
-| LETTERBOXD_USERNAME | Letterboxd username for RSS feed URL             |
+| Variable            | Description                                            |
+| ------------------- | ------------------------------------------------------ |
+| PLEX_URL            | Plex server URL (e.g., https://plex.example.com)       |
+| PLEX_TOKEN          | Plex authentication token                              |
+| PLEX_WEBHOOK_SECRET | Shared secret for webhook verification                 |
+| TMDB_API_KEY        | TMDB v4 read access token                              |
+| LETTERBOXD_USERNAME | Letterboxd username for RSS feed URL                   |
+| TRAKT_CLIENT_ID     | Trakt OAuth app client ID (shared with collecting)     |
+| TRAKT_CLIENT_SECRET | Trakt OAuth app client secret (shared with collecting) |
 
 ## Image Pipeline Integration
 

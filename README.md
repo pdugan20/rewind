@@ -10,14 +10,14 @@ Personal data aggregation API. Syncs data from multiple services on a schedule, 
 
 ## Domains
 
-| Domain         | Sources                | Description                                                          |
-| -------------- | ---------------------- | -------------------------------------------------------------------- |
-| **Listening**  | Last.fm, Apple Music   | Scrobble history, top artists/albums/tracks, streaks, stats          |
-| **Running**    | Strava                 | Activities with splits, personal records, gear, yearly summaries     |
-| **Watching**   | Plex, Letterboxd       | Watch history, ratings, reviews, movies and TV shows via TMDB        |
-| **Collecting** | Discogs, Trakt         | Vinyl/CD collection, physical media (Blu-ray/4K UHD/HD DVD)          |
-| **Reading**    | Instapaper             | Articles, reading progress, highlights, word count, article metadata |
-| **Attending**  | Google Calendar, Gmail | Live events, tickets, sports games (MLB/NFL/NBA), concerts, venues   |
+| Domain         | Sources                 | Description                                                          |
+| -------------- | ----------------------- | -------------------------------------------------------------------- |
+| **Listening**  | Last.fm, Apple Music    | Scrobble history, top artists/albums/tracks, streaks, stats          |
+| **Running**    | Strava                  | Activities with splits, personal records, gear, yearly summaries     |
+| **Watching**   | Plex, Letterboxd, Trakt | Watch history, ratings, reviews, movies and TV shows via TMDB        |
+| **Collecting** | Discogs, Trakt          | Vinyl/CD collection, physical media (Blu-ray/4K UHD/HD DVD)          |
+| **Reading**    | Instapaper              | Articles, reading progress, highlights, word count, article metadata |
+| **Attending**  | Google Calendar, Gmail  | Live events, tickets, sports games (MLB/NFL/NBA), concerts, venues   |
 
 ## Live endpoints
 
