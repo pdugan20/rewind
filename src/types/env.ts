@@ -43,6 +43,10 @@ export interface Env {
   TRAKT_CLIENT_ID: string;
   TRAKT_CLIENT_SECRET: string;
 
+  // Foursquare (places domain). Non-expiring v2 user token captured once
+  // via browser OAuth; sync and cron skip when unset.
+  FOURSQUARE_ACCESS_TOKEN?: string;
+
   // Google (Calendar + Gmail for the attending domain)
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;

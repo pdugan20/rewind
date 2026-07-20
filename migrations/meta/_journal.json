@@ -113,6 +113,13 @@
       "when": 1784555746960,
       "tag": "0042_trakt_watching",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1784576770378,
+      "tag": "0043_places_checkins",
+      "breakpoints": true
     }
   ]
 }
