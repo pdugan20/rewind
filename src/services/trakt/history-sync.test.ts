@@ -209,6 +209,31 @@ describe('syncMovieHistory', () => {
     expect(typeof seen[0].endAt).toBe('string');
   });
 
+  it('full=true skips the cursor while a normal run passes it', async () => {
+    const db = createDb(env.DB);
+
+    // Seed trakt-sourced history so an incremental cursor exists
+    await syncMovieHistory(db, makeClient(pages), tmdbStub, 1);
+
+    const seen: TraktHistoryOptions[] = [];
+    const recording = {
+      getMovieHistory: async (options: TraktHistoryOptions = {}) => {
+        seen.push(options);
+        return { items: [], page: options.page ?? 1, pageCount: 1 };
+      },
+    } as unknown as TraktClient;
+
+    // Normal run: the walk starts from the cursor (newest trakt watchedAt)
+    await syncMovieHistory(db, recording, tmdbStub, 1);
+    expect(seen[0].startAt).toBe('2026-05-01T21:00:00.000Z');
+
+    // full=true: cursor-less full re-walk, endAt pinning stays
+    seen.length = 0;
+    await syncMovieHistory(db, recording, tmdbStub, 1, { full: true });
+    expect(seen[0].startAt).toBeUndefined();
+    expect(typeof seen[0].endAt).toBe('string');
+  });
+
   it('resumes an interrupted backfill from the cursor without gaps', async () => {
     const db = createDb(env.DB);
 
@@ -506,6 +531,31 @@ describe('syncEpisodeHistory', () => {
     await syncEpisodeHistory(db, client, tmdbStub, 1);
 
     expect(seen).toHaveLength(1);
+    expect(typeof seen[0].endAt).toBe('string');
+  });
+
+  it('full=true skips the cursor while a normal run passes it', async () => {
+    const db = createDb(env.DB);
+
+    // Seed trakt-sourced history so an incremental cursor exists
+    await syncEpisodeHistory(db, makeClient(pages), tmdbStub, 1);
+
+    const seen: TraktHistoryOptions[] = [];
+    const recording = {
+      getEpisodeHistory: async (options: TraktHistoryOptions = {}) => {
+        seen.push(options);
+        return { items: [], page: options.page ?? 1, pageCount: 1 };
+      },
+    } as unknown as TraktClient;
+
+    // Normal run: the walk starts from the cursor (newest trakt watchedAt)
+    await syncEpisodeHistory(db, recording, tmdbStub, 1);
+    expect(seen[0].startAt).toBe('2026-06-03T21:00:00.000Z');
+
+    // full=true: cursor-less full re-walk, endAt pinning stays
+    seen.length = 0;
+    await syncEpisodeHistory(db, recording, tmdbStub, 1, { full: true });
+    expect(seen[0].startAt).toBeUndefined();
     expect(typeof seen[0].endAt).toBe('string');
   });
 

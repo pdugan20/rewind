@@ -73,8 +73,8 @@ export function shouldMarkRewatch(earlierWatchCount: number): boolean {
  * Known limitation: a watch back-dated in Trakt to before this cursor after
  * the cursor has already advanced will never fall inside an incremental
  * window and is silently missed. The escape hatch is a cursor-less full
- * re-walk, which is idempotent thanks to traktHistoryId dedup — an admin
- * full-resync option (`full=true`) arrives in Task 7.
+ * re-walk, which is idempotent thanks to traktHistoryId dedup — the admin
+ * sync route's `full=true` option.
  */
 async function movieCursor(
   db: Database,
@@ -89,13 +89,23 @@ async function movieCursor(
   return row?.max ?? undefined;
 }
 
+export interface HistorySyncOptions {
+  /**
+   * Skip the incremental cursor and re-walk the entire history. Idempotent
+   * thanks to traktHistoryId dedup; the escape hatch for watches back-dated
+   * in Trakt to before an already-advanced cursor.
+   */
+  full?: boolean;
+}
+
 export async function syncMovieHistory(
   db: Database,
   client: TraktClient,
   tmdbClient: TmdbClient,
-  userId: number
+  userId: number,
+  options: HistorySyncOptions = {}
 ): Promise<{ synced: number; skipped: number; newWatches: SyncedWatch[] }> {
-  const startAt = await movieCursor(db, userId);
+  const startAt = options.full ? undefined : await movieCursor(db, userId);
   // Pin the walk window to the sync start: without end_at, watches landing
   // mid-walk would shift page contents under the reverse walk.
   const endAt = new Date().toISOString();
@@ -294,8 +304,8 @@ async function ensureShow(
  * Known limitation: a watch back-dated in Trakt to before this cursor after
  * the cursor has already advanced will never fall inside an incremental
  * window and is silently missed. The escape hatch is a cursor-less full
- * re-walk, which is idempotent thanks to traktHistoryId dedup — an admin
- * full-resync option (`full=true`) arrives in Task 7.
+ * re-walk, which is idempotent thanks to traktHistoryId dedup — the admin
+ * sync route's `full=true` option.
  */
 async function episodeCursor(
   db: Database,
@@ -317,9 +327,10 @@ export async function syncEpisodeHistory(
   db: Database,
   client: TraktClient,
   tmdbClient: TmdbClient,
-  userId: number
+  userId: number,
+  options: HistorySyncOptions = {}
 ): Promise<{ synced: number; skipped: number; newEpisodes: SyncedEpisode[] }> {
-  const startAt = await episodeCursor(db, userId);
+  const startAt = options.full ? undefined : await episodeCursor(db, userId);
   // Pin the walk window to the sync start: without end_at, watches landing
   // mid-walk would shift page contents under the reverse walk.
   const endAt = new Date().toISOString();
@@ -504,7 +515,8 @@ export async function applyMovieRatings(
  */
 export async function syncTraktHistory(
   env: Env,
-  userId: number = 1
+  userId: number = 1,
+  options: HistorySyncOptions = {}
 ): Promise<{ moviesSynced: number; episodesSynced: number }> {
   const db = createDb(env.DB);
   const startedAt = new Date().toISOString();
@@ -526,8 +538,20 @@ export async function syncTraktHistory(
     const client = new TraktClient(accessToken, env.TRAKT_CLIENT_ID);
     const tmdbClient = new TmdbClient(env.TMDB_API_KEY);
 
-    const movieSync = await syncMovieHistory(db, client, tmdbClient, userId);
-    const episodes = await syncEpisodeHistory(db, client, tmdbClient, userId);
+    const movieSync = await syncMovieHistory(
+      db,
+      client,
+      tmdbClient,
+      userId,
+      options
+    );
+    const episodes = await syncEpisodeHistory(
+      db,
+      client,
+      tmdbClient,
+      userId,
+      options
+    );
     const ratingsApplied = await applyMovieRatings(db, client, userId);
 
     await computeWatchStats(db);

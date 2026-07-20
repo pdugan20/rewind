@@ -1647,6 +1647,9 @@
           },
           {
             "$ref": "#/components/schemas/WatchingLetterboxdSyncResponse"
+          },
+          {
+            "$ref": "#/components/schemas/WatchingTraktSyncResponse"
           }
         ]
       },
@@ -1706,6 +1709,35 @@
           "source",
           "synced",
           "skipped"
+        ]
+      },
+      "WatchingTraktSyncResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "trakt"
+            ]
+          },
+          "movies_synced": {
+            "type": "integer"
+          },
+          "episodes_synced": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "success",
+          "source",
+          "movies_synced",
+          "episodes_synced"
         ]
       },
       "SyncStatusResponse": {
@@ -24707,20 +24739,35 @@
           "Admin"
         ],
         "summary": "Trigger watching sync",
-        "description": "Manually trigger a watching sync from Plex or Letterboxd. Use the source query parameter to select the source.",
+        "description": "Manually trigger a watching sync from Plex, Letterboxd, or Trakt. Use the source query parameter to select the source. For Trakt, pass full=true to ignore the incremental cursor and re-walk the entire history.",
         "parameters": [
           {
             "schema": {
               "type": "string",
               "enum": [
                 "plex",
-                "letterboxd"
+                "letterboxd",
+                "trakt"
               ],
               "default": "plex",
               "example": "plex"
             },
             "required": false,
             "name": "source",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "Trakt only: ignore the incremental cursor and re-walk the full watch history. Idempotent (traktHistoryId dedup); the escape hatch for watches back-dated in Trakt to before an already-advanced cursor.",
+              "example": false
+            },
+            "required": false,
+            "description": "Trakt only: ignore the incremental cursor and re-walk the full watch history. Idempotent (traktHistoryId dedup); the escape hatch for watches back-dated in Trakt to before an already-advanced cursor.",
+            "name": "full",
             "in": "query"
           }
         ],

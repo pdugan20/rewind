@@ -19,6 +19,7 @@ import { syncWatching } from '../services/plex/sync.js';
 import { syncLetterboxd } from '../services/letterboxd/sync.js';
 import { syncCollecting } from '../services/discogs/sync.js';
 import { syncTraktCollection } from '../services/trakt/sync.js';
+import { syncTraktHistory } from '../services/trakt/history-sync.js';
 import { syncReading } from '../services/instapaper/sync.js';
 import {
   processReadingImages,
@@ -68,10 +69,15 @@ const ListeningSyncBody = z.object({
 
 const WatchingSyncQuery = z.object({
   source: z
-    .enum(['plex', 'letterboxd'])
+    .enum(['plex', 'letterboxd', 'trakt'])
     .optional()
     .default('plex')
     .openapi({ example: 'plex' }),
+  full: z.coerce.boolean().optional().openapi({
+    description:
+      'Trakt only: ignore the incremental cursor and re-walk the full watch history. Idempotent (traktHistoryId dedup); the escape hatch for watches back-dated in Trakt to before an already-advanced cursor.',
+    example: false,
+  }),
 });
 
 const WatchingPlexResponse = z
@@ -92,8 +98,21 @@ const WatchingLetterboxdResponse = z
   })
   .openapi('WatchingLetterboxdSyncResponse');
 
+const WatchingTraktResponse = z
+  .object({
+    success: z.literal(true),
+    source: z.literal('trakt'),
+    movies_synced: z.number().int(),
+    episodes_synced: z.number().int(),
+  })
+  .openapi('WatchingTraktSyncResponse');
+
 const WatchingSyncResponse = z
-  .union([WatchingPlexResponse, WatchingLetterboxdResponse])
+  .union([
+    WatchingPlexResponse,
+    WatchingLetterboxdResponse,
+    WatchingTraktResponse,
+  ])
   .openapi('WatchingSyncResponse');
 
 const ActivityIdParam = z.object({
@@ -226,7 +245,7 @@ const syncWatchingRoute = createRoute({
   tags: ['Admin'],
   summary: 'Trigger watching sync',
   description:
-    'Manually trigger a watching sync from Plex or Letterboxd. Use the source query parameter to select the source.',
+    'Manually trigger a watching sync from Plex, Letterboxd, or Trakt. Use the source query parameter to select the source. For Trakt, pass full=true to ignore the incremental cursor and re-walk the entire history.',
   request: {
     query: WatchingSyncQuery,
   },
@@ -260,6 +279,23 @@ adminSync.openapi(syncWatchingRoute, async (c) => {
         source: 'letterboxd' as const,
         synced: result.synced,
         skipped: result.skipped,
+      });
+    } else if (source === 'trakt') {
+      const fullParam = c.req.query('full');
+      const full = fullParam === 'true' || fullParam === '1';
+      const result = await syncTraktHistory(c.env, 1, { full });
+      c.executionCtx.waitUntil(
+        processWatchingImages(db, c.env).catch((err) =>
+          console.log(
+            `[ERROR] Watching image processing failed: ${err instanceof Error ? err.message : String(err)}`
+          )
+        )
+      );
+      return c.json({
+        success: true as const,
+        source: 'trakt' as const,
+        movies_synced: result.moviesSynced,
+        episodes_synced: result.episodesSynced,
       });
     } else {
       const result = await syncWatching(db, c.env);
