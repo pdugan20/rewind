@@ -17,6 +17,8 @@ import {
   syncEpisodeHistory,
   buildMovieFeedItem,
   buildEpisodeFeedItem,
+  buildRatingsMap,
+  applyMovieRatings,
   shouldMarkRewatch,
 } from './history-sync.js';
 import type {
@@ -24,6 +26,7 @@ import type {
   TraktHistoryMovieItem,
   TraktHistoryEpisodeItem,
   TraktHistoryOptions,
+  TraktRatingItem,
 } from './client.js';
 import type { TmdbClient } from '../watching/tmdb.js';
 
@@ -640,6 +643,158 @@ describe('buildMovieFeedItem', () => {
       watchedAt: '2026-06-02T10:00:00.000Z',
     });
     expect(item.title).toBe('Watched Unknown Film');
+  });
+});
+
+describe('buildRatingsMap', () => {
+  it('maps tmdb id to rating, skipping items without tmdb ids', () => {
+    const map = buildRatingsMap([
+      {
+        rated_at: '2026-01-01T00:00:00.000Z',
+        rating: 9,
+        type: 'movie',
+        movie: {
+          title: 'Heat',
+          year: 1995,
+          ids: { trakt: 1, slug: 'heat', imdb: 'tt0113277', tmdb: 949 },
+        },
+      },
+      {
+        rated_at: '2026-01-02T00:00:00.000Z',
+        rating: 7,
+        type: 'movie',
+        movie: {
+          title: 'No Id',
+          year: 2000,
+          ids: { trakt: 2, slug: 'no-id', imdb: '', tmdb: 0 },
+        },
+      },
+    ]);
+    expect(map.get(949)).toBe(9);
+    expect(map.size).toBe(1);
+  });
+});
+
+describe('applyMovieRatings', () => {
+  let heatId: number;
+  let collateralId: number;
+
+  function ratingItem(tmdbId: number, rating: number): TraktRatingItem {
+    return {
+      rated_at: '2026-06-01T00:00:00.000Z',
+      rating,
+      type: 'movie',
+      movie: {
+        title: 'Rated Movie',
+        year: 1995,
+        ids: { trakt: tmdbId, slug: 'slug', imdb: 'tt0000000', tmdb: tmdbId },
+      },
+    };
+  }
+
+  function makeClient(ratings: TraktRatingItem[]): TraktClient {
+    return {
+      getMovieRatings: async () => ratings,
+    } as unknown as TraktClient;
+  }
+
+  beforeAll(async () => {
+    await setupTestDb();
+    const db = createDb(env.DB);
+    const [heat] = await db
+      .insert(movies)
+      .values({ title: 'Heat', year: 1995, tmdbId: 949 })
+      .returning({ id: movies.id });
+    const [collateral] = await db
+      .insert(movies)
+      .values({ title: 'Collateral', year: 2004, tmdbId: 1538 })
+      .returning({ id: movies.id });
+    heatId = heat.id;
+    collateralId = collateral.id;
+  });
+
+  it('applies ratings to trakt rows only, leaving unrated movies untouched', async () => {
+    const db = createDb(env.DB);
+    await db.insert(watchHistory).values([
+      {
+        movieId: heatId,
+        watchedAt: '2024-01-05T20:00:00.000Z',
+        source: 'trakt',
+        traktHistoryId: 5001,
+      },
+      {
+        movieId: heatId,
+        watchedAt: '2026-05-01T21:00:00.000Z',
+        source: 'trakt',
+        traktHistoryId: 5002,
+        rewatch: 1,
+      },
+      // Letterboxd row for the same movie keeps its own rating untouched
+      {
+        movieId: heatId,
+        watchedAt: '2025-02-01T20:00:00.000Z',
+        source: 'letterboxd',
+        userRating: 4.5,
+      },
+      // Trakt row for a movie with no Trakt rating stays null
+      {
+        movieId: collateralId,
+        watchedAt: '2026-03-01T20:00:00.000Z',
+        source: 'trakt',
+        traktHistoryId: 5003,
+      },
+    ]);
+
+    const applied = await applyMovieRatings(
+      db,
+      makeClient([ratingItem(949, 9)]),
+      1
+    );
+    expect(applied).toBe(1);
+
+    const rows = await db
+      .select({
+        source: watchHistory.source,
+        movieId: watchHistory.movieId,
+        userRating: watchHistory.userRating,
+      })
+      .from(watchHistory)
+      .orderBy(asc(watchHistory.id));
+
+    const traktHeatRows = rows.filter(
+      (r) => r.source === 'trakt' && r.movieId === heatId
+    );
+    expect(traktHeatRows).toHaveLength(2);
+    expect(traktHeatRows.every((r) => r.userRating === 9)).toBe(true);
+
+    const letterboxdRow = rows.find((r) => r.source === 'letterboxd');
+    expect(letterboxdRow?.userRating).toBe(4.5);
+
+    const unratedRow = rows.find((r) => r.movieId === collateralId);
+    expect(unratedRow?.userRating).toBeNull();
+  });
+
+  it('is idempotent: a second run applies nothing new', async () => {
+    const db = createDb(env.DB);
+    await db.insert(watchHistory).values({
+      movieId: heatId,
+      watchedAt: '2024-01-05T20:00:00.000Z',
+      source: 'trakt',
+      traktHistoryId: 5101,
+    });
+    const client = makeClient([ratingItem(949, 9)]);
+
+    const firstRun = await applyMovieRatings(db, client, 1);
+    expect(firstRun).toBe(1);
+
+    const secondRun = await applyMovieRatings(db, client, 1);
+    expect(secondRun).toBe(0);
+
+    const [row] = await db
+      .select({ userRating: watchHistory.userRating })
+      .from(watchHistory)
+      .where(eq(watchHistory.traktHistoryId, 5101));
+    expect(row.userRating).toBe(9);
   });
 });
 

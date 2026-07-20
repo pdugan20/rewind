@@ -2,11 +2,12 @@ import { eq, and, sql, count, lt, inArray } from 'drizzle-orm';
 import { createDb, type Database } from '../../db/client.js';
 import { syncRuns } from '../../db/schema/system.js';
 import {
+  movies,
   watchHistory,
   shows,
   episodesWatched,
 } from '../../db/schema/watching.js';
-import { TraktClient } from './client.js';
+import { TraktClient, type TraktRatingItem } from './client.js';
 import { getAccessToken } from './auth.js';
 import { TmdbClient } from '../watching/tmdb.js';
 import { resolveMovie } from '../watching/resolve-movie.js';
@@ -442,15 +443,60 @@ export async function syncEpisodeHistory(
 }
 
 /**
- * Apply Trakt movie ratings to trakt-sourced watch history rows.
- * Implemented in Task 6 — placeholder keeps the orchestrator stable.
+ * Map Trakt movie ratings to tmdbId -> rating, skipping unmapped movies.
  */
-async function applyMovieRatings(
-  _db: Database,
-  _client: TraktClient,
-  _userId: number
+export function buildRatingsMap(
+  ratings: TraktRatingItem[]
+): Map<number, number> {
+  const map = new Map<number, number>();
+  for (const item of ratings) {
+    if (item.movie.ids.tmdb) {
+      map.set(item.movie.ids.tmdb, item.rating);
+    }
+  }
+  return map;
+}
+
+/**
+ * Apply Trakt movie ratings to trakt-sourced watch history rows.
+ * Returns the number of movies whose rows actually changed. The
+ * `IS NOT` predicate is SQLite's null-safe inequality, so rows whose
+ * rating is NULL or stale get updated and already-correct rows are
+ * left alone — repeat runs apply nothing.
+ */
+export async function applyMovieRatings(
+  db: Database,
+  client: TraktClient,
+  userId: number
 ): Promise<number> {
-  return 0;
+  const ratings = buildRatingsMap(await client.getMovieRatings());
+  if (ratings.size === 0) return 0;
+
+  let applied = 0;
+  for (const [tmdbId, rating] of ratings) {
+    const [movie] = await db
+      .select({ id: movies.id })
+      .from(movies)
+      .where(eq(movies.tmdbId, tmdbId))
+      .limit(1);
+    if (!movie) continue;
+
+    const result = await db
+      .update(watchHistory)
+      .set({ userRating: rating })
+      .where(
+        and(
+          eq(watchHistory.userId, userId),
+          eq(watchHistory.movieId, movie.id),
+          eq(watchHistory.source, 'trakt'),
+          sql`${watchHistory.userRating} IS NOT ${rating}`
+        )
+      );
+    if (result.meta.changes > 0) applied++;
+  }
+
+  console.log(`[SYNC] Applied ${applied} Trakt movie ratings`);
+  return applied;
 }
 
 /**
@@ -480,7 +526,7 @@ export async function syncTraktHistory(
     const client = new TraktClient(accessToken, env.TRAKT_CLIENT_ID);
     const tmdbClient = new TmdbClient(env.TMDB_API_KEY);
 
-    const movies = await syncMovieHistory(db, client, tmdbClient, userId);
+    const movieSync = await syncMovieHistory(db, client, tmdbClient, userId);
     const episodes = await syncEpisodeHistory(db, client, tmdbClient, userId);
     const ratingsApplied = await applyMovieRatings(db, client, userId);
 
@@ -491,10 +537,10 @@ export async function syncTraktHistory(
       .set({
         status: 'completed',
         completedAt: new Date().toISOString(),
-        itemsSynced: movies.synced + episodes.synced,
+        itemsSynced: movieSync.synced + episodes.synced,
         metadata: JSON.stringify({
-          moviesSynced: movies.synced,
-          moviesSkipped: movies.skipped,
+          moviesSynced: movieSync.synced,
+          moviesSkipped: movieSync.skipped,
           episodesSynced: episodes.synced,
           episodesSkipped: episodes.skipped,
           ratingsApplied,
@@ -503,10 +549,10 @@ export async function syncTraktHistory(
       .where(eq(syncRuns.id, run.id));
 
     const feedItems: FeedItem[] = [
-      ...movies.newWatches.map(buildMovieFeedItem),
+      ...movieSync.newWatches.map(buildMovieFeedItem),
       ...episodes.newEpisodes.map(buildEpisodeFeedItem),
     ];
-    const searchItems: SearchItem[] = movies.newWatches.map((m) => ({
+    const searchItems: SearchItem[] = movieSync.newWatches.map((m) => ({
       domain: 'watching',
       entityType: 'movie',
       entityId: String(m.movieId),
@@ -516,9 +562,9 @@ export async function syncTraktHistory(
     await afterSync(db, { domain: 'watching', feedItems, searchItems });
 
     console.log(
-      `[SYNC] Trakt history sync complete: ${movies.synced} movies, ${episodes.synced} episodes, ${movies.skipped + episodes.skipped} skipped`
+      `[SYNC] Trakt history sync complete: ${movieSync.synced} movies, ${episodes.synced} episodes, ${movieSync.skipped + episodes.skipped} skipped`
     );
-    return { moviesSynced: movies.synced, episodesSynced: episodes.synced };
+    return { moviesSynced: movieSync.synced, episodesSynced: episodes.synced };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.log(`[ERROR] Trakt history sync failed: ${errorMsg}`);
