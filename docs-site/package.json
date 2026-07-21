@@ -8,8 +8,8 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^12.6.1",
-    "@astrojs/mdx": "^4.3.0",
-    "astro": "^5.9.3"
+    "@astrojs/cloudflare": "^14.1.4",
+    "@astrojs/mdx": "^7.0.3",
+    "astro": "^7.1.3"
   }
 }
