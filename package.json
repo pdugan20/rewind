@@ -77,7 +77,7 @@
     "@cloudflare/workers-types": "^4.20260310.1",
     "@eslint/js": "^10.0.1",
     "@mozilla/readability": "^0.6.0",
-    "@stoplight/spectral-cli": "^6.15.1",
+    "@stoplight/spectral-cli": "^6.16.2",
     "@types/jsdom": "^28.0.1",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "@typescript-eslint/parser": "^8.57.0",
