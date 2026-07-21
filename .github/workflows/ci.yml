@@ -19,8 +19,14 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
+
+      # Dependabot authors lockfiles with npm 11, which omits nested
+      # auto-installed peer entries that the npm 10 bundled with Node 22
+      # requires -- so `npm ci` fails with "Missing: <pkg> from lock file"
+      # on freshly rebased Dependabot PRs. Align CI with the authoring tool.
+      - run: npm install -g npm@11
 
       - run: npm ci
 
@@ -50,8 +56,14 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
+
+      # Dependabot authors lockfiles with npm 11, which omits nested
+      # auto-installed peer entries that the npm 10 bundled with Node 22
+      # requires -- so `npm ci` fails with "Missing: <pkg> from lock file"
+      # on freshly rebased Dependabot PRs. Align CI with the authoring tool.
+      - run: npm install -g npm@11
 
       - run: npm ci
 
@@ -66,7 +78,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Check MCP tool reference is up to date
         run: npx tsx scripts/gen-mcp-reference.ts --check
@@ -83,8 +95,14 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
+
+      # Dependabot authors lockfiles with npm 11, which omits nested
+      # auto-installed peer entries that the npm 10 bundled with Node 22
+      # requires -- so `npm ci` fails with "Missing: <pkg> from lock file"
+      # on freshly rebased Dependabot PRs. Align CI with the authoring tool.
+      - run: npm install -g npm@11
 
       - run: npm ci
 
@@ -102,8 +120,14 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
+
+      # Dependabot authors lockfiles with npm 11, which omits nested
+      # auto-installed peer entries that the npm 10 bundled with Node 22
+      # requires -- so `npm ci` fails with "Missing: <pkg> from lock file"
+      # on freshly rebased Dependabot PRs. Align CI with the authoring tool.
+      - run: npm install -g npm@11
 
       - run: npm ci
 
