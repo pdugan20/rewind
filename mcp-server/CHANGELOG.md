@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.11.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.10.0...mcp-server-v0.11.0) (2026-07-21)
+
+
+### Features
+
+* **mcp:** outputSchema for all MCP server tools ([#109](https://github.com/pdugan20/rewind/issues/109)) ([084c8a8](https://github.com/pdugan20/rewind/commit/084c8a87d21864550f2686bcb3a16c83767b62c2))
+
+
+### Bug Fixes
+
+* **images:** normalize CDN transform URLs ([96dd608](https://github.com/pdugan20/rewind/commit/96dd60849503176e53aa9ddad57043d9dbbd3406))
+* **mcp-server:** bump hono and qs to patch runtime CVEs ([#138](https://github.com/pdugan20/rewind/issues/138)) ([14c112c](https://github.com/pdugan20/rewind/commit/14c112c1a43c99454b30359b83d44bd44a7b7377))
+* **mcp:** live output-schema audit, and the two bugs it found ([#112](https://github.com/pdugan20/rewind/issues/112)) ([9fa77f3](https://github.com/pdugan20/rewind/commit/9fa77f334ccee5f597ef573014953af1d82ced95))
+* **mcp:** rewrite web image transforms ([497b2fc](https://github.com/pdugan20/rewind/commit/497b2fcd99e9a9321cbb21e905ecb263659bbbfb))
+
 ## [0.10.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.9.0...mcp-server-v0.10.0) (2026-05-15)
 
 
