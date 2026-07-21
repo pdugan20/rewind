@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
     steps:
-
       - name: Enable auto-merge
         run: gh pr merge --auto --squash "$PR_URL"
         env:
