@@ -6,27 +6,30 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: '22.18.0'
+          cache: npm
 
-      # Dependabot authors lockfiles with npm 11, which omits nested
-      # auto-installed peer entries that the npm 10 bundled with Node 22
-      # requires -- so `npm ci` fails with "Missing: <pkg> from lock file"
-      # on freshly rebased Dependabot PRs. Align CI with the authoring tool.
-      - run: npm install -g npm@11
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
 
       - run: npm ci
 
@@ -43,7 +46,7 @@ jobs:
         run: npm run lint:api
 
       - name: Validate Claude Code files
-        run: npx claude-code-lint@latest
+        run: npm run lint:claude
 
       - name: Check unused dependencies
         run: npm run lint:deps -- --no-exit-code
@@ -52,20 +55,23 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: '22.18.0'
+          cache: npm
 
-      # Dependabot authors lockfiles with npm 11, which omits nested
-      # auto-installed peer entries that the npm 10 bundled with Node 22
-      # requires -- so `npm ci` fails with "Missing: <pkg> from lock file"
-      # on freshly rebased Dependabot PRs. Align CI with the authoring tool.
-      - run: npm install -g npm@11
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
 
       - run: npm ci
+
+      - name: Run automation policy tests
+        run: npm run test:automation-policy
 
       - name: Run tests
         run: npm test
@@ -74,35 +80,44 @@ jobs:
     name: Docs Links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '22'
+          node-version: '22.18.0'
+          cache: npm
+
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
+
+      - run: npm ci
 
       - name: Check MCP tool reference is up to date
-        run: npx tsx scripts/gen-mcp-reference.ts --check
+        run: npm exec -- tsx scripts/gen-mcp-reference.ts --check
 
       - name: Check broken links
-        run: npx mint@latest broken-links
+        run: npm exec -- mint broken-links
         working-directory: docs-mintlify
 
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: '22.18.0'
+          cache: npm
 
-      # Dependabot authors lockfiles with npm 11, which omits nested
-      # auto-installed peer entries that the npm 10 bundled with Node 22
-      # requires -- so `npm ci` fails with "Missing: <pkg> from lock file"
-      # on freshly rebased Dependabot PRs. Align CI with the authoring tool.
-      - run: npm install -g npm@11
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
 
       - run: npm ci
 
@@ -112,34 +127,51 @@ jobs:
   security:
     name: Security
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: '22.18.0'
+          cache: npm
 
-      # Dependabot authors lockfiles with npm 11, which omits nested
-      # auto-installed peer entries that the npm 10 bundled with Node 22
-      # requires -- so `npm ci` fails with "Missing: <pkg> from lock file"
-      # on freshly rebased Dependabot PRs. Align CI with the authoring tool.
-      - run: npm install -g npm@11
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
 
       - run: npm ci
 
-      - name: Audit dependencies
-        run: npm audit --audit-level=moderate --omit=dev
+      - name: Audit production dependencies
+        run: npm audit --audit-level=critical --omit=dev
 
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Dependency review
-        uses: actions/dependency-review-action@v5
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5
+
+  gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [lint, test, docs, build, security, dependency-review]
+    steps:
+      - name: Require every diagnostic job
+        run: |
+          test "${{ needs.lint.result }}" = "success" || exit 1
+          test "${{ needs.test.result }}" = "success" || exit 1
+          test "${{ needs.docs.result }}" = "success" || exit 1
+          test "${{ needs.build.result }}" = "success" || exit 1
+          test "${{ needs.security.result }}" = "success" || exit 1
+          case "${{ needs.dependency-review.result }}" in
+            success|skipped) ;;
+            *) exit 1 ;;
+          esac

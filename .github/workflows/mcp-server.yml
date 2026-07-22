@@ -14,6 +14,9 @@ on:
       - 'mcp-server/**'
       - 'docs-mintlify/**'
 
+permissions:
+  contents: read
+
 concurrency:
   group: mcp-server-${{ github.ref }}
   cancel-in-progress: true
@@ -26,13 +29,19 @@ jobs:
       run:
         working-directory: mcp-server
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version: '24.0.0'
+          cache: npm
           cache-dependency-path: mcp-server/package-lock.json
+
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
 
       - run: npm ci
       - run: npm run build:web
@@ -74,15 +83,21 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version: '24.0.0'
+          cache: npm
           cache-dependency-path: mcp-server/package-lock.json
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
 
       - name: Install dependencies
         run: npm ci
@@ -118,13 +133,19 @@ jobs:
       run:
         working-directory: mcp-server
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version: '24.0.0'
+          cache: npm
           cache-dependency-path: mcp-server/package-lock.json
+
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
 
       - run: npm ci
 
@@ -132,6 +153,6 @@ jobs:
         run: npm run build:web
 
       - name: Deploy to Cloudflare Workers
-        run: npx wrangler deploy
+        run: npm exec -- wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
