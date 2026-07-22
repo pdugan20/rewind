@@ -79,8 +79,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.21",
-    "@cloudflare/workers-types": "^4.20260310.1",
+    "@cloudflare/vitest-pool-workers": "^0.18.7",
+    "@cloudflare/workers-types": "^4.20260702.1",
     "@eslint/js": "^10.0.1",
     "@mozilla/readability": "^0.6.0",
     "@stoplight/spectral-cli": "^6.16.2",
@@ -103,6 +103,6 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0",
     "vitest": "~3.2.0",
-    "wrangler": "^4.72.0"
+    "wrangler": "^4.113.0"
   }
 }
