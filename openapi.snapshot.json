@@ -2429,6 +2429,165 @@
         }
       }
     },
+    "/v1/listening/recent/albums": {
+      "get": {
+        "operationId": "getListeningRecentAlbums",
+        "tags": [
+          "Listening"
+        ],
+        "summary": "Recently played albums",
+        "description": "Returns unique recently played albums ordered by their newest scrobble. Reads at most 200 recent scrobbles.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 10
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recently played albums",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "album": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uri"
+                              },
+                              "apple_music_url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uri"
+                              },
+                              "image": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "cdn_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                  },
+                                  "thumbhash": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "dominant_color": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "accent_color": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "cdn_url",
+                                  "thumbhash",
+                                  "dominant_color",
+                                  "accent_color"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "url",
+                              "apple_music_url",
+                              "image"
+                            ]
+                          },
+                          "artist": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          },
+                          "last_scrobbled_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "album",
+                          "artist",
+                          "last_scrobbled_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/listening/top/artists": {
       "get": {
         "operationId": "getListeningTopArtists",

@@ -3,12 +3,14 @@ import { env, SELF } from 'cloudflare:test';
 import { drizzle } from 'drizzle-orm/d1';
 import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 import {
+  lastfmAlbums,
   lastfmArtists,
   lastfmTopArtists,
   lastfmTracks,
   lastfmScrobbles,
   lastfmYearlyStats,
 } from '../db/schema/lastfm.js';
+import { images } from '../db/schema/system.js';
 
 describe('listening routes', () => {
   it('module can be imported', async () => {
@@ -395,6 +397,247 @@ describe('listening routes', () => {
       const body = (await res.json()) as any;
       expect(body.data).toBeDefined();
       expect('compare' in body).toBe(false);
+    });
+  });
+
+  describe('GET /v1/listening/recent/albums', () => {
+    let token: string;
+    let sequence = 0;
+
+    beforeAll(async () => {
+      await setupTestDb();
+      token = await createTestApiKey({ name: 'recent-albums', scope: 'read' });
+    });
+
+    beforeEach(async () => {
+      const db = drizzle(env.DB);
+      await db.delete(lastfmScrobbles);
+      await db.delete(lastfmTracks);
+      await db.delete(lastfmAlbums);
+      await db.delete(lastfmArtists);
+      await db.delete(images);
+      sequence = 0;
+    });
+
+    async function seedActivity(options: {
+      artist: string;
+      album?: string;
+      albumFiltered?: boolean;
+      trackFiltered?: boolean;
+      albumUrl?: string | null;
+      appleMusicUrl?: string | null;
+      withImage?: boolean;
+      plays: Array<{ track: string; at: string }>;
+    }) {
+      const db = drizzle(env.DB);
+      const stamp = '2026-07-21T00:00:00.000Z';
+      const [artist] = await db
+        .insert(lastfmArtists)
+        .values({
+          userId: 1,
+          name: `${options.artist}-${sequence++}`,
+          isFiltered: 0,
+          createdAt: stamp,
+          updatedAt: stamp,
+        })
+        .returning();
+      const album = options.album
+        ? (
+            await db
+              .insert(lastfmAlbums)
+              .values({
+                userId: 1,
+                name: options.album,
+                artistId: artist.id,
+                url:
+                  options.albumUrl === undefined
+                    ? `https://last.fm/${encodeURIComponent(options.album)}`
+                    : options.albumUrl,
+                appleMusicUrl: options.appleMusicUrl ?? null,
+                isFiltered: options.albumFiltered ? 1 : 0,
+                createdAt: stamp,
+                updatedAt: stamp,
+              })
+              .returning()
+          )[0]
+        : null;
+      const trackIds = new Map<string, number>();
+      for (const play of options.plays) {
+        if (trackIds.has(play.track)) continue;
+        const [track] = await db
+          .insert(lastfmTracks)
+          .values({
+            userId: 1,
+            name: play.track,
+            artistId: artist.id,
+            albumId: album?.id ?? null,
+            isFiltered: options.trackFiltered ? 1 : 0,
+            createdAt: stamp,
+            updatedAt: stamp,
+          })
+          .returning();
+        trackIds.set(play.track, track.id);
+      }
+      for (let start = 0; start < options.plays.length; start += 20) {
+        await db.insert(lastfmScrobbles).values(
+          options.plays.slice(start, start + 20).map((play) => ({
+            userId: 1,
+            trackId: trackIds.get(play.track)!,
+            scrobbledAt: play.at,
+            createdAt: stamp,
+          }))
+        );
+      }
+      if (album && options.withImage) {
+        await db.insert(images).values({
+          userId: 1,
+          domain: 'listening',
+          entityType: 'albums',
+          entityId: String(album.id),
+          r2Key: `listening/albums/${album.id}/original.jpg`,
+          source: 'test',
+          thumbhash: 'AQID',
+          dominantColor: '#111111',
+          accentColor: '#eeeeee',
+          imageVersion: 1,
+          createdAt: stamp,
+        });
+      }
+      return album;
+    }
+
+    function authFetch(path: string) {
+      return SELF.fetch(`http://localhost${path}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+
+    it('deduplicates an album and orders by newest scrobble', async () => {
+      await seedActivity({
+        artist: 'Mudhoney',
+        album: 'Superfuzz Bigmuff',
+        appleMusicUrl: 'https://music.apple.com/us/album/superfuzz/1',
+        withImage: true,
+        plays: [
+          { track: 'Touch Me I’m Sick', at: '2026-07-21T00:08:56.000Z' },
+          { track: 'Sweet Young Thing', at: '2026-07-21T00:29:34.000Z' },
+        ],
+      });
+      await seedActivity({
+        artist: 'Taylor Swift',
+        album: 'Midnights',
+        albumUrl: null,
+        plays: [{ track: 'Glitch', at: '2026-07-21T00:20:13.000Z' }],
+      });
+      const response = await authFetch('/v1/listening/recent/albums?limit=10');
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Cache-Control')).toBe(
+        'public, max-age=30, s-maxage=30'
+      );
+      const body = (await response.json()) as any;
+      expect(body.data.map((item: any) => item.album.name)).toEqual([
+        'Superfuzz Bigmuff',
+        'Midnights',
+      ]);
+      expect(body.data[0].last_scrobbled_at).toBe('2026-07-21T00:29:34.000Z');
+      expect(body.data[0].album.image.cdn_url).toContain('original.jpg');
+      expect(body.data[1].album.url).toBeNull();
+      expect(body.data[1].album.apple_music_url).toBeNull();
+      expect(body.data[1].album.image).toBeNull();
+    });
+
+    it('uses descending scrobble id for timestamp ties', async () => {
+      await seedActivity({
+        artist: 'First',
+        album: 'First Album',
+        plays: [{ track: 'One', at: '2026-07-21T00:00:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'Second',
+        album: 'Second Album',
+        plays: [{ track: 'Two', at: '2026-07-21T00:00:00.000Z' }],
+      });
+      const body = (await (
+        await authFetch('/v1/listening/recent/albums')
+      ).json()) as any;
+      expect(body.data.map((item: any) => item.album.name)).toEqual([
+        'Second Album',
+        'First Album',
+      ]);
+    });
+
+    it('excludes filtered and album-less activity', async () => {
+      await seedActivity({
+        artist: 'Valid',
+        album: 'Visible',
+        plays: [{ track: 'Visible', at: '2026-07-21T00:01:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'Filtered Track',
+        album: 'Hidden Track',
+        trackFiltered: true,
+        plays: [{ track: 'Hidden T', at: '2026-07-21T00:04:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'Filtered Album',
+        album: 'Hidden Album',
+        albumFiltered: true,
+        plays: [{ track: 'Hidden A', at: '2026-07-21T00:03:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'No Album',
+        plays: [{ track: 'Loose', at: '2026-07-21T00:02:00.000Z' }],
+      });
+      const body = (await (
+        await authFetch('/v1/listening/recent/albums')
+      ).json()) as any;
+      expect(body.data.map((item: any) => item.album.name)).toEqual([
+        'Visible',
+      ]);
+    });
+
+    it('stops at 200 raw rows and validates limit', async () => {
+      await seedActivity({
+        artist: 'No Album',
+        plays: Array.from({ length: 200 }, (_, index) => ({
+          track: 'Albumless Stream',
+          at: new Date(
+            Date.parse('2026-07-21T01:00:00.000Z') - index * 1000
+          ).toISOString(),
+        })),
+      });
+      await seedActivity({
+        artist: 'Older',
+        album: 'Outside Window',
+        plays: [{ track: 'Older', at: '2026-07-20T00:00:00.000Z' }],
+      });
+      const capped = await authFetch('/v1/listening/recent/albums');
+      expect(((await capped.json()) as any).data).toEqual([]);
+      expect(
+        (await authFetch('/v1/listening/recent/albums?limit=0')).status
+      ).toBe(400);
+      expect(
+        (await authFetch('/v1/listening/recent/albums?limit=21')).status
+      ).toBe(400);
+    });
+
+    it('returns only the requested number of unique albums', async () => {
+      for (let index = 0; index < 4; index += 1) {
+        await seedActivity({
+          artist: `Artist ${index}`,
+          album: `Album ${index}`,
+          plays: [
+            {
+              track: `Track ${index}`,
+              at: new Date(
+                Date.parse('2026-07-21T02:00:00.000Z') - index * 1000
+              ).toISOString(),
+            },
+          ],
+        });
+      }
+      const response = await authFetch('/v1/listening/recent/albums?limit=2');
+      expect(((await response.json()) as any).data).toHaveLength(2);
     });
   });
 });

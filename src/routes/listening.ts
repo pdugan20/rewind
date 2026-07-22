@@ -1,5 +1,16 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { eq, and, desc, sql, gte, lte, like, asc, inArray } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  desc,
+  sql,
+  gte,
+  lte,
+  like,
+  asc,
+  inArray,
+  type SQL,
+} from 'drizzle-orm';
 import { createDb, type Database } from '../db/client.js';
 import {
   lastfmArtists,
@@ -192,6 +203,27 @@ const ScrobbleSchema = z.object({
     image: z.any().nullable(),
   }),
   scrobbled_at: z.string(),
+});
+
+const RecentAlbumImageSchema = z
+  .object({
+    cdn_url: z.string().url(),
+    thumbhash: z.string().nullable(),
+    dominant_color: z.string().nullable(),
+    accent_color: z.string().nullable(),
+  })
+  .nullable();
+
+const RecentAlbumActivitySchema = z.object({
+  album: z.object({
+    id: z.number().int(),
+    name: z.string(),
+    url: z.string().url().nullable(),
+    apple_music_url: z.string().url().nullable(),
+    image: RecentAlbumImageSchema,
+  }),
+  artist: z.object({ id: z.number().int(), name: z.string() }),
+  last_scrobbled_at: z.string(),
 });
 
 const StatsSchema = z.object({
@@ -543,6 +575,32 @@ const recentRoute = createRoute({
       },
     },
     ...errorResponses(401),
+  },
+});
+
+const recentAlbumsRoute = createRoute({
+  method: 'get',
+  path: '/recent/albums',
+  operationId: 'getListeningRecentAlbums',
+  tags: ['Listening'],
+  summary: 'Recently played albums',
+  description:
+    'Returns unique recently played albums ordered by their newest scrobble. Reads at most 200 recent scrobbles.',
+  request: {
+    query: z.object({
+      limit: z.coerce.number().int().min(1).max(20).optional().default(10),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Recently played albums',
+      content: {
+        'application/json': {
+          schema: z.object({ data: z.array(RecentAlbumActivitySchema) }),
+        },
+      },
+    },
+    ...errorResponses(400, 401),
   },
 });
 
@@ -1895,6 +1953,121 @@ listening.openapi(recentRoute, async (c) => {
         image: s.albumId ? (imageMap.get(String(s.albumId)) ?? null) : null,
       },
       scrobbled_at: s.scrobbledAt,
+    })),
+  });
+});
+
+const RECENT_ALBUM_BATCH_SIZE = 50;
+const RECENT_ALBUM_SCAN_LIMIT = 200;
+
+type RecentAlbumScanRow = {
+  scrobbleId: number;
+  scrobbledAt: string;
+  trackFiltered: number | null;
+  albumId: number | null;
+  albumName: string | null;
+  albumUrl: string | null;
+  albumAppleMusicUrl: string | null;
+  albumFiltered: number | null;
+  artistId: number | null;
+  artistName: string | null;
+};
+
+listening.openapi(recentAlbumsRoute, async (c) => {
+  setCache(c, 'realtime');
+  const db = createDb(c.env.DB);
+  const { limit } = c.req.valid('query');
+  const selected = new Map<
+    number,
+    {
+      scrobbleId: number;
+      scrobbledAt: string;
+      albumId: number;
+      albumName: string;
+      albumUrl: string | null;
+      albumAppleMusicUrl: string | null;
+      artistId: number;
+      artistName: string;
+    }
+  >();
+  let inspected = 0;
+  let cursor: { at: string; id: number } | null = null;
+
+  while (selected.size < limit && inspected < RECENT_ALBUM_SCAN_LIMIT) {
+    const take = Math.min(
+      RECENT_ALBUM_BATCH_SIZE,
+      RECENT_ALBUM_SCAN_LIMIT - inspected
+    );
+    const cursorCondition: SQL | undefined = cursor
+      ? sql<boolean>`(${lastfmScrobbles.scrobbledAt}, ${lastfmScrobbles.id}) < (${cursor.at}, ${cursor.id})`
+      : undefined;
+    const rows: RecentAlbumScanRow[] = await db
+      .select({
+        scrobbleId: lastfmScrobbles.id,
+        scrobbledAt: lastfmScrobbles.scrobbledAt,
+        trackFiltered: lastfmTracks.isFiltered,
+        albumId: lastfmAlbums.id,
+        albumName: lastfmAlbums.name,
+        albumUrl: lastfmAlbums.url,
+        albumAppleMusicUrl: lastfmAlbums.appleMusicUrl,
+        albumFiltered: lastfmAlbums.isFiltered,
+        artistId: lastfmArtists.id,
+        artistName: lastfmArtists.name,
+      })
+      .from(lastfmScrobbles)
+      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+      .leftJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
+      .where(cursorCondition)
+      .orderBy(desc(lastfmScrobbles.scrobbledAt), desc(lastfmScrobbles.id))
+      .limit(take);
+    if (rows.length === 0) break;
+    inspected += rows.length;
+    for (const row of rows) {
+      if (
+        row.trackFiltered !== 1 &&
+        row.albumFiltered !== 1 &&
+        row.albumId !== null &&
+        row.albumName !== null &&
+        row.artistId !== null &&
+        row.artistName !== null &&
+        !selected.has(row.albumId)
+      ) {
+        selected.set(row.albumId, {
+          scrobbleId: row.scrobbleId,
+          scrobbledAt: row.scrobbledAt,
+          albumId: row.albumId,
+          albumName: row.albumName,
+          albumUrl: row.albumUrl,
+          albumAppleMusicUrl: row.albumAppleMusicUrl,
+          artistId: row.artistId,
+          artistName: row.artistName,
+        });
+        if (selected.size === limit) break;
+      }
+    }
+    const last = rows.at(-1)!;
+    cursor = { at: last.scrobbledAt, id: last.scrobbleId };
+    if (rows.length < take) break;
+  }
+
+  const imageMap = await getImageAttachmentBatch(
+    db,
+    'listening',
+    'albums',
+    [...selected.keys()].map(String)
+  );
+  return c.json({
+    data: [...selected.values()].map((row) => ({
+      album: {
+        id: row.albumId,
+        name: row.albumName,
+        url: row.albumUrl,
+        apple_music_url: row.albumAppleMusicUrl,
+        image: imageMap.get(String(row.albumId)) ?? null,
+      },
+      artist: { id: row.artistId, name: row.artistName },
+      last_scrobbled_at: row.scrobbledAt,
     })),
   });
 });
