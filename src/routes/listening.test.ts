@@ -566,6 +566,54 @@ describe('listening routes', () => {
       ]);
     });
 
+    it('keeps timestamp/id cursor order across the 50-row batch boundary', async () => {
+      const tiedAt = '2026-07-21T00:00:00.000Z';
+      await seedActivity({
+        artist: 'Oldest',
+        album: 'Oldest Album',
+        withImage: true,
+        plays: [{ track: 'Oldest Track', at: tiedAt }],
+      });
+      await seedActivity({
+        artist: 'Middle',
+        album: 'Middle Album',
+        withImage: true,
+        plays: [{ track: 'Middle Track', at: tiedAt }],
+      });
+      await seedActivity({
+        artist: 'Newest',
+        album: 'Newest Album',
+        withImage: true,
+        plays: [{ track: 'Newest Track', at: tiedAt }],
+      });
+      await seedActivity({
+        artist: 'Repeated',
+        album: 'Repeated Album',
+        withImage: true,
+        plays: Array.from({ length: 48 }, () => ({
+          track: 'Repeated Track',
+          at: tiedAt,
+        })),
+      });
+
+      const response = await authFetch('/v1/listening/recent/albums?limit=4');
+      const body = (await response.json()) as any;
+
+      expect(body.data.map((item: any) => item.album.name)).toEqual([
+        'Repeated Album',
+        'Newest Album',
+        'Middle Album',
+        'Oldest Album',
+      ]);
+      expect(new Set(body.data.map((item: any) => item.album.id)).size).toBe(4);
+      expect(body.data.map((item: any) => item.last_scrobbled_at)).toEqual(
+        Array.from({ length: 4 }, () => tiedAt)
+      );
+      expect(body.data.every((item: any) => item.album.image !== null)).toBe(
+        true
+      );
+    });
+
     it('excludes filtered and album-less activity', async () => {
       await seedActivity({
         artist: 'Valid',
@@ -621,11 +669,12 @@ describe('listening routes', () => {
       ).toBe(400);
     });
 
-    it('returns only the requested number of unique albums', async () => {
+    it('stops selecting at the requested limit and hydrates its artwork set', async () => {
       for (let index = 0; index < 4; index += 1) {
         await seedActivity({
           artist: `Artist ${index}`,
           album: `Album ${index}`,
+          withImage: true,
           plays: [
             {
               track: `Track ${index}`,
@@ -637,7 +686,15 @@ describe('listening routes', () => {
         });
       }
       const response = await authFetch('/v1/listening/recent/albums?limit=2');
-      expect(((await response.json()) as any).data).toHaveLength(2);
+      const body = (await response.json()) as any;
+      expect(body.data.map((item: any) => item.album.name)).toEqual([
+        'Album 0',
+        'Album 1',
+      ]);
+      expect(body.data.map((item: any) => item.album.image?.cdn_url)).toEqual([
+        expect.stringContaining('/original.jpg'),
+        expect.stringContaining('/original.jpg'),
+      ]);
     });
   });
 });
