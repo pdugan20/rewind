@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 
 import { parse } from 'yaml';
 
@@ -50,6 +51,20 @@ function sameObject(actual, expected) {
   return JSON.stringify(actual) === JSON.stringify(expected);
 }
 
+function normalizeExpression(value) {
+  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+}
+
+function normalizeCommands(value) {
+  return typeof value === 'string'
+    ? value
+        .trim()
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : [];
+}
+
 function walk(value, visit, path = []) {
   if (Array.isArray(value)) {
     value.forEach((entry, index) => walk(entry, visit, [...path, index]));
@@ -71,12 +86,11 @@ function collectValues(document, wantedKey) {
 }
 
 function validateActionUse(use, problems) {
-  if (
-    typeof use !== 'string' ||
-    use.startsWith('./') ||
-    use.startsWith('docker://')
-  )
+  if (typeof use === 'string' && use.startsWith('docker://')) {
+    problems.push(`Docker action references are forbidden: ${use}`);
     return;
+  }
+  if (typeof use !== 'string' || use.startsWith('./')) return;
   const match = use.match(/^([^@]+)@([0-9a-f]{40})$/);
   if (!match) {
     problems.push(`external Action is not pinned to a full commit: ${use}`);
@@ -264,10 +278,10 @@ function validateCi(document, problems) {
   if (!lintCommands.includes('npm run lint:claude')) {
     problems.push('Lint must invoke the local exact Claude lint script');
   }
-  validateGate(document.jobs?.gate, problems);
+  validateGate(document.jobs?.gate, problems, document.defaults);
 }
 
-function validateGate(gate, problems) {
+function validateGate(gate, problems, workflowDefaults) {
   const requiredNeeds = [
     'lint',
     'test',
@@ -280,12 +294,25 @@ function validateGate(gate, problems) {
   if (!sameObject(gate?.needs, requiredNeeds)) {
     problems.push('CI Gate must depend on every required diagnostic job');
   }
+  if (gate?.['continue-on-error'] !== undefined) {
+    problems.push('CI Gate job must not set continue-on-error');
+  }
+  if (
+    workflowDefaults?.run?.shell !== undefined ||
+    gate?.defaults?.run?.shell !== undefined
+  ) {
+    problems.push('CI Gate must not override the fail-closed default shell');
+  }
+  for (const step of gate?.steps ?? []) {
+    if (step?.['continue-on-error'] !== undefined) {
+      problems.push('CI Gate steps must not set continue-on-error');
+    }
+    if (step?.shell !== undefined) {
+      problems.push('CI Gate steps must not override the default shell');
+    }
+  }
   const run = (gate?.steps ?? []).map(stepRun).join('\n');
-  const normalizedCommands = run
-    .trim()
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const normalizedCommands = normalizeCommands(run);
   const expectedCommands = [
     'test "${{ needs.lint.result }}" = "success" || exit 1',
     'test "${{ needs.test.result }}" = "success" || exit 1',
@@ -323,35 +350,61 @@ function validateGate(gate, problems) {
 }
 
 function validateDeploy(document, problems) {
-  const condition = String(document.jobs?.deploy?.if ?? '');
-  for (const required of [
-    "github.event_name == 'workflow_dispatch'",
-    "github.event.workflow_run.conclusion == 'success'",
-    "github.event.workflow_run.event == 'push'",
-    "github.event.workflow_run.head_branch == 'main'",
-  ]) {
-    if (!condition.includes(required))
-      problems.push(`Deploy condition is missing ${required}`);
+  const expectedTriggers = {
+    workflow_dispatch: null,
+    workflow_run: {
+      workflows: ['CI'],
+      types: ['completed'],
+      branches: ['main'],
+    },
+  };
+  if (!isDeepStrictEqual(document.on, expectedTriggers)) {
+    problems.push(
+      'Deploy triggers must exactly target manual runs and completed main CI'
+    );
   }
-  const checkout = document.jobs?.deploy?.steps?.find(
-    (step) => step?.uses === CHECKOUT
-  );
+  const condition = normalizeExpression(document.jobs?.deploy?.if);
+  const expectedCondition = normalizeExpression(`
+    github.event_name == 'workflow_dispatch' ||
+    (github.event.workflow_run.conclusion == 'success' &&
+    github.event.workflow_run.event == 'push' &&
+    github.event.workflow_run.head_branch == 'main')
+  `);
+  if (condition !== expectedCondition) {
+    problems.push(
+      'Deploy condition must exactly enforce the trusted event policy'
+    );
+  }
+  const steps = document.jobs?.deploy?.steps ?? [];
+  const checkouts = steps.filter((step) => step?.uses === CHECKOUT);
+  const checkout = steps[0];
   if (
+    checkouts.length !== 1 ||
+    checkout?.uses !== CHECKOUT ||
     checkout?.with?.ref !==
-    "${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}"
+      "${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}"
   ) {
     problems.push(
       'Deploy checkout must select the successful workflow head SHA or main for dispatch'
     );
   }
-  const commands = (document.jobs?.deploy?.steps ?? []).map(stepRun).join('\n');
+  const verification = steps[1];
+  const expectedCommands = normalizeCommands(`
+    EXPECTED_REF="\${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}"
+    if [ "$EXPECTED_REF" = "main" ]; then
+      EXPECTED_SHA="$(git rev-parse main)"
+    else
+      EXPECTED_SHA="$EXPECTED_REF"
+    fi
+    test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+  `);
   if (
-    !commands.includes('github.event.workflow_run.head_sha') ||
-    !commands.includes('git rev-parse HEAD') ||
-    !commands.includes('git rev-parse main')
+    verification?.name !== 'Verify trusted checkout' ||
+    !sameObject(Object.keys(verification ?? {}).sort(), ['name', 'run']) ||
+    !sameObject(normalizeCommands(stepRun(verification)), expectedCommands)
   ) {
     problems.push(
-      'Deploy must verify checked-out HEAD against the selected exact ref'
+      'Deploy must use the exact fail-closed checkout verification step'
     );
   }
 }
@@ -654,6 +707,12 @@ test('rejects mutable Actions and pinned merge or approval Actions', () => {
   }
 });
 
+test('rejects Docker action references', () => {
+  const problems = [];
+  validateActionUse('docker://alpine:latest', problems);
+  assert.ok(problems.length > 0);
+});
+
 test('rejects merge, approval, REST, GraphQL, and floating-tool commands', () => {
   for (const run of [
     'gh pr merge --auto 42',
@@ -770,6 +829,38 @@ test('rejects a non-enforcing aggregate gate', () => {
   assert.ok(problems.length > 0);
 });
 
+test('rejects aggregate gate continue-on-error at job or step scope', () => {
+  const currentGate = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')
+  ).jobs.gate;
+  for (const mutate of [
+    (gate) => {
+      gate['continue-on-error'] = true;
+    },
+    (gate) => {
+      gate.steps[0]['continue-on-error'] = true;
+    },
+  ]) {
+    const gate = structuredClone(currentGate);
+    mutate(gate);
+    const problems = [];
+    validateGate(gate, problems);
+    assert.ok(problems.length > 0);
+  }
+});
+
+test('rejects an aggregate gate with a custom shell', () => {
+  const gate = structuredClone(
+    parseYaml(
+      readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')
+    ).jobs.gate
+  );
+  gate.steps[0].shell = 'bash {0} || true';
+  const problems = [];
+  validateGate(gate, problems);
+  assert.ok(problems.length > 0);
+});
+
 test('rejects a deploy checkout not bound to the triggering SHA', () => {
   const problems = [];
   validateDeploy(
@@ -783,6 +874,30 @@ test('rejects a deploy checkout not bound to the triggering SHA', () => {
     },
     problems
   );
+  assert.ok(problems.length > 0);
+});
+
+test('rejects a fail-open deploy condition containing trusted substrings', () => {
+  const deploy = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  deploy.jobs.deploy.if = `true || (${deploy.jobs.deploy.if})`;
+  const problems = [];
+  validateDeploy(deploy, problems);
+  assert.ok(problems.length > 0);
+});
+
+test('rejects an echo-only deploy verification containing trusted substrings', () => {
+  const deploy = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  deploy.jobs.deploy.steps[1].run = `
+    echo github.event.workflow_run.head_sha
+    echo git rev-parse HEAD
+    echo git rev-parse main
+  `;
+  const problems = [];
+  validateDeploy(deploy, problems);
   assert.ok(problems.length > 0);
 });
 
