@@ -7,6 +7,9 @@ on:
     types: [completed]
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: deploy
   cancel-in-progress: false
@@ -15,24 +18,45 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main')
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        run: |
+          EXPECTED_REF="${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}"
+          if [ "$EXPECTED_REF" = "main" ]; then
+            EXPECTED_SHA="$(git rev-parse main)"
+          else
+            EXPECTED_SHA="$EXPECTED_REF"
+          fi
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22.18.0'
+          cache: npm
+
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
 
       - run: npm ci
 
       - name: Apply D1 migrations
-        run: npx wrangler d1 migrations apply rewind-db --remote
+        run: npm exec -- wrangler d1 migrations apply rewind-db --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Deploy to Cloudflare Workers
-        run: npx wrangler deploy
+        run: npm exec -- wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

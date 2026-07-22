@@ -5,28 +5,66 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 10
+      time: '09:00'
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
     groups:
       cloudflare:
         patterns:
           - 'wrangler'
           - '@cloudflare/*'
+        update-types: ['minor', 'patch']
       drizzle:
         patterns:
           - 'drizzle-orm'
           - 'drizzle-kit'
+        update-types: ['minor', 'patch']
       eslint:
         patterns:
           - 'eslint'
           - '@typescript-eslint/*'
           - 'eslint-*'
+        update-types: ['minor', 'patch']
       vitest:
         patterns:
           - 'vitest'
           - '@vitest/*'
+        update-types: ['minor', 'patch']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: npm
+    directory: /mcp-server
+    schedule:
+      interval: weekly
+      day: monday
+      time: '10:00'
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 3
+    groups:
+      mcp-stable:
+        patterns: ['*']
+        exclude-patterns:
+          - '@cloudflare/workers-oauth-provider'
+          - 'thumbhash'
+        update-types: ['minor', 'patch']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
+      time: '11:00'
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 2
+    groups:
+      actions-minor-patch:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
