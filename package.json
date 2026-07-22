@@ -73,8 +73,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.21",
-    "@cloudflare/workers-types": "^4.20260310.1",
+    "@cloudflare/vitest-pool-workers": "0.12.21",
+    "@cloudflare/workers-types": "4.20260312.1",
     "@eslint/js": "^10.0.1",
     "@mozilla/readability": "^0.6.0",
     "@stoplight/spectral-cli": "^6.16.2",
@@ -94,7 +94,11 @@
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0",
-    "vitest": "~3.2.0",
-    "wrangler": "^4.72.0"
+    "vitest": "3.2.7",
+    "wrangler": "4.72.0"
+  },
+  "overrides": {
+    "undici": "7.28.0",
+    "ws": "8.21.0"
   }
 }
