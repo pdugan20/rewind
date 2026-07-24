@@ -104,5 +104,9 @@
     "typescript-eslint": "^8.65.0",
     "vitest": "~3.2.7",
     "wrangler": "^4.72.0"
+  },
+  "overrides": {
+    "undici": "7.28.0",
+    "ws": "8.21.0"
   }
 }
