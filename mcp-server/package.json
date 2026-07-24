@@ -3,6 +3,7 @@
   "version": "0.11.0",
   "description": "MCP server for the Rewind personal data API",
   "type": "module",
+  "packageManager": "npm@11.5.2",
   "bin": {
     "rewind-mcp-server": "./dist/index.js"
   },
@@ -56,7 +57,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@cloudflare/workers-oauth-provider": "^0.4.0",
+    "@cloudflare/workers-oauth-provider": "^0.8.2",
     "@modelcontextprotocol/ext-apps": "^1.7.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "react": "^19.2.5",
