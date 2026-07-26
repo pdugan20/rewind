@@ -1,7 +1,6 @@
 ---
 name: media-search
 description: This skill should be used when the user asks to "search for a movie", "find a record on Discogs", "look up a film", "search TMDb", "search Discogs", "what's the TMDb ID for", "what's the Discogs ID for", or wants to look up media metadata before adding it to the collection.
-argument-hint: 'search query'
 ---
 
 # Media Search
