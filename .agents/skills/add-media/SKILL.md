@@ -1,7 +1,6 @@
 ---
 name: add-media
 description: This skill should be used when the user asks to "add a movie", "add a vinyl", "add to my collection", "add physical media", "add a Blu-ray", "add a CD", or "bought these records". It handles both movies (via TMDb/Trakt) and music (via Discogs).
-argument-hint: 'items to add'
 ---
 
 # Add Physical Media
@@ -10,6 +9,8 @@ Add physical media items to the Rewind collection. Supports two domains:
 
 - **Movies** (Blu-ray, 4K UHD, DVD) -- resolved via TMDb, synced to Trakt, stored locally
 - **Music** (Vinyl, CD, Cassette) -- resolved via Discogs, added to Discogs collection, stored locally
+
+Treat a user request that names the items to add as authorization for those exact additions. Otherwise, preview the parsed items and formats and obtain approval before sending any production POST request. Never expose keys from `.dev.vars` in output.
 
 ## Setup
 
