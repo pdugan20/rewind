@@ -16,7 +16,12 @@ import { syncRuns } from '../../db/schema/system.js';
 import { LastfmClient, LASTFM_PERIODS } from './client.js';
 import type { LastfmPeriod } from './client.js';
 import { normalizeScrobble } from './transforms.js';
-import { isFiltered, hasAudiobookTags, loadFilters } from './filters.js';
+import {
+  hasNumberedAudiobookSignature,
+  isFiltered,
+  hasAudiobookTags,
+  loadFilters,
+} from './filters.js';
 import { afterSync } from '../../lib/after-sync.js';
 import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import { cleanArtistName } from '../images/sources/utils.js';
@@ -30,7 +35,7 @@ export async function upsertArtist(
   rawName: string,
   mbid: string | null,
   url?: string
-): Promise<{ id: number; isNew: boolean }> {
+): Promise<{ id: number; isNew: boolean; isFiltered: boolean }> {
   // Strip featured artist suffixes so "Gorillaz feat. IDLES" -> "Gorillaz"
   const name = cleanArtistName(rawName);
 
@@ -38,17 +43,17 @@ export async function upsertArtist(
   // anchors the canonical Various Artists row (seeded by migration 0038)
   // even if a scrobble's artist text drifts. Falls back to name match
   // for scrobbles Last.fm hasn't mbid-tagged yet.
-  let existing: { id: number } | undefined;
+  let existing: { id: number; isFiltered: number | null } | undefined;
   if (mbid) {
     [existing] = await db
-      .select({ id: lastfmArtists.id })
+      .select({ id: lastfmArtists.id, isFiltered: lastfmArtists.isFiltered })
       .from(lastfmArtists)
       .where(eq(lastfmArtists.mbid, mbid))
       .limit(1);
   }
   if (!existing) {
     [existing] = await db
-      .select({ id: lastfmArtists.id })
+      .select({ id: lastfmArtists.id, isFiltered: lastfmArtists.isFiltered })
       .from(lastfmArtists)
       .where(eq(lastfmArtists.name, name))
       .limit(1);
@@ -61,7 +66,11 @@ export async function upsertArtist(
         .set({ mbid, updatedAt: new Date().toISOString() })
         .where(eq(lastfmArtists.id, existing.id));
     }
-    return { id: existing.id, isNew: false };
+    return {
+      id: existing.id,
+      isNew: false,
+      isFiltered: existing.isFiltered === 1,
+    };
   }
 
   const filtered = isFiltered({ artistName: name }) ? 1 : 0;
@@ -75,7 +84,7 @@ export async function upsertArtist(
     })
     .returning({ id: lastfmArtists.id });
 
-  return { id: result[0].id, isNew: true };
+  return { id: result[0].id, isNew: true, isFiltered: filtered === 1 };
 }
 
 // Exported so the album-attribution-repair test suite can assert the
@@ -288,6 +297,15 @@ export async function syncRecentScrobbles(
         // Skip now-playing tracks (no timestamp)
         if (track.isNowPlaying || !track.scrobbledAt) continue;
 
+        const filterableTrack = {
+          artistName: track.artistName,
+          albumName: track.albumName,
+          trackName: track.trackName,
+        };
+        const matchesAudiobookSignature =
+          hasNumberedAudiobookSignature(filterableTrack);
+        let filteredItem = isFiltered(filterableTrack);
+
         const artist = await upsertArtist(
           db,
           track.artistName,
@@ -314,6 +332,7 @@ export async function syncRecentScrobbles(
         );
 
         // Tag new artists with genres from Last.fm
+        let tagFiltered = false;
         if (artist.isNew) {
           try {
             const tagResponse = await client.getArtistTopTags(track.artistName);
@@ -324,7 +343,7 @@ export async function syncRecentScrobbles(
             const { genre, normalizedTags } = resolveGenre(rawTags);
 
             // Auto-detect audiobook artists from Last.fm tags
-            const tagFiltered = hasAudiobookTags(rawTags) ? 1 : 0;
+            tagFiltered = hasAudiobookTags(rawTags);
 
             await db
               .update(lastfmArtists)
@@ -334,31 +353,50 @@ export async function syncRecentScrobbles(
                 ...(tagFiltered ? { isFiltered: 1 } : {}),
               })
               .where(eq(lastfmArtists.id, artist.id));
-
-            // Cascade filter to albums/tracks for this artist
-            if (tagFiltered) {
-              await db
-                .update(lastfmAlbums)
-                .set({ isFiltered: 1 })
-                .where(eq(lastfmAlbums.artistId, artist.id));
-              await db
-                .update(lastfmTracks)
-                .set({ isFiltered: 1 })
-                .where(eq(lastfmTracks.artistId, artist.id));
-              console.log(
-                `[SYNC] Auto-filtered audiobook artist from tags: ${track.artistName}`
-              );
-            }
           } catch {
             // Non-fatal -- artist still gets created, tags can be backfilled later
           }
         }
 
+        // Tag lookups can fail for author/narrator composite names. Fall back
+        // to the item-level audiobook signature and cascade the decision so
+        // every stored listening endpoint observes the same filter state.
+        const shouldCascadeAudiobookFilter =
+          artist.isFiltered || matchesAudiobookSignature || tagFiltered;
+        if (shouldCascadeAudiobookFilter) {
+          await db
+            .update(lastfmArtists)
+            .set({ isFiltered: 1 })
+            .where(eq(lastfmArtists.id, artist.id));
+          if (album) {
+            await db
+              .update(lastfmAlbums)
+              .set({ isFiltered: 1 })
+              .where(eq(lastfmAlbums.id, album.id));
+          }
+          await db
+            .update(lastfmTracks)
+            .set({ isFiltered: 1 })
+            .where(eq(lastfmTracks.id, trackId));
+          filteredItem = true;
+
+          if (!artist.isFiltered) {
+            console.log(
+              `[SYNC] Auto-filtered audiobook item: ${track.artistName} - ${track.trackName}`
+            );
+          }
+        }
+
         // Track new artists and albums for feed/search
-        if (artist.isNew && !newArtists.has(track.artistName)) {
+        if (
+          !filteredItem &&
+          artist.isNew &&
+          !newArtists.has(track.artistName)
+        ) {
           newArtists.set(track.artistName, String(artist.id));
         }
         if (
+          !filteredItem &&
           album?.isNew &&
           track.albumName &&
           !newAlbums.has(`${track.artistName}:${track.albumName}`)

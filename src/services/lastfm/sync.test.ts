@@ -10,18 +10,74 @@ import {
 } from '../../db/schema/lastfm.js';
 import { setupTestDb } from '../../test-helpers.js';
 import {
+  syncRecentScrobbles,
   syncListening,
   syncYearlyStats,
   upsertAlbum,
   upsertArtist,
 } from './sync.js';
 import { VARIOUS_ARTISTS_MBID } from './constants.js';
+import type { LastfmClient } from './client.js';
 import { loadFilters } from './filters.js';
 import { eq } from 'drizzle-orm';
 
 describe('syncListening', () => {
   it('exports syncListening function', () => {
     expect(typeof syncListening).toBe('function');
+  });
+});
+
+describe('syncRecentScrobbles audiobook filtering', () => {
+  let db: Database;
+
+  beforeAll(async () => {
+    await setupTestDb();
+  });
+
+  beforeEach(async () => {
+    db = createDb(env.DB);
+    await db.delete(lastfmYearlyStats);
+    await db.delete(lastfmScrobbles);
+    await db.delete(lastfmTracks);
+    await db.delete(lastfmAlbums);
+    await db.delete(lastfmArtists);
+    await loadFilters(db);
+  });
+
+  it('cascades a numbered audiobook signature and omits it from feed/search candidates', async () => {
+    const client = {
+      getRecentTracks: async () => ({
+        recenttracks: {
+          track: [
+            {
+              artist: { mbid: '', '#text': 'Homer, Emily Wilson' },
+              name: '001 - The Iliad (Wilson translation)',
+              mbid: '',
+              album: { mbid: '', '#text': 'The Iliad' },
+              url: 'https://last.fm/test/iliad',
+              date: { uts: '1785298519', '#text': '29 Jul 2026' },
+              image: [],
+            },
+          ],
+          '@attr': { totalPages: '1' },
+        },
+      }),
+      getArtistTopTags: async () => {
+        throw new Error('Artist not found');
+      },
+    } as unknown as LastfmClient;
+
+    const result = await syncRecentScrobbles(db, client);
+
+    const [artist] = await db.select().from(lastfmArtists);
+    const [album] = await db.select().from(lastfmAlbums);
+    const [track] = await db.select().from(lastfmTracks);
+
+    expect(artist.isFiltered).toBe(1);
+    expect(album.isFiltered).toBe(1);
+    expect(track.isFiltered).toBe(1);
+    expect(result.newArtists.size).toBe(0);
+    expect(result.newAlbums.size).toBe(0);
   });
 });
 

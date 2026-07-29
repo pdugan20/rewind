@@ -142,6 +142,26 @@ describe('isAudiobook', () => {
     ).toBe(true);
   });
 
+  it('detects numbered audiobook chapters that repeat the album title', () => {
+    expect(
+      isAudiobook({
+        artistName: 'Homer, Robert Fagles',
+        albumName: 'The Odyssey',
+        trackName: '006 - The Odyssey (Fagles translation)',
+      })
+    ).toBe(true);
+  });
+
+  it('does not flag numbered music tracks without the album title', () => {
+    expect(
+      isAudiobook({
+        artistName: 'Bon Iver',
+        albumName: '22, a Million',
+        trackName: '715 - CR∑∑KS',
+      })
+    ).toBe(false);
+  });
+
   it('does not flag regular music', () => {
     expect(
       isAudiobook({
