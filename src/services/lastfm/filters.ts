@@ -85,11 +85,29 @@ export function isHolidayMusic(item: FilterableItem): boolean {
   return false;
 }
 
+export function hasNumberedAudiobookSignature(item: FilterableItem): boolean {
+  const albumLower = (item.albumName ?? '').toLowerCase();
+  const trackLower = (item.trackName ?? '').toLowerCase();
+  const trackName = item.trackName ?? '';
+
+  // Audiobooks scrobbled by Plex commonly use a zero-padded file sequence
+  // followed by the book title (for example, "006 - The Odyssey ..."). The
+  // album-title check keeps this narrow enough to preserve legitimate numbered
+  // songs such as Bon Iver's "715 - CR∑∑KS".
+  return (
+    albumLower.length >= 5 &&
+    /^\d{3}\s+-\s+/.test(trackName) &&
+    trackLower.includes(albumLower)
+  );
+}
+
 export function isAudiobook(item: FilterableItem): boolean {
   const artistLower = item.artistName.toLowerCase();
   const albumLower = (item.albumName ?? '').toLowerCase();
   const trackLower = (item.trackName ?? '').toLowerCase();
   const trackName = item.trackName ?? '';
+
+  if (hasNumberedAudiobookSignature(item)) return true;
 
   for (const rule of getFilters()) {
     if (rule.filterType !== 'audiobook') continue;
