@@ -19,9 +19,18 @@ npm run db:remote    # Apply migrations to remote D1
 npm run db:studio    # Open Drizzle Studio (local D1)
 npm run lint         # ESLint
 npm run format       # Prettier
-npm run lint:claude  # claudelint (validate Claude Code files)
+npm run lint:claude  # claudelint (validate agent instruction files)
 npm test             # Vitest
 ```
+
+## Agent configuration
+
+- `AGENTS.md` is the canonical cross-agent guide; `CLAUDE.md` is only a compatibility shim.
+- Repository skills live in `.agents/skills`. Claude consumes those same files through symlinks in
+  `.claude/skills`; do not maintain a second copy.
+- Keep domain procedures such as adding and finding media project-scoped. General design, delivery, review, and
+  hardening workflows come from the global agent-tooling setup.
+- See `.agents/skills/README.md` for the project inventory and mutation boundaries.
 
 ## Architecture Overview
 
