@@ -1,5 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { eq, sql, desc, asc, and, count } from 'drizzle-orm';
+import { eq, sql, desc, asc, and, count, notInArray } from 'drizzle-orm';
 import { createDb } from '../db/client.js';
 import { setCache } from '../lib/cache.js';
 import { requireAuth } from '../lib/auth.js';
@@ -45,6 +45,10 @@ function paginate(page: number, limit: number, total: number) {
     total,
     total_pages: Math.ceil(total / limit),
   };
+}
+
+function parseExcludedMovieIds(value: string | undefined): number[] {
+  return (value || '').split(',').filter(Boolean).map(Number);
 }
 
 function getMovieDirectors(db: Database, movieId: number) {
@@ -263,6 +267,16 @@ const WatchEventResultSchema = z.object({
   rewatch: z.boolean(),
 });
 
+const ExcludedMovieIdsQuery = z
+  .string()
+  .max(1000)
+  .regex(/^\d+(,\d+)*$/)
+  .optional()
+  .openapi({
+    description: 'Comma-separated Rewind movie IDs to omit before pagination.',
+    example: '202,418',
+  });
+
 // ─── Route definitions ──────────────────────────────────────────────
 
 const recentRoute = createRoute({
@@ -278,6 +292,7 @@ const recentRoute = createRoute({
       .object({
         limit: z.coerce.number().int().min(1).max(50).optional().default(10),
         page: z.coerce.number().int().min(1).optional().default(1),
+        exclude_ids: ExcludedMovieIdsQuery,
       })
       .merge(DateFilterQuery),
   },
@@ -346,6 +361,7 @@ const moviesListRoute = createRoute({
       year: z.string().optional(),
       sort: z.string().optional().default('watched_at'),
       order: z.string().optional().default('desc'),
+      exclude_ids: ExcludedMovieIdsQuery,
     }),
   },
   responses: {
@@ -1192,6 +1208,9 @@ watching.openapi(recentRoute, async (c) => {
     from: c.req.query('from'),
     to: c.req.query('to'),
   });
+  const excludedIds = parseExcludedMovieIds(c.req.query('exclude_ids'));
+  const exclusionCondition =
+    excludedIds.length > 0 ? notInArray(movies.id, excludedIds) : undefined;
 
   const recentWatches = await db
     .select({
@@ -1216,7 +1235,7 @@ watching.openapi(recentRoute, async (c) => {
     })
     .from(watchHistory)
     .innerJoin(movies, eq(watchHistory.movieId, movies.id))
-    .where(dateCondition)
+    .where(and(dateCondition, exclusionCondition))
     .orderBy(desc(watchHistory.watchedAt))
     .limit(limit)
     .offset(offset);
@@ -1283,9 +1302,13 @@ watching.openapi(moviesListRoute, async (c) => {
   const year = c.req.query('year');
   const sort = c.req.query('sort') || 'watched_at';
   const order = c.req.query('order') || 'desc';
+  const excludedIds = parseExcludedMovieIds(c.req.query('exclude_ids'));
 
   // Build conditions
   const conditions = [];
+  if (excludedIds.length > 0) {
+    conditions.push(notInArray(movies.id, excludedIds));
+  }
   if (genre) {
     conditions.push(
       sql`${movies.id} IN (

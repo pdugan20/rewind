@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { env, SELF } from 'cloudflare:test';
+import { drizzle } from 'drizzle-orm/d1';
+import { movies, watchHistory } from '../db/schema/watching.js';
+import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 
 describe('watching routes', () => {
   it('has correct endpoint structure', () => {
@@ -35,6 +39,84 @@ describe('watching routes', () => {
     const date = '2026-03-08T12:00:00.000Z';
     const monthly = date.substring(0, 7);
     expect(monthly).toBe('2026-03');
+  });
+});
+
+describe('movie list exclusions', () => {
+  let token: string;
+
+  beforeAll(async () => {
+    await setupTestDb();
+    token = await createTestApiKey({
+      name: 'watching-movie-exclusions-test',
+      scope: 'read',
+    });
+  });
+
+  beforeEach(async () => {
+    const db = drizzle(env.DB);
+    await db.delete(watchHistory);
+    await db.delete(movies);
+
+    await db.insert(movies).values([
+      { id: 201, title: 'Before', year: 2020 },
+      { id: 202, title: 'Hidden', year: 2021 },
+      { id: 203, title: 'Visible', year: 2022 },
+    ]);
+  });
+
+  it('omits excluded IDs before paginating the movie list', async () => {
+    const response = await SELF.fetch(
+      'http://localhost/v1/watching/movies?page=1&limit=2&sort=title&order=asc&exclude_ids=202',
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as any;
+
+    expect(body.data.map((movie: { id: number }) => movie.id)).toEqual([
+      201, 203,
+    ]);
+    expect(body.pagination).toEqual({
+      page: 1,
+      limit: 2,
+      total: 2,
+      total_pages: 1,
+    });
+  });
+
+  it('omits excluded IDs before limiting recent watches', async () => {
+    const db = drizzle(env.DB);
+    await db.insert(watchHistory).values([
+      { movieId: 201, watchedAt: '2026-08-01T00:00:00.000Z' },
+      { movieId: 202, watchedAt: '2026-08-03T00:00:00.000Z' },
+      { movieId: 203, watchedAt: '2026-08-02T00:00:00.000Z' },
+    ]);
+
+    const response = await SELF.fetch(
+      'http://localhost/v1/watching/recent?limit=2&exclude_ids=202',
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as any;
+
+    expect(
+      body.data.map((event: { movie: { id: number } }) => event.movie.id)
+    ).toEqual([203, 201]);
+  });
+
+  it('rejects malformed exclusion lists', async () => {
+    const responses = await Promise.all([
+      SELF.fetch('http://localhost/v1/watching/movies?exclude_ids=202,nope', {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      SELF.fetch('http://localhost/v1/watching/recent?exclude_ids=202,nope', {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([400, 400]);
   });
 });
 
