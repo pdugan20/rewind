@@ -86,18 +86,31 @@ export function isHolidayMusic(item: FilterableItem): boolean {
 }
 
 export function hasNumberedAudiobookSignature(item: FilterableItem): boolean {
-  const albumLower = (item.albumName ?? '').toLowerCase();
-  const trackLower = (item.trackName ?? '').toLowerCase();
+  const albumName = item.albumName ?? '';
   const trackName = item.trackName ?? '';
 
-  // Audiobooks scrobbled by Plex commonly use a zero-padded file sequence
-  // followed by the book title (for example, "006 - The Odyssey ..."). The
-  // album-title check keeps this narrow enough to preserve legitimate numbered
-  // songs such as Bon Iver's "715 - CR∑∑KS".
+  // Prologue/Plex audiobook files commonly prefix the repeated book title
+  // with either a zero-padded sequence ("006 - The Odyssey ...") or a part
+  // counter ("(03 of 21) - Zen And The Art *"). Require title overlap after
+  // the counter so similarly numbered music files do not get excluded.
+  const match = trackName.match(
+    /^(?:\d{3}|\(\s*\d{1,3}\s+of\s+\d{1,3}\s*\))\s*-\s*(.+)$/i
+  );
+  if (!match) return false;
+
+  const normalizeTitle = (value: string): string =>
+    value
+      .toLowerCase()
+      .replace(/\*/g, '')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim();
+  const album = normalizeTitle(albumName);
+  const trackTitle = normalizeTitle(match[1]);
+
   return (
-    albumLower.length >= 5 &&
-    /^\d{3}\s+-\s+/.test(trackName) &&
-    trackLower.includes(albumLower)
+    album.length >= 5 &&
+    trackTitle.length >= 8 &&
+    (album.includes(trackTitle) || trackTitle.includes(album))
   );
 }
 
@@ -123,7 +136,11 @@ export function isAudiobook(item: FilterableItem): boolean {
     }
     if (rule.scope === 'track_regex') {
       try {
-        const regex = new RegExp(rule.pattern, 'i');
+        // SQLite string literals preserve backslashes. The original seed
+        // migration therefore stored regex escapes doubled ("\\\\d"), while
+        // rules created through the API contain a single slash. Accept both.
+        const pattern = rule.pattern.replace(/\\\\/g, '\\');
+        const regex = new RegExp(pattern, 'i');
         if (regex.test(trackName)) return true;
       } catch {
         // Invalid regex pattern, skip

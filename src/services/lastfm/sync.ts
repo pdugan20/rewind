@@ -239,14 +239,49 @@ async function failSyncRun(
  * Get the timestamp of the most recent scrobble to use as the `from` parameter.
  */
 async function getLastScrobbleTimestamp(db: Database): Promise<number | null> {
+  const [latestRun] = await db
+    .select({ metadata: syncRuns.metadata })
+    .from(syncRuns)
+    .where(
+      and(
+        eq(syncRuns.domain, 'listening'),
+        eq(syncRuns.syncType, 'scrobbles'),
+        eq(syncRuns.status, 'completed')
+      )
+    )
+    .orderBy(desc(syncRuns.completedAt))
+    .limit(1);
+
+  let syncCursor: number | null = null;
+  if (latestRun?.metadata) {
+    try {
+      const parsed = JSON.parse(latestRun.metadata) as {
+        lastScrobbleTimestamp?: unknown;
+      };
+      if (
+        typeof parsed.lastScrobbleTimestamp === 'number' &&
+        Number.isFinite(parsed.lastScrobbleTimestamp)
+      ) {
+        syncCursor = parsed.lastScrobbleTimestamp;
+      }
+    } catch {
+      // Older sync metadata is best-effort; the stored history remains a
+      // safe fallback cursor.
+    }
+  }
+
   const [latest] = await db
     .select({ scrobbledAt: lastfmScrobbles.scrobbledAt })
     .from(lastfmScrobbles)
     .orderBy(desc(lastfmScrobbles.scrobbledAt))
     .limit(1);
 
-  if (!latest) return null;
-  return Math.floor(new Date(latest.scrobbledAt).getTime() / 1000);
+  const storedCursor = latest
+    ? Math.floor(new Date(latest.scrobbledAt).getTime() / 1000)
+    : null;
+  if (syncCursor === null) return storedCursor;
+  if (storedCursor === null) return syncCursor;
+  return Math.max(syncCursor, storedCursor);
 }
 
 /**
@@ -264,6 +299,7 @@ export async function syncRecentScrobbles(
 ): Promise<ScrobbleSyncResult> {
   const runId = await startSyncRun(db, 'scrobbles');
   let totalSynced = 0;
+  let totalFiltered = 0;
   const newArtists = new Map<string, string>();
   const newAlbums = new Map<
     string,
@@ -272,6 +308,7 @@ export async function syncRecentScrobbles(
 
   try {
     const lastTimestamp = await getLastScrobbleTimestamp(db);
+    let lastSeenTimestamp = lastTimestamp;
     // Add 1 second to avoid re-fetching the last scrobble
     const from = lastTimestamp ? lastTimestamp + 1 : undefined;
 
@@ -297,6 +334,16 @@ export async function syncRecentScrobbles(
         // Skip now-playing tracks (no timestamp)
         if (track.isNowPlaying || !track.scrobbledAt) continue;
 
+        const trackTimestamp = Math.floor(
+          new Date(track.scrobbledAt).getTime() / 1000
+        );
+        if (
+          Number.isFinite(trackTimestamp) &&
+          (lastSeenTimestamp === null || trackTimestamp > lastSeenTimestamp)
+        ) {
+          lastSeenTimestamp = trackTimestamp;
+        }
+
         const filterableTrack = {
           artistName: track.artistName,
           albumName: track.albumName,
@@ -305,6 +352,13 @@ export async function syncRecentScrobbles(
         const matchesAudiobookSignature =
           hasNumberedAudiobookSignature(filterableTrack);
         let filteredItem = isFiltered(filterableTrack);
+
+        // Reject known audiobook/holiday shapes at the admission boundary.
+        // They should never create listening entities or history rows.
+        if (filteredItem) {
+          totalFiltered++;
+          continue;
+        }
 
         const artist = await upsertArtist(
           db,
@@ -387,6 +441,14 @@ export async function syncRecentScrobbles(
           }
         }
 
+        // Tag-based and previously persisted artist filters are only known
+        // after the entity lookup. Keep the deny decision durable, but never
+        // write a listening-history row for the rejected item.
+        if (filteredItem) {
+          totalFiltered++;
+          continue;
+        }
+
         // Track new artists and albums for feed/search
         if (
           !filteredItem &&
@@ -432,12 +494,14 @@ export async function syncRecentScrobbles(
       page++;
     }
 
-    const lastTs = await getLastScrobbleTimestamp(db);
     await completeSyncRun(
       db,
       runId,
       totalSynced,
-      JSON.stringify({ lastScrobbleTimestamp: lastTs })
+      JSON.stringify({
+        lastScrobbleTimestamp: lastSeenTimestamp,
+        filtered: totalFiltered,
+      })
     );
 
     console.log(`[SYNC] Synced ${totalSynced} new scrobbles`);
@@ -848,21 +912,26 @@ export async function syncUserStats(
 
   try {
     const info = await client.getUserInfo();
-    const totalScrobbles = parseInt(info.user.playcount);
     const registeredDate = new Date(
       parseInt(info.user.registered.unixtime) * 1000
     ).toISOString();
 
-    // Count unique entities from local DB
-    const [artistCount] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(lastfmArtists);
-    const [albumCount] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(lastfmAlbums);
-    const [trackCount] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(lastfmTracks);
+    // Last.fm's account playcount includes scrobbles Rewind intentionally
+    // rejects (for example Prologue audiobooks). Derive every public count
+    // from admitted local history so excluded media never affects stats.
+    const [localStats] = await db
+      .select({
+        totalScrobbles: sql<number>`count(*)`,
+        uniqueArtists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
+        uniqueAlbums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+        uniqueTracks: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
+      })
+      .from(lastfmScrobbles)
+      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+      .where(
+        and(eq(lastfmTracks.isFiltered, 0), eq(lastfmArtists.isFiltered, 0))
+      );
 
     // Upsert stats (only one row per user)
     const [existing] = await db
@@ -872,10 +941,10 @@ export async function syncUserStats(
       .limit(1);
 
     const stats = {
-      totalScrobbles,
-      uniqueArtists: artistCount.count,
-      uniqueAlbums: albumCount.count,
-      uniqueTracks: trackCount.count,
+      totalScrobbles: localStats.totalScrobbles,
+      uniqueArtists: localStats.uniqueArtists,
+      uniqueAlbums: localStats.uniqueAlbums,
+      uniqueTracks: localStats.uniqueTracks,
       registeredDate,
       updatedAt: new Date().toISOString(),
     };
@@ -890,7 +959,9 @@ export async function syncUserStats(
     }
 
     await completeSyncRun(db, runId, 1);
-    console.log(`[SYNC] Updated user stats: ${totalScrobbles} total scrobbles`);
+    console.log(
+      `[SYNC] Updated user stats: ${localStats.totalScrobbles} total scrobbles`
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await failSyncRun(db, runId, message);
@@ -934,11 +1005,24 @@ export async function backfillScrobbles(
         const track = normalizeScrobble(rawTrack);
         if (track.isNowPlaying || !track.scrobbledAt) continue;
 
-        const { id: artistId } = await upsertArtist(
+        if (
+          isFiltered({
+            artistName: track.artistName,
+            albumName: track.albumName,
+            trackName: track.trackName,
+          })
+        ) {
+          continue;
+        }
+
+        const artist = await upsertArtist(
           db,
           track.artistName,
           track.artistMbid
         );
+        if (artist.isFiltered) continue;
+
+        const artistId = artist.id;
         const album = track.albumName
           ? await upsertAlbum(
               db,

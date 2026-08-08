@@ -400,6 +400,90 @@ describe('listening routes', () => {
     });
   });
 
+  describe('GET /v1/listening/recent', () => {
+    let token: string;
+
+    beforeAll(async () => {
+      await setupTestDb();
+      token = await createTestApiKey({
+        name: 'recent-filtering',
+        scope: 'read',
+      });
+    });
+
+    beforeEach(async () => {
+      const db = drizzle(env.DB);
+      await db.delete(lastfmScrobbles);
+      await db.delete(lastfmTracks);
+      await db.delete(lastfmAlbums);
+      await db.delete(lastfmArtists);
+    });
+
+    it('requires the track, artist, and album to all be unfiltered', async () => {
+      const db = drizzle(env.DB);
+      const [musicArtist, filteredArtist, albumFilteredArtist] = await db
+        .insert(lastfmArtists)
+        .values([
+          { name: 'Music Artist', isFiltered: 0 },
+          { name: 'Filtered Author', isFiltered: 1 },
+          { name: 'Album Filter Artist', isFiltered: 0 },
+        ])
+        .returning();
+      const [musicAlbum, authorAlbum, filteredAlbum] = await db
+        .insert(lastfmAlbums)
+        .values([
+          { name: 'Music Album', artistId: musicArtist.id, isFiltered: 0 },
+          { name: 'Book', artistId: filteredArtist.id, isFiltered: 0 },
+          {
+            name: 'Filtered Album',
+            artistId: albumFilteredArtist.id,
+            isFiltered: 1,
+          },
+        ])
+        .returning();
+      const [musicTrack, authorTrack, albumTrack] = await db
+        .insert(lastfmTracks)
+        .values([
+          {
+            name: 'Song',
+            artistId: musicArtist.id,
+            albumId: musicAlbum.id,
+            isFiltered: 0,
+          },
+          {
+            name: 'Chapter',
+            artistId: filteredArtist.id,
+            albumId: authorAlbum.id,
+            isFiltered: 0,
+          },
+          {
+            name: 'Hidden Album Song',
+            artistId: albumFilteredArtist.id,
+            albumId: filteredAlbum.id,
+            isFiltered: 0,
+          },
+        ])
+        .returning();
+
+      await db.insert(lastfmScrobbles).values([
+        { trackId: musicTrack.id, scrobbledAt: '2026-08-08T20:00:00Z' },
+        { trackId: authorTrack.id, scrobbledAt: '2026-08-08T21:00:00Z' },
+        { trackId: albumTrack.id, scrobbledAt: '2026-08-08T22:00:00Z' },
+      ]);
+
+      const response = await SELF.fetch(
+        'http://localhost/v1/listening/recent?limit=10',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const body = (await response.json()) as {
+        data: Array<{ track: { name: string } }>;
+      };
+
+      expect(response.status).toBe(200);
+      expect(body.data.map((item) => item.track.name)).toEqual(['Song']);
+    });
+  });
+
   describe('GET /v1/listening/recent/albums', () => {
     let token: string;
     let sequence = 0;
