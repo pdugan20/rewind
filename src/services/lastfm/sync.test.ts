@@ -6,12 +6,15 @@ import {
   lastfmAlbums,
   lastfmTracks,
   lastfmScrobbles,
+  lastfmUserStats,
   lastfmYearlyStats,
 } from '../../db/schema/lastfm.js';
+import { syncRuns } from '../../db/schema/system.js';
 import { setupTestDb } from '../../test-helpers.js';
 import {
   syncRecentScrobbles,
   syncListening,
+  syncUserStats,
   syncYearlyStats,
   upsertAlbum,
   upsertArtist,
@@ -36,6 +39,8 @@ describe('syncRecentScrobbles audiobook filtering', () => {
 
   beforeEach(async () => {
     db = createDb(env.DB);
+    await db.delete(syncRuns);
+    await db.delete(lastfmUserStats);
     await db.delete(lastfmYearlyStats);
     await db.delete(lastfmScrobbles);
     await db.delete(lastfmTracks);
@@ -44,40 +49,151 @@ describe('syncRecentScrobbles audiobook filtering', () => {
     await loadFilters(db);
   });
 
-  it('cascades a numbered audiobook signature and omits it from feed/search candidates', async () => {
+  it('rejects Prologue audiobook history and advances the cursor past it', async () => {
+    const requestedFrom: Array<number | undefined> = [];
+    const client = {
+      getRecentTracks: async (params: { from?: number }) => {
+        requestedFrom.push(params.from);
+        return {
+          recenttracks: {
+            track: [
+              {
+                artist: { mbid: '', '#text': 'Robert M. Pirsig' },
+                name: '(03 of 21) - Zen And The Art *',
+                mbid: '',
+                album: {
+                  mbid: '',
+                  '#text':
+                    'Zen And The Art Of Motorcycle Maintenance: An Inquiry Into Values',
+                },
+                url: 'https://last.fm/test/zen',
+                date: { uts: '1786225450', '#text': '8 Aug 2026' },
+                image: [],
+              },
+            ],
+            '@attr': { totalPages: '1' },
+          },
+        };
+      },
+      getArtistTopTags: async () => {
+        throw new Error('Artist not found');
+      },
+    } as unknown as LastfmClient;
+
+    const first = await syncRecentScrobbles(db, client);
+    const second = await syncRecentScrobbles(db, client);
+
+    const artists = await db.select().from(lastfmArtists);
+    const albums = await db.select().from(lastfmAlbums);
+    const tracks = await db.select().from(lastfmTracks);
+    const scrobbles = await db.select().from(lastfmScrobbles);
+
+    expect(artists).toHaveLength(0);
+    expect(albums).toHaveLength(0);
+    expect(tracks).toHaveLength(0);
+    expect(scrobbles).toHaveLength(0);
+    expect(first.count).toBe(0);
+    expect(first.newArtists.size).toBe(0);
+    expect(first.newAlbums.size).toBe(0);
+    expect(second.count).toBe(0);
+    expect(requestedFrom).toEqual([undefined, 1786225451]);
+  });
+
+  it('keeps tag-detected audiobooks out of history', async () => {
     const client = {
       getRecentTracks: async () => ({
         recenttracks: {
           track: [
             {
-              artist: { mbid: '', '#text': 'Homer, Emily Wilson' },
-              name: '001 - The Iliad (Wilson translation)',
+              artist: { mbid: '', '#text': 'A New Author' },
+              name: 'Opening',
               mbid: '',
-              album: { mbid: '', '#text': 'The Iliad' },
-              url: 'https://last.fm/test/iliad',
-              date: { uts: '1785298519', '#text': '29 Jul 2026' },
+              album: { mbid: '', '#text': 'A New Book' },
+              url: 'https://last.fm/test/book',
+              date: { uts: '1786225450', '#text': '8 Aug 2026' },
               image: [],
             },
           ],
           '@attr': { totalPages: '1' },
         },
       }),
-      getArtistTopTags: async () => {
-        throw new Error('Artist not found');
-      },
+      getArtistTopTags: async () => ({
+        toptags: { tag: [{ name: 'Audiobook', count: 100 }] },
+      }),
     } as unknown as LastfmClient;
 
     const result = await syncRecentScrobbles(db, client);
-
     const [artist] = await db.select().from(lastfmArtists);
-    const [album] = await db.select().from(lastfmAlbums);
-    const [track] = await db.select().from(lastfmTracks);
+    const scrobbles = await db.select().from(lastfmScrobbles);
 
     expect(artist.isFiltered).toBe(1);
-    expect(album.isFiltered).toBe(1);
-    expect(track.isFiltered).toBe(1);
+    expect(scrobbles).toHaveLength(0);
+    expect(result.count).toBe(0);
     expect(result.newArtists.size).toBe(0);
     expect(result.newAlbums.size).toBe(0);
+  });
+
+  it('derives public totals from admitted history instead of Last.fm playcount', async () => {
+    const [musicArtist] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'Music Artist', isFiltered: 0 })
+      .returning();
+    const [bookAuthor] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'Book Author', isFiltered: 1 })
+      .returning();
+    const [musicAlbum] = await db
+      .insert(lastfmAlbums)
+      .values({
+        name: 'Music Album',
+        artistId: musicArtist.id,
+        isFiltered: 0,
+      })
+      .returning();
+    const [bookAlbum] = await db
+      .insert(lastfmAlbums)
+      .values({ name: 'Book', artistId: bookAuthor.id, isFiltered: 1 })
+      .returning();
+    const [musicTrack] = await db
+      .insert(lastfmTracks)
+      .values({
+        name: 'Song',
+        artistId: musicArtist.id,
+        albumId: musicAlbum.id,
+        isFiltered: 0,
+      })
+      .returning();
+    const [bookTrack] = await db
+      .insert(lastfmTracks)
+      .values({
+        name: 'Chapter',
+        artistId: bookAuthor.id,
+        albumId: bookAlbum.id,
+        isFiltered: 1,
+      })
+      .returning();
+
+    await db.insert(lastfmScrobbles).values([
+      { trackId: musicTrack.id, scrobbledAt: '2026-08-08T20:00:00Z' },
+      { trackId: bookTrack.id, scrobbledAt: '2026-08-08T21:00:00Z' },
+    ]);
+
+    const client = {
+      getUserInfo: async () => ({
+        user: {
+          playcount: '999999',
+          registered: { unixtime: '1704067200' },
+        },
+      }),
+    } as unknown as LastfmClient;
+
+    await syncUserStats(db, client);
+    const [stats] = await db.select().from(lastfmUserStats);
+
+    expect(stats.totalScrobbles).toBe(1);
+    expect(stats.uniqueArtists).toBe(1);
+    expect(stats.uniqueAlbums).toBe(1);
+    expect(stats.uniqueTracks).toBe(1);
   });
 });
 

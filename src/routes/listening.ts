@@ -9,6 +9,8 @@ import {
   like,
   asc,
   inArray,
+  isNull,
+  or,
   type SQL,
 } from 'drizzle-orm';
 import { createDb, type Database } from '../db/client.js';
@@ -1917,7 +1919,14 @@ listening.openapi(recentRoute, async (c) => {
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
     .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
     .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
-    .where(and(eq(lastfmTracks.isFiltered, 0), dateCondition))
+    .where(
+      and(
+        eq(lastfmTracks.isFiltered, 0),
+        eq(lastfmArtists.isFiltered, 0),
+        or(isNull(lastfmAlbums.id), eq(lastfmAlbums.isFiltered, 0)),
+        dateCondition
+      )
+    )
     .orderBy(desc(lastfmScrobbles.scrobbledAt))
     .limit(limit)
     .offset(offset);

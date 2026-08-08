@@ -58,6 +58,11 @@ beforeAll(() => {
     { filterType: 'audiobook', pattern: '- Track \\d+', scope: 'track_regex' },
     { filterType: 'audiobook', pattern: '- \\d{2,3}$', scope: 'track_regex' },
     { filterType: 'audiobook', pattern: ' \\(\\d+\\)$', scope: 'track_regex' },
+    {
+      filterType: 'audiobook',
+      pattern: '- Section \\\\d+',
+      scope: 'track_regex',
+    },
   ]);
 });
 
@@ -140,6 +145,9 @@ describe('isAudiobook', () => {
     expect(
       isAudiobook({ artistName: 'Unknown', trackName: 'Something (12)' })
     ).toBe(true);
+    expect(
+      isAudiobook({ artistName: 'Unknown', trackName: 'Book - Section 12' })
+    ).toBe(true);
   });
 
   it('detects numbered audiobook chapters that repeat the album title', () => {
@@ -148,6 +156,14 @@ describe('isAudiobook', () => {
         artistName: 'Homer, Robert Fagles',
         albumName: 'The Odyssey',
         trackName: '006 - The Odyssey (Fagles translation)',
+      })
+    ).toBe(true);
+    expect(
+      isAudiobook({
+        artistName: 'Robert M. Pirsig',
+        albumName:
+          'Zen And The Art Of Motorcycle Maintenance: An Inquiry Into Values',
+        trackName: '(03 of 21) - Zen And The Art *',
       })
     ).toBe(true);
   });
