@@ -1,11 +1,5 @@
 # Rewind
 
-## Work modes
-
-- Default to exploration for UI, documentation, prototypes, and small changes. Make focused edits directly; do not require a formal spec, separate plan, worktree, or TDD.
-- Apply production rigor when the user explicitly asks to ship, harden, prepare a release, or use strict TDD. Match verification to risk and obey any stronger test requirements below.
-- Ask before deployments, remote D1 migrations, production-data changes, live API mutations, releases, or security-rule changes. A user request naming the exact mutation and target counts as approval for that operation.
-
 Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, Letterboxd, and Instapaper into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`. MCP server published as `rewind-mcp-server` on npm, deployed as a Cloudflare Worker at `mcp.rewind.rest`.
 
 ## Development Commands
@@ -44,7 +38,8 @@ Five data domains: listening (Last.fm + Apple Music), running (Strava), watching
 src/
   index.ts                 -- Hono app entry, route registration, cron handler
   routes/
-    system.ts              -- GET /v1/health, GET /v1/health/sync, POST /v1/admin/sync, key management
+    system.ts              -- GET /v1/health, GET /v1/health/sync, key management
+    admin-sync.ts          -- POST /v1/admin/sync/:domain (manual sync triggers; watching takes ?source=plex|letterboxd)
     listening.ts           -- Listening endpoints (streaks, browse, year-in-review, top lists)
     running.ts             -- Running endpoints (activities, stats, charts, year-in-review)
     watching.ts            -- Watching endpoints (movies, TV shows, manual entry, ratings/reviews, year-in-review)
@@ -107,6 +102,16 @@ docs/                      -- Project documentation
 - All dates stored and returned as ISO 8601 strings
 - Pagination: `{ data: [...], pagination: { page, limit, total, total_pages } }`
 - Date filtering: most list/recent/stats/feed endpoints accept optional `date` (YYYY-MM-DD), `from`, `to` (ISO 8601) query params via shared `DateFilterQuery` schema
+
+## Code Review Rules
+
+- Flag any authenticated route, sync, webhook, MCP tool, or database query that omits the
+  intended read/admin authorization or `user_id` scope. A default `user_id` is not proof
+  that cross-user access is safe.
+- Flag webhook or sync work that is not safe under retries, duplicate delivery, partial
+  failure, or overlapping cron/manual runs, especially when it writes feed or image state.
+- Flag provider tokens, API keys, webhook secrets, personal activity content, or raw
+  upstream payloads in logs, fixtures, MCP responses, errors, or public image metadata.
 
 ## Documentation style
 
