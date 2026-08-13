@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "22.18.0",
+    "node": ">=24.19.0 <25",
     "npm": "11.5.2"
   },
   "packageManager": "npm@11.5.2",
@@ -100,7 +100,7 @@
     "mint": "4.2.728",
     "prettier": "^3.8.1",
     "tsx": "4.21.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
     "vitest": "~3.2.7",
     "wrangler": "^4.72.0"

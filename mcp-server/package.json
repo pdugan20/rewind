@@ -54,7 +54,7 @@
     "url": "https://github.com/pdugan20/rewind/issues"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^0.8.2",
@@ -71,7 +71,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vite": "^8.0.9",
     "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^4.1.2"

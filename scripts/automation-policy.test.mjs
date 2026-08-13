@@ -184,7 +184,12 @@ function validateInstallOrdering(name, document, problems) {
   for (const [jobId, job] of Object.entries(document.jobs ?? {})) {
     const steps = job?.steps ?? [];
     const isMcp = name === 'mcp-server.yml';
-    const nodeVersion = isMcp ? '24.0.0' : '22.18.0';
+    const nodeInput = isMcp
+      ? {
+          key: 'node-version',
+          value: jobId === 'build' ? '${{ matrix.node-version }}' : '24.19.0',
+        }
+      : { key: 'node-version-file', value: '.nvmrc' };
     for (let index = 0; index < steps.length; index += 1) {
       if (!/\bnpm ci\b/.test(stepRun(steps[index]))) continue;
       const setupIndex = steps
@@ -195,8 +200,12 @@ function validateInstallOrdering(name, document, problems) {
         problems.push(`${name}:${jobId} must set up Node before npm ci`);
         continue;
       }
-      if (String(steps[setupIndex]?.with?.['node-version']) !== nodeVersion) {
-        problems.push(`${name}:${jobId} must use Node ${nodeVersion}`);
+      if (
+        String(steps[setupIndex]?.with?.[nodeInput.key]) !== nodeInput.value
+      ) {
+        problems.push(
+          `${name}:${jobId} must use ${nodeInput.key} ${nodeInput.value}`
+        );
       }
       const setupAbsoluteIndex = setupIndex;
       const commands = steps
@@ -1120,8 +1129,13 @@ function validateTrustedBoundaries(workflows, sources, problems) {
 }
 
 function validatePackages(rootPackage, mcpPackage, problems) {
-  if (!sameObject(rootPackage.engines, { node: '22.18.0', npm: '11.5.2' })) {
-    problems.push('root engines must pin Node 22.18.0 and npm 11.5.2');
+  if (
+    !sameObject(rootPackage.engines, {
+      node: '>=24.19.0 <25',
+      npm: '11.5.2',
+    })
+  ) {
+    problems.push('root engines must pin Node 24.19 and npm 11.5.2');
   }
   if (rootPackage.packageManager !== 'npm@11.5.2')
     problems.push('root packageManager must pin npm 11.5.2');
@@ -1147,6 +1161,8 @@ function validatePackages(rootPackage, mcpPackage, problems) {
   }
   if (mcpPackage.packageManager !== 'npm@11.5.2')
     problems.push('MCP packageManager must pin npm 11.5.2');
+  if (mcpPackage.engines?.node !== '>=22.0.0')
+    problems.push('MCP engines must preserve the supported Node 22 floor');
 }
 
 function validateDependabot(document, problems) {
