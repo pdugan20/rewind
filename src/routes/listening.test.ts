@@ -12,6 +12,17 @@ import {
 } from '../db/schema/lastfm.js';
 import { images } from '../db/schema/system.js';
 
+async function clearListeningTestData() {
+  const db = drizzle(env.DB);
+  await db.delete(lastfmScrobbles);
+  await db.delete(lastfmTopArtists);
+  await db.delete(lastfmYearlyStats);
+  await db.delete(lastfmTracks);
+  await db.delete(lastfmAlbums);
+  await db.delete(lastfmArtists);
+  await db.delete(images);
+}
+
 describe('listening routes', () => {
   it('module can be imported', async () => {
     const mod = await import('./listening.js');
@@ -30,11 +41,7 @@ describe('listening routes', () => {
     });
 
     beforeEach(async () => {
-      const db = drizzle(env.DB);
-      await db.delete(lastfmScrobbles);
-      await db.delete(lastfmTopArtists);
-      await db.delete(lastfmTracks);
-      await db.delete(lastfmArtists);
+      await clearListeningTestData();
     });
 
     async function seedArtistWithScrobbles(opts: {
@@ -225,9 +232,7 @@ describe('listening routes', () => {
     });
 
     beforeEach(async () => {
-      const db = drizzle(env.DB);
-      await db.delete(lastfmYearlyStats);
-      await db.delete(lastfmArtists);
+      await clearListeningTestData();
     });
 
     it('returns one entry per year, newest first, with top_artist joined', async () => {
@@ -306,10 +311,7 @@ describe('listening routes', () => {
     });
 
     beforeEach(async () => {
-      const db = drizzle(env.DB);
-      await db.delete(lastfmScrobbles);
-      await db.delete(lastfmTracks);
-      await db.delete(lastfmArtists);
+      await clearListeningTestData();
     });
 
     async function seedScrobbles(opts: {
@@ -412,11 +414,7 @@ describe('listening routes', () => {
     });
 
     beforeEach(async () => {
-      const db = drizzle(env.DB);
-      await db.delete(lastfmScrobbles);
-      await db.delete(lastfmTracks);
-      await db.delete(lastfmAlbums);
-      await db.delete(lastfmArtists);
+      await clearListeningTestData();
     });
 
     it('requires the track, artist, and album to all be unfiltered', async () => {
@@ -494,12 +492,7 @@ describe('listening routes', () => {
     });
 
     beforeEach(async () => {
-      const db = drizzle(env.DB);
-      await db.delete(lastfmScrobbles);
-      await db.delete(lastfmTracks);
-      await db.delete(lastfmAlbums);
-      await db.delete(lastfmArtists);
-      await db.delete(images);
+      await clearListeningTestData();
       sequence = 0;
     });
 

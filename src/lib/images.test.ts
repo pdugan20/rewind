@@ -14,6 +14,7 @@ const mockDb = {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.clearAllMocks();
   mockSelect.mockReturnValue({ from: mockFrom });
   mockFrom.mockReturnValue({ where: mockWhere });
   mockWhere.mockReturnValue({ limit: mockLimit });
