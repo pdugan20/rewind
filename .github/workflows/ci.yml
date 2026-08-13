@@ -175,3 +175,45 @@ jobs:
             success|skipped) ;;
             *) exit 1 ;;
           esac
+
+  deployment-range:
+    name: Deployment Range Metadata
+    needs: gate
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.gate.result == 'success'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22.18.0'
+
+      - name: Write exact push range
+        run: |
+          node scripts/deploy-range.mjs write \
+            --output .deploy-range/deploy-range.json \
+            --repository "${{ github.repository }}" \
+            --workflow "${{ github.workflow }}" \
+            --event "${{ github.event_name }}" \
+            --ref "${{ github.ref }}" \
+            --before "${{ github.event.before }}" \
+            --head "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}"
+
+      - name: Upload immutable push range
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: deploy-range-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .deploy-range/deploy-range.json
+          if-no-files-found: error
+          retention-days: 1
