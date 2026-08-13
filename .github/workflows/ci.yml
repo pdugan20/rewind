@@ -181,6 +181,7 @@ jobs:
     needs: gate
     runs-on: ubuntu-latest
     if: >
+      always() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
       needs.gate.result == 'success'
