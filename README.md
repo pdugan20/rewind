@@ -1,10 +1,10 @@
-# Rewind
+# rewind
 
-[![CI](https://github.com/pdugan20/rewind/actions/workflows/ci.yml/badge.svg)](https://github.com/pdugan20/rewind/actions/workflows/ci.yml)
+[![CI](https://github.com/pdugan20/rewind/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/pdugan20/rewind/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/rewind-mcp-server)](https://www.npmjs.com/package/rewind-mcp-server)
+[![Node.js](https://img.shields.io/node/v/rewind-mcp-server)](https://www.npmjs.com/package/rewind-mcp-server)
 [![docs](https://img.shields.io/badge/docs-docs.rewind.rest-blue)](https://docs.rewind.rest)
-[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
-[![npm: rewind-mcp-server](https://img.shields.io/npm/v/rewind-mcp-server?logo=npm&label=mcp-server)](https://www.npmjs.com/package/rewind-mcp-server)
+[![License](https://img.shields.io/github/license/pdugan20/rewind)](LICENSE)
 
 Personal data aggregation API. Syncs data from multiple services on a schedule, normalizes everything into a unified schema, and serves it through a REST API with a cross-domain activity feed.
 
