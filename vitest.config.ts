@@ -22,6 +22,9 @@ export default defineWorkersConfig(async () => {
         '**/.claude/**',
         'mcp-server/**',
         'scripts/automation-policy.test.mjs',
+        'scripts/deploy-checkpoint.test.mjs',
+        'scripts/deploy-impact.test.mjs',
+        'scripts/deploy-range.test.mjs',
       ],
       poolOptions: {
         workers: {

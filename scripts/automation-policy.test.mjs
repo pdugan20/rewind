@@ -26,12 +26,19 @@ const PR_TITLE =
   'amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50';
 const RELEASE_PLEASE =
   'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7';
+const UPLOAD_ARTIFACT =
+  'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a';
+const DOWNLOAD_ARTIFACT =
+  'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c';
+const DEPLOY_BOOTSTRAP = '63e89155d5e01821d908ff1cada2b62334245d19';
 const ACTION_PINS = new Map([
   ['actions/checkout', `${CHECKOUT} # v7`],
   ['actions/setup-node', `${SETUP_NODE} # v7`],
   ['actions/dependency-review-action', `${DEPENDENCY_REVIEW} # v5`],
   ['amannn/action-semantic-pull-request', `${PR_TITLE} # v6`],
   ['googleapis/release-please-action', `${RELEASE_PLEASE} # v5`],
+  ['actions/upload-artifact', `${UPLOAD_ARTIFACT} # v7`],
+  ['actions/download-artifact', `${DOWNLOAD_ARTIFACT} # v8`],
 ]);
 
 function parseYaml(source, label = 'fixture') {
@@ -147,8 +154,8 @@ function validateRun(run, problems) {
 function validatePermissions(name, document, problems) {
   const expectedTop = {
     'ci.yml': { contents: 'read' },
-    'deploy.yml': { contents: 'read' },
-    'mcp-server.yml': { contents: 'read' },
+    'deploy.yml': { actions: 'read', contents: 'read' },
+    'mcp-server.yml': { actions: 'read', contents: 'read' },
     'pr-lint.yml': { 'pull-requests': 'read' },
     'release-please.yml': { contents: 'write', 'pull-requests': 'write' },
   }[name];
@@ -279,6 +286,74 @@ function validateCi(document, problems) {
     problems.push('Lint must invoke the local exact Claude lint script');
   }
   validateGate(document.jobs?.gate, problems, document.defaults);
+  validateDeploymentRangeMetadata(
+    document.jobs?.['deployment-range'],
+    problems
+  );
+}
+
+function validateDeploymentRangeMetadata(job, problems) {
+  if (job?.name !== 'Deployment Range Metadata' || job?.needs !== 'gate') {
+    problems.push('CI deployment range metadata must run only after CI Gate');
+  }
+  const expectedCondition = `
+    github.event_name == 'push' &&
+    github.ref == 'refs/heads/main' &&
+    needs.gate.result == 'success'
+  `;
+  if (normalizeExpression(job?.if) !== normalizeExpression(expectedCondition)) {
+    problems.push(
+      'CI deployment range metadata must be successful-main-push-only'
+    );
+  }
+  validateExactHeadCheckout(
+    job,
+    '${{ github.sha }}',
+    'CI deployment range metadata',
+    problems
+  );
+  const write = (job?.steps ?? []).find(
+    (step) => step?.name === 'Write exact push range'
+  );
+  const writeRun = stepRun(write);
+  for (const expected of [
+    'scripts/deploy-range.mjs write',
+    '--repository "${{ github.repository }}"',
+    '--workflow "${{ github.workflow }}"',
+    '--event "${{ github.event_name }}"',
+    '--ref "${{ github.ref }}"',
+    '--before "${{ github.event.before }}"',
+    '--head "${{ github.sha }}"',
+    '--run-id "${{ github.run_id }}"',
+    '--run-attempt "${{ github.run_attempt }}"',
+  ]) {
+    if (!writeRun.includes(expected)) {
+      problems.push(`CI deployment range metadata must preserve ${expected}`);
+    }
+  }
+  const upload = (job?.steps ?? []).find(
+    (step) => step?.name === 'Upload immutable push range'
+  );
+  const expectedUpload = {
+    name: 'deploy-range-${{ github.run_id }}-${{ github.run_attempt }}',
+    path: '.deploy-range/deploy-range.json',
+    'if-no-files-found': 'error',
+    'retention-days': 1,
+  };
+  if (
+    upload?.uses !== UPLOAD_ARTIFACT ||
+    !sameObject(upload?.with, expectedUpload) ||
+    upload?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      'CI must fail closed while uploading one immutable push range'
+    );
+  }
+  if (JSON.stringify(job ?? {}).includes('CLOUDFLARE_API_TOKEN')) {
+    problems.push(
+      'CI deployment range metadata must not receive Cloudflare secrets'
+    );
+  }
 }
 
 function validateGate(gate, problems, workflowDefaults) {
@@ -349,6 +424,212 @@ function validateGate(gate, problems, workflowDefaults) {
   }
 }
 
+function serializedJob(document, jobId) {
+  return JSON.stringify(document.jobs?.[jobId] ?? {});
+}
+
+function validateExactHeadCheckout(job, ref, label, problems) {
+  const steps = job?.steps ?? [];
+  const checkouts = steps.filter((step) => step?.uses === CHECKOUT);
+  const checkout = checkouts[0];
+  if (
+    checkouts.length !== 1 ||
+    checkout?.with?.ref !== ref ||
+    checkout?.with?.['fetch-depth'] !== 0
+  ) {
+    problems.push(`${label} must check out the classified exact head SHA`);
+  }
+  const verification = steps.find(
+    (step) => step?.name === 'Verify trusted checkout'
+  );
+  if (
+    !verification ||
+    !stepRun(verification).includes('git rev-parse HEAD') ||
+    !stepRun(verification).includes(ref)
+  ) {
+    problems.push(`${label} must fail closed on an exact-head mismatch`);
+  }
+}
+
+function validateCheckpointFlow(
+  document,
+  {
+    label,
+    workflow,
+    workflowFile,
+    workflowPath,
+    events,
+    finalizerNeeds,
+    finalizerCondition,
+  },
+  problems
+) {
+  const impact = document.jobs?.impact;
+  const steps = impact?.steps ?? [];
+  const locate = steps.find(
+    (step) => step?.name === `Locate prior successful ${label} checkpoint`
+  );
+  const locateRun = stepRun(locate);
+  for (const expected of [
+    'scripts/deploy-checkpoint.mjs locate',
+    '--workflow "${{ github.workflow }}"',
+    `--workflow-file "${workflowFile}"`,
+    `--workflow-path "${workflowPath}"`,
+    `--events "${events}"`,
+    `--bootstrap "${DEPLOY_BOOTSTRAP}"`,
+    '--current-head "$(git rev-parse HEAD)"',
+    '--current-run-id "${{ github.run_id }}"',
+    '--current-run-number "${{ github.run_number }}"',
+    '--output "$GITHUB_OUTPUT"',
+  ]) {
+    if (!locateRun.includes(expected)) {
+      problems.push(`${label} checkpoint locator must preserve ${expected}`);
+    }
+  }
+  if (
+    locate?.id !== 'checkpoint' ||
+    locate?.env?.GITHUB_TOKEN !== '${{ github.token }}' ||
+    locate?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      `${label} checkpoint locator must fail closed with Actions read`
+    );
+  }
+
+  const download = steps.find(
+    (step) => step?.name === `Download prior successful ${label} checkpoint`
+  );
+  const expectedDownload = {
+    name: '${{ steps.checkpoint.outputs.checkpoint_artifact_name }}',
+    path: '.deploy-checkpoint',
+    'github-token': '${{ github.token }}',
+    repository: '${{ github.repository }}',
+    'run-id': '${{ steps.checkpoint.outputs.checkpoint_run_id }}',
+    'digest-mismatch': 'error',
+  };
+  if (
+    download?.uses !== DOWNLOAD_ARTIFACT ||
+    !sameObject(download?.with, expectedDownload) ||
+    download?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(`${label} checkpoint download must be exact and fail closed`);
+  }
+
+  const resolve = steps.find(
+    (step) => step?.name === `Resolve cumulative successful ${label} baseline`
+  );
+  const resolveRun = stepRun(resolve);
+  for (const expected of [
+    'scripts/deploy-checkpoint.mjs resolve',
+    '--mode "${{ steps.checkpoint.outputs.mode }}"',
+    `--bootstrap "${DEPLOY_BOOTSTRAP}"`,
+    '--current-head "$(git rev-parse HEAD)"',
+    '--expected-repository "${{ github.repository }}"',
+    `--expected-workflow "${workflow}"`,
+    '--expected-event "${{ steps.checkpoint.outputs.checkpoint_event }}"',
+    '--expected-head "${{ steps.checkpoint.outputs.expected_checkpoint_head }}"',
+    '--expected-run-id "${{ steps.checkpoint.outputs.checkpoint_run_id }}"',
+    '--expected-run-attempt "${{ steps.checkpoint.outputs.checkpoint_run_attempt }}"',
+    '--output "$GITHUB_OUTPUT"',
+  ]) {
+    if (!resolveRun.includes(expected)) {
+      problems.push(`${label} cumulative baseline must preserve ${expected}`);
+    }
+  }
+  if (
+    resolve?.id !== 'baseline' ||
+    resolve?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(`${label} cumulative baseline must fail closed`);
+  }
+
+  const finalizer = document.jobs?.['finalize-checkpoint'];
+  if (
+    !sameObject(finalizer?.needs, finalizerNeeds) ||
+    normalizeExpression(finalizer?.if) !==
+      normalizeExpression(finalizerCondition) ||
+    finalizer?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      `${label} checkpoint finalizer must depend on every terminal path and reject failure or cancellation`
+    );
+  }
+  validateExactHeadCheckout(
+    finalizer,
+    '${{ needs.impact.outputs.head_sha }}',
+    `${label} checkpoint finalizer`,
+    problems
+  );
+  const finalizerSerialized = JSON.stringify(finalizer ?? {});
+  if (
+    finalizerSerialized.includes('CLOUDFLARE_API_TOKEN') ||
+    finalizerSerialized.includes('wrangler deploy') ||
+    finalizerSerialized.includes('d1 migrations apply')
+  ) {
+    problems.push(
+      `${label} checkpoint finalizer must be secret-free metadata only`
+    );
+  }
+  const create = (finalizer?.steps ?? []).find(
+    (step) => step?.name === `Write successful ${label} checkpoint`
+  );
+  const createRun = stepRun(create);
+  for (const expected of [
+    'scripts/deploy-checkpoint.mjs create',
+    '--repository "${{ github.repository }}"',
+    '--workflow "${{ github.workflow }}"',
+    '--event "${{ github.event_name }}"',
+    '--ref "refs/heads/main"',
+    '--head "${{ needs.impact.outputs.head_sha }}"',
+    '--run-id "${{ github.run_id }}"',
+    '--run-attempt "${{ github.run_attempt }}"',
+  ]) {
+    if (!createRun.includes(expected)) {
+      problems.push(`${label} checkpoint finalizer must preserve ${expected}`);
+    }
+  }
+  const upload = (finalizer?.steps ?? []).find(
+    (step) => step?.name === `Upload successful ${label} checkpoint`
+  );
+  const expectedUpload = {
+    name: 'deploy-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}',
+    path: '.deploy-checkpoint/deploy-checkpoint.json',
+    'if-no-files-found': 'error',
+    'retention-days': 90,
+  };
+  if (
+    upload?.uses !== UPLOAD_ARTIFACT ||
+    !sameObject(upload?.with, expectedUpload) ||
+    upload?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(`${label} checkpoint upload must be exact and fail closed`);
+  }
+  const gate = document.jobs?.['checkpoint-gate'];
+  const gateRun = (gate?.steps ?? []).map(stepRun).join('\n');
+  const gateSerialized = JSON.stringify(gate ?? {});
+  if (
+    gate?.needs !== 'finalize-checkpoint' ||
+    gate?.if !== 'always()' ||
+    gate?.['continue-on-error'] !== undefined ||
+    !gateSerialized.includes('needs.finalize-checkpoint.result') ||
+    !gateSerialized.includes('success') ||
+    gateSerialized.includes('CLOUDFLARE_API_TOKEN') ||
+    gateRun.includes('wrangler')
+  ) {
+    problems.push(
+      `${label} checkpoint completion gate must make missing finalization fail closed`
+    );
+  }
+  if (
+    label === 'MCP' &&
+    (!gateRun.includes('EVENT_NAME') ||
+      !gateRun.includes('EVENT_REF') ||
+      !gateRun.includes('refs/heads/main'))
+  ) {
+    problems.push('MCP checkpoint gate must apply only to main push runs');
+  }
+}
+
 function validateDeploy(document, problems) {
   const expectedTriggers = {
     workflow_dispatch: null,
@@ -363,21 +644,61 @@ function validateDeploy(document, problems) {
       'Deploy triggers must exactly target manual runs and completed main CI'
     );
   }
-  const condition = normalizeExpression(document.jobs?.deploy?.if);
-  const expectedCondition = normalizeExpression(`
-    github.event_name == 'workflow_dispatch' ||
-    (github.event.workflow_run.conclusion == 'success' &&
-    github.event.workflow_run.event == 'push' &&
-    github.event.workflow_run.head_branch == 'main')
-  `);
-  if (condition !== expectedCondition) {
+  if (
+    document.concurrency?.group !== 'deploy' ||
+    document.concurrency?.['cancel-in-progress'] !== false
+  ) {
     problems.push(
-      'Deploy condition must exactly enforce the trusted event policy'
+      'Deploy must serialize without cancelling the running deployment'
     );
   }
-  const steps = document.jobs?.deploy?.steps ?? [];
+  const expectedJobIds = [
+    'impact',
+    'apply-d1-migrations',
+    'd1-no-impact',
+    'deploy-root-worker',
+    'root-worker-no-impact',
+    'finalize-checkpoint',
+    'checkpoint-gate',
+  ];
+  if (!sameObject(Object.keys(document.jobs ?? {}), expectedJobIds)) {
+    problems.push('Deploy must preserve the exact classified job boundary');
+  }
+  const impact = document.jobs?.impact;
+  if (impact?.if !== 'always()') {
+    problems.push(
+      'Deploy classifier must run and fail closed for every triggering event'
+    );
+  }
+  const steps = impact?.steps ?? [];
+  const trustedTrigger = steps.find(
+    (step) => step?.name === 'Validate trusted trigger'
+  );
+  const trustedRun = stepRun(trustedTrigger);
+  for (const expected of [
+    'test "$EVENT_NAME" = "workflow_run"',
+    'test "$CONCLUSION" = "success"',
+    'test "$TRIGGER_EVENT" = "push"',
+    'test "$HEAD_BRANCH" = "main"',
+    'test "$WORKFLOW_NAME" = "CI"',
+    'test "$WORKFLOW_PATH" = ".github/workflows/ci.yml"',
+    'test "$RUN_REPOSITORY" = "$EXPECTED_REPOSITORY"',
+    'test "$HEAD_REPOSITORY" = "$EXPECTED_REPOSITORY"',
+  ]) {
+    if (!trustedRun.includes(expected)) {
+      problems.push(`Deploy trusted trigger must preserve ${expected}`);
+    }
+  }
+  if (
+    trustedTrigger?.env?.EXPECTED_REPOSITORY !== '${{ github.repository }}' ||
+    trustedTrigger?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      'Deploy trusted trigger must validate exact repository identity'
+    );
+  }
   const checkouts = steps.filter((step) => step?.uses === CHECKOUT);
-  const checkout = steps[0];
+  const checkout = checkouts[0];
   if (
     checkouts.length !== 1 ||
     checkout?.uses !== CHECKOUT ||
@@ -385,10 +706,12 @@ function validateDeploy(document, problems) {
       "${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}"
   ) {
     problems.push(
-      'Deploy checkout must select the successful workflow head SHA or main for dispatch'
+      'Deploy classifier must select the successful workflow head SHA or main for dispatch'
     );
   }
-  const verification = steps[1];
+  const verification = steps.find(
+    (step) => step?.name === 'Verify trusted checkout'
+  );
   const expectedCommands = normalizeCommands(`
     EXPECTED_REF="\${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}"
     if [ "$EXPECTED_REF" = "main" ]; then
@@ -397,6 +720,8 @@ function validateDeploy(document, problems) {
       EXPECTED_SHA="$EXPECTED_REF"
     fi
     test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+    git fetch origin main
+    git merge-base --is-ancestor "$EXPECTED_SHA" origin/main
   `);
   if (
     verification?.name !== 'Verify trusted checkout' ||
@@ -404,9 +729,318 @@ function validateDeploy(document, problems) {
     !sameObject(normalizeCommands(stepRun(verification)), expectedCommands)
   ) {
     problems.push(
-      'Deploy must use the exact fail-closed checkout verification step'
+      'Deploy classifier must use the exact fail-closed checkout verification step'
     );
   }
+
+  const classify = steps.find(
+    (step) => step?.name === 'Classify D1 and root Worker impact'
+  );
+  const classifyRun = stepRun(classify);
+  if (
+    classify?.id !== 'classify' ||
+    !classifyRun.includes('scripts/deploy-impact.mjs') ||
+    !classifyRun.includes('--manual') ||
+    !classifyRun.includes('--base "${{ steps.baseline.outputs.base_sha }}"') ||
+    !classifyRun.includes('--head "$HEAD_SHA"') ||
+    !classifyRun.includes('--output "$GITHUB_OUTPUT"') ||
+    classifyRun.includes('HEAD_SHA^')
+  ) {
+    problems.push(
+      'Deploy classifier must preserve manual-full and exact base/head semantics'
+    );
+  }
+
+  const download = steps.find(
+    (step) => step?.name === 'Download exact triggering-run range'
+  );
+  const expectedDownload = {
+    pattern:
+      'deploy-range-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}',
+    path: '.deploy-range',
+    'merge-multiple': false,
+    'github-token': '${{ github.token }}',
+    repository: '${{ github.repository }}',
+    'run-id': '${{ github.event.workflow_run.id }}',
+    'digest-mismatch': 'error',
+  };
+  if (
+    download?.uses !== DOWNLOAD_ARTIFACT ||
+    download?.if !== "github.event_name == 'workflow_run'" ||
+    !sameObject(download?.with, expectedDownload) ||
+    download?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      'Deploy must fail closed while downloading only the exact triggering-run artifact'
+    );
+  }
+  const validateRange = steps.find(
+    (step) => step?.name === 'Validate untrusted triggering-run range'
+  );
+  const validateRun = stepRun(validateRange);
+  if (
+    validateRange?.if !== "github.event_name == 'workflow_run'" ||
+    validateRange?.id !== 'range' ||
+    !validateRun.includes('scripts/deploy-range.mjs validate') ||
+    !validateRun.includes('--expected-repository "${{ github.repository }}"') ||
+    !validateRun.includes('--expected-workflow "CI"') ||
+    !validateRun.includes('--expected-event "push"') ||
+    !validateRun.includes('--expected-ref "refs/heads/main"') ||
+    !validateRun.includes(
+      '--expected-head "${{ github.event.workflow_run.head_sha }}"'
+    ) ||
+    !validateRun.includes(
+      '--expected-run-id "${{ github.event.workflow_run.id }}"'
+    ) ||
+    !validateRun.includes(
+      '--expected-run-attempt "${{ github.event.workflow_run.run_attempt }}"'
+    ) ||
+    !validateRun.includes('--output "$GITHUB_OUTPUT"') ||
+    validateRange?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      'Deploy must fail closed while validating the untrusted artifact schema and identity'
+    );
+  }
+  if (JSON.stringify(impact ?? {}).includes('CLOUDFLARE_API_TOKEN')) {
+    problems.push(
+      'Deploy impact classifier must not receive Cloudflare secrets'
+    );
+  }
+
+  const expectedConditions = {
+    'apply-d1-migrations': `
+      needs.impact.result == 'success' &&
+      needs.impact.outputs.d1_migrations == 'true'
+    `,
+    'd1-no-impact': `
+      needs.impact.result == 'success' &&
+      needs.impact.outputs.d1_migrations == 'false'
+    `,
+    'deploy-root-worker': `
+      always() &&
+      needs.impact.result == 'success' &&
+      (needs.apply-d1-migrations.result == 'success' ||
+      needs.d1-no-impact.result == 'success') &&
+      needs.impact.outputs.root_worker == 'true'
+    `,
+    'root-worker-no-impact': `
+      needs.impact.result == 'success' &&
+      needs.impact.outputs.root_worker == 'false'
+    `,
+  };
+  for (const [jobId, expected] of Object.entries(expectedConditions)) {
+    if (
+      normalizeExpression(document.jobs?.[jobId]?.if) !==
+      normalizeExpression(expected)
+    ) {
+      problems.push(`${jobId} must use its exact fail-closed impact condition`);
+    }
+  }
+  if (
+    !sameObject(document.jobs?.['deploy-root-worker']?.needs, [
+      'impact',
+      'apply-d1-migrations',
+      'd1-no-impact',
+    ])
+  ) {
+    problems.push(
+      'Root Worker deployment must wait for the D1 impact path to finalize'
+    );
+  }
+
+  for (const jobId of ['apply-d1-migrations', 'deploy-root-worker']) {
+    validateExactHeadCheckout(
+      document.jobs?.[jobId],
+      '${{ needs.impact.outputs.head_sha }}',
+      `Deploy ${jobId}`,
+      problems
+    );
+  }
+
+  const remoteMigrationJobs = expectedJobIds.filter((jobId) =>
+    serializedJob(document, jobId).includes(
+      'wrangler d1 migrations apply rewind-db --remote'
+    )
+  );
+  if (!sameObject(remoteMigrationJobs, ['apply-d1-migrations'])) {
+    problems.push(
+      'Remote D1 apply must exist only in the migration-impact job'
+    );
+  }
+  const rootDeployJobs = expectedJobIds.filter((jobId) =>
+    serializedJob(document, jobId).includes('npm exec -- wrangler deploy')
+  );
+  if (!sameObject(rootDeployJobs, ['deploy-root-worker'])) {
+    problems.push('Root Worker deploy must exist only in its impact job');
+  }
+
+  for (const jobId of ['d1-no-impact', 'root-worker-no-impact']) {
+    const serialized = serializedJob(document, jobId);
+    if (
+      !serialized.includes('no production impact') ||
+      serialized.includes('CLOUDFLARE_API_TOKEN') ||
+      serialized.includes('wrangler d1 migrations apply') ||
+      serialized.includes('wrangler deploy')
+    ) {
+      problems.push(`${jobId} must be an explicit secret-free no-op`);
+    }
+  }
+  validateCheckpointFlow(
+    document,
+    {
+      label: 'Deploy',
+      workflow: 'Deploy',
+      workflowFile: 'deploy.yml',
+      workflowPath: '.github/workflows/deploy.yml',
+      events: 'workflow_run,workflow_dispatch',
+      finalizerNeeds: [
+        'impact',
+        'apply-d1-migrations',
+        'd1-no-impact',
+        'deploy-root-worker',
+        'root-worker-no-impact',
+      ],
+      finalizerCondition: `
+        always() &&
+        needs.impact.result == 'success' &&
+        (needs.apply-d1-migrations.result == 'success' ||
+        needs.d1-no-impact.result == 'success') &&
+        (needs.deploy-root-worker.result == 'success' ||
+        needs.root-worker-no-impact.result == 'success')
+      `,
+    },
+    problems
+  );
+}
+
+function validateMcpDeploy(document, problems) {
+  const triggerPaths = [
+    'mcp-server/**',
+    'docs-mintlify/**',
+    '.github/workflows/mcp-server.yml',
+    'scripts/deploy-impact.mjs',
+    'scripts/deploy-impact.test.mjs',
+    'scripts/deploy-checkpoint.mjs',
+    'scripts/deploy-checkpoint.test.mjs',
+  ];
+  if (
+    !sameObject(document.on?.push?.paths, triggerPaths) ||
+    !sameObject(document.on?.pull_request?.paths, triggerPaths)
+  ) {
+    problems.push(
+      'MCP workflow must evaluate its own workflow and impact-guard changes'
+    );
+  }
+  if (
+    document.concurrency?.group !== 'mcp-server-${{ github.ref }}' ||
+    document.concurrency?.['cancel-in-progress'] !==
+      "${{ github.event_name == 'pull_request' }}"
+  ) {
+    problems.push(
+      'MCP main runs must be non-cancelling while PR runs may cancel'
+    );
+  }
+  const impact = document.jobs?.impact;
+  validateExactHeadCheckout(
+    impact,
+    '${{ github.event.pull_request.head.sha || github.sha }}',
+    'MCP classifier',
+    problems
+  );
+  const classifyRun = (impact?.steps ?? []).map(stepRun).join('\n');
+  if (
+    !classifyRun.includes('scripts/deploy-impact.mjs') ||
+    !classifyRun.includes('--release') ||
+    !classifyRun.includes('--merge-base') ||
+    !classifyRun.includes('${{ github.event.pull_request.base.sha }}') ||
+    !classifyRun.includes('${{ steps.baseline.outputs.base_sha }}') ||
+    !classifyRun.includes('--output "$GITHUB_OUTPUT"')
+  ) {
+    problems.push(
+      'MCP classifier must fail closed across tag, PR, and push events'
+    );
+  }
+
+  for (const jobId of ['build', 'publish-npm', 'deploy-worker']) {
+    validateExactHeadCheckout(
+      document.jobs?.[jobId],
+      '${{ needs.impact.outputs.head_sha }}',
+      `MCP ${jobId}`,
+      problems
+    );
+  }
+  if (!sameObject(document.jobs?.build?.needs, 'impact')) {
+    problems.push('MCP build must wait for exact-head classification');
+  }
+  if (!sameObject(document.jobs?.['publish-npm']?.needs, ['impact', 'build'])) {
+    problems.push('MCP publish must retain classification and build gates');
+  }
+  if (
+    !sameObject(document.jobs?.['deploy-worker']?.needs, ['impact', 'build'])
+  ) {
+    problems.push('MCP deploy must retain classification and build gates');
+  }
+
+  const expectedDeployCondition = `
+    needs.impact.result == 'success' &&
+    needs.build.result == 'success' &&
+    (startsWith(github.ref, 'refs/tags/mcp-server-v') ||
+    (github.ref == 'refs/heads/main' &&
+    needs.impact.outputs.mcp_worker == 'true'))
+  `;
+  if (
+    normalizeExpression(document.jobs?.['deploy-worker']?.if) !==
+    normalizeExpression(expectedDeployCondition)
+  ) {
+    problems.push('MCP Worker deployment must be tag-or-classified-main-only');
+  }
+  const expectedNoImpactCondition = `
+    needs.impact.result == 'success' &&
+    needs.build.result == 'success' &&
+    github.ref == 'refs/heads/main' &&
+    needs.impact.outputs.mcp_worker == 'false'
+  `;
+  if (
+    normalizeExpression(document.jobs?.['mcp-worker-no-impact']?.if) !==
+    normalizeExpression(expectedNoImpactCondition)
+  ) {
+    problems.push('MCP no-impact job must be classified-main-only');
+  }
+  const noImpact = serializedJob(document, 'mcp-worker-no-impact');
+  if (
+    !noImpact.includes('no production impact') ||
+    noImpact.includes('CLOUDFLARE_API_TOKEN') ||
+    noImpact.includes('wrangler deploy')
+  ) {
+    problems.push('MCP no-impact job must be an explicit secret-free no-op');
+  }
+  validateCheckpointFlow(
+    document,
+    {
+      label: 'MCP',
+      workflow: 'MCP Server',
+      workflowFile: 'mcp-server.yml',
+      workflowPath: '.github/workflows/mcp-server.yml',
+      events: 'push',
+      finalizerNeeds: [
+        'impact',
+        'build',
+        'deploy-worker',
+        'mcp-worker-no-impact',
+      ],
+      finalizerCondition: `
+        always() &&
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main' &&
+        needs.impact.result == 'success' &&
+        needs.build.result == 'success' &&
+        (needs.deploy-worker.result == 'success' ||
+        needs.mcp-worker-no-impact.result == 'success')
+      `,
+    },
+    problems
+  );
 }
 
 function validateTrustedBoundaries(workflows, sources, problems) {
@@ -427,12 +1061,6 @@ function validateTrustedBoundaries(workflows, sources, problems) {
     "startsWith(github.ref, 'refs/tags/mcp-server-v')"
   ) {
     problems.push('npm provenance publishing must remain tag-only');
-  }
-  if (
-    mcp?.jobs?.['deploy-worker']?.if !==
-    "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/mcp-server-v')"
-  ) {
-    problems.push('MCP Worker deployment must remain main-or-tag-only');
   }
   const allSources = [...sources.entries()];
   const releaseTokenFiles = allSources.filter(([, source]) =>
@@ -461,7 +1089,8 @@ function validateTrustedBoundaries(workflows, sources, problems) {
       if (
         serialized.includes('CLOUDFLARE_API_TOKEN') &&
         !(
-          (name === 'deploy.yml' && jobId === 'deploy') ||
+          (name === 'deploy.yml' &&
+            ['apply-d1-migrations', 'deploy-root-worker'].includes(jobId)) ||
           (name === 'mcp-server.yml' && jobId === 'deploy-worker')
         )
       ) {
@@ -509,7 +1138,7 @@ function validatePackages(rootPackage, mcpPackage, problems) {
   }
   if (
     rootPackage.scripts?.['test:automation-policy'] !==
-    'node --test scripts/automation-policy.test.mjs'
+    'node --test scripts/automation-policy.test.mjs scripts/deploy-checkpoint.test.mjs scripts/deploy-impact.test.mjs scripts/deploy-range.test.mjs'
   ) {
     problems.push(
       'test:automation-policy must invoke the zero-network Node suite'
@@ -638,6 +1267,7 @@ function validateRepository(root) {
   }
   validateCi(workflows.get('ci.yml') ?? {}, problems);
   validateDeploy(workflows.get('deploy.yml') ?? {}, problems);
+  validateMcpDeploy(workflows.get('mcp-server.yml') ?? {}, problems);
   validateTrustedBoundaries(workflows, sources, problems);
   validatePackages(
     JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')),
@@ -691,6 +1321,18 @@ test('rejects omitted and write permissions for ordinary CI', () => {
   for (const permissions of [undefined, { contents: 'write' }]) {
     const problems = [];
     validatePermissions('ci.yml', { permissions, jobs: {} }, problems);
+    assert.ok(problems.length > 0);
+  }
+});
+
+test('rejects deploy permissions beyond actions-read and contents-read', () => {
+  for (const permissions of [
+    { contents: 'read' },
+    { actions: 'write', contents: 'read' },
+    { actions: 'read', contents: 'read', issues: 'read' },
+  ]) {
+    const problems = [];
+    validatePermissions('deploy.yml', { permissions, jobs: {} }, problems);
     assert.ok(problems.length > 0);
   }
 });
@@ -881,17 +1523,32 @@ test('rejects a fail-open deploy condition containing trusted substrings', () =>
   const deploy = parseYaml(
     readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
   );
-  deploy.jobs.deploy.if = `true || (${deploy.jobs.deploy.if})`;
+  deploy.jobs.impact.if = `true || (${deploy.jobs.impact.if})`;
   const problems = [];
   validateDeploy(deploy, problems);
   assert.ok(problems.length > 0);
+});
+
+test('rejects a trusted-trigger gate that accepts failed CI', () => {
+  const deploy = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  const gate = deploy.jobs.impact.steps.find(
+    (step) => step.name === 'Validate trusted trigger'
+  );
+  gate.run = gate.run.replace('test "$CONCLUSION" = "success"', 'true');
+  const problems = [];
+  validateDeploy(deploy, problems);
+  assert.ok(problems.some((problem) => problem.includes('trusted trigger')));
 });
 
 test('rejects an echo-only deploy verification containing trusted substrings', () => {
   const deploy = parseYaml(
     readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
   );
-  deploy.jobs.deploy.steps[1].run = `
+  deploy.jobs.impact.steps.find(
+    (step) => step.name === 'Verify trusted checkout'
+  ).run = `
     echo github.event.workflow_run.head_sha
     echo git rev-parse HEAD
     echo git rev-parse main
@@ -899,6 +1556,186 @@ test('rejects an echo-only deploy verification containing trusted substrings', (
   const problems = [];
   validateDeploy(deploy, problems);
   assert.ok(problems.length > 0);
+});
+
+test('rejects triggering-run artifact download ambiguity and tampering', () => {
+  const current = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  for (const mutate of [
+    (download) => {
+      download.with.pattern = 'deploy-range-*';
+    },
+    (download) => {
+      download.with.repository = 'attacker/fork';
+    },
+    (download) => {
+      download.with['run-id'] = '${{ github.run_id }}';
+    },
+    (download) => {
+      download.with['digest-mismatch'] = 'warn';
+    },
+    (download) => {
+      download.with['merge-multiple'] = true;
+    },
+    (download) => {
+      download['continue-on-error'] = true;
+    },
+  ]) {
+    const deploy = structuredClone(current);
+    const download = deploy.jobs.impact.steps.find(
+      (step) => step.name === 'Download exact triggering-run range'
+    );
+    mutate(download);
+    const problems = [];
+    validateDeploy(deploy, problems);
+    assert.ok(
+      problems.some((problem) => problem.includes('triggering-run artifact'))
+    );
+  }
+});
+
+test('rejects tampered deployment-range metadata production', () => {
+  const current = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')
+  ).jobs['deployment-range'];
+  for (const mutate of [
+    (job) => {
+      job.if = "github.event_name == 'push'";
+    },
+    (job) => {
+      job.steps.find((step) => step.name === 'Write exact push range').run =
+        'node scripts/deploy-range.mjs write --before HEAD^';
+    },
+    (job) => {
+      job.steps.find(
+        (step) => step.name === 'Upload immutable push range'
+      ).with['if-no-files-found'] = 'warn';
+    },
+  ]) {
+    const job = structuredClone(current);
+    mutate(job);
+    const problems = [];
+    validateDeploymentRangeMetadata(job, problems);
+    assert.ok(problems.length > 0);
+  }
+});
+
+test('rejects Cloudflare secrets or mutations in explicit no-impact jobs', () => {
+  const deploy = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  deploy.jobs['d1-no-impact'].steps[0].env.CLOUDFLARE_API_TOKEN = 'unsafe';
+  deploy.jobs['root-worker-no-impact'].steps[0].run =
+    'npm exec -- wrangler deploy';
+  const problems = [];
+  validateDeploy(deploy, problems);
+  assert.ok(problems.some((problem) => problem.includes('secret-free no-op')));
+});
+
+test('rejects remote D1 apply outside the migration-impact job', () => {
+  const deploy = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  deploy.jobs['deploy-root-worker'].steps.push({
+    run: 'npm exec -- wrangler d1 migrations apply rewind-db --remote',
+  });
+  const problems = [];
+  validateDeploy(deploy, problems);
+  assert.ok(problems.some((problem) => problem.includes('Remote D1 apply')));
+});
+
+test('rejects Root Worker deployment before the D1 path finalizes', () => {
+  const deploy = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  deploy.jobs['deploy-root-worker'].needs = ['impact'];
+  const problems = [];
+  validateDeploy(deploy, problems);
+  assert.ok(problems.some((problem) => problem.includes('D1 impact path')));
+});
+
+test('rejects a Deploy checkpoint that can advance after a failed terminal path', () => {
+  const current = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  for (const mutate of [
+    (deploy) => {
+      deploy.jobs['finalize-checkpoint'].needs = ['impact'];
+    },
+    (deploy) => {
+      deploy.jobs['finalize-checkpoint'].if = 'always()';
+    },
+    (deploy) => {
+      deploy.jobs['finalize-checkpoint'].steps.find(
+        (step) => step.name === 'Upload successful Deploy checkpoint'
+      ).with['retention-days'] = 1;
+    },
+    (deploy) => {
+      deploy.jobs.impact.steps.find(
+        (step) => step.name === 'Locate prior successful Deploy checkpoint'
+      ).run = 'node scripts/deploy-checkpoint.mjs locate --bootstrap HEAD^';
+    },
+  ]) {
+    const deploy = structuredClone(current);
+    mutate(deploy);
+    const problems = [];
+    validateDeploy(deploy, problems);
+    assert.ok(problems.some((problem) => problem.includes('checkpoint')));
+  }
+});
+
+test('rejects MCP deploy on an unclassified main change', () => {
+  const mcp = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'mcp-server.yml'), 'utf8')
+  );
+  mcp.jobs['deploy-worker'].if =
+    "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/mcp-server-v')";
+  const problems = [];
+  validateMcpDeploy(mcp, problems);
+  assert.ok(
+    problems.some((problem) => problem.includes('classified-main-only'))
+  );
+});
+
+test('rejects MCP guard changes that do not evaluate their own workflow', () => {
+  const mcp = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'mcp-server.yml'), 'utf8')
+  );
+  mcp.on.push.paths = mcp.on.push.paths.filter(
+    (path) => path !== '.github/workflows/mcp-server.yml'
+  );
+  const problems = [];
+  validateMcpDeploy(mcp, problems);
+  assert.ok(problems.some((problem) => problem.includes('its own workflow')));
+});
+
+test('rejects MCP cancellation or checkpoint advancement before every terminal path', () => {
+  const current = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'mcp-server.yml'), 'utf8')
+  );
+  for (const mutate of [
+    (mcp) => {
+      mcp.concurrency['cancel-in-progress'] = true;
+    },
+    (mcp) => {
+      mcp.jobs['finalize-checkpoint'].needs = ['impact', 'build'];
+    },
+    (mcp) => {
+      mcp.jobs['finalize-checkpoint'].if = 'always()';
+    },
+    (mcp) => {
+      mcp.jobs.impact.steps.find(
+        (step) => step.name === 'Download prior successful MCP checkpoint'
+      ).with['run-id'] = '${{ github.run_id }}';
+    },
+  ]) {
+    const mcp = structuredClone(current);
+    mutate(mcp);
+    const problems = [];
+    validateMcpDeploy(mcp, problems);
+    assert.ok(problems.length > 0);
+  }
 });
 
 test('rejects collapsed schedules, grouped majors, and grouped pre-1 dependencies', () => {

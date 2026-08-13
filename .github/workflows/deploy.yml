@@ -8,6 +8,7 @@ on:
     branches: [main]
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -15,14 +16,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  impact:
+    name: Classify production impact
     runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main')
+    if: always()
+    outputs:
+      base_sha: ${{ steps.classify.outputs.base_sha }}
+      head_sha: ${{ steps.classify.outputs.head_sha }}
+      d1_migrations: ${{ steps.classify.outputs.d1_migrations }}
+      root_worker: ${{ steps.classify.outputs.root_worker }}
+      root_graph_changed: ${{ steps.classify.outputs.root_graph_changed }}
+      summary: ${{ steps.classify.outputs.summary }}
     steps:
+      - name: Validate trusted trigger
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          TRIGGER_EVENT: ${{ github.event.workflow_run.event }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
+          RUN_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
+          HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            exit 0
+          fi
+          test "$EVENT_NAME" = "workflow_run"
+          test "$CONCLUSION" = "success"
+          test "$TRIGGER_EVENT" = "push"
+          test "$HEAD_BRANCH" = "main"
+          test "$WORKFLOW_NAME" = "CI"
+          test "$WORKFLOW_PATH" = ".github/workflows/ci.yml"
+          test "$RUN_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$HEAD_REPOSITORY" = "$EXPECTED_REPOSITORY"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
@@ -37,6 +66,119 @@ jobs:
             EXPECTED_SHA="$EXPECTED_REF"
           fi
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git fetch origin main
+          git merge-base --is-ancestor "$EXPECTED_SHA" origin/main
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22.18.0'
+
+      - name: Download exact triggering-run range
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: deploy-range-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: .deploy-range
+          merge-multiple: false
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          digest-mismatch: error
+
+      - name: Validate untrusted triggering-run range
+        if: github.event_name == 'workflow_run'
+        id: range
+        run: |
+          node scripts/deploy-range.mjs validate \
+            --directory .deploy-range \
+            --expected-repository "${{ github.repository }}" \
+            --expected-workflow "CI" \
+            --expected-event "push" \
+            --expected-ref "refs/heads/main" \
+            --expected-head "${{ github.event.workflow_run.head_sha }}" \
+            --expected-run-id "${{ github.event.workflow_run.id }}" \
+            --expected-run-attempt "${{ github.event.workflow_run.run_attempt }}" \
+            --output "$GITHUB_OUTPUT"
+
+      - name: Locate prior successful Deploy checkpoint
+        if: github.event_name == 'workflow_run'
+        id: checkpoint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/deploy-checkpoint.mjs locate \
+            --repository "${{ github.repository }}" \
+            --workflow "${{ github.workflow }}" \
+            --workflow-file "deploy.yml" \
+            --workflow-path ".github/workflows/deploy.yml" \
+            --events "workflow_run,workflow_dispatch" \
+            --bootstrap "63e89155d5e01821d908ff1cada2b62334245d19" \
+            --current-head "$(git rev-parse HEAD)" \
+            --current-run-id "${{ github.run_id }}" \
+            --current-run-number "${{ github.run_number }}" \
+            --output "$GITHUB_OUTPUT"
+
+      - name: Download prior successful Deploy checkpoint
+        if: >
+          github.event_name == 'workflow_run' &&
+          steps.checkpoint.outputs.mode == 'artifact'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ steps.checkpoint.outputs.checkpoint_artifact_name }}
+          path: .deploy-checkpoint
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.checkpoint.outputs.checkpoint_run_id }}
+          digest-mismatch: error
+
+      - name: Resolve cumulative successful Deploy baseline
+        if: github.event_name == 'workflow_run'
+        id: baseline
+        run: |
+          node scripts/deploy-checkpoint.mjs resolve \
+            --mode "${{ steps.checkpoint.outputs.mode }}" \
+            --directory ".deploy-checkpoint" \
+            --bootstrap "63e89155d5e01821d908ff1cada2b62334245d19" \
+            --current-head "$(git rev-parse HEAD)" \
+            --expected-repository "${{ github.repository }}" \
+            --expected-workflow "Deploy" \
+            --expected-event "${{ steps.checkpoint.outputs.checkpoint_event }}" \
+            --expected-head "${{ steps.checkpoint.outputs.expected_checkpoint_head }}" \
+            --expected-run-id "${{ steps.checkpoint.outputs.checkpoint_run_id }}" \
+            --expected-run-attempt "${{ steps.checkpoint.outputs.checkpoint_run_attempt }}" \
+            --output "$GITHUB_OUTPUT"
+
+      - name: Classify D1 and root Worker impact
+        id: classify
+        run: |
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node scripts/deploy-impact.mjs \
+              --manual \
+              --head "$HEAD_SHA" \
+              --output "$GITHUB_OUTPUT"
+          else
+            node scripts/deploy-impact.mjs \
+              --base "${{ steps.baseline.outputs.base_sha }}" \
+              --head "$HEAD_SHA" \
+              --output "$GITHUB_OUTPUT"
+          fi
+
+  apply-d1-migrations:
+    name: Apply D1 migrations
+    needs: impact
+    runs-on: ubuntu-latest
+    if: >
+      needs.impact.result == 'success' &&
+      needs.impact.outputs.d1_migrations == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.impact.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        run: test "$(git rev-parse HEAD)" = "${{ needs.impact.outputs.head_sha }}"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -56,7 +198,127 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+  d1-no-impact:
+    name: D1 migrations — no production impact
+    needs: impact
+    runs-on: ubuntu-latest
+    if: >
+      needs.impact.result == 'success' &&
+      needs.impact.outputs.d1_migrations == 'false'
+    steps:
+      - name: Report explicit no-op
+        env:
+          IMPACT_SUMMARY: ${{ needs.impact.outputs.summary }}
+        run: |
+          echo "D1 migrations: no production impact"
+          printf 'Classification: %s\n' "$IMPACT_SUMMARY"
+
+  deploy-root-worker:
+    name: Deploy Root Worker
+    needs: [impact, apply-d1-migrations, d1-no-impact]
+    runs-on: ubuntu-latest
+    if: >
+      always() &&
+      needs.impact.result == 'success' &&
+      (needs.apply-d1-migrations.result == 'success' ||
+      needs.d1-no-impact.result == 'success') &&
+      needs.impact.outputs.root_worker == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.impact.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        run: test "$(git rev-parse HEAD)" = "${{ needs.impact.outputs.head_sha }}"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22.18.0'
+          cache: npm
+
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
+
+      - run: npm ci
+
       - name: Deploy to Cloudflare Workers
         run: npm exec -- wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  root-worker-no-impact:
+    name: Root Worker — no production impact
+    needs: impact
+    runs-on: ubuntu-latest
+    if: >
+      needs.impact.result == 'success' &&
+      needs.impact.outputs.root_worker == 'false'
+    steps:
+      - name: Report explicit no-op
+        env:
+          IMPACT_SUMMARY: ${{ needs.impact.outputs.summary }}
+        run: |
+          echo "Root Worker: no production impact"
+          printf 'Classification: %s\n' "$IMPACT_SUMMARY"
+
+  finalize-checkpoint:
+    name: Finalize successful Deploy checkpoint
+    needs:
+      - impact
+      - apply-d1-migrations
+      - d1-no-impact
+      - deploy-root-worker
+      - root-worker-no-impact
+    runs-on: ubuntu-latest
+    if: >
+      always() &&
+      needs.impact.result == 'success' &&
+      (needs.apply-d1-migrations.result == 'success' ||
+      needs.d1-no-impact.result == 'success') &&
+      (needs.deploy-root-worker.result == 'success' ||
+      needs.root-worker-no-impact.result == 'success')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.impact.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        run: test "$(git rev-parse HEAD)" = "${{ needs.impact.outputs.head_sha }}"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22.18.0'
+
+      - name: Write successful Deploy checkpoint
+        run: |
+          node scripts/deploy-checkpoint.mjs create \
+            --output .deploy-checkpoint/deploy-checkpoint.json \
+            --repository "${{ github.repository }}" \
+            --workflow "${{ github.workflow }}" \
+            --event "${{ github.event_name }}" \
+            --ref "refs/heads/main" \
+            --head "${{ needs.impact.outputs.head_sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}"
+
+      - name: Upload successful Deploy checkpoint
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: deploy-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .deploy-checkpoint/deploy-checkpoint.json
+          if-no-files-found: error
+          retention-days: 90
+
+  checkpoint-gate:
+    name: Require successful Deploy checkpoint
+    needs: finalize-checkpoint
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Require checkpoint finalization
+        run: test "${{ needs.finalize-checkpoint.result }}" = "success"

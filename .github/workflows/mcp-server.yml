@@ -8,28 +8,145 @@ on:
     paths:
       - 'mcp-server/**'
       - 'docs-mintlify/**'
+      - '.github/workflows/mcp-server.yml'
+      - 'scripts/deploy-impact.mjs'
+      - 'scripts/deploy-impact.test.mjs'
+      - 'scripts/deploy-checkpoint.mjs'
+      - 'scripts/deploy-checkpoint.test.mjs'
   pull_request:
     branches: [main]
     paths:
       - 'mcp-server/**'
       - 'docs-mintlify/**'
+      - '.github/workflows/mcp-server.yml'
+      - 'scripts/deploy-impact.mjs'
+      - 'scripts/deploy-impact.test.mjs'
+      - 'scripts/deploy-checkpoint.mjs'
+      - 'scripts/deploy-checkpoint.test.mjs'
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
   group: mcp-server-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  impact:
+    name: Classify MCP production impact
+    runs-on: ubuntu-latest
+    outputs:
+      base_sha: ${{ steps.classify.outputs.base_sha }}
+      head_sha: ${{ steps.classify.outputs.head_sha }}
+      mcp_worker: ${{ steps.classify.outputs.mcp_worker }}
+      mcp_graph_changed: ${{ steps.classify.outputs.mcp_graph_changed }}
+      summary: ${{ steps.classify.outputs.summary }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            git fetch origin main
+            git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main
+          fi
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22.18.0'
+
+      - name: Locate prior successful MCP checkpoint
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: checkpoint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/deploy-checkpoint.mjs locate \
+            --repository "${{ github.repository }}" \
+            --workflow "${{ github.workflow }}" \
+            --workflow-file "mcp-server.yml" \
+            --workflow-path ".github/workflows/mcp-server.yml" \
+            --events "push" \
+            --bootstrap "63e89155d5e01821d908ff1cada2b62334245d19" \
+            --current-head "$(git rev-parse HEAD)" \
+            --current-run-id "${{ github.run_id }}" \
+            --current-run-number "${{ github.run_number }}" \
+            --output "$GITHUB_OUTPUT"
+
+      - name: Download prior successful MCP checkpoint
+        if: >
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          steps.checkpoint.outputs.mode == 'artifact'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ steps.checkpoint.outputs.checkpoint_artifact_name }}
+          path: .deploy-checkpoint
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.checkpoint.outputs.checkpoint_run_id }}
+          digest-mismatch: error
+
+      - name: Resolve cumulative successful MCP baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: baseline
+        run: |
+          node scripts/deploy-checkpoint.mjs resolve \
+            --mode "${{ steps.checkpoint.outputs.mode }}" \
+            --directory ".deploy-checkpoint" \
+            --bootstrap "63e89155d5e01821d908ff1cada2b62334245d19" \
+            --current-head "$(git rev-parse HEAD)" \
+            --expected-repository "${{ github.repository }}" \
+            --expected-workflow "MCP Server" \
+            --expected-event "${{ steps.checkpoint.outputs.checkpoint_event }}" \
+            --expected-head "${{ steps.checkpoint.outputs.expected_checkpoint_head }}" \
+            --expected-run-id "${{ steps.checkpoint.outputs.checkpoint_run_id }}" \
+            --expected-run-attempt "${{ steps.checkpoint.outputs.checkpoint_run_attempt }}" \
+            --output "$GITHUB_OUTPUT"
+
+      - name: Classify MCP Worker impact
+        id: classify
+        run: |
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [[ "$GITHUB_REF" == refs/tags/mcp-server-v* ]]; then
+            node scripts/deploy-impact.mjs \
+              --release \
+              --head "$HEAD_SHA" \
+              --output "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            node scripts/deploy-impact.mjs \
+              --merge-base \
+              --base "${{ github.event.pull_request.base.sha }}" \
+              --head "$HEAD_SHA" \
+              --output "$GITHUB_OUTPUT"
+          else
+            node scripts/deploy-impact.mjs \
+              --base "${{ steps.baseline.outputs.base_sha }}" \
+              --head "$HEAD_SHA" \
+              --output "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build & Verify
+    needs: impact
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: mcp-server
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.impact.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        working-directory: ${{ github.workspace }}
+        run: test "$(git rev-parse HEAD)" = "${{ needs.impact.outputs.head_sha }}"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -73,7 +190,7 @@ jobs:
 
   publish-npm:
     name: Publish to npm
-    needs: build
+    needs: [impact, build]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/mcp-server-v')
     defaults:
@@ -84,6 +201,13 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.impact.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        working-directory: ${{ github.workspace }}
+        run: test "$(git rev-parse HEAD)" = "${{ needs.impact.outputs.head_sha }}"
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -126,14 +250,26 @@ jobs:
 
   deploy-worker:
     name: Deploy MCP Worker
-    needs: build
+    needs: [impact, build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/mcp-server-v')
+    if: >
+      needs.impact.result == 'success' &&
+      needs.build.result == 'success' &&
+      (startsWith(github.ref, 'refs/tags/mcp-server-v') ||
+      (github.ref == 'refs/heads/main' &&
+      needs.impact.outputs.mcp_worker == 'true'))
     defaults:
       run:
         working-directory: mcp-server
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.impact.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        working-directory: ${{ github.workspace }}
+        run: test "$(git rev-parse HEAD)" = "${{ needs.impact.outputs.head_sha }}"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -156,3 +292,81 @@ jobs:
         run: npm exec -- wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  mcp-worker-no-impact:
+    name: MCP Worker — no production impact
+    needs: [impact, build]
+    runs-on: ubuntu-latest
+    if: >
+      needs.impact.result == 'success' &&
+      needs.build.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      needs.impact.outputs.mcp_worker == 'false'
+    steps:
+      - name: Report explicit no-op
+        env:
+          IMPACT_SUMMARY: ${{ needs.impact.outputs.summary }}
+        run: |
+          echo "MCP Worker: no production impact"
+          printf 'Classification: %s\n' "$IMPACT_SUMMARY"
+
+  finalize-checkpoint:
+    name: Finalize successful MCP checkpoint
+    needs: [impact, build, deploy-worker, mcp-worker-no-impact]
+    runs-on: ubuntu-latest
+    if: >
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.impact.result == 'success' &&
+      needs.build.result == 'success' &&
+      (needs.deploy-worker.result == 'success' ||
+      needs.mcp-worker-no-impact.result == 'success')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.impact.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        run: test "$(git rev-parse HEAD)" = "${{ needs.impact.outputs.head_sha }}"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22.18.0'
+
+      - name: Write successful MCP checkpoint
+        run: |
+          node scripts/deploy-checkpoint.mjs create \
+            --output .deploy-checkpoint/deploy-checkpoint.json \
+            --repository "${{ github.repository }}" \
+            --workflow "${{ github.workflow }}" \
+            --event "${{ github.event_name }}" \
+            --ref "refs/heads/main" \
+            --head "${{ needs.impact.outputs.head_sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}"
+
+      - name: Upload successful MCP checkpoint
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: deploy-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .deploy-checkpoint/deploy-checkpoint.json
+          if-no-files-found: error
+          retention-days: 90
+
+  checkpoint-gate:
+    name: Require successful main MCP checkpoint
+    needs: finalize-checkpoint
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Require main checkpoint finalization
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
+          CHECKPOINT_RESULT: ${{ needs.finalize-checkpoint.result }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ] && [ "$EVENT_REF" = "refs/heads/main" ]; then
+            test "$CHECKPOINT_RESULT" = "success"
+          fi
