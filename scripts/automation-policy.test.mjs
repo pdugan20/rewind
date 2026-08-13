@@ -297,6 +297,7 @@ function validateDeploymentRangeMetadata(job, problems) {
     problems.push('CI deployment range metadata must run only after CI Gate');
   }
   const expectedCondition = `
+    always() &&
     github.event_name == 'push' &&
     github.ref == 'refs/heads/main' &&
     needs.gate.result == 'success'
@@ -1601,7 +1602,11 @@ test('rejects tampered deployment-range metadata production', () => {
   ).jobs['deployment-range'];
   for (const mutate of [
     (job) => {
-      job.if = "github.event_name == 'push'";
+      job.if = `
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main' &&
+        needs.gate.result == 'success'
+      `;
     },
     (job) => {
       job.steps.find((step) => step.name === 'Write exact push range').run =
