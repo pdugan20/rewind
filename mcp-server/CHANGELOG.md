@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.11.0...mcp-server-v1.0.0) (2026-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* standardize Node and TypeScript contracts ([#212](https://github.com/pdugan20/rewind/issues/212))
+
+### Build System
+
+* standardize Node and TypeScript contracts ([#212](https://github.com/pdugan20/rewind/issues/212)) ([4eb43a0](https://github.com/pdugan20/rewind/commit/4eb43a009cb9b48fa6e198e699394338eee50eae))
+
 ## [0.11.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.10.0...mcp-server-v0.11.0) (2026-07-21)
 
 
