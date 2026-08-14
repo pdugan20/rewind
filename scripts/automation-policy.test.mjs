@@ -1144,8 +1144,8 @@ function validatePackages(rootPackage, mcpPackage, problems) {
   }
   if (rootPackage.dependencies?.yaml !== '2.9.0')
     problems.push('yaml must be exact 2.9.0');
-  if (rootPackage.devDependencies?.mint !== '4.2.728')
-    problems.push('mint must be exact 4.2.728');
+  if (rootPackage.devDependencies?.mint !== '4.2.802')
+    problems.push('mint must be exact 4.2.802');
   if (rootPackage.devDependencies?.tsx !== '4.21.0')
     problems.push('tsx must be direct and exact 4.21.0');
   if (rootPackage.scripts?.['lint:claude'] !== 'claudelint') {

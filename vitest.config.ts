@@ -1,11 +1,11 @@
 import {
-  defineWorkersConfig,
+  cloudflareTest,
   readD1Migrations,
-} from '@cloudflare/vitest-pool-workers/config';
-import path from 'node:path';
+} from '@cloudflare/vitest-pool-workers';
+import { defineConfig } from 'vitest/config';
 
-export default defineWorkersConfig(async () => {
-  const migrationsPath = path.join(__dirname, 'migrations');
+export default defineConfig(async () => {
+  const migrationsPath = `${import.meta.dirname}/migrations`;
   let migrations: unknown[] = [];
 
   try {
@@ -15,7 +15,19 @@ export default defineWorkersConfig(async () => {
   }
 
   return {
+    plugins: [
+      cloudflareTest({
+        wrangler: { configPath: './wrangler.toml' },
+        miniflare: {
+          d1Databases: ['DB'],
+          bindings: {
+            TEST_MIGRATIONS: migrations,
+          },
+        },
+      }),
+    ],
     test: {
+      clearMocks: true,
       testTimeout: 15000,
       exclude: [
         '**/node_modules/**',
@@ -26,17 +38,6 @@ export default defineWorkersConfig(async () => {
         'scripts/deploy-impact.test.mjs',
         'scripts/deploy-range.test.mjs',
       ],
-      poolOptions: {
-        workers: {
-          wrangler: { configPath: './wrangler.toml' },
-          miniflare: {
-            d1Databases: ['DB'],
-            bindings: {
-              TEST_MIGRATIONS: migrations,
-            },
-          },
-        },
-      },
     },
   };
 });

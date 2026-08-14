@@ -72,15 +72,15 @@
     "@hono/zod-validator": "^0.9.0",
     "drizzle-orm": "^0.45.1",
     "fast-png": "^8.0.0",
-    "hono": "^4.12.31",
+    "hono": "^4.13.2",
     "jpeg-js": "^0.4.4",
     "thumbhash": "^0.1.1",
     "yaml": "2.9.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.21",
-    "@cloudflare/workers-types": "^4.20260310.1",
+    "@cloudflare/vitest-pool-workers": "^0.18.8",
+    "@cloudflare/workers-types": "^5.20260811.1",
     "@eslint/js": "^10.0.1",
     "@mozilla/readability": "^0.6.0",
     "@stoplight/spectral-cli": "^6.16.2",
@@ -97,16 +97,16 @@
     "jsdom": "^29.1.1",
     "knip": "^5.88.1",
     "lint-staged": "^16.3.3",
-    "mint": "4.2.728",
+    "mint": "4.2.802",
     "prettier": "^3.8.1",
     "tsx": "4.21.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
-    "vitest": "~3.2.7",
-    "wrangler": "^4.72.0"
+    "vitest": "~4.1.0",
+    "wrangler": "^4.123.0"
   },
   "overrides": {
-    "undici": "7.28.0",
+    "undici": "7.29.0",
     "ws": "8.21.0"
   }
 }
