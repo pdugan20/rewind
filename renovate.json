@@ -1,4 +1,97 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "enabled": false
+  "enabled": true,
+  "extends": ["config:recommended"],
+  "enabledManagers": ["npm", "github-actions"],
+  "timezone": "America/Los_Angeles",
+  "dependencyDashboard": true,
+  "dependencyDashboardAutoclose": true,
+  "labels": ["dependencies"],
+  "branchConcurrentLimit": 2,
+  "prConcurrentLimit": 2,
+  "prHourlyLimit": 1,
+  "rebaseWhen": "behind-base-branch",
+  "platformAutomerge": true,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "internalChecksFilter": "strict",
+  "vulnerabilityAlerts": {
+    "enabled": false
+  },
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "description": "Default every dependency surface to dashboard approval",
+      "matchManagers": ["npm", "github-actions"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "Root stable runtime patches",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["package.json"],
+      "matchDepTypes": ["dependencies", "optionalDependencies"],
+      "matchCurrentVersion": "!/^0\\./",
+      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "minimumReleaseAge": "14 days",
+      "dependencyDashboardApproval": false,
+      "automerge": true
+    },
+    {
+      "description": "MCP stable runtime patches",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["mcp-server/package.json"],
+      "matchDepTypes": ["dependencies", "optionalDependencies"],
+      "matchCurrentVersion": "!/^0\\./",
+      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "minimumReleaseAge": "14 days",
+      "dependencyDashboardApproval": false,
+      "automerge": true
+    },
+    {
+      "description": "Root and MCP stable development non-major updates",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["package.json", "mcp-server/package.json"],
+      "matchDepTypes": ["devDependencies"],
+      "matchCurrentVersion": "!/^0\\./",
+      "matchUpdateTypes": ["patch", "minor", "digest", "pin", "pinDigest"],
+      "minimumReleaseAge": "14 days",
+      "dependencyDashboardApproval": false,
+      "automerge": true
+    },
+    {
+      "description": "Root stable override patches",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["package.json"],
+      "matchDepTypes": ["overrides"],
+      "matchCurrentVersion": "!/^0\\./",
+      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "minimumReleaseAge": "14 days",
+      "dependencyDashboardApproval": false,
+      "automerge": true
+    },
+    {
+      "description": "Exact automation contracts require exception handling",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["package.json"],
+      "matchPackageNames": ["claude-code-lint", "mint", "tsx", "yaml"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "Pre-1.0 minor updates require exception handling",
+      "matchCurrentVersion": "/^0\\./",
+      "matchUpdateTypes": ["minor", "major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "All major updates require exception handling",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    }
+  ]
 }

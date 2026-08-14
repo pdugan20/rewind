@@ -1173,68 +1173,268 @@ function validateDependabot(document, problems) {
         entry?.['package-ecosystem'] === ecosystem &&
         entry?.directory === directory
     );
-  const root = get('npm', '/');
-  const mcp = get('npm', '/mcp-server');
-  const actions = get('github-actions', '/');
-  if (updates.length !== 3 || !root || !mcp || !actions) {
-    problems.push(
-      'Dependabot must define exactly root npm, MCP npm, and Actions surfaces'
-    );
+  const expected = [
+    ['npm', '/', '07:00', 'root npm'],
+    ['npm', '/mcp-server', '07:10', 'MCP npm'],
+    ['npm', '/docs-site', '07:20', 'docs-site npm'],
+    ['npm', '/apex-worker', '07:30', 'Apex npm'],
+    ['github-actions', '/', '07:40', 'Actions'],
+  ];
+  if (
+    updates.length !== expected.length ||
+    expected.some(([ecosystem, directory]) => !get(ecosystem, directory))
+  ) {
+    problems.push('Dependabot must cover exactly four npm roots and Actions');
     return;
   }
-  validateSchedule(root, '09:00', 5, 'root npm', problems);
-  validateSchedule(mcp, '10:00', 3, 'MCP npm', problems);
-  validateSchedule(actions, '11:00', 2, 'Actions', problems);
-  const rootPatterns = {
-    cloudflare: ['wrangler', '@cloudflare/*'],
-    drizzle: ['drizzle-orm', 'drizzle-kit'],
-    eslint: ['eslint', '@typescript-eslint/*', 'eslint-*'],
-    vitest: ['vitest', '@vitest/*'],
-  };
-  for (const [key, patterns] of Object.entries(rootPatterns)) {
-    if (!sameObject(root.groups?.[key]?.patterns, patterns)) {
-      problems.push(
-        `root group ${key} patterns must preserve its family boundary`
-      );
-    }
-    if (!sameObject(root.groups?.[key]?.['update-types'], ['minor', 'patch'])) {
-      problems.push(`root group ${key} must be patch/minor-only`);
-    }
+  for (const [ecosystem, directory, time, label] of expected) {
+    validateSchedule(get(ecosystem, directory), time, 0, label, problems);
   }
-  const stable = mcp.groups?.['mcp-stable'];
+}
+
+function validateRenovate(document, problems) {
   if (
-    !sameObject(stable?.patterns, ['*']) ||
-    !sameObject(stable?.['exclude-patterns'], [
-      '@cloudflare/workers-oauth-provider',
-      'thumbhash',
-    ]) ||
-    !sameObject(stable?.['update-types'], ['minor', 'patch'])
+    document?.enabled !== true ||
+    !sameObject(document?.extends, ['config:recommended']) ||
+    !sameObject(document?.enabledManagers, ['npm', 'github-actions']) ||
+    document?.timezone !== 'America/Los_Angeles'
+  ) {
+    problems.push('Renovate must use the approved active manager boundary');
+  }
+  if (
+    document?.dependencyDashboard !== true ||
+    document?.dependencyDashboardAutoclose !== true ||
+    !sameObject(document?.labels, ['dependencies']) ||
+    document?.branchConcurrentLimit !== 2 ||
+    document?.prConcurrentLimit !== 2 ||
+    document?.prHourlyLimit !== 1
+  ) {
+    problems.push('Renovate must preserve the bounded dashboard and queue');
+  }
+  if (
+    document?.rebaseWhen !== 'behind-base-branch' ||
+    document?.platformAutomerge !== true ||
+    document?.automergeType !== 'pr' ||
+    document?.automergeStrategy !== 'squash' ||
+    document?.internalChecksFilter !== 'strict'
+  ) {
+    problems.push('Renovate must use strict GitHub-native PR automerge');
+  }
+  if (
+    document?.vulnerabilityAlerts?.enabled !== false ||
+    document?.lockFileMaintenance?.enabled !== false
   ) {
     problems.push(
-      'MCP stable group must exclude the two named pre-1 dependencies'
+      'Renovate must not own security alerts or broad lock refresh'
     );
   }
-  const actionGroup = actions.groups?.['actions-minor-patch'];
+
+  const rules = document?.packageRules ?? [];
+  const byDescription = new Map(rules.map((rule) => [rule.description, rule]));
+  const expectedDescriptions = [
+    'Default every dependency surface to dashboard approval',
+    'Root stable runtime patches',
+    'MCP stable runtime patches',
+    'Root and MCP stable development non-major updates',
+    'Root stable override patches',
+    'Exact automation contracts require exception handling',
+    'Pre-1.0 minor updates require exception handling',
+    'All major updates require exception handling',
+  ];
   if (
-    !sameObject(actionGroup?.patterns, ['*']) ||
-    !sameObject(actionGroup?.['update-types'], ['minor', 'patch'])
+    rules.length !== expectedDescriptions.length ||
+    expectedDescriptions.some((description) => !byDescription.has(description))
   ) {
-    problems.push('Actions group must be patch/minor-only');
+    problems.push('Renovate package-rule set must remain exact');
+    return;
   }
-  for (const [label, entry] of [
-    ['root npm', root],
-    ['MCP npm', mcp],
-    ['Actions', actions],
+
+  const expectedRules = [
+    {
+      description: 'Default every dependency surface to dashboard approval',
+      matchManagers: ['npm', 'github-actions'],
+      dependencyDashboardApproval: true,
+      automerge: false,
+    },
+    {
+      description: 'Root stable runtime patches',
+      matchManagers: ['npm'],
+      matchFileNames: ['package.json'],
+      matchDepTypes: ['dependencies', 'optionalDependencies'],
+      matchCurrentVersion: '!/^0\\./',
+      matchUpdateTypes: ['patch', 'digest', 'pin', 'pinDigest'],
+      minimumReleaseAge: '14 days',
+      dependencyDashboardApproval: false,
+      automerge: true,
+    },
+    {
+      description: 'MCP stable runtime patches',
+      matchManagers: ['npm'],
+      matchFileNames: ['mcp-server/package.json'],
+      matchDepTypes: ['dependencies', 'optionalDependencies'],
+      matchCurrentVersion: '!/^0\\./',
+      matchUpdateTypes: ['patch', 'digest', 'pin', 'pinDigest'],
+      minimumReleaseAge: '14 days',
+      dependencyDashboardApproval: false,
+      automerge: true,
+    },
+    {
+      description: 'Root and MCP stable development non-major updates',
+      matchManagers: ['npm'],
+      matchFileNames: ['package.json', 'mcp-server/package.json'],
+      matchDepTypes: ['devDependencies'],
+      matchCurrentVersion: '!/^0\\./',
+      matchUpdateTypes: ['patch', 'minor', 'digest', 'pin', 'pinDigest'],
+      minimumReleaseAge: '14 days',
+      dependencyDashboardApproval: false,
+      automerge: true,
+    },
+    {
+      description: 'Root stable override patches',
+      matchManagers: ['npm'],
+      matchFileNames: ['package.json'],
+      matchDepTypes: ['overrides'],
+      matchCurrentVersion: '!/^0\\./',
+      matchUpdateTypes: ['patch', 'digest', 'pin', 'pinDigest'],
+      minimumReleaseAge: '14 days',
+      dependencyDashboardApproval: false,
+      automerge: true,
+    },
+    {
+      description: 'Exact automation contracts require exception handling',
+      matchManagers: ['npm'],
+      matchFileNames: ['package.json'],
+      matchPackageNames: ['claude-code-lint', 'mint', 'tsx', 'yaml'],
+      dependencyDashboardApproval: true,
+      automerge: false,
+    },
+    {
+      description: 'Pre-1.0 minor updates require exception handling',
+      matchCurrentVersion: '/^0\\./',
+      matchUpdateTypes: ['minor', 'major'],
+      dependencyDashboardApproval: true,
+      automerge: false,
+    },
+    {
+      description: 'All major updates require exception handling',
+      matchUpdateTypes: ['major'],
+      dependencyDashboardApproval: true,
+      automerge: false,
+    },
+  ];
+  if (!sameObject(rules, expectedRules)) {
+    problems.push('Renovate package-rule definitions must remain exact');
+  }
+
+  const defaultRule = byDescription.get(expectedDescriptions[0]);
+  if (
+    !sameObject(defaultRule?.matchManagers, ['npm', 'github-actions']) ||
+    defaultRule?.dependencyDashboardApproval !== true ||
+    defaultRule?.automerge !== false
+  ) {
+    problems.push('Renovate must default every surface to manual approval');
+  }
+
+  const stableRuntimeTypes = ['patch', 'digest', 'pin', 'pinDigest'];
+  for (const [description, file] of [
+    ['Root stable runtime patches', 'package.json'],
+    ['MCP stable runtime patches', 'mcp-server/package.json'],
   ]) {
+    const rule = byDescription.get(description);
     if (
-      !entry.ignore?.some(
-        (rule) =>
-          rule?.['dependency-name'] === '*' &&
-          sameObject(rule?.['update-types'], ['version-update:semver-major'])
-      )
+      !sameObject(rule?.matchManagers, ['npm']) ||
+      !sameObject(rule?.matchFileNames, [file]) ||
+      !sameObject(rule?.matchDepTypes, [
+        'dependencies',
+        'optionalDependencies',
+      ]) ||
+      rule?.matchCurrentVersion !== '!/^0\\./' ||
+      !sameObject(rule?.matchUpdateTypes, stableRuntimeTypes) ||
+      rule?.minimumReleaseAge !== '14 days' ||
+      rule?.dependencyDashboardApproval !== false ||
+      rule?.automerge !== true
     ) {
-      problems.push(`${label} must ignore wildcard major updates`);
+      problems.push(`${description} must stay patch-only and critical-tier`);
     }
+  }
+
+  const development = byDescription.get(
+    'Root and MCP stable development non-major updates'
+  );
+  if (
+    !sameObject(development?.matchManagers, ['npm']) ||
+    !sameObject(development?.matchFileNames, [
+      'package.json',
+      'mcp-server/package.json',
+    ]) ||
+    !sameObject(development?.matchDepTypes, ['devDependencies']) ||
+    development?.matchCurrentVersion !== '!/^0\\./' ||
+    !sameObject(development?.matchUpdateTypes, [
+      'patch',
+      'minor',
+      'digest',
+      'pin',
+      'pinDigest',
+    ]) ||
+    development?.minimumReleaseAge !== '14 days' ||
+    development?.dependencyDashboardApproval !== false ||
+    development?.automerge !== true
+  ) {
+    problems.push('root and MCP development updates must stay bounded');
+  }
+
+  const overrides = byDescription.get('Root stable override patches');
+  if (
+    !sameObject(overrides?.matchManagers, ['npm']) ||
+    !sameObject(overrides?.matchFileNames, ['package.json']) ||
+    !sameObject(overrides?.matchDepTypes, ['overrides']) ||
+    overrides?.matchCurrentVersion !== '!/^0\\./' ||
+    !sameObject(overrides?.matchUpdateTypes, stableRuntimeTypes) ||
+    overrides?.minimumReleaseAge !== '14 days' ||
+    overrides?.dependencyDashboardApproval !== false ||
+    overrides?.automerge !== true
+  ) {
+    problems.push('root overrides must stay patch-only and critical-tier');
+  }
+
+  const exactContracts = byDescription.get(
+    'Exact automation contracts require exception handling'
+  );
+  if (
+    !sameObject(exactContracts?.matchManagers, ['npm']) ||
+    !sameObject(exactContracts?.matchFileNames, ['package.json']) ||
+    !sameObject(exactContracts?.matchPackageNames, [
+      'claude-code-lint',
+      'mint',
+      'tsx',
+      'yaml',
+    ]) ||
+    exactContracts?.dependencyDashboardApproval !== true ||
+    exactContracts?.automerge !== false
+  ) {
+    problems.push('exact automation contracts must require exception handling');
+  }
+
+  const preOne = byDescription.get(
+    'Pre-1.0 minor updates require exception handling'
+  );
+  if (
+    preOne?.matchCurrentVersion !== '/^0\\./' ||
+    !sameObject(preOne?.matchUpdateTypes, ['minor', 'major']) ||
+    preOne?.dependencyDashboardApproval !== true ||
+    preOne?.automerge !== false
+  ) {
+    problems.push('pre-1.0 minor updates must require exception handling');
+  }
+  const majors = byDescription.get(
+    'All major updates require exception handling'
+  );
+  if (
+    !sameObject(majors?.matchUpdateTypes, ['major']) ||
+    majors?.dependencyDashboardApproval !== true ||
+    majors?.automerge !== false
+  ) {
+    problems.push('all major updates must require exception handling');
   }
 }
 
@@ -1298,6 +1498,10 @@ function validateRepository(root) {
     ),
     problems
   );
+  validateRenovate(
+    JSON.parse(readFileSync(join(root, 'renovate.json'), 'utf8')),
+    problems
+  );
   return problems;
 }
 
@@ -1317,6 +1521,7 @@ test('discovers and rejects unsafe .yaml workflow files', () => {
     });
     mkdirSync(join(fixtureRoot, 'mcp-server'));
     cpSync(join(ROOT, 'package.json'), join(fixtureRoot, 'package.json'));
+    cpSync(join(ROOT, 'renovate.json'), join(fixtureRoot, 'renovate.json'));
     cpSync(
       join(ROOT, 'mcp-server', 'package.json'),
       join(fixtureRoot, 'mcp-server', 'package.json')
@@ -1450,15 +1655,41 @@ test('rejects unsafe credential placement', () => {
   assert.ok(problems.some((problem) => problem.includes('id-token: write')));
 });
 
-test('rejects drift in root updater family boundaries', () => {
+test('rejects Dependabot routine-version ownership drift', () => {
   const fixture = parseYaml(
     readFileSync(join(ROOT, '.github', 'dependabot.yml'), 'utf8')
   );
-  fixture.updates[0].groups.cloudflare.patterns = ['*'];
+  fixture.updates[0]['open-pull-requests-limit'] = 1;
   const problems = [];
   validateDependabot(fixture, problems);
   assert.ok(
-    problems.some((problem) => problem.includes('cloudflare patterns'))
+    problems.some((problem) => problem.includes('queue limit must be 0'))
+  );
+});
+
+test('rejects unsafe Renovate routine-merge expansion', () => {
+  const fixture = JSON.parse(readFileSync(join(ROOT, 'renovate.json'), 'utf8'));
+  fixture.packageRules
+    .find((rule) => rule.description === 'Root stable runtime patches')
+    .matchUpdateTypes.push('minor');
+  const problems = [];
+  validateRenovate(fixture, problems);
+  assert.ok(problems.some((problem) => problem.includes('patch-only')));
+});
+
+test('rejects Renovate matcher drift that narrows the manual default', () => {
+  const fixture = JSON.parse(readFileSync(join(ROOT, 'renovate.json'), 'utf8'));
+  fixture.packageRules.find(
+    (rule) =>
+      rule.description ===
+      'Default every dependency surface to dashboard approval'
+  ).matchPackageNames = ['zod'];
+  const problems = [];
+  validateRenovate(fixture, problems);
+  assert.ok(
+    problems.some((problem) =>
+      problem.includes('package-rule definitions must remain exact')
+    )
   );
 });
 
@@ -1759,38 +1990,25 @@ test('rejects MCP cancellation or checkpoint advancement before every terminal p
   }
 });
 
-test('rejects collapsed schedules, grouped majors, and grouped pre-1 dependencies', () => {
+test('rejects collapsed Dependabot security-only schedules and missing roots', () => {
   const fixture = parseYaml(`
 updates:
   - package-ecosystem: npm
     directory: /
-    schedule: { interval: weekly, day: monday, time: "09:00", timezone: America/Los_Angeles }
-    open-pull-requests-limit: 5
-    groups:
-      cloudflare: { update-types: [major, minor, patch] }
-      drizzle: { update-types: [minor, patch] }
-      eslint: { update-types: [minor, patch] }
-      vitest: { update-types: [minor, patch] }
-    ignore: []
+    schedule: { interval: weekly, day: monday, time: "07:00", timezone: America/Los_Angeles }
+    open-pull-requests-limit: 0
   - package-ecosystem: npm
     directory: /mcp-server
-    schedule: { interval: weekly, day: monday, time: "09:00", timezone: America/Los_Angeles }
-    open-pull-requests-limit: 3
-    groups:
-      mcp-stable: { patterns: ["*"], update-types: [minor, patch] }
-    ignore: []
+    schedule: { interval: weekly, day: monday, time: "07:00", timezone: America/Los_Angeles }
+    open-pull-requests-limit: 0
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly, day: monday, time: "09:00", timezone: America/Los_Angeles }
-    open-pull-requests-limit: 2
-    groups:
-      actions-minor-patch: { patterns: ["*"], update-types: [major, minor, patch] }
-    ignore: []
+    schedule: { interval: weekly, day: monday, time: "07:00", timezone: America/Los_Angeles }
+    open-pull-requests-limit: 0
 `);
   const problems = [];
   validateDependabot(fixture, problems);
-  assert.ok(problems.some((problem) => problem.includes('10:00')));
-  assert.ok(problems.some((problem) => problem.includes('11:00')));
-  assert.ok(problems.some((problem) => problem.includes('pre-1')));
-  assert.ok(problems.some((problem) => problem.includes('major')));
+  assert.ok(
+    problems.some((problem) => problem.includes('four npm roots and Actions'))
+  );
 });
