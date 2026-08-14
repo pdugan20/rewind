@@ -13,6 +13,35 @@ import {
 import { images } from '../db/schema/system.js';
 
 describe('listening routes', () => {
+  beforeAll(async () => {
+    await setupTestDb();
+  });
+
+  beforeEach(async () => {
+    // Vitest 4 isolates Workers storage per file rather than per test. Keep
+    // this suite deterministic by clearing all listening-domain rows in
+    // foreign-key-safe order before each case.
+    const tables = [
+      'lastfm_scrobbles',
+      'lastfm_top_tracks',
+      'lastfm_top_albums',
+      'lastfm_top_artists',
+      'lastfm_yearly_stats',
+      'lastfm_monthly_stats',
+      'lastfm_user_stats',
+      'lastfm_album_attribution_audit',
+      'lastfm_tracks',
+      'lastfm_albums',
+      'lastfm_filters',
+      'lastfm_artists',
+      'images',
+    ];
+
+    for (const table of tables) {
+      await env.DB.prepare(`DELETE FROM ${table}`).run();
+    }
+  });
+
   it('module can be imported', async () => {
     const mod = await import('./listening.js');
     expect(mod.default).toBeDefined();

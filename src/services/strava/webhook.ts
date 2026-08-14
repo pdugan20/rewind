@@ -44,7 +44,7 @@ export async function processWebhookEvent(
   event: StravaWebhookEvent,
   env: Env,
   db: Database,
-  ctx: ExecutionContext
+  ctx: Pick<ExecutionContext, 'waitUntil'>
 ): Promise<boolean> {
   // Only handle activity events
   if (event.object_type !== 'activity') {
