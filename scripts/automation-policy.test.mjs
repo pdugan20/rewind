@@ -1393,7 +1393,7 @@ function validateRenovate(document, problems) {
     'Root stable runtime patches',
     'MCP stable runtime patches',
     'Root and MCP stable development non-major updates',
-    'Root stable override patches',
+    'Root security overrides require exception handling',
     'Exact automation contracts require exception handling',
     'Pre-1.0 minor updates require exception handling',
     'All major updates require exception handling',
@@ -1448,15 +1448,12 @@ function validateRenovate(document, problems) {
       automerge: true,
     },
     {
-      description: 'Root stable override patches',
+      description: 'Root security overrides require exception handling',
       matchManagers: ['npm'],
       matchFileNames: ['package.json'],
       matchDepTypes: ['overrides'],
-      matchCurrentVersion: STABLE_SEMVER_CURRENT_VERSION,
-      matchUpdateTypes: ['patch'],
-      minimumReleaseAge: '14 days',
-      dependencyDashboardApproval: false,
-      automerge: true,
+      dependencyDashboardApproval: true,
+      automerge: false,
     },
     {
       description: 'Exact automation contracts require exception handling',
@@ -1542,18 +1539,17 @@ function validateRenovate(document, problems) {
     problems.push('root and MCP development updates must stay bounded');
   }
 
-  const overrides = byDescription.get('Root stable override patches');
+  const overrides = byDescription.get(
+    'Root security overrides require exception handling'
+  );
   if (
     !sameObject(overrides?.matchManagers, ['npm']) ||
     !sameObject(overrides?.matchFileNames, ['package.json']) ||
     !sameObject(overrides?.matchDepTypes, ['overrides']) ||
-    overrides?.matchCurrentVersion !== STABLE_SEMVER_CURRENT_VERSION ||
-    !sameObject(overrides?.matchUpdateTypes, stableRuntimeTypes) ||
-    overrides?.minimumReleaseAge !== '14 days' ||
-    overrides?.dependencyDashboardApproval !== false ||
-    overrides?.automerge !== true
+    overrides?.dependencyDashboardApproval !== true ||
+    overrides?.automerge !== false
   ) {
-    problems.push('root overrides must stay patch-only and critical-tier');
+    problems.push('root security overrides must require exception handling');
   }
 
   const exactContracts = byDescription.get(
@@ -2353,7 +2349,7 @@ test('stable Renovate automerge lanes require exact release versions', () => {
   const automaticRules = source.packageRules.filter(
     (candidate) => candidate.automerge === true
   );
-  assert.equal(automaticRules.length, 4);
+  assert.equal(automaticRules.length, 3);
 
   for (const rule of automaticRules) {
     assert.equal(rule.matchCurrentVersion, STABLE_SEMVER_CURRENT_VERSION);
@@ -2384,6 +2380,60 @@ test('stable Renovate automerge lanes require exact release versions', () => {
         `${rule.description} must reject ${version}`
       );
     }
+  }
+});
+
+test('root security overrides stay outside every automerge lane', () => {
+  const source = JSON.parse(readFileSync(join(ROOT, 'renovate.json'), 'utf8'));
+  const overrideRule = source.packageRules.find(
+    (rule) =>
+      rule.description === 'Root security overrides require exception handling'
+  );
+  assert.deepEqual(overrideRule, {
+    description: 'Root security overrides require exception handling',
+    matchManagers: ['npm'],
+    matchFileNames: ['package.json'],
+    matchDepTypes: ['overrides'],
+    dependencyDashboardApproval: true,
+    automerge: false,
+  });
+  assert.equal(
+    source.packageRules.some(
+      (rule) =>
+        rule.automerge === true &&
+        (rule.matchDepTypes ?? []).includes('overrides')
+    ),
+    false
+  );
+
+  for (const mutation of [
+    (rule) => {
+      rule.automerge = true;
+    },
+    (rule) => {
+      rule.dependencyDashboardApproval = false;
+    },
+    (rule) => {
+      rule.matchUpdateTypes = ['patch'];
+    },
+  ]) {
+    const fixture = structuredClone(source);
+    mutation(
+      fixture.packageRules.find(
+        (rule) =>
+          rule.description ===
+          'Root security overrides require exception handling'
+      )
+    );
+    const problems = [];
+    validateRenovate(fixture, problems);
+    assert.ok(
+      problems.some(
+        (problem) =>
+          problem.includes('package-rule definitions must remain exact') ||
+          problem.includes('root security overrides must require')
+      )
+    );
   }
 });
 

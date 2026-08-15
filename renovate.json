@@ -62,15 +62,12 @@
       "automerge": true
     },
     {
-      "description": "Root stable override patches",
+      "description": "Root security overrides require exception handling",
       "matchManagers": ["npm"],
       "matchFileNames": ["package.json"],
       "matchDepTypes": ["overrides"],
-      "matchCurrentVersion": "/^[1-9][0-9]*\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/",
-      "matchUpdateTypes": ["patch"],
-      "minimumReleaseAge": "14 days",
-      "dependencyDashboardApproval": false,
-      "automerge": true
+      "dependencyDashboardApproval": true,
+      "automerge": false
     },
     {
       "description": "Exact automation contracts require exception handling",
