@@ -16,6 +16,7 @@
 import { build } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import ts from 'typescript';
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const webDir = join(root, 'web');
 const distDir = join(webDir, 'dist');
 const outFile = join(root, 'src', 'ui-bundles.ts');
+const checkOnly = process.argv.includes('--check');
 
 const entries = readdirSync(webDir).filter(
   (f) => f.endsWith('.html') && f !== 'dist'
@@ -150,11 +152,92 @@ for (const { file, name } of manifest) {
 parts.push('};');
 parts.push('');
 
-writeFileSync(outFile, parts.join('\n'));
+if (checkOnly) {
+  const source = readFileSync(outFile, 'utf8');
+  const sourceFile = ts.createSourceFile(
+    outFile,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  );
+  if (sourceFile.parseDiagnostics.length > 0) {
+    console.error(
+      '[build:web] Committed bundle source is not valid TypeScript.'
+    );
+    process.exit(1);
+  }
+
+  const actualBundles = new Map();
+  const actualManifest = new Map();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || !declaration.initializer) {
+        continue;
+      }
+      if (
+        declaration.name.text.endsWith('_HTML') &&
+        ts.isStringLiteralLike(declaration.initializer)
+      ) {
+        actualBundles.set(declaration.name.text, declaration.initializer.text);
+      }
+      if (
+        declaration.name.text === 'UI_BUNDLES' &&
+        ts.isObjectLiteralExpression(declaration.initializer)
+      ) {
+        for (const property of declaration.initializer.properties) {
+          if (
+            ts.isPropertyAssignment(property) &&
+            ts.isStringLiteralLike(property.name) &&
+            ts.isIdentifier(property.initializer)
+          ) {
+            actualManifest.set(property.name.text, property.initializer.text);
+          }
+        }
+      }
+    }
+  }
+
+  const expectedBundles = new Map(
+    manifest.map(({ file, name }) => [
+      name,
+      readFileSync(join(distDir, file), 'utf8'),
+    ])
+  );
+  const expectedManifest = new Map(
+    manifest.map(({ file, name }) => [file, name])
+  );
+  const stale = [];
+  for (const [name, html] of expectedBundles) {
+    if (actualBundles.get(name) !== html) stale.push(name);
+  }
+  for (const name of actualBundles.keys()) {
+    if (!expectedBundles.has(name)) stale.push(name);
+  }
+  for (const [file, name] of expectedManifest) {
+    if (actualManifest.get(file) !== name) stale.push(file);
+  }
+  for (const file of actualManifest.keys()) {
+    if (!expectedManifest.has(file)) stale.push(file);
+  }
+  if (stale.length > 0) {
+    console.error(
+      `[build:web] Committed UI bundles are stale: ${[...new Set(stale)].join(', ')}`
+    );
+    console.error('Run `npm run build:web` and commit src/ui-bundles.ts.');
+    process.exit(1);
+  }
+  console.log(
+    `[build:web] OK -- ${manifest.length} committed UI bundles are current.`
+  );
+} else {
+  writeFileSync(outFile, parts.join('\n'));
+}
 
 const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
 console.log(`\nBuilt ${entries.length} entries in ${elapsed}s.`);
-console.log(`Wrote ${outFile}:`);
+console.log(`${checkOnly ? 'Verified' : 'Wrote'} ${outFile}:`);
 for (const { file, size } of manifest) {
   console.log(`  - ${file}: ${size.toLocaleString()} chars`);
 }
