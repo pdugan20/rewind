@@ -24,8 +24,7 @@ function AthleteApp() {
     if (!app) return;
     app.ontoolresult = (result) => {
       const structured = result?.structuredContent as
-        | AthletePayload
-        | undefined;
+        AthletePayload | undefined;
       if (structured?.player?.id) setPayload(structured);
     };
   }, [app]);

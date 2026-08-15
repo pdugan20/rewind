@@ -24,8 +24,7 @@ function RecentReadsApp() {
     if (!app) return;
     app.ontoolresult = (result) => {
       const structured = result?.structuredContent as
-        | RecentReadsPayload
-        | undefined;
+        RecentReadsPayload | undefined;
       if (structured?.items) setItems(structured.items);
     };
   }, [app]);

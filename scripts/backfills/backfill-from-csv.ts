@@ -488,8 +488,7 @@ async function bookmarksAdd(
   const res = await instapaperRequest('/1/bookmarks/add', body);
   const items = JSON.parse(res) as Array<Record<string, unknown>>;
   const bm = items.find((it) => it.type === 'bookmark') as unknown as
-    | AddedBookmark
-    | undefined;
+    AddedBookmark | undefined;
   return bm ?? null;
 }
 

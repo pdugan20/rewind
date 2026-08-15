@@ -57,12 +57,7 @@ export interface LastfmUserInfo {
 }
 
 export type LastfmPeriod =
-  | '7day'
-  | '1month'
-  | '3month'
-  | '6month'
-  | '12month'
-  | 'overall';
+  '7day' | '1month' | '3month' | '6month' | '12month' | 'overall';
 
 export const LASTFM_PERIODS: LastfmPeriod[] = [
   '7day',

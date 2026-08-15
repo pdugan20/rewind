@@ -1765,8 +1765,7 @@ listening.openapi(nowPlayingRoute, async (c) => {
     // is_filtered flag on the artist (catches tag-detected audiobooks).
     let latestTrack: (typeof tracks)[number] | undefined;
     let artist:
-      | { id: number; name: string; appleMusicUrl: string | null }
-      | undefined;
+      { id: number; name: string; appleMusicUrl: string | null } | undefined;
 
     for (const candidate of tracks) {
       const artistName = candidate.artist['#text'];

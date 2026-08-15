@@ -19,8 +19,7 @@ function TopTracksApp() {
     if (!app) return;
     app.ontoolresult = (result) => {
       const structured = result?.structuredContent as
-        | TopTracksPayload
-        | undefined;
+        TopTracksPayload | undefined;
       if (structured?.data && Array.isArray(structured.data))
         setPayload(structured);
     };

@@ -9,9 +9,7 @@
  */
 
 export type VoyageModel =
-  | 'voyage-3-lite'
-  | 'voyage-3.5-lite'
-  | 'voyage-3-large';
+  'voyage-3-lite' | 'voyage-3.5-lite' | 'voyage-3-large';
 export type VoyageInputType = 'document' | 'query';
 
 const VOYAGE_URL = 'https://api.voyageai.com/v1/embeddings';

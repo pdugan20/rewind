@@ -64,9 +64,7 @@ return {
       mimeType: 'text/html',
     },
   ],
-  structuredContent: {
-    /* JSON shape mirroring the API response */
-  },
+  structuredContent: {/* JSON shape mirroring the API response */},
 };
 ```
 

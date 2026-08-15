@@ -248,8 +248,7 @@ adminReindex.openapi(reenrichRoute, async (c) => {
   const db = createDb(c.env.DB);
 
   const body = (await c.req.json().catch(() => undefined)) as
-    | { limit?: number; mode?: 'failed' | 'missing-images' }
-    | undefined;
+    { limit?: number; mode?: 'failed' | 'missing-images' } | undefined;
   const limit = body?.limit ?? 500;
   const mode = body?.mode ?? 'failed';
 
@@ -365,8 +364,7 @@ const backfillBodyRoute = createRoute({
 adminReindex.openapi(backfillBodyRoute, async (c) => {
   const db = createDb(c.env.DB);
   const body = (await c.req.json().catch(() => undefined)) as
-    | { limit?: number; force?: boolean; offset?: number }
-    | undefined;
+    { limit?: number; force?: boolean; offset?: number } | undefined;
   const limit = body?.limit ?? 2000;
   const force = body?.force ?? false;
   const offset = body?.offset ?? 0;
