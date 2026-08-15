@@ -217,6 +217,9 @@ jobs:
     name: Deploy Root Worker
     needs: [impact, apply-d1-migrations, d1-no-impact]
     runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: https://api.rewind.rest
     if: >
       always() &&
       needs.impact.result == 'success' &&

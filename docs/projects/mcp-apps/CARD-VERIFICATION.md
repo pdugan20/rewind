@@ -201,10 +201,11 @@ Don't conflate them — most of the time you only need one.
 
 Serves Claude iOS, claude.ai web, and any client that connects via the
 remote URL. The `deploy-worker` job in `.github/workflows/mcp-server.yml`
-runs on **every push to `main`** (gated `if: github.ref ==
-'refs/heads/main' || startsWith(github.ref, 'refs/tags/mcp-server-v')`).
-That means a conventional-commit fix lands and the Worker is live ~2
-min later — **no release-please PR, no tag, no version bump required**.
+runs for matching pushes to `main` and deploys when the production-impact
+classifier finds an MCP runtime change. It also deploys every `v*` release
+tag. That means a conventional-commit runtime fix lands and the Worker is
+live ~2 min later — **no release-please PR, no tag, no version bump
+required**.
 
 For iOS-only / web-only iteration this is the fast path. Push and test;
 let the release-please PR catch up whenever.
@@ -213,7 +214,7 @@ let the release-please PR catch up whenever.
 
 Serves Claude Desktop and Claude Code via stdio (the `npx
 rewind-mcp-server` config in `claude_desktop_config.json`). The
-`publish-npm` job is gated on the `mcp-server-v*` tag, so it only fires
+`publish-npm` job is gated on the `v*` tag, so it only fires
 when a release-please PR is merged.
 
 Publishing is automated — never run `npm publish` by hand and never bump
@@ -228,7 +229,7 @@ matches package.json"). The flow:
    `mcp-server/package.json` AND `.release-please-manifest.json`
    atomically and updates `mcp-server/CHANGELOG.md`.
 3. Merge the release PR. release-please tags the release as
-   `mcp-server-v<version>`.
+   `v<version>`.
 4. `mcp-server.yml` reacts to the tag: builds, publishes to npm with
    provenance, and redeploys the Cloudflare Worker again (idempotent —
    Path A already deployed the same code on the original push).
