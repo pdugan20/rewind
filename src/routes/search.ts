@@ -376,9 +376,7 @@ search.openapi(searchRoute, async (c) => {
   }
 
   const mode = (c.req.query('mode') ?? 'keyword') as
-    | 'keyword'
-    | 'semantic'
-    | 'hybrid';
+    'keyword' | 'semantic' | 'hybrid';
 
   if (
     (mode === 'semantic' || mode === 'hybrid') &&

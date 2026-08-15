@@ -22,8 +22,7 @@ function ArticleApp() {
     if (!app) return;
     app.ontoolresult = (result) => {
       const structured = result?.structuredContent as
-        | ArticlePayload
-        | undefined;
+        ArticlePayload | undefined;
       if (structured?.article?.id) setPayload(structured);
     };
   }, [app]);

@@ -25,8 +25,7 @@ function TopArtistsApp() {
     if (!app) return;
     app.ontoolresult = (result) => {
       const structured = result?.structuredContent as
-        | TopArtistsPayload
-        | undefined;
+        TopArtistsPayload | undefined;
       if (structured?.data) setPayload(structured);
     };
   }, [app]);

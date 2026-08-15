@@ -92,11 +92,9 @@ export async function normalizeSportsTitles(
     }
     const ed = safeJson(row.event_data);
     const home = (ed as Record<string, unknown>)?.home_team as
-      | { id?: number; name?: string }
-      | undefined;
+      { id?: number; name?: string } | undefined;
     const away = (ed as Record<string, unknown>)?.away_team as
-      | { id?: number; name?: string }
-      | undefined;
+      { id?: number; name?: string } | undefined;
     if (!home?.name || !away?.name) {
       result.skipped_no_event_data++;
       continue;
@@ -105,13 +103,9 @@ export async function normalizeSportsTitles(
       home_team: { id: home.id ?? 0, name: home.name },
       away_team: { id: away.id ?? 0, name: away.name },
       home_score: (ed as Record<string, unknown>)?.home_score as
-        | number
-        | null
-        | undefined,
+        number | null | undefined,
       away_score: (ed as Record<string, unknown>)?.away_score as
-        | number
-        | null
-        | undefined,
+        number | null | undefined,
     } as Pick<
       SportsGameMatch,
       'home_team' | 'away_team' | 'home_score' | 'away_score'

@@ -106,9 +106,7 @@ export class InstapaperClient {
 
     const response = await this.request('/1/bookmarks/list', body);
     const items = JSON.parse(response) as (
-      | InstapaperItem
-      | InstapaperHighlight
-      | { type: 'delete'; id: number }
+      InstapaperItem | InstapaperHighlight | { type: 'delete'; id: number }
     )[];
 
     const bookmarks: InstapaperBookmark[] = [];

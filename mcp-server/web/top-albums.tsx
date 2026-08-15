@@ -26,8 +26,7 @@ function TopAlbumsApp() {
     if (!app) return;
     app.ontoolresult = (result) => {
       const structured = result?.structuredContent as
-        | TopAlbumsPayload
-        | undefined;
+        TopAlbumsPayload | undefined;
       if (structured?.data) setPayload(structured);
     };
   }, [app]);

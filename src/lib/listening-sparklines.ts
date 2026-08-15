@@ -4,11 +4,7 @@ import { lastfmScrobbles, lastfmTracks } from '../db/schema/lastfm.js';
 
 export type SparklineGranularity = 'day' | 'week' | 'month' | 'year';
 export type SparklinePeriod =
-  | '7day'
-  | '1month'
-  | '3month'
-  | '6month'
-  | '12month';
+  '7day' | '1month' | '3month' | '6month' | '12month';
 export type SparklineEntity = 'artist' | 'album' | 'track';
 
 export const SPARKLINE_PERIODS: readonly SparklinePeriod[] = [

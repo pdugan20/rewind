@@ -26,8 +26,7 @@ function RecentWatchesApp() {
     if (!app) return;
     app.ontoolresult = (result) => {
       const structured = result?.structuredContent as
-        | RecentWatchesPayload
-        | undefined;
+        RecentWatchesPayload | undefined;
       if (structured?.items) setItems(structured.items);
     };
   }, [app]);

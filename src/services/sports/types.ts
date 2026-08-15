@@ -21,13 +21,7 @@ export interface SportsGameMatch {
 }
 
 export type SportsLeague =
-  | 'mlb'
-  | 'nfl'
-  | 'nba'
-  | 'wnba'
-  | 'mls'
-  | 'ncaaf'
-  | 'ncaab';
+  'mlb' | 'nfl' | 'nba' | 'wnba' | 'mls' | 'ncaaf' | 'ncaab';
 
 export interface TeamRef {
   id: number;

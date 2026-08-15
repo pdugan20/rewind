@@ -487,8 +487,7 @@ export function registerAttendingTools(
           } else if (seasonSum.pitcher) {
             const p = seasonSum.pitcher;
             const dec = p.decisions as
-              | { w: number; l: number; sv: number }
-              | undefined;
+              { w: number; l: number; sv: number } | undefined;
             lines.push(
               '',
               `In ${seasonSum.games_attended} ${seasonLabel} game${seasonSum.games_attended === 1 ? '' : 's'} you attended: ${p.ip ?? '0'} IP, ${p.k ?? 0} K, ${p.era ?? '0.00'} ERA${dec ? ` (${dec.w ?? 0}-${dec.l ?? 0})` : ''}`
@@ -507,8 +506,7 @@ export function registerAttendingTools(
         } else if (data.attended_summary.pitcher) {
           const p = data.attended_summary.pitcher;
           const dec = p.decisions as
-            | { w: number; l: number; sv: number }
-            | undefined;
+            { w: number; l: number; sv: number } | undefined;
           lines.push(
             '',
             `Across all ${data.attended_summary.games_attended} games you've ever attended: ${p.ip ?? '0'} IP, ${p.k ?? 0} K, ${p.era ?? '0.00'} ERA${dec ? ` (${dec.w ?? 0}-${dec.l ?? 0})` : ''}`
