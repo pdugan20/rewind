@@ -1282,7 +1282,7 @@ function validatePackages(rootPackage, mcpPackage, problems) {
       favicons: { sharp: '0.35.3' },
       qs: '6.15.3',
       undici: '7.29.0',
-      ws: '8.21.0',
+      ws: '8.21.3',
     })
   ) {
     problems.push('root security overrides must stay exact and complete');
