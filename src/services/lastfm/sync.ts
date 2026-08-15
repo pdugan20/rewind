@@ -48,14 +48,14 @@ export async function upsertArtist(
     [existing] = await db
       .select({ id: lastfmArtists.id, isFiltered: lastfmArtists.isFiltered })
       .from(lastfmArtists)
-      .where(eq(lastfmArtists.mbid, mbid))
+      .where(and(eq(lastfmArtists.userId, 1), eq(lastfmArtists.mbid, mbid)))
       .limit(1);
   }
   if (!existing) {
     [existing] = await db
       .select({ id: lastfmArtists.id, isFiltered: lastfmArtists.isFiltered })
       .from(lastfmArtists)
-      .where(eq(lastfmArtists.name, name))
+      .where(and(eq(lastfmArtists.userId, 1), eq(lastfmArtists.name, name)))
       .limit(1);
   }
 
@@ -64,7 +64,9 @@ export async function upsertArtist(
       await db
         .update(lastfmArtists)
         .set({ mbid, updatedAt: new Date().toISOString() })
-        .where(eq(lastfmArtists.id, existing.id));
+        .where(
+          and(eq(lastfmArtists.id, existing.id), eq(lastfmArtists.userId, 1))
+        );
     }
     return {
       id: existing.id,
@@ -77,6 +79,7 @@ export async function upsertArtist(
   const result = await db
     .insert(lastfmArtists)
     .values({
+      userId: 1,
       name,
       mbid,
       url,
@@ -290,7 +293,15 @@ async function getLastScrobbleTimestamp(db: Database): Promise<number | null> {
 interface ScrobbleSyncResult {
   count: number;
   newArtists: Map<string, string>;
-  newAlbums: Map<string, { id: string; albumName: string; artistName: string }>;
+  newAlbums: Map<
+    string,
+    {
+      id: string;
+      artistId: string;
+      albumName: string;
+      artistName: string;
+    }
+  >;
 }
 
 export async function syncRecentScrobbles(
@@ -300,11 +311,112 @@ export async function syncRecentScrobbles(
   const runId = await startSyncRun(db, 'scrobbles');
   let totalSynced = 0;
   let totalFiltered = 0;
+  const detectedAudiobookArtistKeys = new Set<string>();
+  const autoFilteredAudiobookArtistKeys = new Set<string>();
+  const cascadedAudiobookArtistKeys = new Set<string>();
+  const artistIdsByFilterKey = new Map<string, Set<number>>();
+  let userArtistSnapshot:
+    | Array<{
+        id: number;
+        name: string;
+        mbid: string | null;
+        isFiltered: number | null;
+      }>
+    | undefined;
   const newArtists = new Map<string, string>();
   const newAlbums = new Map<
     string,
-    { id: string; albumName: string; artistName: string }
+    {
+      id: string;
+      artistId: string;
+      albumName: string;
+      artistName: string;
+    }
   >();
+
+  const purgeListeningCandidates = (artistId: number): void => {
+    const stringArtistId = String(artistId);
+    for (const [candidateName, candidateId] of newArtists) {
+      if (candidateId === stringArtistId) {
+        // eslint-disable-next-line drizzle/enforce-delete-with-where -- JavaScript Map, not a database table.
+        newArtists.delete(candidateName);
+      }
+    }
+    for (const [candidateKey, candidate] of newAlbums) {
+      if (candidate.artistId === stringArtistId) {
+        // eslint-disable-next-line drizzle/enforce-delete-with-where -- JavaScript Map, not a database table.
+        newAlbums.delete(candidateKey);
+      }
+    }
+  };
+
+  const cascadeAudiobookFilter = async (artistId: number): Promise<void> => {
+    await db
+      .update(lastfmArtists)
+      .set({ isFiltered: 1 })
+      .where(and(eq(lastfmArtists.id, artistId), eq(lastfmArtists.userId, 1)));
+    await db
+      .update(lastfmAlbums)
+      .set({ isFiltered: 1 })
+      .where(
+        and(eq(lastfmAlbums.artistId, artistId), eq(lastfmAlbums.userId, 1))
+      );
+    await db
+      .update(lastfmTracks)
+      .set({ isFiltered: 1 })
+      .where(
+        and(eq(lastfmTracks.artistId, artistId), eq(lastfmTracks.userId, 1))
+      );
+    purgeListeningCandidates(artistId);
+  };
+
+  const artistFilterKeyForName = (artistName: string): string =>
+    cleanArtistName(artistName).normalize('NFKC').toLowerCase();
+
+  const rememberArtistId = (
+    artistFilterKey: string,
+    artist: {
+      id: number;
+      name: string;
+      mbid: string | null;
+      isFiltered: boolean;
+    }
+  ): void => {
+    const artistIds = artistIdsByFilterKey.get(artistFilterKey) ?? new Set();
+    artistIds.add(artist.id);
+    artistIdsByFilterKey.set(artistFilterKey, artistIds);
+
+    if (userArtistSnapshot) {
+      const cachedArtist = userArtistSnapshot.find(
+        (candidate) => candidate.id === artist.id
+      );
+      if (cachedArtist) {
+        cachedArtist.name = artist.name;
+        cachedArtist.mbid = artist.mbid;
+        cachedArtist.isFiltered = artist.isFiltered ? 1 : 0;
+      } else {
+        userArtistSnapshot.push({
+          id: artist.id,
+          name: artist.name,
+          mbid: artist.mbid,
+          isFiltered: artist.isFiltered ? 1 : 0,
+        });
+      }
+    }
+  };
+
+  const getUserArtistSnapshot = async () => {
+    userArtistSnapshot ??= await db
+      .select({
+        id: lastfmArtists.id,
+        name: lastfmArtists.name,
+        mbid: lastfmArtists.mbid,
+        isFiltered: lastfmArtists.isFiltered,
+      })
+      .from(lastfmArtists)
+      .where(eq(lastfmArtists.userId, 1));
+    return userArtistSnapshot;
+  };
 
   try {
     const lastTimestamp = await getLastScrobbleTimestamp(db);
@@ -349,13 +461,53 @@ export async function syncRecentScrobbles(
           albumName: track.albumName,
           trackName: track.trackName,
         };
+        const normalizedArtistName = cleanArtistName(track.artistName);
+        const artistFilterKey = artistFilterKeyForName(normalizedArtistName);
         const matchesAudiobookSignature =
           hasNumberedAudiobookSignature(filterableTrack);
-        let filteredItem = isFiltered(filterableTrack);
+        let filteredItem =
+          isFiltered(filterableTrack) ||
+          detectedAudiobookArtistKeys.has(artistFilterKey);
 
         // Reject known audiobook/holiday shapes at the admission boundary.
         // They should never create listening entities or history rows.
         if (filteredItem) {
+          if (
+            matchesAudiobookSignature &&
+            !cascadedAudiobookArtistKeys.has(artistFilterKey)
+          ) {
+            detectedAudiobookArtistKeys.add(artistFilterKey);
+
+            const userArtists = await getUserArtistSnapshot();
+            const matchingArtistIds = new Set(
+              userArtists
+                .filter(
+                  (artist) =>
+                    artistFilterKeyForName(artist.name) === artistFilterKey ||
+                    (track.artistMbid && artist.mbid === track.artistMbid)
+                )
+                .map((artist) => artist.id)
+            );
+            for (const artistId of artistIdsByFilterKey.get(artistFilterKey) ??
+              []) {
+              matchingArtistIds.add(artistId);
+            }
+            const existingArtists = userArtists.filter((artist) =>
+              matchingArtistIds.has(artist.id)
+            );
+
+            const newlyFiltered = existingArtists.some(
+              (artist) => artist.isFiltered !== 1
+            );
+            for (const existingArtist of existingArtists) {
+              await cascadeAudiobookFilter(existingArtist.id);
+              existingArtist.isFiltered = 1;
+            }
+            if (existingArtists.length === 0 || newlyFiltered) {
+              autoFilteredAudiobookArtistKeys.add(artistFilterKey);
+            }
+            cascadedAudiobookArtistKeys.add(artistFilterKey);
+          }
           totalFiltered++;
           continue;
         }
@@ -365,6 +517,12 @@ export async function syncRecentScrobbles(
           track.artistName,
           track.artistMbid
         );
+        rememberArtistId(artistFilterKey, {
+          id: artist.id,
+          name: normalizedArtistName,
+          mbid: track.artistMbid,
+          isFiltered: artist.isFiltered,
+        });
         const album = track.albumName
           ? await upsertAlbum(
               db,
@@ -413,31 +571,16 @@ export async function syncRecentScrobbles(
         }
 
         // Tag lookups can fail for author/narrator composite names. Fall back
-        // to the item-level audiobook signature and cascade the decision so
-        // every stored listening endpoint observes the same filter state.
-        const shouldCascadeAudiobookFilter =
-          artist.isFiltered || matchesAudiobookSignature || tagFiltered;
+        // to a persisted artist decision and cascade it so every stored
+        // listening endpoint observes the same filter state.
+        const shouldCascadeAudiobookFilter = artist.isFiltered || tagFiltered;
         if (shouldCascadeAudiobookFilter) {
-          await db
-            .update(lastfmArtists)
-            .set({ isFiltered: 1 })
-            .where(eq(lastfmArtists.id, artist.id));
-          if (album) {
-            await db
-              .update(lastfmAlbums)
-              .set({ isFiltered: 1 })
-              .where(eq(lastfmAlbums.id, album.id));
-          }
-          await db
-            .update(lastfmTracks)
-            .set({ isFiltered: 1 })
-            .where(eq(lastfmTracks.id, trackId));
+          await cascadeAudiobookFilter(artist.id);
           filteredItem = true;
+          detectedAudiobookArtistKeys.add(artistFilterKey);
 
           if (!artist.isFiltered) {
-            console.log(
-              `[SYNC] Auto-filtered audiobook item: ${track.artistName} - ${track.trackName}`
-            );
+            autoFilteredAudiobookArtistKeys.add(artistFilterKey);
           }
         }
 
@@ -465,6 +608,7 @@ export async function syncRecentScrobbles(
         ) {
           newAlbums.set(`${track.artistName}:${track.albumName}`, {
             id: String(album.id),
+            artistId: String(artist.id),
             albumName: track.albumName,
             artistName: track.artistName,
           });
@@ -504,6 +648,12 @@ export async function syncRecentScrobbles(
       })
     );
 
+    if (autoFilteredAudiobookArtistKeys.size > 0) {
+      const count = autoFilteredAudiobookArtistKeys.size;
+      console.log(
+        `[SYNC] Auto-filtered ${count} audiobook artist${count === 1 ? '' : 's'}`
+      );
+    }
     console.log(`[SYNC] Synced ${totalSynced} new scrobbles`);
     return { count: totalSynced, newArtists, newAlbums };
   } catch (error) {
@@ -1137,9 +1287,7 @@ export async function backfillArtistTags(
             .update(lastfmTracks)
             .set({ isFiltered: 1 })
             .where(eq(lastfmTracks.artistId, artist.id));
-          console.log(
-            `[SYNC] Auto-filtered audiobook artist from tags: ${artist.name}`
-          );
+          console.log('[SYNC] Auto-filtered audiobook artist from tags');
         }
 
         tagged++;
