@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "exceptions": [
+    {
+      "alertNumber": 210,
+      "owner": "pdugan20",
+      "dismissalReason": "tolerable_risk",
+      "reason": "No patched release exists. Transitive dev-only Mintlify/Puppeteer browser-download path; production audit is zero and root/MCP production graphs are unchanged. Reopen if a fix appears or this enters runtime or processes untrusted archives.",
+      "dismissedAt": "2026-08-15T01:06:12Z",
+      "reviewedAt": "2026-08-15T05:22:44Z",
+      "expiresAt": "2026-09-15T00:00:00Z",
+      "package": {
+        "ecosystem": "npm",
+        "name": "extract-zip"
+      },
+      "manifestPath": "package-lock.json",
+      "lockedVersion": "2.0.1",
+      "scope": "development",
+      "relationship": "transitive",
+      "advisory": {
+        "ghsa": "GHSA-jmr9-qjv8-65gv",
+        "cve": "CVE-2026-56876",
+        "vulnerableVersionRange": "<= 2.0.1"
+      },
+      "dependencyPath": [
+        { "name": "mint", "version": "4.2.802" },
+        { "name": "@mintlify/cli", "version": "4.0.1405" },
+        { "name": "@mintlify/link-rot", "version": "3.0.1291" },
+        { "name": "@mintlify/scraping", "version": "4.0.959" },
+        { "name": "puppeteer", "version": "24.3.1" },
+        { "name": "@puppeteer/browsers", "version": "2.7.1" },
+        { "name": "extract-zip", "version": "2.0.1" }
+      ]
+    }
+  ]
+}

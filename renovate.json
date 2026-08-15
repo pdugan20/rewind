@@ -33,8 +33,8 @@
       "matchManagers": ["npm"],
       "matchFileNames": ["package.json"],
       "matchDepTypes": ["dependencies", "optionalDependencies"],
-      "matchCurrentVersion": "!/^0\\./",
-      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "matchCurrentVersion": "/^[1-9][0-9]*\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/",
+      "matchUpdateTypes": ["patch"],
       "minimumReleaseAge": "14 days",
       "dependencyDashboardApproval": false,
       "automerge": true
@@ -44,8 +44,8 @@
       "matchManagers": ["npm"],
       "matchFileNames": ["mcp-server/package.json"],
       "matchDepTypes": ["dependencies", "optionalDependencies"],
-      "matchCurrentVersion": "!/^0\\./",
-      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "matchCurrentVersion": "/^[1-9][0-9]*\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/",
+      "matchUpdateTypes": ["patch"],
       "minimumReleaseAge": "14 days",
       "dependencyDashboardApproval": false,
       "automerge": true
@@ -55,8 +55,8 @@
       "matchManagers": ["npm"],
       "matchFileNames": ["package.json", "mcp-server/package.json"],
       "matchDepTypes": ["devDependencies"],
-      "matchCurrentVersion": "!/^0\\./",
-      "matchUpdateTypes": ["patch", "minor", "digest", "pin", "pinDigest"],
+      "matchCurrentVersion": "/^[1-9][0-9]*\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/",
+      "matchUpdateTypes": ["patch", "minor"],
       "minimumReleaseAge": "14 days",
       "dependencyDashboardApproval": false,
       "automerge": true
@@ -66,8 +66,8 @@
       "matchManagers": ["npm"],
       "matchFileNames": ["package.json"],
       "matchDepTypes": ["overrides"],
-      "matchCurrentVersion": "!/^0\\./",
-      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "matchCurrentVersion": "/^[1-9][0-9]*\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/",
+      "matchUpdateTypes": ["patch"],
       "minimumReleaseAge": "14 days",
       "dependencyDashboardApproval": false,
       "automerge": true
@@ -90,6 +90,12 @@
     {
       "description": "All major updates require exception handling",
       "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "Pin, digest, and lockfile updates require exception handling",
+      "matchUpdateTypes": ["digest", "pin", "pinDigest", "lockFileMaintenance"],
       "dependencyDashboardApproval": true,
       "automerge": false
     }

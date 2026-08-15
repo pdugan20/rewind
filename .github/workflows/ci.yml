@@ -145,6 +145,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Re-evaluate registered security exceptions
+        run: node scripts/security-exception.mjs --offline
+
       - name: Audit production dependencies
         run: npm audit --audit-level=critical --omit=dev
 

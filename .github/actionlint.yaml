@@ -1,0 +1,5 @@
+paths:
+  .github/workflows/security-exceptions.yml:
+    ignore:
+      # GitHub added this read-only scope before actionlint 1.7.12 learned it.
+      - '^unknown permission scope "vulnerability-alerts"'
