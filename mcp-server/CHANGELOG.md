@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/pdugan20/rewind/compare/mcp-server-v1.0.0...mcp-server-v1.0.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **ci:** fail closed on stale MCP bundles ([#226](https://github.com/pdugan20/rewind/issues/226)) ([40f5b34](https://github.com/pdugan20/rewind/commit/40f5b34d77ee992f8015f39e42bfd0013b6e9d83))
+* **deps:** repair current security alerts ([#221](https://github.com/pdugan20/rewind/issues/221)) ([0ab4130](https://github.com/pdugan20/rewind/commit/0ab4130a3ed9058edd555c038c0cd3bc46b8fad6))
+
 ## [1.0.0](https://github.com/pdugan20/rewind/compare/mcp-server-v0.11.0...mcp-server-v1.0.0) (2026-08-14)
 
 
