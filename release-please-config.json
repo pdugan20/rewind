@@ -3,8 +3,9 @@
     "mcp-server": {
       "release-type": "node",
       "component": "mcp-server",
-      "include-component-in-tag": true,
+      "include-component-in-tag": false,
       "include-v-in-tag": true,
+      "include-v-in-release-name": true,
       "changelog-path": "CHANGELOG.md"
     }
   }

@@ -858,6 +858,14 @@ function validateDeploy(document, problems) {
       'Root Worker deployment must wait for the D1 impact path to finalize'
     );
   }
+  if (
+    !sameObject(document.jobs?.['deploy-root-worker']?.environment, {
+      name: 'Production',
+      url: 'https://api.rewind.rest',
+    })
+  ) {
+    problems.push('Root Worker deployments must target Production');
+  }
 
   for (const jobId of ['apply-d1-migrations', 'deploy-root-worker']) {
     validateExactHeadCheckout(
@@ -942,6 +950,9 @@ function validateMcpDeploy(document, problems) {
       'MCP workflow must evaluate its own workflow and impact-guard changes'
     );
   }
+  if (!sameObject(document.on?.push?.tags, ['v*'])) {
+    problems.push('MCP releases must use repository-level v* tags');
+  }
   if (
     document.concurrency?.group !== 'mcp-server-${{ github.ref }}' ||
     document.concurrency?.['cancel-in-progress'] !==
@@ -962,6 +973,7 @@ function validateMcpDeploy(document, problems) {
   if (
     !classifyRun.includes('scripts/deploy-impact.mjs') ||
     !classifyRun.includes('--release') ||
+    !classifyRun.includes('refs/tags/v*') ||
     !classifyRun.includes('--merge-base') ||
     !classifyRun.includes('${{ github.event.pull_request.base.sha }}') ||
     !classifyRun.includes('${{ steps.baseline.outputs.base_sha }}') ||
@@ -1003,11 +1015,19 @@ function validateMcpDeploy(document, problems) {
   ) {
     problems.push('MCP deploy must retain classification and build gates');
   }
+  if (
+    !sameObject(document.jobs?.['deploy-worker']?.environment, {
+      name: 'Production',
+      url: 'https://mcp.rewind.rest',
+    })
+  ) {
+    problems.push('MCP Worker deployments must target Production');
+  }
 
   const expectedDeployCondition = `
     needs.impact.result == 'success' &&
     needs.build.result == 'success' &&
-    (startsWith(github.ref, 'refs/tags/mcp-server-v') ||
+    (startsWith(github.ref, 'refs/tags/v') ||
     (github.ref == 'refs/heads/main' &&
     needs.impact.outputs.mcp_worker == 'true'))
   `;
@@ -1079,8 +1099,7 @@ function validateTrustedBoundaries(workflows, sources, problems) {
   }
   const mcp = workflows.get('mcp-server.yml');
   if (
-    mcp?.jobs?.['publish-npm']?.if !==
-    "startsWith(github.ref, 'refs/tags/mcp-server-v')"
+    mcp?.jobs?.['publish-npm']?.if !== "startsWith(github.ref, 'refs/tags/v')"
   ) {
     problems.push('npm provenance publishing must remain tag-only');
   }
@@ -1187,6 +1206,24 @@ function validatePackages(rootPackage, mcpPackage, problems) {
     problems.push('MCP packageManager must pin npm 11.5.2');
   if (mcpPackage.engines?.node !== '>=22.0.0')
     problems.push('MCP engines must preserve the supported Node 22 floor');
+}
+
+function validateReleasePleaseConfig(document, problems) {
+  const expected = {
+    packages: {
+      'mcp-server': {
+        'release-type': 'node',
+        component: 'mcp-server',
+        'include-component-in-tag': false,
+        'include-v-in-tag': true,
+        'include-v-in-release-name': true,
+        'changelog-path': 'CHANGELOG.md',
+      },
+    },
+  };
+  if (!sameObject(document, expected)) {
+    problems.push('Release Please must publish repository-level v* releases');
+  }
 }
 
 function validateDependabot(document, problems) {
@@ -1515,6 +1552,10 @@ function validateRepository(root) {
     JSON.parse(readFileSync(join(root, 'mcp-server', 'package.json'), 'utf8')),
     problems
   );
+  validateReleasePleaseConfig(
+    JSON.parse(readFileSync(join(root, 'release-please-config.json'), 'utf8')),
+    problems
+  );
   validateDependabot(
     parseYaml(
       readFileSync(join(root, '.github', 'dependabot.yml'), 'utf8'),
@@ -1546,6 +1587,10 @@ test('discovers and rejects unsafe .yaml workflow files', () => {
     mkdirSync(join(fixtureRoot, 'mcp-server'));
     cpSync(join(ROOT, 'package.json'), join(fixtureRoot, 'package.json'));
     cpSync(join(ROOT, 'renovate.json'), join(fixtureRoot, 'renovate.json'));
+    cpSync(
+      join(ROOT, 'release-please-config.json'),
+      join(fixtureRoot, 'release-please-config.json')
+    );
     cpSync(
       join(ROOT, 'mcp-server', 'package.json'),
       join(fixtureRoot, 'mcp-server', 'package.json')
@@ -1650,6 +1695,38 @@ test('rejects dependency security override drift', () => {
   );
 });
 
+test('rejects component-prefixed release tags', () => {
+  const config = JSON.parse(
+    readFileSync(join(ROOT, 'release-please-config.json'), 'utf8')
+  );
+  config.packages['mcp-server']['include-component-in-tag'] = true;
+  const problems = [];
+  validateReleasePleaseConfig(config, problems);
+  assert.ok(problems.some((problem) => problem.includes('v* releases')));
+});
+
+test('rejects non-production deployment environments', () => {
+  const deploy = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'deploy.yml'), 'utf8')
+  );
+  deploy.jobs['deploy-root-worker'].environment.name = 'production-api';
+  const deployProblems = [];
+  validateDeploy(deploy, deployProblems);
+  assert.ok(
+    deployProblems.some((problem) => problem.includes('target Production'))
+  );
+
+  const mcp = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'mcp-server.yml'), 'utf8')
+  );
+  mcp.jobs['deploy-worker'].environment.name = 'production-mcp';
+  const mcpProblems = [];
+  validateMcpDeploy(mcp, mcpProblems);
+  assert.ok(
+    mcpProblems.some((problem) => problem.includes('target Production'))
+  );
+});
+
 test('rejects unsafe credential placement', () => {
   const problems = [];
   validateTrustedBoundaries(
@@ -1672,11 +1749,11 @@ test('rejects unsafe credential placement', () => {
               permissions: { 'id-token': 'write' },
             },
             'publish-npm': {
-              if: "startsWith(github.ref, 'refs/tags/mcp-server-v')",
+              if: "startsWith(github.ref, 'refs/tags/v')",
               permissions: { contents: 'read', 'id-token': 'write' },
             },
             'deploy-worker': {
-              if: "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/mcp-server-v')",
+              if: "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')",
             },
           },
         },
@@ -1981,7 +2058,7 @@ test('rejects MCP deploy on an unclassified main change', () => {
     readFileSync(join(ROOT, '.github', 'workflows', 'mcp-server.yml'), 'utf8')
   );
   mcp.jobs['deploy-worker'].if =
-    "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/mcp-server-v')";
+    "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')";
   const problems = [];
   validateMcpDeploy(mcp, problems);
   assert.ok(
