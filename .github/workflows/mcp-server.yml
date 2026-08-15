@@ -164,6 +164,7 @@ jobs:
         run: test "$(npm --version)" = "11.5.2"
 
       - run: npm ci
+      - run: npm run check:web
       - run: npm run build:web
       - run: npm run build
       - run: npm test

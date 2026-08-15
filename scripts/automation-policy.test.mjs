@@ -983,6 +983,18 @@ function validateMcpDeploy(document, problems) {
   if (!sameObject(document.jobs?.build?.needs, 'impact')) {
     problems.push('MCP build must wait for exact-head classification');
   }
+  const buildRuns = (document.jobs?.build?.steps ?? []).map(stepRun);
+  const freshnessIndex = buildRuns.indexOf('npm run check:web');
+  const buildWebIndex = buildRuns.indexOf('npm run build:web');
+  if (
+    freshnessIndex === -1 ||
+    buildWebIndex === -1 ||
+    freshnessIndex >= buildWebIndex
+  ) {
+    problems.push(
+      'MCP build must fail closed on stale committed UI bundles before rebuilding'
+    );
+  }
   if (!sameObject(document.jobs?.['publish-npm']?.needs, ['impact', 'build'])) {
     problems.push('MCP publish must retain classification and build gates');
   }
@@ -1960,6 +1972,18 @@ test('rejects MCP guard changes that do not evaluate their own workflow', () => 
   const problems = [];
   validateMcpDeploy(mcp, problems);
   assert.ok(problems.some((problem) => problem.includes('its own workflow')));
+});
+
+test('rejects MCP builds that overwrite stale committed UI bundles', () => {
+  const mcp = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'mcp-server.yml'), 'utf8')
+  );
+  mcp.jobs.build.steps = mcp.jobs.build.steps.filter(
+    (step) => stepRun(step) !== 'npm run check:web'
+  );
+  const problems = [];
+  validateMcpDeploy(mcp, problems);
+  assert.ok(problems.some((problem) => problem.includes('stale committed')));
 });
 
 test('rejects MCP cancellation or checkpoint advancement before every terminal path', () => {
