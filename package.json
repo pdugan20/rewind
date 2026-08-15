@@ -99,13 +99,23 @@
     "lint-staged": "^16.3.3",
     "mint": "4.2.802",
     "prettier": "^3.8.1",
-    "tsx": "4.21.0",
+    "tsx": "4.23.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
     "vitest": "~4.1.0",
     "wrangler": "^4.123.0"
   },
   "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    },
+    "@mintlify/prebuild": {
+      "sharp": "0.35.3"
+    },
+    "favicons": {
+      "sharp": "0.35.3"
+    },
+    "qs": "6.15.3",
     "undici": "7.29.0",
     "ws": "8.21.0"
   }
