@@ -16,6 +16,11 @@ import { isDeepStrictEqual } from 'node:util';
 
 import { parse } from 'yaml';
 
+import {
+  validateSecurityExceptionRegistry,
+  verifySecurityExceptionLifecycle,
+} from './security-exception.mjs';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECKOUT = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1';
 const SETUP_NODE =
@@ -31,6 +36,8 @@ const UPLOAD_ARTIFACT =
 const DOWNLOAD_ARTIFACT =
   'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c';
 const DEPLOY_BOOTSTRAP = '63e89155d5e01821d908ff1cada2b62334245d19';
+const STABLE_SEMVER_CURRENT_VERSION =
+  '/^[1-9][0-9]*\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/';
 const ACTION_PINS = new Map([
   ['actions/checkout', `${CHECKOUT} # v7`],
   ['actions/setup-node', `${SETUP_NODE} # v7`],
@@ -56,6 +63,12 @@ function permissionMap(value) {
 
 function sameObject(actual, expected) {
   return JSON.stringify(actual) === JSON.stringify(expected);
+}
+
+function matchesRenovateRegex(pattern, value) {
+  const match = typeof pattern === 'string' && pattern.match(/^\/(.*)\/$/);
+  assert.ok(match, `expected a positive Renovate regex, received ${pattern}`);
+  return new RegExp(match[1], 'u').test(value);
 }
 
 function normalizeExpression(value) {
@@ -158,6 +171,10 @@ function validatePermissions(name, document, problems) {
     'mcp-server.yml': { actions: 'read', contents: 'read' },
     'pr-lint.yml': { 'pull-requests': 'read' },
     'release-please.yml': { contents: 'write', 'pull-requests': 'write' },
+    'security-exceptions.yml': {
+      contents: 'read',
+      'vulnerability-alerts': 'read',
+    },
   }[name];
   if (!sameObject(permissionMap(document.permissions), expectedTop)) {
     problems.push(
@@ -265,6 +282,19 @@ function validateCi(document, problems) {
     )
   ) {
     problems.push('Security must enforce the critical production audit');
+  }
+  const exceptionSteps = (security?.steps ?? []).filter(
+    (step) => stepRun(step) === 'node scripts/security-exception.mjs --offline'
+  );
+  if (
+    exceptionSteps.length !== 1 ||
+    exceptionSteps[0]?.env !== undefined ||
+    exceptionSteps[0]?.if !== undefined ||
+    exceptionSteps[0]?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      'Security must re-evaluate registered exceptions without a PR token and fail closed'
+    );
   }
   const dependencyReview = document.jobs?.['dependency-review'];
   if (dependencyReview?.if !== "github.event_name == 'pull_request'") {
@@ -1085,6 +1115,72 @@ function validateMcpDeploy(document, problems) {
   );
 }
 
+function validateSecurityExceptionsWorkflow(document, problems) {
+  if (
+    !sameObject(document.on, {
+      schedule: [{ cron: '20 15 * * *' }],
+      workflow_dispatch: null,
+    })
+  ) {
+    problems.push(
+      'Security exception lifecycle must run daily and on manual dispatch'
+    );
+  }
+  if (!sameObject(Object.keys(document.jobs ?? {}), ['verify'])) {
+    problems.push(
+      'Security exception lifecycle must contain only the verifier job'
+    );
+    return;
+  }
+  const job = document.jobs.verify;
+  if (
+    job?.name !== 'Verify dismissed alert exceptions' ||
+    job?.['runs-on'] !== 'ubuntu-latest' ||
+    job?.if !== undefined ||
+    job?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      'Security exception verifier must be an exact fail-closed job'
+    );
+  }
+  const steps = job?.steps ?? [];
+  const checkout = steps.filter((step) => step?.uses === CHECKOUT);
+  const setup = steps.filter((step) => step?.uses === SETUP_NODE);
+  const verify = steps.filter(
+    (step) => stepRun(step) === 'node scripts/security-exception.mjs'
+  );
+  if (
+    checkout.length !== 1 ||
+    checkout[0]?.if !== undefined ||
+    setup.length !== 1 ||
+    setup[0]?.if !== undefined ||
+    setup[0]?.with?.['node-version-file'] !== '.nvmrc' ||
+    verify.length !== 1 ||
+    verify[0]?.if !== undefined ||
+    !sameObject(verify[0]?.env, { GITHUB_TOKEN: '${{ github.token }}' }) ||
+    verify[0]?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      'Security exception verifier must use the trusted lockfile, Node contract, and read-only token'
+    );
+  }
+}
+
+function validateActionlintConfig(document, problems) {
+  const expected = {
+    paths: {
+      '.github/workflows/security-exceptions.yml': {
+        ignore: ['^unknown permission scope "vulnerability-alerts"'],
+      },
+    },
+  };
+  if (!sameObject(document, expected)) {
+    problems.push(
+      'actionlint may ignore only its exact vulnerability-alerts compatibility false positive'
+    );
+  }
+}
+
 function validateTrustedBoundaries(workflows, sources, problems) {
   const release = workflows.get('release-please.yml');
   if (!release?.on?.push || !sameObject(release.on.push.branches, ['main'])) {
@@ -1301,6 +1397,7 @@ function validateRenovate(document, problems) {
     'Exact automation contracts require exception handling',
     'Pre-1.0 minor updates require exception handling',
     'All major updates require exception handling',
+    'Pin, digest, and lockfile updates require exception handling',
   ];
   if (
     rules.length !== expectedDescriptions.length ||
@@ -1322,8 +1419,8 @@ function validateRenovate(document, problems) {
       matchManagers: ['npm'],
       matchFileNames: ['package.json'],
       matchDepTypes: ['dependencies', 'optionalDependencies'],
-      matchCurrentVersion: '!/^0\\./',
-      matchUpdateTypes: ['patch', 'digest', 'pin', 'pinDigest'],
+      matchCurrentVersion: STABLE_SEMVER_CURRENT_VERSION,
+      matchUpdateTypes: ['patch'],
       minimumReleaseAge: '14 days',
       dependencyDashboardApproval: false,
       automerge: true,
@@ -1333,8 +1430,8 @@ function validateRenovate(document, problems) {
       matchManagers: ['npm'],
       matchFileNames: ['mcp-server/package.json'],
       matchDepTypes: ['dependencies', 'optionalDependencies'],
-      matchCurrentVersion: '!/^0\\./',
-      matchUpdateTypes: ['patch', 'digest', 'pin', 'pinDigest'],
+      matchCurrentVersion: STABLE_SEMVER_CURRENT_VERSION,
+      matchUpdateTypes: ['patch'],
       minimumReleaseAge: '14 days',
       dependencyDashboardApproval: false,
       automerge: true,
@@ -1344,8 +1441,8 @@ function validateRenovate(document, problems) {
       matchManagers: ['npm'],
       matchFileNames: ['package.json', 'mcp-server/package.json'],
       matchDepTypes: ['devDependencies'],
-      matchCurrentVersion: '!/^0\\./',
-      matchUpdateTypes: ['patch', 'minor', 'digest', 'pin', 'pinDigest'],
+      matchCurrentVersion: STABLE_SEMVER_CURRENT_VERSION,
+      matchUpdateTypes: ['patch', 'minor'],
       minimumReleaseAge: '14 days',
       dependencyDashboardApproval: false,
       automerge: true,
@@ -1355,8 +1452,8 @@ function validateRenovate(document, problems) {
       matchManagers: ['npm'],
       matchFileNames: ['package.json'],
       matchDepTypes: ['overrides'],
-      matchCurrentVersion: '!/^0\\./',
-      matchUpdateTypes: ['patch', 'digest', 'pin', 'pinDigest'],
+      matchCurrentVersion: STABLE_SEMVER_CURRENT_VERSION,
+      matchUpdateTypes: ['patch'],
       minimumReleaseAge: '14 days',
       dependencyDashboardApproval: false,
       automerge: true,
@@ -1382,6 +1479,13 @@ function validateRenovate(document, problems) {
       dependencyDashboardApproval: true,
       automerge: false,
     },
+    {
+      description:
+        'Pin, digest, and lockfile updates require exception handling',
+      matchUpdateTypes: ['digest', 'pin', 'pinDigest', 'lockFileMaintenance'],
+      dependencyDashboardApproval: true,
+      automerge: false,
+    },
   ];
   if (!sameObject(rules, expectedRules)) {
     problems.push('Renovate package-rule definitions must remain exact');
@@ -1396,7 +1500,7 @@ function validateRenovate(document, problems) {
     problems.push('Renovate must default every surface to manual approval');
   }
 
-  const stableRuntimeTypes = ['patch', 'digest', 'pin', 'pinDigest'];
+  const stableRuntimeTypes = ['patch'];
   for (const [description, file] of [
     ['Root stable runtime patches', 'package.json'],
     ['MCP stable runtime patches', 'mcp-server/package.json'],
@@ -1409,7 +1513,7 @@ function validateRenovate(document, problems) {
         'dependencies',
         'optionalDependencies',
       ]) ||
-      rule?.matchCurrentVersion !== '!/^0\\./' ||
+      rule?.matchCurrentVersion !== STABLE_SEMVER_CURRENT_VERSION ||
       !sameObject(rule?.matchUpdateTypes, stableRuntimeTypes) ||
       rule?.minimumReleaseAge !== '14 days' ||
       rule?.dependencyDashboardApproval !== false ||
@@ -1429,14 +1533,8 @@ function validateRenovate(document, problems) {
       'mcp-server/package.json',
     ]) ||
     !sameObject(development?.matchDepTypes, ['devDependencies']) ||
-    development?.matchCurrentVersion !== '!/^0\\./' ||
-    !sameObject(development?.matchUpdateTypes, [
-      'patch',
-      'minor',
-      'digest',
-      'pin',
-      'pinDigest',
-    ]) ||
+    development?.matchCurrentVersion !== STABLE_SEMVER_CURRENT_VERSION ||
+    !sameObject(development?.matchUpdateTypes, ['patch', 'minor']) ||
     development?.minimumReleaseAge !== '14 days' ||
     development?.dependencyDashboardApproval !== false ||
     development?.automerge !== true
@@ -1449,7 +1547,7 @@ function validateRenovate(document, problems) {
     !sameObject(overrides?.matchManagers, ['npm']) ||
     !sameObject(overrides?.matchFileNames, ['package.json']) ||
     !sameObject(overrides?.matchDepTypes, ['overrides']) ||
-    overrides?.matchCurrentVersion !== '!/^0\\./' ||
+    overrides?.matchCurrentVersion !== STABLE_SEMVER_CURRENT_VERSION ||
     !sameObject(overrides?.matchUpdateTypes, stableRuntimeTypes) ||
     overrides?.minimumReleaseAge !== '14 days' ||
     overrides?.dependencyDashboardApproval !== false ||
@@ -1497,6 +1595,43 @@ function validateRenovate(document, problems) {
   ) {
     problems.push('all major updates must require exception handling');
   }
+
+  const unsafeTypes = ['digest', 'pin', 'pinDigest', 'lockFileMaintenance'];
+  const unsafeGate = byDescription.get(
+    'Pin, digest, and lockfile updates require exception handling'
+  );
+  if (
+    unsafeGate !== rules.at(-1) ||
+    !sameObject(Object.keys(unsafeGate ?? {}).sort(), [
+      'automerge',
+      'dependencyDashboardApproval',
+      'description',
+      'matchUpdateTypes',
+    ]) ||
+    !sameObject(unsafeGate?.matchUpdateTypes, unsafeTypes) ||
+    unsafeGate?.dependencyDashboardApproval !== true ||
+    unsafeGate?.automerge !== false
+  ) {
+    problems.push(
+      'pin, digest, and lockfile updates must end in an unconstrained manual gate'
+    );
+  }
+  for (const rule of rules.filter(
+    (candidate) => candidate?.automerge === true
+  )) {
+    const updateTypes = rule.matchUpdateTypes ?? [];
+    if (
+      updateTypes.length === 0 ||
+      updateTypes.some(
+        (updateType) => !['patch', 'minor'].includes(updateType)
+      ) ||
+      rule.minimumReleaseAge !== '14 days'
+    ) {
+      problems.push(
+        'Renovate automerge must remain patch/minor-only with a 14-day age'
+      );
+    }
+  }
 }
 
 function validateSchedule(entry, time, limit, label, problems) {
@@ -1524,6 +1659,7 @@ function validateRepository(root) {
     'mcp-server.yml',
     'pr-lint.yml',
     'release-please.yml',
+    'security-exceptions.yml',
   ];
   if (!sameObject(names, expectedNames)) {
     problems.push(`workflow set must be exactly ${expectedNames.join(', ')}`);
@@ -1546,6 +1682,17 @@ function validateRepository(root) {
   validateCi(workflows.get('ci.yml') ?? {}, problems);
   validateDeploy(workflows.get('deploy.yml') ?? {}, problems);
   validateMcpDeploy(workflows.get('mcp-server.yml') ?? {}, problems);
+  validateSecurityExceptionsWorkflow(
+    workflows.get('security-exceptions.yml') ?? {},
+    problems
+  );
+  validateActionlintConfig(
+    parseYaml(
+      readFileSync(join(root, '.github', 'actionlint.yaml'), 'utf8'),
+      'actionlint.yaml'
+    ),
+    problems
+  );
   validateTrustedBoundaries(workflows, sources, problems);
   validatePackages(
     JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')),
@@ -1572,6 +1719,408 @@ function validateRepository(root) {
 
 test('repository automation satisfies the fail-closed contract', () => {
   assert.deepEqual(validateRepository(ROOT), []);
+});
+
+function securityExceptionFixture() {
+  return {
+    registry: JSON.parse(
+      readFileSync(join(ROOT, '.github', 'security-exceptions.json'), 'utf8')
+    ),
+    lockfile: JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8')),
+  };
+}
+
+function validReviewNow(fixture) {
+  const exception = fixture.registry.exceptions[0];
+  return new Date(
+    Math.min(
+      Date.parse(exception.reviewedAt) + 60 * 60 * 1000,
+      Date.parse(exception.expiresAt) - 1
+    )
+  );
+}
+
+function liveExceptionFetch({
+  patched = false,
+  newer = false,
+  newerWithBuild = false,
+  wrongIdentity = false,
+  unregistered = false,
+  reopened = false,
+  metadataDrift = false,
+  malformedRegistry = false,
+  paginated = false,
+  hostilePagination = false,
+} = {}) {
+  const exception = securityExceptionFixture().registry.exceptions[0];
+  return async (url) => {
+    if (url.includes('/dependabot/alerts?')) {
+      const nextPage = url.includes('after=');
+      const alert = {
+        number: exception.alertNumber,
+        state: 'dismissed',
+        dependency: {
+          package: exception.package,
+          manifest_path: exception.manifestPath,
+          scope: metadataDrift ? 'runtime' : exception.scope,
+          relationship: exception.relationship,
+        },
+        security_advisory: {
+          ghsa_id: exception.advisory.ghsa,
+          cve_id: exception.advisory.cve,
+        },
+        security_vulnerability: {
+          package: exception.package,
+          vulnerable_version_range: exception.advisory.vulnerableVersionRange,
+          first_patched_version: null,
+        },
+        dismissed_at: exception.dismissedAt,
+        dismissed_by: { login: exception.owner },
+        dismissed_reason: exception.dismissalReason,
+        dismissed_comment: exception.reason,
+        fixed_at: null,
+        auto_dismissed_at: null,
+      };
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(
+          paginated && !nextPage
+            ? {
+                link: `<https://api.github.com/${
+                  hostilePagination
+                    ? 'repos/example/other'
+                    : 'repositories/1178236034'
+                }/dependabot/alerts?state=dismissed&per_page=100&after=cursor>; rel="next"`,
+              }
+            : {}
+        ),
+        async json() {
+          return [
+            ...(nextPage || reopened ? [] : [alert]),
+            ...(nextPage || !unregistered ? [] : [{ ...alert, number: 999 }]),
+          ];
+        },
+      };
+    }
+    if (url.includes('api.github.com/advisories/')) {
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            ghsa_id: 'GHSA-jmr9-qjv8-65gv',
+            cve_id: wrongIdentity ? 'CVE-2026-00000' : 'CVE-2026-56876',
+            withdrawn_at: null,
+            vulnerabilities: [
+              {
+                package: { ecosystem: 'npm', name: 'extract-zip' },
+                vulnerable_version_range: '<= 2.0.1',
+                first_patched_version: patched ? { identifier: '2.0.2' } : null,
+              },
+            ],
+          };
+        },
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ...(malformedRegistry
+            ? {}
+            : {
+                versions: newer
+                  ? { '2.0.1': {}, '2.0.2': {} }
+                  : newerWithBuild
+                    ? { '2.0.1': {}, '2.0.2+patched': {} }
+                    : { '2.0.1': {} },
+              }),
+        };
+      },
+    };
+  };
+}
+
+test('registered security exception is exact, current, and development-only', () => {
+  const fixture = securityExceptionFixture();
+  assert.deepEqual(
+    fixture.registry.exceptions.map((exception) => exception.alertNumber),
+    [210]
+  );
+  assert.deepEqual(
+    {
+      owner: fixture.registry.exceptions[0].owner,
+      dismissalReason: fixture.registry.exceptions[0].dismissalReason,
+      ghsa: fixture.registry.exceptions[0].advisory.ghsa,
+      cve: fixture.registry.exceptions[0].advisory.cve,
+      scope: fixture.registry.exceptions[0].scope,
+      relationship: fixture.registry.exceptions[0].relationship,
+    },
+    {
+      owner: 'pdugan20',
+      dismissalReason: 'tolerable_risk',
+      ghsa: 'GHSA-jmr9-qjv8-65gv',
+      cve: 'CVE-2026-56876',
+      scope: 'development',
+      relationship: 'transitive',
+    }
+  );
+  assert.deepEqual(
+    validateSecurityExceptionRegistry({
+      ...fixture,
+      now: validReviewNow(fixture),
+    }),
+    []
+  );
+});
+
+test('security exception lifecycle reconciles the exact dismissed alert inventory', async () => {
+  const fixture = securityExceptionFixture();
+  assert.deepEqual(
+    await verifySecurityExceptionLifecycle({
+      ...fixture,
+      now: validReviewNow(fixture),
+      fetchImpl: liveExceptionFetch(),
+      token: undefined,
+    }),
+    []
+  );
+  assert.deepEqual(
+    await verifySecurityExceptionLifecycle({
+      ...fixture,
+      now: validReviewNow(fixture),
+      fetchImpl: liveExceptionFetch({ paginated: true }),
+      token: undefined,
+    }),
+    []
+  );
+
+  for (const fetchImpl of [
+    liveExceptionFetch({ unregistered: true }),
+    liveExceptionFetch({ reopened: true }),
+    liveExceptionFetch({ metadataDrift: true }),
+  ]) {
+    const problems = await verifySecurityExceptionLifecycle({
+      ...fixture,
+      now: validReviewNow(fixture),
+      fetchImpl,
+      token: undefined,
+    });
+    assert.ok(
+      problems.some(
+        (problem) =>
+          problem.includes('inventory must exactly match') ||
+          problem.includes('dismissal metadata changed')
+      )
+    );
+  }
+
+  const hostilePaginationProblems = await verifySecurityExceptionLifecycle({
+    ...fixture,
+    now: validReviewNow(fixture),
+    fetchImpl: liveExceptionFetch({
+      paginated: true,
+      hostilePagination: true,
+    }),
+    token: undefined,
+  });
+  assert.ok(
+    hostilePaginationProblems.some((problem) =>
+      problem.includes('next link left the exact inventory')
+    )
+  );
+});
+
+test('security exception registry has a clean remediated terminal state', async () => {
+  const remediated = { schemaVersion: 1, exceptions: [] };
+  assert.deepEqual(
+    validateSecurityExceptionRegistry({
+      registry: remediated,
+      lockfile: null,
+      now: new Date(),
+    }),
+    []
+  );
+  assert.deepEqual(
+    await verifySecurityExceptionLifecycle({
+      registry: remediated,
+      lockfile: null,
+      now: new Date(),
+      fetchImpl: async (url) => {
+        assert.match(url, /\/dependabot\/alerts\?/);
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return [];
+          },
+        };
+      },
+      token: undefined,
+    }),
+    []
+  );
+});
+
+test('security exception registry permits a bounded future review renewal', () => {
+  const renewed = securityExceptionFixture();
+  const priorExpiry = Date.parse(renewed.registry.exceptions[0].expiresAt);
+  renewed.registry.exceptions[0].reviewedAt = new Date(
+    priorExpiry - 60 * 60 * 1000
+  ).toISOString();
+  renewed.registry.exceptions[0].expiresAt = new Date(
+    priorExpiry + 31 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  assert.deepEqual(
+    validateSecurityExceptionRegistry({
+      ...renewed,
+      now: validReviewNow(renewed),
+    }),
+    []
+  );
+});
+
+test('security exception checks cannot be conditionally skipped', () => {
+  const workflow = parseYaml(
+    readFileSync(
+      join(ROOT, '.github', 'workflows', 'security-exceptions.yml'),
+      'utf8'
+    ),
+    'security-exceptions.yml'
+  );
+  workflow.jobs.verify.if = 'false';
+  const workflowProblems = [];
+  validateSecurityExceptionsWorkflow(workflow, workflowProblems);
+  assert.ok(
+    workflowProblems.some((problem) => problem.includes('fail-closed'))
+  );
+
+  const ci = parseYaml(
+    readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8'),
+    'ci.yml'
+  );
+  const exceptionStep = ci.jobs.security.steps.find(
+    (step) => stepRun(step) === 'node scripts/security-exception.mjs --offline'
+  );
+  exceptionStep.if = 'false';
+  const ciProblems = [];
+  validateCi(ci, ciProblems);
+  assert.ok(ciProblems.some((problem) => problem.includes('fail closed')));
+});
+
+test('actionlint compatibility ignore cannot broaden', () => {
+  const config = parseYaml(
+    readFileSync(join(ROOT, '.github', 'actionlint.yaml'), 'utf8'),
+    'actionlint.yaml'
+  );
+  config.paths['.github/workflows/security-exceptions.yml'].ignore.push('.*');
+  const problems = [];
+  validateActionlintConfig(config, problems);
+  assert.ok(
+    problems.some((problem) => problem.includes('compatibility false positive'))
+  );
+});
+
+test('security exception lifecycle fails on expiry or dependency-scope drift', () => {
+  const expired = securityExceptionFixture();
+  assert.ok(
+    validateSecurityExceptionRegistry({
+      ...expired,
+      now: new Date(expired.registry.exceptions[0].expiresAt),
+    }).some((problem) => problem.includes('expired'))
+  );
+
+  const overlong = securityExceptionFixture();
+  overlong.registry.exceptions[0].expiresAt = new Date(
+    Date.parse(overlong.registry.exceptions[0].reviewedAt) +
+      33 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  assert.ok(
+    validateSecurityExceptionRegistry({
+      ...overlong,
+      now: validReviewNow(overlong),
+    }).some((problem) => problem.includes('within 32 days'))
+  );
+
+  const runtime = securityExceptionFixture();
+  runtime.lockfile.packages['node_modules/extract-zip'].dev = false;
+  assert.ok(
+    validateSecurityExceptionRegistry({
+      ...runtime,
+      now: validReviewNow(runtime),
+    }).some((problem) => problem.includes('development'))
+  );
+
+  const moved = securityExceptionFixture();
+  delete moved.lockfile.packages['node_modules/@mintlify/link-rot']
+    .dependencies['@mintlify/scraping'];
+  assert.ok(
+    validateSecurityExceptionRegistry({
+      ...moved,
+      now: validReviewNow(moved),
+    }).some((problem) => problem.includes('edge'))
+  );
+});
+
+test('security exception lifecycle fails when a patch appears', async () => {
+  for (const fetchImpl of [
+    liveExceptionFetch({ patched: true }),
+    liveExceptionFetch({ newer: true }),
+    liveExceptionFetch({ newerWithBuild: true }),
+  ]) {
+    const problems = await verifySecurityExceptionLifecycle({
+      ...securityExceptionFixture(),
+      now: validReviewNow(securityExceptionFixture()),
+      fetchImpl,
+      token: undefined,
+    });
+    assert.ok(
+      problems.some(
+        (problem) =>
+          problem.includes('patched version') || problem.includes('newer')
+      )
+    );
+  }
+});
+
+test('security exception lifecycle fails when advisory identity changes', async () => {
+  const fixture = securityExceptionFixture();
+  const problems = await verifySecurityExceptionLifecycle({
+    ...fixture,
+    now: validReviewNow(fixture),
+    fetchImpl: liveExceptionFetch({ wrongIdentity: true }),
+    token: undefined,
+  });
+  assert.ok(problems.some((problem) => problem.includes('identity or status')));
+});
+
+test('security exception lifecycle fails closed on advisory lookup errors', async () => {
+  const fixture = securityExceptionFixture();
+  const problems = await verifySecurityExceptionLifecycle({
+    ...fixture,
+    now: validReviewNow(fixture),
+    fetchImpl: async () => {
+      throw new Error('offline');
+    },
+    token: undefined,
+  });
+  assert.ok(
+    problems.some((problem) => problem.includes('failed closed: offline'))
+  );
+
+  const malformedRegistryProblems = await verifySecurityExceptionLifecycle({
+    ...fixture,
+    now: validReviewNow(fixture),
+    fetchImpl: liveExceptionFetch({ malformedRegistry: true }),
+    token: undefined,
+  });
+  assert.ok(
+    malformedRegistryProblems.some((problem) =>
+      problem.includes('registry metadata no longer contains')
+    )
+  );
 });
 
 test('rejects malformed YAML', () => {
@@ -1785,12 +2334,57 @@ test('rejects Dependabot routine-version ownership drift', () => {
 
 test('rejects unsafe Renovate routine-merge expansion', () => {
   const fixture = JSON.parse(readFileSync(join(ROOT, 'renovate.json'), 'utf8'));
-  fixture.packageRules
-    .find((rule) => rule.description === 'Root stable runtime patches')
-    .matchUpdateTypes.push('minor');
+  for (const rule of fixture.packageRules.filter(
+    (candidate) => candidate.automerge === true
+  )) {
+    rule.matchUpdateTypes.push('digest');
+  }
   const problems = [];
   validateRenovate(fixture, problems);
-  assert.ok(problems.some((problem) => problem.includes('patch-only')));
+  assert.ok(
+    problems.some((problem) =>
+      problem.includes('automerge must remain patch/minor-only')
+    )
+  );
+});
+
+test('stable Renovate automerge lanes require exact release versions', () => {
+  const source = JSON.parse(readFileSync(join(ROOT, 'renovate.json'), 'utf8'));
+  const automaticRules = source.packageRules.filter(
+    (candidate) => candidate.automerge === true
+  );
+  assert.equal(automaticRules.length, 4);
+
+  for (const rule of automaticRules) {
+    assert.equal(rule.matchCurrentVersion, STABLE_SEMVER_CURRENT_VERSION);
+    for (const version of ['1.0.0', '1.2.3', '10.20.30']) {
+      assert.equal(
+        matchesRenovateRegex(rule.matchCurrentVersion, version),
+        true,
+        `${rule.description} must admit ${version}`
+      );
+    }
+    for (const version of [
+      '0.2.3',
+      '1.2.3-beta.1',
+      '1.2.3-rc.1+build.5',
+      '1.2',
+      '1',
+      'v1.2.3',
+      '1.2.3.4',
+      '01.2.3',
+      '1.02.3',
+      '1.2.03',
+      '1.2.x',
+      'latest',
+    ]) {
+      assert.equal(
+        matchesRenovateRegex(rule.matchCurrentVersion, version),
+        false,
+        `${rule.description} must reject ${version}`
+      );
+    }
+  }
 });
 
 test('rejects Renovate matcher drift that narrows the manual default', () => {
@@ -1805,6 +2399,61 @@ test('rejects Renovate matcher drift that narrows the manual default', () => {
   assert.ok(
     problems.some((problem) =>
       problem.includes('package-rule definitions must remain exact')
+    )
+  );
+});
+
+test('rejects narrowed or overridden unsafe Renovate gates', () => {
+  const source = JSON.parse(readFileSync(join(ROOT, 'renovate.json'), 'utf8'));
+  const narrowed = structuredClone(source);
+  narrowed.packageRules.at(-1).matchManagers = ['npm'];
+  const narrowedProblems = [];
+  validateRenovate(narrowed, narrowedProblems);
+  assert.ok(
+    narrowedProblems.some((problem) =>
+      problem.includes('unconstrained manual gate')
+    )
+  );
+
+  const overridden = structuredClone(source);
+  overridden.packageRules.push({
+    matchManagers: ['github-actions'],
+    dependencyDashboardApproval: false,
+  });
+  const overriddenProblems = [];
+  validateRenovate(overridden, overriddenProblems);
+  assert.ok(
+    overriddenProblems.some((problem) =>
+      problem.includes('package-rule set must remain exact')
+    )
+  );
+});
+
+test('rejects shortened or later Renovate release-age overrides', () => {
+  const source = JSON.parse(readFileSync(join(ROOT, 'renovate.json'), 'utf8'));
+  const shortened = structuredClone(source);
+  shortened.packageRules.find(
+    (rule) => rule.description === 'Root stable runtime patches'
+  ).minimumReleaseAge = '1 day';
+  const shortenedProblems = [];
+  validateRenovate(shortened, shortenedProblems);
+  assert.ok(
+    shortenedProblems.some((problem) =>
+      problem.includes('package-rule definitions must remain exact')
+    )
+  );
+
+  const overridden = structuredClone(source);
+  overridden.packageRules.push({
+    matchManagers: ['npm'],
+    matchUpdateTypes: ['patch'],
+    minimumReleaseAge: '1 day',
+  });
+  const overriddenProblems = [];
+  validateRenovate(overridden, overriddenProblems);
+  assert.ok(
+    overriddenProblems.some((problem) =>
+      problem.includes('package-rule set must remain exact')
     )
   );
 });
