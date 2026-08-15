@@ -88,7 +88,7 @@ For real missed events: `POST /v1/admin/attending/sources/:id/promote` with opti
 ## Things on you in other repos
 
 - **Portfolio site Mariners 2024 page** — the original motivation. Use `GET /v1/attending/seasons/mlb/2024` to drive a season-grid view; the API responds with attended games + W/L + per-game player photos. Lives in `pat-portfolio` (separate repo).
-- **Rotate the leaked admin key** — `rw_admin_4a70c8d41d5f0688e1a26d07b8425bbf` is committed in 6 pre-existing main commits (`318df90`, `7e7b8e3`, `11e8929`, `4ee9b89`, `9f9e2bb`, `1d97102`). Worth rotating; details in repo issues.
+- **Rotate the leaked admin key** — `<redacted-rotated-admin-key>` is committed in 6 pre-existing main commits (`318df90`, `7e7b8e3`, `11e8929`, `4ee9b89`, `9f9e2bb`, `1d97102`). Worth rotating; details in repo issues.
 
 ## Things that wait (follow-up projects, see open GitHub issues)
 

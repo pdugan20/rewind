@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-API_KEY="rw_admin_4a70c8d41d5f0688e1a26d07b8425bbf"
+API_KEY="${REWIND_ADMIN_KEY:?Set REWIND_ADMIN_KEY in the environment}"
 API_BASE="https://api.rewind.rest"
 
 BATCH=0

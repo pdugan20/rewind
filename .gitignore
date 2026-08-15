@@ -12,6 +12,7 @@ coverage/
 .claude/settings.local.json
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+.codex/
 scripts/**/.*.json
 scripts/**/.tmp-sql.sql
 scripts/**/*.csv

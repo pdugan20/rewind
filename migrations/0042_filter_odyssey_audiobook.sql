@@ -5,32 +5,43 @@ INSERT INTO lastfm_filters (filter_type, pattern, scope, reason, user_id, create
 VALUES ('audiobook', 'homer, robert fagles', 'artist', 'Author and translator - The Odyssey audiobook', 1, datetime('now'));
 
 UPDATE lastfm_artists SET is_filtered = 1
-WHERE LOWER(name) = 'homer, robert fagles';
+WHERE user_id = 1
+  AND LOWER(name) = 'homer, robert fagles';
 
 UPDATE lastfm_albums SET is_filtered = 1
-WHERE artist_id IN (
-  SELECT id FROM lastfm_artists WHERE LOWER(name) = 'homer, robert fagles'
-);
+WHERE user_id = 1
+  AND artist_id IN (
+    SELECT id FROM lastfm_artists
+    WHERE user_id = 1
+      AND LOWER(name) = 'homer, robert fagles'
+  );
 
 UPDATE lastfm_tracks SET is_filtered = 1
-WHERE artist_id IN (
-  SELECT id FROM lastfm_artists WHERE LOWER(name) = 'homer, robert fagles'
-);
+WHERE user_id = 1
+  AND artist_id IN (
+    SELECT id FROM lastfm_artists
+    WHERE user_id = 1
+      AND LOWER(name) = 'homer, robert fagles'
+  );
 
 -- Remove side effects emitted before the artist was recognized as filtered.
 DELETE FROM activity_feed
 WHERE domain = 'listening'
+  AND user_id = 1
   AND (
     source_id IN (
       SELECT 'artist:' || id FROM lastfm_artists
-      WHERE LOWER(name) = 'homer, robert fagles'
+      WHERE user_id = 1
+        AND LOWER(name) = 'homer, robert fagles'
     )
     OR source_id IN (
       SELECT 'album:' || id FROM lastfm_albums
-      WHERE artist_id IN (
-        SELECT id FROM lastfm_artists
-        WHERE LOWER(name) = 'homer, robert fagles'
-      )
+      WHERE user_id = 1
+        AND artist_id IN (
+          SELECT id FROM lastfm_artists
+          WHERE user_id = 1
+            AND LOWER(name) = 'homer, robert fagles'
+        )
     )
   );
 
@@ -39,13 +50,16 @@ WHERE domain = 'listening'
   AND (
     (entity_type = 'artist' AND entity_id IN (
       SELECT CAST(id AS TEXT) FROM lastfm_artists
-      WHERE LOWER(name) = 'homer, robert fagles'
+      WHERE user_id = 1
+        AND LOWER(name) = 'homer, robert fagles'
     ))
     OR (entity_type = 'album' AND entity_id IN (
       SELECT CAST(id AS TEXT) FROM lastfm_albums
-      WHERE artist_id IN (
-        SELECT id FROM lastfm_artists
-        WHERE LOWER(name) = 'homer, robert fagles'
-      )
+      WHERE user_id = 1
+        AND artist_id IN (
+          SELECT id FROM lastfm_artists
+          WHERE user_id = 1
+            AND LOWER(name) = 'homer, robert fagles'
+        )
     ))
   );

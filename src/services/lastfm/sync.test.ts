@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { env } from 'cloudflare:test';
 import { createDb, type Database } from '../../db/client.js';
 import {
@@ -97,6 +97,142 @@ describe('syncRecentScrobbles audiobook filtering', () => {
     expect(first.newAlbums.size).toBe(0);
     expect(second.count).toBe(0);
     expect(requestedFrom).toEqual([undefined, 1786225451]);
+  });
+
+  it('purges every Unicode-casing candidate when a later track classifies the artist', async () => {
+    const [prefilteredArtist] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'Prefiltered Narrator', isFiltered: 1 })
+      .returning();
+    const [historicalArtist] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'ÉMILE ZOLA' })
+      .returning();
+    await db.insert(lastfmAlbums).values({
+      name: 'The Iliad',
+      artistId: historicalArtist.id,
+    });
+    await db.insert(lastfmTracks).values({
+      name: 'Historical chapter',
+      artistId: historicalArtist.id,
+    });
+    const [otherUserArtist] = await db
+      .insert(lastfmArtists)
+      .values({ userId: 2, name: 'émile zola', mbid: 'zola-mbid' })
+      .returning();
+    await db.insert(lastfmAlbums).values({
+      userId: 2,
+      name: 'The Iliad',
+      artistId: otherUserArtist.id,
+    });
+    await db.insert(lastfmTracks).values({
+      userId: 2,
+      name: 'Other user chapter',
+      artistId: otherUserArtist.id,
+    });
+
+    const client = {
+      getRecentTracks: async () => ({
+        recenttracks: {
+          track: [
+            {
+              artist: { mbid: '', '#text': prefilteredArtist.name },
+              name: '001 - Prefiltered Book',
+              mbid: '',
+              album: { mbid: '', '#text': 'Prefiltered Book' },
+              url: 'https://last.fm/test/prefiltered-book',
+              date: { uts: '1785298517', '#text': '29 Jul 2026' },
+              image: [],
+            },
+            {
+              artist: { mbid: 'zola-mbid', '#text': 'Émile Zola' },
+              name: 'Invocation',
+              mbid: '',
+              album: { mbid: '', '#text': 'The Iliad' },
+              url: 'https://last.fm/test/iliad-invocation',
+              date: { uts: '1785298518', '#text': '29 Jul 2026' },
+              image: [],
+            },
+            {
+              artist: { mbid: '', '#text': 'émile zola' },
+              name: '001 - The Iliad (Wilson translation)',
+              mbid: '',
+              album: { mbid: '', '#text': 'The Iliad' },
+              url: 'https://last.fm/test/iliad-chapter',
+              date: { uts: '1785298519', '#text': '29 Jul 2026' },
+              image: [],
+            },
+            {
+              artist: { mbid: '', '#text': 'ÉMILE ZOLA' },
+              name: '002 - The Iliad (Wilson translation)',
+              mbid: '',
+              album: { mbid: '', '#text': 'The Iliad' },
+              url: 'https://last.fm/test/iliad-chapter-2',
+              date: { uts: '1785298520', '#text': '29 Jul 2026' },
+              image: [],
+            },
+          ],
+          '@attr': { totalPages: '1' },
+        },
+      }),
+      getArtistTopTags: async () => {
+        throw new Error('Artist not found');
+      },
+    } as unknown as LastfmClient;
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const updateSpy = vi.spyOn(db, 'update');
+
+    try {
+      const result = await syncRecentScrobbles(db, client);
+      const artists = await db.select().from(lastfmArtists);
+      const albums = await db.select().from(lastfmAlbums);
+      const tracks = await db.select().from(lastfmTracks);
+      const scrobbles = await db.select().from(lastfmScrobbles);
+
+      const userOneZolaArtists = artists.filter(
+        (artist) =>
+          artist.userId === 1 &&
+          artist.name.normalize('NFKC').toLowerCase() === 'émile zola'
+      );
+      expect(userOneZolaArtists).toHaveLength(2);
+      expect(
+        userOneZolaArtists.every((artist) => artist.isFiltered === 1)
+      ).toBe(true);
+      expect(
+        albums.filter((album) => album.userId === 1 && album.isFiltered === 1)
+      ).toHaveLength(2);
+      expect(
+        tracks.filter((track) => track.userId === 1 && track.isFiltered === 1)
+      ).toHaveLength(2);
+      expect(
+        artists.find((artist) => artist.id === otherUserArtist.id)?.isFiltered
+      ).toBe(0);
+      expect(albums.find((album) => album.userId === 2)?.isFiltered).toBe(0);
+      expect(tracks.find((track) => track.userId === 2)?.isFiltered).toBe(0);
+      expect(scrobbles).toHaveLength(1);
+      expect(result.count).toBe(1);
+      expect(result.newArtists.size).toBe(0);
+      expect(result.newAlbums.size).toBe(0);
+      const listeningCascadeUpdates = updateSpy.mock.calls.filter(
+        ([table]) =>
+          table === lastfmArtists ||
+          table === lastfmAlbums ||
+          table === lastfmTracks
+      );
+      expect(listeningCascadeUpdates).toHaveLength(9);
+      expect(logSpy).toHaveBeenCalledWith(
+        '[SYNC] Auto-filtered 1 audiobook artist'
+      );
+      const loggedText = logSpy.mock.calls.flat().join(' ');
+      expect(loggedText.toLocaleLowerCase()).not.toContain('émile zola');
+      expect(loggedText).not.toContain('The Iliad');
+      expect(loggedText).not.toContain('Invocation');
+      expect(loggedText).not.toContain('001 - The Iliad (Wilson translation)');
+      expect(loggedText).not.toContain('002 - The Iliad (Wilson translation)');
+    } finally {
+      updateSpy.mockRestore();
+      logSpy.mockRestore();
+    }
   });
 
   it('keeps tag-detected audiobooks out of history', async () => {
