@@ -34,7 +34,7 @@ const DEPLOY_BOOTSTRAP = '63e89155d5e01821d908ff1cada2b62334245d19';
 const ACTION_PINS = new Map([
   ['actions/checkout', `${CHECKOUT} # v7`],
   ['actions/setup-node', `${SETUP_NODE} # v7`],
-  ['actions/dependency-review-action', `${DEPENDENCY_REVIEW} # v5`],
+  ['actions/dependency-review-action', `${DEPENDENCY_REVIEW} # v5.0.0`],
   ['amannn/action-semantic-pull-request', `${PR_TITLE} # v6`],
   ['googleapis/release-please-action', `${RELEASE_PLEASE} # v5`],
   ['actions/upload-artifact', `${UPLOAD_ARTIFACT} # v7`],
@@ -1158,8 +1158,20 @@ function validatePackages(rootPackage, mcpPackage, problems) {
     problems.push('yaml must be exact 2.9.0');
   if (rootPackage.devDependencies?.mint !== '4.2.802')
     problems.push('mint must be exact 4.2.802');
-  if (rootPackage.devDependencies?.tsx !== '4.21.0')
-    problems.push('tsx must be direct and exact 4.21.0');
+  if (rootPackage.devDependencies?.tsx !== '4.23.1')
+    problems.push('tsx must be direct and exact 4.23.1');
+  if (
+    !sameObject(rootPackage.overrides, {
+      '@esbuild-kit/core-utils': { esbuild: '0.25.12' },
+      '@mintlify/prebuild': { sharp: '0.35.3' },
+      favicons: { sharp: '0.35.3' },
+      qs: '6.15.3',
+      undici: '7.29.0',
+      ws: '8.21.0',
+    })
+  ) {
+    problems.push('root security overrides must stay exact and complete');
+  }
   if (rootPackage.scripts?.['lint:claude'] !== 'claudelint') {
     problems.push('lint:claude must invoke the local binary');
   }
@@ -1621,6 +1633,21 @@ test('rejects wrong toolchain setup or ordering', () => {
     problems
   );
   assert.ok(problems.length > 0);
+});
+
+test('rejects dependency security override drift', () => {
+  const rootPackage = JSON.parse(
+    readFileSync(join(ROOT, 'package.json'), 'utf8')
+  );
+  const mcpPackage = JSON.parse(
+    readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')
+  );
+  rootPackage.overrides['@mintlify/prebuild'].sharp = '0.33.5';
+  const problems = [];
+  validatePackages(rootPackage, mcpPackage, problems);
+  assert.ok(
+    problems.includes('root security overrides must stay exact and complete')
+  );
 });
 
 test('rejects unsafe credential placement', () => {
