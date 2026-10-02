@@ -16,6 +16,7 @@ export const SIZE_PRESETS: Record<string, SizePreset> = {
   'poster-sm': { width: 240, height: 360, fit: 'cover' },
   large: { width: 600, height: 600, fit: 'cover' },
   poster: { width: 342, height: 513, fit: 'cover' },
+  'poster-small': { width: 150, height: 225, fit: 'cover' },
   'poster-lg': { width: 500, height: 750, fit: 'cover' },
   backdrop: { width: 780, height: 439, fit: 'cover' },
   original: { width: null, height: null, fit: 'scale-down' },

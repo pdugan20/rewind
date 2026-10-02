@@ -5,12 +5,19 @@ import { apiKeys } from '../db/schema/system.js';
 import type { Env } from '../types/env.js';
 import { checkRateLimit, setRateLimitHeaders } from './rate-limit.js';
 
+declare module 'hono' {
+  interface ContextVariableMap {
+    userId: number;
+  }
+}
+
 /**
  * In-memory auth cache. Caches keyHash -> key record for 60s.
  * Resets when the isolate is recycled (standard Workers behavior).
  */
 interface CachedKey {
   id: number;
+  userId: number;
   scope: string;
   rateLimitRpm: number;
   requestCount: number;
@@ -86,6 +93,7 @@ export const requireAuth = (requiredScope: 'read' | 'admin' = 'read') =>
 
       keyData = {
         id: key.id,
+        userId: key.userId,
         scope: key.scope,
         rateLimitRpm: key.rateLimitRpm,
         requestCount: key.requestCount,
@@ -130,5 +138,6 @@ export const requireAuth = (requiredScope: 'read' | 'admin' = 'read') =>
         .where(eq(apiKeys.id, keyData.id))
     );
 
+    c.set('userId', keyData.userId);
     await next();
   });

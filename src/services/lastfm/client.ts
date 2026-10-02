@@ -72,10 +72,12 @@ export class LastfmClient {
   private apiKey: string;
   private username: string;
   private lastRequestTime = 0;
+  private signal?: AbortSignal;
 
-  constructor(apiKey: string, username: string) {
+  constructor(apiKey: string, username: string, signal?: AbortSignal) {
     this.apiKey = apiKey;
     this.username = username;
+    this.signal = signal;
   }
 
   private async rateLimit(): Promise<void> {
@@ -100,7 +102,7 @@ export class LastfmClient {
       url.searchParams.set(key, value);
     }
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), { signal: this.signal });
     if (!response.ok) {
       throw new Error(
         `[ERROR] Last.fm API error: ${response.status} ${response.statusText}`

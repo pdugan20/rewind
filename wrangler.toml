@@ -41,6 +41,7 @@ preview_id = "b8773815b40f4bc5b739f5c3768457b1"
 # Cron Triggers
 [triggers]
 crons = [
+  "* * * * *",      # Every minute: prepared Lately pair (one Last.fm request)
   "*/15 * * * *",   # Every 15 min: Last.fm scrobble sync
   "0 3 * * *",      # Daily 3:00 AM: Last.fm top lists + stats
   "15 3 * * *",     # Daily 3:15 AM: Strava activities
@@ -56,5 +57,6 @@ crons = [
 binding = "IMAGE_TRANSFORMS"
 
 [vars]
+LATELY_EXCLUDED_MOVIE_IDS = "202"
 ALLOWED_ORIGINS = "patdugan.me,docs.rewind.rest,localhost:3000"
 PLEX_OWNER_ACCOUNT_TITLE = "patdugan"
