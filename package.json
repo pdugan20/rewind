@@ -97,7 +97,7 @@
     "jsdom": "^29.1.1",
     "knip": "^5.88.1",
     "lint-staged": "^16.3.3",
-    "mint": "4.2.802",
+    "mint": "4.2.976",
     "prettier": "^3.8.1",
     "tsx": "4.23.1",
     "typescript": "^6.0.3",
@@ -109,14 +109,13 @@
     "@esbuild-kit/core-utils": {
       "esbuild": "0.25.12"
     },
-    "@mintlify/prebuild": {
-      "sharp": "0.35.3"
-    },
-    "favicons": {
-      "sharp": "0.35.3"
-    },
-    "qs": "6.15.3",
-    "undici": "7.29.0",
-    "ws": "8.21.3"
+    "qs": "6.16.0",
+    "undici": "7.30.0",
+    "ws": "8.21.3",
+    "sharp": "0.35.5",
+    "adm-zip": "0.6.1",
+    "axios": "1.20.0",
+    "js-yaml@^4.0.0": "4.3.2",
+    "fflate": "0.8.3"
   }
 }

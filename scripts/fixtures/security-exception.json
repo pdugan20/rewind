@@ -1,0 +1,115 @@
+{
+  "registry": {
+    "schemaVersion": 1,
+    "exceptions": [
+      {
+        "alertNumber": 210,
+        "owner": "pdugan20",
+        "dismissalReason": "tolerable_risk",
+        "reason": "No patched release exists. Transitive dev-only Mintlify/Puppeteer browser-download path; production audit is zero and root/MCP production graphs are unchanged. Reopen if a fix appears or this enters runtime or processes untrusted archives.",
+        "dismissedAt": "2026-08-15T01:06:12Z",
+        "reviewedAt": "2026-10-02T21:56:25.441Z",
+        "expiresAt": "2026-10-17T00:00:00Z",
+        "package": {
+          "ecosystem": "npm",
+          "name": "extract-zip"
+        },
+        "manifestPath": "package-lock.json",
+        "lockedVersion": "2.0.1",
+        "scope": "development",
+        "relationship": "transitive",
+        "advisory": {
+          "ghsa": "GHSA-jmr9-qjv8-65gv",
+          "cve": "CVE-2026-56876",
+          "vulnerableVersionRange": "<= 2.0.1"
+        },
+        "dependencyPath": [
+          {
+            "name": "mint",
+            "version": "4.2.802"
+          },
+          {
+            "name": "@mintlify/cli",
+            "version": "4.0.1405"
+          },
+          {
+            "name": "@mintlify/link-rot",
+            "version": "3.0.1291"
+          },
+          {
+            "name": "@mintlify/scraping",
+            "version": "4.0.959"
+          },
+          {
+            "name": "puppeteer",
+            "version": "24.3.1"
+          },
+          {
+            "name": "@puppeteer/browsers",
+            "version": "2.7.1"
+          },
+          {
+            "name": "extract-zip",
+            "version": "2.0.1"
+          }
+        ]
+      }
+    ]
+  },
+  "lockfile": {
+    "lockfileVersion": 3,
+    "packages": {
+      "": {
+        "devDependencies": {
+          "mint": "4.2.802"
+        }
+      },
+      "node_modules/mint": {
+        "version": "4.2.802",
+        "dev": true,
+        "dependencies": {
+          "@mintlify/cli": "4.0.1405"
+        }
+      },
+      "node_modules/@mintlify/cli": {
+        "version": "4.0.1405",
+        "dev": true,
+        "dependencies": {
+          "@mintlify/link-rot": "3.0.1291"
+        }
+      },
+      "node_modules/@mintlify/link-rot": {
+        "version": "3.0.1291",
+        "dev": true,
+        "dependencies": {
+          "@mintlify/scraping": "4.0.959"
+        }
+      },
+      "node_modules/@mintlify/scraping": {
+        "version": "4.0.959",
+        "dev": true,
+        "dependencies": {
+          "puppeteer": "24.3.1"
+        }
+      },
+      "node_modules/puppeteer": {
+        "version": "24.3.1",
+        "dev": true,
+        "dependencies": {
+          "@puppeteer/browsers": "2.7.1"
+        }
+      },
+      "node_modules/@puppeteer/browsers": {
+        "version": "2.7.1",
+        "dev": true,
+        "dependencies": {
+          "extract-zip": "2.0.1"
+        }
+      },
+      "node_modules/extract-zip": {
+        "version": "2.0.1",
+        "dev": true
+      }
+    }
+  }
+}
