@@ -1271,18 +1271,21 @@ function validatePackages(rootPackage, mcpPackage, problems) {
   }
   if (rootPackage.dependencies?.yaml !== '2.9.0')
     problems.push('yaml must be exact 2.9.0');
-  if (rootPackage.devDependencies?.mint !== '4.2.802')
-    problems.push('mint must be exact 4.2.802');
+  if (rootPackage.devDependencies?.mint !== '4.2.976')
+    problems.push('mint must be exact 4.2.976');
   if (rootPackage.devDependencies?.tsx !== '4.23.1')
     problems.push('tsx must be direct and exact 4.23.1');
   if (
     !sameObject(rootPackage.overrides, {
       '@esbuild-kit/core-utils': { esbuild: '0.25.12' },
-      '@mintlify/prebuild': { sharp: '0.35.3' },
-      favicons: { sharp: '0.35.3' },
-      qs: '6.15.3',
-      undici: '7.29.0',
+      qs: '6.16.0',
+      undici: '7.30.0',
       ws: '8.21.3',
+      sharp: '0.35.5',
+      'adm-zip': '0.6.1',
+      axios: '1.20.0',
+      'js-yaml@^4.0.0': '4.3.2',
+      fflate: '0.8.3',
     })
   ) {
     problems.push('root security overrides must stay exact and complete');
@@ -1733,12 +1736,13 @@ test('repository automation satisfies the fail-closed contract', () => {
 });
 
 function securityExceptionFixture() {
-  return {
-    registry: JSON.parse(
-      readFileSync(join(ROOT, '.github', 'security-exceptions.json'), 'utf8')
-    ),
-    lockfile: JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8')),
-  };
+  // Keep lifecycle regressions covered after the real dependency is removed.
+  return JSON.parse(
+    readFileSync(
+      join(ROOT, 'scripts', 'fixtures', 'security-exception.json'),
+      'utf8'
+    )
+  );
 }
 
 function validReviewNow(fixture) {
@@ -1854,7 +1858,7 @@ function liveExceptionFetch({
   };
 }
 
-test('registered security exception is exact, current, and development-only', () => {
+test('historical security exception fixture is exact and development-only', () => {
   const fixture = securityExceptionFixture();
   assert.deepEqual(
     fixture.registry.exceptions.map((exception) => exception.alertNumber),
@@ -2247,7 +2251,7 @@ test('rejects dependency security override drift', () => {
   const mcpPackage = JSON.parse(
     readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')
   );
-  rootPackage.overrides['@mintlify/prebuild'].sharp = '0.33.5';
+  rootPackage.overrides.sharp = '0.33.5';
   const problems = [];
   validatePackages(rootPackage, mcpPackage, problems);
   assert.ok(
