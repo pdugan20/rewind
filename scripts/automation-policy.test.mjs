@@ -1345,7 +1345,22 @@ function validateDependabot(document, problems) {
     return;
   }
   for (const [ecosystem, directory, time, label] of expected) {
-    validateSchedule(get(ecosystem, directory), time, 0, label, problems);
+    const entry = get(ecosystem, directory);
+    validateSchedule(entry, time, 0, label, problems);
+    if (
+      ecosystem === 'npm' &&
+      !sameObject(entry.groups, {
+        'security-patches': {
+          'applies-to': 'security-updates',
+          patterns: ['*'],
+          'update-types': ['minor', 'patch'],
+        },
+      })
+    ) {
+      problems.push(
+        `${label} must group only non-major security updates within its manifest root`
+      );
+    }
   }
 }
 
@@ -2838,4 +2853,30 @@ updates:
   assert.ok(
     problems.some((problem) => problem.includes('four npm roots and Actions'))
   );
+});
+
+test('rejects security groups that absorb routine or major updates', () => {
+  for (const mutation of [
+    (entry) => {
+      delete entry.groups['security-patches']['applies-to'];
+    },
+    (entry) => {
+      entry.groups['security-patches']['update-types'].push('major');
+    },
+    (entry) => {
+      delete entry.groups;
+    },
+  ]) {
+    const fixture = parseYaml(
+      readFileSync(join(ROOT, '.github', 'dependabot.yml'), 'utf8')
+    );
+    mutation(fixture.updates[0]);
+    const problems = [];
+    validateDependabot(fixture, problems);
+    assert.ok(
+      problems.some((problem) =>
+        problem.includes('group only non-major security updates')
+      )
+    );
+  }
 });

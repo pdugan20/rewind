@@ -8,6 +8,14 @@ updates:
       time: '07:00'
       timezone: America/Los_Angeles
     open-pull-requests-limit: 0
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /mcp-server
@@ -17,6 +25,14 @@ updates:
       time: '07:10'
       timezone: America/Los_Angeles
     open-pull-requests-limit: 0
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /docs-site
@@ -26,6 +42,14 @@ updates:
       time: '07:20'
       timezone: America/Los_Angeles
     open-pull-requests-limit: 0
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /apex-worker
@@ -35,6 +59,14 @@ updates:
       time: '07:30'
       timezone: America/Los_Angeles
     open-pull-requests-limit: 0
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: /
