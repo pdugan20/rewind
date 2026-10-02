@@ -9,12 +9,13 @@ describe('images route', () => {
       expect(VALID_SIZES).toContain('medium');
       expect(VALID_SIZES).toContain('large');
       expect(VALID_SIZES).toContain('poster');
+      expect(VALID_SIZES).toContain('poster-small');
       expect(VALID_SIZES).toContain('backdrop');
       expect(VALID_SIZES).toContain('original');
     });
 
-    it('has 9 valid sizes', () => {
-      expect(VALID_SIZES).toHaveLength(9);
+    it('has 10 valid sizes', () => {
+      expect(VALID_SIZES).toHaveLength(10);
     });
   });
 

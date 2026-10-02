@@ -15,6 +15,8 @@ import feed from './routes/feed.js';
 import reading from './routes/reading.js';
 import attending from './routes/attending.js';
 import search from './routes/search.js';
+import lately from './routes/lately.js';
+import { refreshLately } from './services/lately/refresh.js';
 import exportRoute from './routes/export.js';
 import keys from './routes/keys.js';
 import adminSync from './routes/admin-sync.js';
@@ -94,6 +96,7 @@ const routes = app
   .route('/attending', attending)
   .route('/feed', feed)
   .route('/search', search)
+  .route('/lately', lately)
   .route('/admin/export', exportRoute)
   .route('/admin/keys', keys)
   .route('/admin', adminReindex)
@@ -126,6 +129,14 @@ export default {
     const db = createDb(env.DB);
 
     switch (event.cron) {
+      case '* * * * *': {
+        ctx.waitUntil(
+          refreshLately(env, event.scheduledTime).catch(() => {
+            console.log('[ERROR] Lately snapshot refresh failed');
+          })
+        );
+        break;
+      }
       case '*/15 * * * *': {
         console.log('[SYNC] Last.fm scrobble sync');
         const client = new LastfmClient(

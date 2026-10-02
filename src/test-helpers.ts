@@ -29,6 +29,7 @@ export async function createTestApiKey(
     name?: string;
     scope?: 'read' | 'admin';
     token?: string;
+    userId?: number;
   } = {}
 ) {
   const scope = opts.scope ?? 'admin';
@@ -49,7 +50,7 @@ export async function createTestApiKey(
 
   const db = drizzle(env.DB);
   await db.insert(apiKeys).values({
-    userId: 1,
+    userId: opts.userId ?? 1,
     keyHash,
     keyPrefix,
     keyHint,

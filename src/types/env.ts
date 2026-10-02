@@ -13,6 +13,8 @@ export interface Env {
 
   // System
   ALLOWED_ORIGINS: string;
+  // Public Lately projection for the configured owner (user 1).
+  LATELY_EXCLUDED_MOVIE_IDS?: string;
 
   // Last.fm
   LASTFM_API_KEY: string;

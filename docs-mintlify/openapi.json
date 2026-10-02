@@ -530,6 +530,245 @@
           "division"
         ]
       },
+      "LatelySnapshot": {
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "music_checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "movie_checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "music": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string"
+              },
+              "track_id": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "artist": {
+                "type": "string"
+              },
+              "album": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "scrobbled_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "image": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "cdn_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "height": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "thumbhash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dominant_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "accent_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "cdn_url",
+                  "width",
+                  "height",
+                  "thumbhash",
+                  "dominant_color",
+                  "accent_color"
+                ]
+              }
+            },
+            "required": [
+              "event_id",
+              "track_id",
+              "name",
+              "artist",
+              "album",
+              "scrobbled_at",
+              "image"
+            ]
+          },
+          "movie": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string"
+              },
+              "movie_id": {
+                "type": "integer"
+              },
+              "title": {
+                "type": "string"
+              },
+              "year": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "directors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "content_rating": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "runtime_minutes": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "watched_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "user_rating": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "image": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "cdn_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "height": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "thumbhash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dominant_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "accent_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "cdn_url",
+                  "width",
+                  "height",
+                  "thumbhash",
+                  "dominant_color",
+                  "accent_color"
+                ]
+              }
+            },
+            "required": [
+              "event_id",
+              "movie_id",
+              "title",
+              "year",
+              "directors",
+              "content_rating",
+              "runtime_minutes",
+              "watched_at",
+              "user_rating",
+              "image"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "version",
+          "as_of",
+          "music_checked_at",
+          "movie_checked_at",
+          "music",
+          "movie"
+        ]
+      },
       "ExportResponse": {
         "type": "object",
         "properties": {
@@ -12370,6 +12609,7 @@
                 "poster-sm",
                 "large",
                 "poster",
+                "poster-small",
                 "poster-lg",
                 "backdrop",
                 "original"
@@ -23066,6 +23306,77 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/lately": {
+      "get": {
+        "operationId": "getLately",
+        "tags": [
+          "Feed"
+        ],
+        "summary": "Prepared latest music and movie",
+        "description": "Returns one prepared pair for the authenticated user. No live provider requests. Keep the whole response fixed for the page visit; refresh only for a new visit. Music is the last completed scrobble, not live playback. Returns 503 until the first background publication.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prepared snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LatelySnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Snapshot not ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "status"
+                  ]
                 }
               }
             }
