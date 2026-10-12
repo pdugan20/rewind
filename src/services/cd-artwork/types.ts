@@ -43,6 +43,7 @@ export interface ArtworkEnv {
   DB: D1Database;
   ARTWORK: R2Bucket;
   IMAGES: R2Bucket;
+  CD_DISCOVERY: Workflow<{ checkId: number }>;
   CD_WORKFLOW: Workflow<{ jobId: string; userId: number }>;
   OPENAI_API_KEY?: string;
   ALLOWED_ORIGINS: string;

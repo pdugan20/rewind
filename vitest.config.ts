@@ -20,6 +20,24 @@ export default defineConfig(async () => {
         wrangler: { configPath: './wrangler.toml' },
         miniflare: {
           d1Databases: ['DB'],
+          serviceBindings: {
+            CD_ARTWORK: {
+              name: 'artwork-test-service',
+              entrypoint: 'ArtworkDiscoveryService',
+            },
+          },
+          workers: [
+            {
+              name: 'artwork-test-service',
+              modules: true,
+              compatibilityDate: '2026-03-12',
+              script: `import { WorkerEntrypoint } from 'cloudflare:workers';
+              export class ArtworkDiscoveryService extends WorkerEntrypoint {
+                async dispatchPending() {}
+              }
+              export default { fetch() { return new Response(null, { status: 404 }); } };`,
+            },
+          ],
           bindings: {
             TEST_MIGRATIONS: migrations,
           },

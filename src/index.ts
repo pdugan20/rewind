@@ -23,6 +23,7 @@ import adminSync from './routes/admin-sync.js';
 import adminReindex from './routes/admin-reindex.js';
 import adminAttending from './routes/admin-attending.js';
 import { LastfmClient } from './services/lastfm/client.js';
+import { afterListeningSync } from './lib/artwork-notify.js';
 import { syncListening } from './services/lastfm/sync.js';
 import { syncRunning } from './services/strava/sync.js';
 import { syncWatching } from './services/plex/sync.js';
@@ -144,7 +145,11 @@ export default {
           env.LASTFM_USERNAME
         );
         ctx.waitUntil(
-          syncListening(db, client, { type: 'scrobbles' })
+          afterListeningSync(
+            env,
+            ctx,
+            syncListening(db, client, { type: 'scrobbles' })
+          )
             .then(() => processListeningImages(db, env))
             .catch((err) =>
               console.log(

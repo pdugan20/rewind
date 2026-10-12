@@ -29,6 +29,7 @@ import {
   persistReviewedMaster,
   reviewedMasterSchema,
 } from './reviewed-master.js';
+import { checkListeningArtwork } from './discovery.js';
 import { scheduledArtwork } from './scheduler.js';
 import { clearAuthCache } from '../../lib/auth.js';
 
@@ -115,7 +116,7 @@ beforeEach(async () => {
   vi.restoreAllMocks();
   clearAuthCache();
   await runtime.DB.exec(
-    'DELETE FROM cd_artwork_events; DELETE FROM cd_artwork_albums; DELETE FROM cd_artwork_jobs; DELETE FROM lastfm_scrobbles; DELETE FROM lastfm_tracks; DELETE FROM lastfm_albums; DELETE FROM lastfm_artists; DELETE FROM api_keys;'
+    'DELETE FROM cd_artwork_checks; DELETE FROM cd_artwork_events; DELETE FROM cd_artwork_albums; DELETE FROM cd_artwork_jobs; DELETE FROM lastfm_scrobbles; DELETE FROM lastfm_tracks; DELETE FROM lastfm_albums; DELETE FROM lastfm_artists; DELETE FROM api_keys;'
   );
   await runtime.DB.prepare(
     "UPDATE cd_artwork_control SET enabled=1,daily_limit=3,budget_day='',submitted_count=0,provider_next_ms=0,discovery_lease_until=NULL WHERE id=1"
@@ -292,7 +293,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     ).rejects.toThrow('active_asset_requires_replacement');
     expect((await approvedArtwork(runtime, [1], 1))[0].asset_id).toBe(first.id);
   });
-  it('an existing discovery lease prevents overlapping public lookup runs', async () => {
+  it('recovery never scans due albums without a play event', async () => {
     await runtime.DB.prepare(
       'UPDATE cd_artwork_control SET discovery_lease_until=? WHERE id=1'
     )
@@ -607,7 +608,12 @@ describe('discovery-only recheck', () => {
             ],
           })
     );
-    await scheduledArtwork(runtime);
+    const check = await runtime.DB.prepare(
+      'INSERT INTO cd_artwork_checks(user_id,album_id,release_id,medium_position) VALUES(1,1,?,1) RETURNING id'
+    )
+      .bind(input.release_id)
+      .first<{ id: number }>();
+    await checkListeningArtwork(runtime, check!.id);
     expect(
       (
         await runtime.DB.prepare(

@@ -30,6 +30,11 @@
   ],
   "workflows": [
     {
+      "binding": "CD_DISCOVERY",
+      "name": "rewind-cd-artwork-discovery",
+      "class_name": "CdDiscoveryWorkflow",
+    },
+    {
       "binding": "CD_WORKFLOW",
       "name": "rewind-cd-artwork-generation",
       "class_name": "CdArtworkWorkflow",
@@ -42,7 +47,7 @@
       "fallthrough": true,
     },
   ],
-  "triggers": { "crons": ["20 * * * *"] },
+  "triggers": { "crons": ["20 4 * * *"] },
   "observability": { "enabled": true, "traces": { "enabled": true } },
   "vars": { "ALLOWED_ORIGINS": "patdugan.me,docs.rewind.rest,localhost:3000" },
 }

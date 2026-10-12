@@ -1,6 +1,7 @@
 export interface Env {
   // Cloudflare bindings
   DB: D1Database;
+  CD_ARTWORK?: { dispatchPending(): Promise<void> };
   IMAGES: R2Bucket;
   IMAGE_TRANSFORMS: ImagesBinding;
   VECTORIZE_READING: VectorizeIndex;

@@ -2906,6 +2906,17 @@ test('artwork deploy shares the trusted CI gate and D1 migration job', () => {
         step.run === 'npm exec -- wrangler deploy -c wrangler.cd-artwork.jsonc'
     )
   );
+  const artworkIndex = job.steps.findIndex(
+    (step) =>
+      step.run === 'npm exec -- wrangler deploy -c wrangler.cd-artwork.jsonc'
+  );
+  const rootIndex = job.steps.findIndex(
+    (step) => step.run === 'npm exec -- wrangler deploy'
+  );
+  assert.ok(
+    artworkIndex >= 0 && artworkIndex < rootIndex,
+    'Deploy the RPC provider before its consumer'
+  );
   assert.equal(deploy.concurrency['cancel-in-progress'], false);
   assert.ok(
     deploy.jobs['finalize-checkpoint'].needs.includes('deploy-root-worker')
