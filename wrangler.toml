@@ -16,6 +16,12 @@ database_name = "rewind-db"
 database_id = "35a4edf8-0d4f-4cbe-9a6e-6f1525716774"
 migrations_dir = "migrations"
 
+# Internal event dispatcher; no public mutation endpoint or shared key.
+[[services]]
+binding = "CD_ARTWORK"
+service = "rewind-cd-artwork"
+entrypoint = "ArtworkDiscoveryService"
+
 # R2 Bucket
 [[r2_buckets]]
 binding = "IMAGES"

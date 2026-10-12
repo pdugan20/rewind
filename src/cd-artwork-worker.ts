@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import {
   WorkflowEntrypoint,
+  WorkerEntrypoint,
   type WorkflowEvent,
   type WorkflowStep,
 } from 'cloudflare:workers';
@@ -32,6 +33,12 @@ import {
   persistReviewedMaster,
   type MasterFiles,
 } from './services/cd-artwork/reviewed-master.js';
+import {
+  checkListeningArtwork,
+  dispatchListeningChecks,
+  finishCheck,
+} from './services/cd-artwork/discovery.js';
+import type { DiscoveryCheck } from './services/cd-artwork/discovery.js';
 import { scheduledArtwork } from './services/cd-artwork/scheduler.js';
 
 const materialSchema = z
@@ -129,7 +136,7 @@ app.get(`${read}/assets/:file`, async (c) => {
 });
 app.get(`${admin}/identities`, async (c) => {
   const rows = await c.env.DB.prepare(
-    "SELECT album_id,NULLIF(release_id,'') AS release_id,CASE WHEN release_id='' THEN NULL ELSE medium_position END AS medium_position,discovery_outcome,next_check,active_job,pinned FROM cd_artwork_albums WHERE user_id=? ORDER BY album_id DESC LIMIT 25"
+    "SELECT album_id,NULLIF(release_id,'') AS release_id,CASE WHEN release_id='' THEN NULL ELSE medium_position END AS medium_position,discovery_outcome,last_checked_at,next_check,active_job,pinned FROM cd_artwork_albums WHERE user_id=? ORDER BY album_id DESC LIMIT 25"
   )
     .bind(c.get('userId'))
     .all();
@@ -405,6 +412,45 @@ app.post(`${admin}/recheck`, async (c) => {
   return c.json({ completed: true });
 });
 
+// Reachable only through an explicitly bound internal service capability.
+export class ArtworkDiscoveryService extends WorkerEntrypoint<ArtworkEnv> {
+  async dispatchPending() {
+    await dispatchListeningChecks(this.env);
+  }
+}
+export class CdDiscoveryWorkflow extends WorkflowEntrypoint<
+  ArtworkEnv,
+  { checkId: number }
+> {
+  async run(event: WorkflowEvent<{ checkId: number }>, step: WorkflowStep) {
+    const { checkId } = event.payload;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const result = await step.do(
+        `discover-${attempt}`,
+        {
+          retries: { limit: 2, delay: '10 seconds' },
+          timeout: '2 minutes',
+        },
+        () => checkListeningArtwork(this.env, checkId)
+      );
+      if (!result.retryAfter) return result;
+      if (attempt < 3)
+        await step.sleep(
+          `provider-backoff-${attempt}`,
+          Math.max(3600 * 2 ** attempt, result.retryAfter) * 1000
+        );
+    }
+    await step.do('finish-exhausted-check', async () => {
+      const row = await this.env.DB.prepare(
+        'SELECT id,user_id,album_id FROM cd_artwork_checks WHERE id=?'
+      )
+        .bind(checkId)
+        .first<DiscoveryCheck>();
+      if (row) await finishCheck(this.env, row, 'error');
+    });
+    return { outcome: 'error' };
+  }
+}
 export class CdArtworkWorkflow extends WorkflowEntrypoint<
   ArtworkEnv,
   { jobId: string; userId: number }
