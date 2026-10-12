@@ -18,7 +18,10 @@ import { loadFilters } from '../lastfm/filters.js';
 import { syncRecentScrobbles } from '../lastfm/sync.js';
 import type { LastfmClient } from '../lastfm/client.js';
 import { createDb } from '../../db/client.js';
-import { notifyArtworkDiscovery } from '../../lib/artwork-notify.js';
+import {
+  afterListeningSync,
+  notifyArtworkDiscovery,
+} from '../../lib/artwork-notify.js';
 import type { Env } from '../../types/env.js';
 const runtime = env as typeof env & ArtworkEnv;
 const RELEASE = 'e9b0f69e-ee3d-36ed-8c12-f8ee65f87e45';
@@ -425,6 +428,25 @@ describe('durable discovery and recovery', () => {
     });
     expect((await checks())[0].completed_at).not.toBeNull();
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+  it('empty successful syncs do not poll; new plays and partially failed syncs notify', async () => {
+    const pending: Promise<unknown>[] = [];
+    const target = {
+      CD_ARTWORK: { dispatchPending: vi.fn(async () => {}) },
+    } as unknown as Env;
+    const ctx = { waitUntil: (p: Promise<unknown>) => pending.push(p) };
+    await afterListeningSync(target, ctx, Promise.resolve({ itemsSynced: 0 }));
+    expect(target.CD_ARTWORK!.dispatchPending).not.toHaveBeenCalled();
+    await afterListeningSync(target, ctx, Promise.resolve({ itemsSynced: 1 }));
+    await expect(
+      afterListeningSync(
+        target,
+        ctx,
+        Promise.reject(new Error('partial sync failure'))
+      )
+    ).rejects.toThrow('partial sync failure');
+    await Promise.all(pending);
+    expect(target.CD_ARTWORK!.dispatchPending).toHaveBeenCalledTimes(2);
   });
   it('notification failure cannot fail listening sync and never runs providers inline', async () => {
     const pending: Promise<unknown>[] = [];

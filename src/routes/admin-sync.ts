@@ -9,7 +9,7 @@ import { createOpenAPIApp } from '../lib/openapi.js';
 import { errorResponses } from '../lib/schemas/common.js';
 import { createDb } from '../db/client.js';
 import { LastfmClient } from '../services/lastfm/client.js';
-import { notifyArtworkDiscovery } from '../lib/artwork-notify.js';
+import { afterListeningSync } from '../lib/artwork-notify.js';
 import { syncListening } from '../services/lastfm/sync.js';
 import {
   syncRunning,
@@ -172,12 +172,10 @@ adminSync.openapi(syncListeningRoute, async (c) => {
   }
 
   try {
-    const result = await syncListening(db, client, { type: syncType }).finally(
-      () => {
-        if (['scrobbles', 'full', 'backfill'].includes(syncType))
-          notifyArtworkDiscovery(c.env, c.executionCtx);
-      }
-    );
+    const sync = syncListening(db, client, { type: syncType });
+    const result = await (['scrobbles', 'full', 'backfill'].includes(syncType)
+      ? afterListeningSync(c.env, c.executionCtx, sync)
+      : sync);
     return c.json({
       status: 'completed' as const,
       items_synced: result.itemsSynced,

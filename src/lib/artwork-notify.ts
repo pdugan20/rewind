@@ -12,3 +12,22 @@ export function notifyArtworkDiscovery(
     })
   );
 }
+
+/** Empty successful syncs do not poll the artwork outbox. A failed sync may
+ * already have committed a play, so its pending events still need delivery. */
+export function afterListeningSync<T extends { itemsSynced: number }>(
+  env: Env,
+  ctx: { waitUntil(promise: Promise<unknown>): void },
+  sync: Promise<T>
+): Promise<T> {
+  return sync.then(
+    (result) => {
+      if (result.itemsSynced > 0) notifyArtworkDiscovery(env, ctx);
+      return result;
+    },
+    (error) => {
+      notifyArtworkDiscovery(env, ctx);
+      throw error;
+    }
+  );
+}
