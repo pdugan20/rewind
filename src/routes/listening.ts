@@ -2959,7 +2959,9 @@ listening.openapi(browseAlbumsRoute, async (c) => {
     db,
     'listening',
     'albums',
-    albumIds
+    albumIds,
+    'medium',
+    c.get('userId')
   );
 
   return c.json({

@@ -61,12 +61,24 @@ describe('listening routes', () => {
       .insert(lastfmArtists)
       .values({ name: 'Filtered', userId: 1, isFiltered: 1 })
       .returning();
-    await db.insert(lastfmAlbums).values([
-      { name: 'Exact Album', artistId: own.id, userId: 1 },
-      { name: 'Exact Album Foreign', artistId: other.id, userId: 2 },
-      { name: 'Exact Album Filtered', artistId: filtered.id, userId: 1 },
-      { name: 'Exact Album Broken Relation', artistId: other.id, userId: 1 },
-    ]);
+    const albumRows = await db
+      .insert(lastfmAlbums)
+      .values([
+        { name: 'Exact Album', artistId: own.id, userId: 1 },
+        { name: 'Exact Album Foreign', artistId: other.id, userId: 2 },
+        { name: 'Exact Album Filtered', artistId: filtered.id, userId: 1 },
+        { name: 'Exact Album Broken Relation', artistId: other.id, userId: 1 },
+      ])
+      .returning();
+    const ownAlbum = albumRows.find((a) => a.artistId === own.id)!;
+    await db.insert(images).values({
+      domain: 'listening',
+      entityType: 'albums',
+      entityId: String(ownAlbum.id),
+      userId: 2,
+      r2Key: 'private/foreign.jpg',
+      source: 'synthetic',
+    });
     const token = await createTestApiKey({ scope: 'read', userId: 1 });
     const response = await SELF.fetch(
       'https://api.rewind.rest/v1/listening/albums?search=Exact&limit=100',
@@ -76,6 +88,7 @@ describe('listening routes', () => {
     const body = (await response.json()) as any;
     expect(body.data.map((a: any) => a.name)).toEqual(['Exact Album']);
     expect(body.pagination.total).toBe(1);
+    expect(body.data[0].image).toBeNull();
   });
 
   describe('GET /v1/listening/top/artists?include_sparklines=true', () => {

@@ -66,12 +66,13 @@ export async function getImageAttachmentBatch(
   domain: string,
   entityType: string,
   entityIds: string[],
-  size = 'medium'
+  size = 'medium',
+  userId?: number
 ): Promise<Map<string, ImageAttachment>> {
   if (entityIds.length === 0) return new Map();
 
-  // D1 caps bound parameters at 100 per query. This query uses 2 fixed
-  // params (domain, entityType) plus one per entity id, so chunk the ids to
+  // D1 caps bound parameters at 100 per query. This query uses at most 3 fixed
+  // params (domain, entityType, and optional userId) plus one per entity id, so chunk the ids to
   // stay safely under the limit regardless of how many entities are passed.
   const CHUNK_SIZE = 90;
   const selectChunk = (chunk: string[]) =>
@@ -89,7 +90,8 @@ export async function getImageAttachmentBatch(
         and(
           eq(images.domain, domain),
           eq(images.entityType, entityType),
-          inArray(images.entityId, chunk)
+          inArray(images.entityId, chunk),
+          userId === undefined ? undefined : eq(images.userId, userId)
         )
       );
 

@@ -44,7 +44,7 @@ The shared title matcher removes recognized edition labels while retaining meani
 
 CD selection compares known MusicBrainz artist and logical group IDs. A stored release ID is resolved as a release; only a 404 permits checking the release-group namespace. Provider failures retain retry timing instead of triggering fuzzy fallback. Known group IDs constrain candidate searches. Discovery holds unresolved identities. The enqueue reuse key includes the current catalog identity so changed identity cannot bypass validation through an old cached request.
 
-The album browse endpoint used for identity lookup now scopes both rows and pagination to the authenticated user and excludes filtered artists as well as albums.
+The album browse endpoint used for identity lookup now scopes both rows and pagination to the authenticated user and excludes filtered artists as well as albums. Its image metadata is also scoped to the authenticated user.
 
 ## Validation and practical limits
 
