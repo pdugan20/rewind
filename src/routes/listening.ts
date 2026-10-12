@@ -1,3 +1,4 @@
+import { albumTrackHistory, artistAlbumHistory } from '../lib/album-history.js';
 import { scrobbleAlbumId, latestTrackAlbumId } from '../lib/scrobble-album.js';
 import { createRoute, z } from '@hono/zod-openapi';
 import {
@@ -3195,46 +3196,7 @@ listening.openapi(artistDetailRoute, async (c) => {
   // for albums that never appeared in user.getTopAlbums (deluxe / video
   // editions, soundtracks the user listened to once, etc.). Matches the
   // top_tracks approach below for consistency.
-  const topAlbums = await db
-    .select({
-      id: lastfmAlbums.id,
-      name: lastfmAlbums.name,
-      appleMusicUrl: lastfmAlbums.appleMusicUrl,
-      playcount: sql<number>`count(${lastfmScrobbles.id})`,
-    })
-    .from(lastfmScrobbles)
-    .innerJoin(
-      lastfmTracks,
-      and(
-        eq(lastfmScrobbles.trackId, lastfmTracks.id),
-        eq(lastfmScrobbles.userId, lastfmTracks.userId),
-        eq(lastfmScrobbles.userId, c.get('userId'))
-      )
-    )
-    .innerJoin(
-      lastfmAlbums,
-      and(
-        eq(scrobbleAlbumId, lastfmAlbums.id),
-        eq(lastfmAlbums.userId, lastfmScrobbles.userId)
-      )
-    )
-    .where(
-      and(
-        eq(lastfmAlbums.artistId, id),
-        eq(lastfmAlbums.isFiltered, 0),
-        // Inner-filter on tracks too so a single filtered-out track doesn't
-        // skew an album's plays.
-        sql`(${lastfmTracks.isFiltered} = 0 OR ${lastfmTracks.isFiltered} IS NULL)`
-      )
-    )
-    .groupBy(lastfmAlbums.id)
-    // Require ≥ 2 distinct tracks scrobbled — drops one-track guest
-    // appearances, singles, and soundtracks where the user only listened
-    // to a single contributed song (e.g. Olivia Rodrigo's "All I Want"
-    // from the High School Musical soundtrack).
-    .having(sql`count(distinct ${lastfmTracks.id}) >= 2`)
-    .orderBy(desc(sql`count(${lastfmScrobbles.id})`))
-    .limit(10);
+  const topAlbums = await artistAlbumHistory(db, id, c.get('userId'));
 
   // Get top tracks (exclude filtered) — include album_id so we can join
   // album art for the card. Per-row scrobble count via aggregate.
@@ -3488,26 +3450,7 @@ listening.openapi(albumDetailRoute, async (c) => {
   if (!album) return notFound(c, 'Album not found') as any;
 
   // Get tracks on this album with scrobble counts (exclude filtered)
-  const tracks = await db
-    .select({
-      id: lastfmTracks.id,
-      name: lastfmTracks.name,
-      appleMusicUrl: lastfmTracks.appleMusicUrl,
-      previewUrl: lastfmTracks.previewUrl,
-      scrobbleCount: sql<number>`count(${lastfmScrobbles.id})`,
-    })
-    .from(lastfmTracks)
-    .leftJoin(
-      lastfmScrobbles,
-      and(
-        eq(lastfmScrobbles.trackId, lastfmTracks.id),
-        eq(lastfmScrobbles.userId, lastfmTracks.userId),
-        eq(lastfmScrobbles.userId, c.get('userId'))
-      )
-    )
-    .where(and(eq(scrobbleAlbumId, id), eq(lastfmTracks.isFiltered, 0)))
-    .groupBy(lastfmTracks.id)
-    .orderBy(desc(sql`count(${lastfmScrobbles.id})`));
+  const tracks = await albumTrackHistory(db, id, c.get('userId'));
 
   const albumImage = await getImageAttachment(
     db,
@@ -3516,21 +3459,13 @@ listening.openapi(albumDetailRoute, async (c) => {
     String(id)
   );
 
-  // First scrobbled date
-  const [firstAlbumScrobble] = await db
-    .select({
-      firstScrobbledAt: sql<string>`min(${lastfmScrobbles.scrobbledAt})`,
-    })
-    .from(lastfmScrobbles)
-    .innerJoin(
-      lastfmTracks,
-      and(
-        eq(lastfmScrobbles.trackId, lastfmTracks.id),
-        eq(lastfmScrobbles.userId, lastfmTracks.userId),
-        eq(lastfmScrobbles.userId, c.get('userId'))
-      )
-    )
-    .where(and(eq(scrobbleAlbumId, id), eq(lastfmTracks.isFiltered, 0)));
+  const firstScrobbledAt = tracks.reduce<string | null>(
+    (first, track) =>
+      track.firstScrobbledAt && (!first || track.firstScrobbledAt < first)
+        ? track.firstScrobbledAt
+        : first,
+    null
+  );
 
   return c.json({
     id: album.id,
@@ -3539,7 +3474,7 @@ listening.openapi(albumDetailRoute, async (c) => {
     url: album.url,
     apple_music_url: album.appleMusicUrl ?? null,
     playcount: album.playcount,
-    first_scrobbled_at: firstAlbumScrobble?.firstScrobbledAt ?? null,
+    first_scrobbled_at: firstScrobbledAt,
     image: albumImage,
     artist: {
       id: album.artistId,

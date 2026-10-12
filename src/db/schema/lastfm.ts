@@ -122,6 +122,8 @@ export const lastfmTracks = sqliteTable(
     index('idx_lastfm_tracks_artist_id').on(table.artistId),
     index('idx_lastfm_tracks_album_id').on(table.albumId),
     index('idx_lastfm_tracks_user_id').on(table.userId),
+    index('idx_lastfm_tracks_user_album').on(table.userId, table.albumId),
+    index('idx_lastfm_tracks_user_artist').on(table.userId, table.artistId),
     index('idx_lastfm_tracks_filtered').on(table.isFiltered),
   ]
 );
@@ -146,6 +148,16 @@ export const lastfmScrobbles = sqliteTable(
     index('idx_lastfm_scrobbles_track_id').on(table.trackId),
     index('idx_lastfm_scrobbles_scrobbled_at').on(table.scrobbledAt),
     index('idx_lastfm_scrobbles_user_id').on(table.userId),
+    index('idx_lastfm_scrobbles_user_track_date').on(
+      table.userId,
+      table.trackId,
+      table.scrobbledAt
+    ),
+    index('idx_lastfm_scrobbles_user_date').on(
+      table.userId,
+      table.scrobbledAt,
+      table.id
+    ),
     index('idx_lastfm_scrobbles_track_scrobbled').on(
       table.trackId,
       table.scrobbledAt
