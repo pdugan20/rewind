@@ -515,6 +515,123 @@
       "outputSchema": {
         "type": "object",
         "properties": {
+          "cd_artwork": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "album_id": {
+                    "type": "number"
+                  },
+                  "asset_id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "image_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "source_kind": {
+                    "type": "string",
+                    "enum": [
+                      "retail",
+                      "cover"
+                    ]
+                  },
+                  "release_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "medium_position": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "source": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "geometry": {
+                    "type": "object",
+                    "properties": {
+                      "canvas": {
+                        "type": "number",
+                        "const": 1024
+                      },
+                      "center": {
+                        "type": "number",
+                        "const": 512
+                      },
+                      "outer_radius": {
+                        "type": "number",
+                        "const": 480
+                      },
+                      "hole_radius": {
+                        "type": "number",
+                        "const": 60
+                      }
+                    },
+                    "required": [
+                      "canvas",
+                      "center",
+                      "outer_radius",
+                      "hole_radius"
+                    ],
+                    "additionalProperties": true
+                  },
+                  "alpha": {
+                    "type": "string",
+                    "const": "material"
+                  },
+                  "review": {
+                    "type": "string",
+                    "const": "accepted"
+                  },
+                  "thumbhash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dominant_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "accent_color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "album_id",
+                  "asset_id",
+                  "sha256",
+                  "image_url",
+                  "source_kind",
+                  "release_id",
+                  "medium_position",
+                  "source",
+                  "geometry",
+                  "alpha",
+                  "review",
+                  "thumbhash",
+                  "dominant_color",
+                  "accent_color"
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "number"
           },

@@ -2884,3 +2884,30 @@ test('rejects security groups that absorb routine or major updates', () => {
     );
   }
 });
+
+test('artwork deploy shares the trusted CI gate and D1 migration job', () => {
+  const ci = parseYaml(
+    readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8')
+  );
+  assert.ok(
+    ci.jobs.test.steps.some((step) => step.run === 'npm run test:cd-artwork')
+  );
+  assert.ok(
+    ci.jobs.build.steps.some((step) => step.run === 'npm run build:cd-artwork')
+  );
+  const deploy = parseYaml(
+    readFileSync(join(ROOT, '.github/workflows/deploy.yml'), 'utf8')
+  );
+  const job = deploy.jobs['deploy-root-worker'];
+  assert.ok(job.needs.includes('apply-d1-migrations'));
+  assert.ok(
+    job.steps.some(
+      (step) =>
+        step.run === 'npm exec -- wrangler deploy -c wrangler.cd-artwork.jsonc'
+    )
+  );
+  assert.equal(deploy.concurrency['cancel-in-progress'], false);
+  assert.ok(
+    deploy.jobs['finalize-checkpoint'].needs.includes('deploy-root-worker')
+  );
+});

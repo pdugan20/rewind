@@ -47,7 +47,9 @@
     "docs:validate": "cd docs-mintlify && mint validate",
     "docs:links": "cd docs-mintlify && mint broken-links",
     "docs:gen-mcp": "tsx scripts/gen-mcp-reference.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:cd-artwork": "vitest run -c vitest.cd-artwork.config.ts && node --test scripts/cd-artwork/pipeline.test.mjs",
+    "build:cd-artwork": "wrangler deploy -c wrangler.cd-artwork.jsonc --dry-run"
   },
   "lint-staged": {
     "*.{js,ts,tsx}": [

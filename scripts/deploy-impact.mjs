@@ -114,6 +114,7 @@ function isTestLike(path) {
 
 function isRootRuntime(path) {
   if (
+    path === 'wrangler.cd-artwork.jsonc' ||
     path === 'wrangler.toml' ||
     path === 'wrangler.json' ||
     path === 'wrangler.jsonc'
@@ -121,6 +122,7 @@ function isRootRuntime(path) {
     return true;
   }
   if (path === 'tsconfig.json') return true;
+  if (path.startsWith('scripts/cd-artwork/')) return !isTestLike(path);
   return path.startsWith('src/') && !isTestLike(path);
 }
 

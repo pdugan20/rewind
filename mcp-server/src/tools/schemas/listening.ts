@@ -1,3 +1,4 @@
+import { cdArtworkSchema } from '../cd-artwork.js';
 /**
  * Output schemas for the listening-domain tools (issue #105, Phase 1).
  *
@@ -158,6 +159,7 @@ export const listeningStreaksOutputSchema = z
 /** outputSchema for get_album_details. */
 export const albumDetailsOutputSchema = z
   .object({
+    cd_artwork: cdArtworkSchema.nullable().optional(),
     id: z.number(),
     name: z.string(),
     mbid: z.string().nullable(),

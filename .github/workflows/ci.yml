@@ -76,6 +76,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Verify CD artwork pipeline
+        run: npm run test:cd-artwork
+
   docs:
     name: Docs Links
     runs-on: ubuntu-latest
@@ -123,6 +126,9 @@ jobs:
 
       - name: Build (dry run)
         run: npm run build
+
+      - name: Build CD artwork Worker
+        run: npm run build:cd-artwork
 
   security:
     name: Security
