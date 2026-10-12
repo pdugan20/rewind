@@ -147,7 +147,7 @@ export async function deferStaleAutomatic(env: ArtworkEnv, job: Job) {
   const stamp = now();
   await env.DB.batch([
     env.DB.prepare(
-      "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_identity_or_activation_changed',updated_at=? WHERE id=? AND user_id=? AND automatic=1 AND state IN ('queued','submitted','provider_unknown','needs_registration','pending')"
+      "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_identity_or_activation_changed',updated_at=? WHERE id=? AND user_id=? AND automatic=1 AND state IN ('queued','submitted','provider_unknown','needs_registration','pending') AND NOT EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.review_hold=1)"
     ).bind(stamp, job.id, job.user_id),
     env.DB.prepare(
       "UPDATE cd_artwork_albums SET last_checked_at=NULL,next_check=? WHERE user_id=? AND album_id=? AND pinned=0 AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='needs_registration' AND error_code='automatic_identity_or_activation_changed' AND updated_at=?)"
@@ -164,12 +164,13 @@ export async function automaticEligible(env: ArtworkEnv, job: Job) {
   const p = JSON.parse(job.provenance);
   if (JSON.stringify(album) !== JSON.stringify(p.catalogIdentity)) return false;
   const active = await env.DB.prepare(
-    "SELECT c.active_job,c.pinned,a.is_filtered,r.is_filtered AS artist_filtered,(SELECT j.state FROM cd_artwork_jobs j WHERE j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id) AS active_state,(SELECT json_extract(j.input,'$.source_kind') FROM cd_artwork_jobs j WHERE j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id) AS active_kind FROM cd_artwork_albums c JOIN lastfm_albums a ON a.id=c.album_id AND a.user_id=c.user_id JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE c.user_id=? AND c.album_id=?"
+    "SELECT c.active_job,c.pinned,c.review_hold,a.is_filtered,r.is_filtered AS artist_filtered,(SELECT j.state FROM cd_artwork_jobs j WHERE j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id) AS active_state,(SELECT json_extract(j.input,'$.source_kind') FROM cd_artwork_jobs j WHERE j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id) AS active_kind FROM cd_artwork_albums c JOIN lastfm_albums a ON a.id=c.album_id AND a.user_id=c.user_id JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE c.user_id=? AND c.album_id=?"
   )
     .bind(job.user_id, job.album_id)
     .first<{
       active_job: string | null;
       pinned: number;
+      review_hold: number;
       is_filtered: number;
       artist_filtered: number;
       active_state: string | null;
@@ -178,6 +179,7 @@ export async function automaticEligible(env: ArtworkEnv, job: Job) {
   return (
     !!active &&
     !active.pinned &&
+    !active.review_hold &&
     !active.is_filtered &&
     !active.artist_filtered &&
     !(active.active_state === 'accepted' && active.active_kind === 'retail') &&
@@ -416,7 +418,7 @@ export async function publishAutomatic(
       `UPDATE cd_artwork_jobs SET state='accepted',updated_at=? WHERE id=? AND user_id=? AND automatic=1 AND validation_state='passed' AND state='pending'
       AND (SELECT enabled=1 AND automatic_enabled=1 FROM cd_artwork_control WHERE id=1)
       AND EXISTS(SELECT 1 FROM cd_artwork_albums c JOIN lastfm_albums a ON a.id=c.album_id AND a.user_id=c.user_id JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id
-        WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.pinned=0 AND c.active_job IS cd_artwork_jobs.expected_active_job
+        WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.pinned=0 AND c.review_hold=0 AND c.active_job IS cd_artwork_jobs.expected_active_job
         AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs prior WHERE prior.id=c.active_job AND prior.user_id=c.user_id AND prior.album_id=c.album_id AND prior.state='accepted' AND json_extract(prior.input,'$.source_kind')='retail')
         AND a.is_filtered=0 AND r.is_filtered=0 AND a.identity_conflict=0 AND r.identity_conflict=0
         AND a.name=json_extract(cd_artwork_jobs.provenance,'$.catalogIdentity.name') AND r.name=json_extract(cd_artwork_jobs.provenance,'$.catalogIdentity.artist')

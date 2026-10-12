@@ -11,6 +11,11 @@ export default defineConfig(async () => ({
       name: 'cd-artwork-binary-fixtures',
       enforce: 'pre' as const,
       async load(id: string) {
+        if (
+          id.includes('/cd-artwork/gallery/') &&
+          /\.(html|css|client\.js)$/.test(id)
+        )
+          return `export default ${JSON.stringify(await fs.readFile(id, 'utf8'))};`;
         if (id.includes('/cd-artwork/assets/') && id.endsWith('.png'))
           return `export default Uint8Array.from(atob(${JSON.stringify((await fs.readFile(id)).toString('base64'))}), c => c.charCodeAt(0)).buffer;`;
       },

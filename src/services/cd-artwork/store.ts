@@ -243,7 +243,7 @@ export async function claimSubmission(env: ArtworkEnv, job: Job) {
   // Sync cannot introduce a conflict between identity validation and reservation.
   const [claimed, budget] = await env.DB.batch([
     env.DB.prepare(
-      "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=?,submission_claim=? WHERE id=? AND user_id=? AND state='queued' AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_jobs.album_id AND a.user_id=cd_artwork_jobs.user_id AND a.identity_conflict=0 AND r.identity_conflict=0 AND (automatic=0 OR (a.is_filtered=0 AND r.is_filtered=0 AND a.name=json_extract(provenance,'$.catalogIdentity.name') AND r.name=json_extract(provenance,'$.catalogIdentity.artist') AND a.mbid IS json_extract(provenance,'$.catalogIdentity.mbid') AND r.mbid IS json_extract(provenance,'$.catalogIdentity.artist_mbid') AND a.apple_music_id IS json_extract(provenance,'$.catalogIdentity.apple_music_id') AND EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.pinned=0 AND c.active_job IS cd_artwork_jobs.expected_active_job AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs prior WHERE prior.id=c.active_job AND prior.user_id=c.user_id AND prior.album_id=c.album_id AND prior.state='accepted' AND json_extract(prior.input,'$.source_kind')='retail')) AND (SELECT automatic_enabled FROM cd_artwork_control WHERE id=1)=1))) RETURNING id"
+      "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=?,submission_claim=? WHERE id=? AND user_id=? AND state='queued' AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_jobs.album_id AND a.user_id=cd_artwork_jobs.user_id AND a.identity_conflict=0 AND r.identity_conflict=0 AND (automatic=0 OR (a.is_filtered=0 AND r.is_filtered=0 AND a.name=json_extract(provenance,'$.catalogIdentity.name') AND r.name=json_extract(provenance,'$.catalogIdentity.artist') AND a.mbid IS json_extract(provenance,'$.catalogIdentity.mbid') AND r.mbid IS json_extract(provenance,'$.catalogIdentity.artist_mbid') AND a.apple_music_id IS json_extract(provenance,'$.catalogIdentity.apple_music_id') AND EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.pinned=0 AND c.review_hold=0 AND c.active_job IS cd_artwork_jobs.expected_active_job AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs prior WHERE prior.id=c.active_job AND prior.user_id=c.user_id AND prior.album_id=c.album_id AND prior.state='accepted' AND json_extract(prior.input,'$.source_kind')='retail')) AND (SELECT automatic_enabled FROM cd_artwork_control WHERE id=1)=1))) RETURNING id"
     ).bind(stamp, stamp, token, job.id, job.user_id),
     env.DB.prepare(
       "UPDATE cd_artwork_control SET budget_day=?,submitted_count=CASE WHEN budget_day=? THEN submitted_count+1 ELSE 1 END WHERE id=1 AND enabled=1 AND daily_limit>0 AND (budget_day<>? OR submitted_count<daily_limit) AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?) RETURNING id"
@@ -284,44 +284,67 @@ export async function approvedArtwork(
   albumIds: number[],
   userId: number
 ) {
-  if (!albumIds.length) return [];
+  return (await artworkSnapshot(env, albumIds, userId)).data;
+}
+export async function artworkSnapshot(
+  env: ArtworkEnv,
+  albumIds: number[],
+  userId: number
+) {
+  if (!albumIds.length) return { data: [], withdrawals: [] };
   const rows = await env.DB.prepare(
-    `SELECT j.* FROM cd_artwork_albums a JOIN cd_artwork_jobs j ON j.id=a.active_job AND j.user_id=a.user_id AND j.album_id=a.album_id JOIN lastfm_albums l ON l.id=a.album_id AND l.user_id=a.user_id WHERE a.user_id=? AND a.album_id IN (${albumIds.map(() => '?').join(',')}) AND j.state='accepted'`
+    `SELECT j.*,a.album_id AS snapshot_album_id,a.visibility_revision,a.hidden_job FROM cd_artwork_albums a JOIN lastfm_albums l ON l.id=a.album_id AND l.user_id=a.user_id LEFT JOIN cd_artwork_jobs j ON j.id=a.active_job AND j.user_id=a.user_id AND j.album_id=a.album_id AND j.state='accepted' WHERE a.user_id=? AND a.album_id IN (${albumIds.map(() => '?').join(',')})`
   )
     .bind(userId, ...albumIds)
-    .all<Job>();
-  return rows.results.map((j) => {
-    const i = JSON.parse(j.input) as {
-      source_kind: JobInput['source_kind'];
-      release_id: string | null;
-      medium_position: number | null;
-    };
-    return {
-      album_id: j.album_id,
-      asset_id: j.id,
-      sha256: j.candidate_hash,
-      image_url: `https://api.rewind.rest/v1/listening/cd-artwork/assets/${j.candidate_hash}.png`,
-      source_kind: i.source_kind,
-      identity_type:
-        JSON.parse(j.provenance).identityType ?? 'representative_release',
-      release_id: i.release_id,
-      medium_position: i.medium_position,
-      source: JSON.parse(j.provenance).sourceUrl,
-      geometry: {
-        canvas: 1024,
-        center: 512,
-        outer_radius: 480,
-        hole_radius: 60,
-      },
-      alpha: 'material',
-      ...(JSON.parse(j.provenance).metadata ?? {
-        thumbhash: null,
-        dominant_color: null,
-        accent_color: null,
-      }),
-      review: 'accepted',
-    };
-  });
+    .all<
+      Job & {
+        snapshot_album_id: number;
+        visibility_revision: number;
+        hidden_job: string | null;
+      }
+    >();
+  const withdrawals = rows.results
+    .filter((row) => row.hidden_job && !row.id)
+    .map((row) => ({
+      album_id: row.snapshot_album_id,
+      revision: row.visibility_revision,
+    }));
+  const data = rows.results
+    .filter((row) => row.id)
+    .map((j) => {
+      const i = JSON.parse(j.input) as {
+        source_kind: JobInput['source_kind'];
+        release_id: string | null;
+        medium_position: number | null;
+      };
+      return {
+        album_id: j.album_id,
+        revision: j.visibility_revision,
+        asset_id: j.id,
+        sha256: j.candidate_hash,
+        image_url: `https://api.rewind.rest/v1/listening/cd-artwork/assets/${j.candidate_hash}.png`,
+        source_kind: i.source_kind,
+        identity_type:
+          JSON.parse(j.provenance).identityType ?? 'representative_release',
+        release_id: i.release_id,
+        medium_position: i.medium_position,
+        source: JSON.parse(j.provenance).sourceUrl,
+        geometry: {
+          canvas: 1024,
+          center: 512,
+          outer_radius: 480,
+          hole_radius: 60,
+        },
+        alpha: 'material',
+        ...(JSON.parse(j.provenance).metadata ?? {
+          thumbhash: null,
+          dominant_color: null,
+          accent_color: null,
+        }),
+        review: 'accepted',
+      };
+    });
+  return { data, withdrawals };
 }
 
 /** A material change is an immutable new revision, with reusable paid raw bytes. */

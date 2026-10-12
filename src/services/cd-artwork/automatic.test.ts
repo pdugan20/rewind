@@ -24,6 +24,7 @@ import { ArtworkError } from './sources.js';
 import { checkListeningArtwork } from './discovery.js';
 import { generateOnce, processRaw } from './generation.js';
 import { publishAutomatic } from './automatic.js';
+import { saveFeedback, feedbackSchema } from './feedback.js';
 import { png } from '../../../scripts/cd-artwork/pixels.mjs';
 const runtime = env as typeof env & ArtworkEnv;
 const RELEASE = '11111111-1111-4111-8111-111111111111';
@@ -379,6 +380,35 @@ it('budget and duplicate submission are atomic for automatic work', async () => 
       ).first<{ n: number }>()
     )?.n
   ).toBe(1);
+});
+it('a human revision flag wins during the final publication transaction without stranding the candidate', async () => {
+  providers();
+  const job = await selected(),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  const batch = runtime.DB.batch.bind(runtime.DB);
+  vi.spyOn(runtime.DB, 'batch').mockImplementationOnce(async (statements) => {
+    await saveFeedback(
+      runtime,
+      job.id,
+      1,
+      feedbackSchema.parse({ status: 'needs_revision', reason: 'lettering' }),
+      'test-owner'
+    );
+    return batch(statements);
+  });
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
+  expect((await getJob(target, job.id, 1))?.state).toBe('pending');
+  expect(await approvedArtwork(target, [1], 1)).toEqual([]);
+  await saveFeedback(
+    runtime,
+    job.id,
+    1,
+    feedbackSchema.parse({ status: 'good' }),
+    'test-owner'
+  );
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
 });
 it('a disabled automatic switch blocks generation without changing the budget', async () => {
   providers();

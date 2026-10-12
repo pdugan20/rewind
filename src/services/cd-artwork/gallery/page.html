@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Artwork review · Rewind</title>
+    <link rel="stylesheet" href="/v1/admin/cd-artwork/gallery/style.css" />
+    <script defer src="/v1/admin/cd-artwork/gallery/gallery.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Rewind / Private library</p>
+        <h1>Artwork review</h1>
+        <p class="intro">A closer look at the discs in your collection.</p>
+      </header>
+      <nav aria-label="Artwork filters">
+        <button data-filter="all" aria-pressed="true">All artwork</button
+        ><button data-filter="published" aria-pressed="false">
+          In the player</button
+        ><button data-filter="needs_attention" aria-pressed="false">
+          Needs attention</button
+        ><button data-filter="held" aria-pressed="false">
+          Held for review
+        </button>
+      </nav>
+      <div class="toolbar">
+        <p id="summary" role="status" aria-live="polite">Loading artwork…</p>
+        <button id="refresh" class="quiet">Refresh</button>
+      </div>
+      <p id="error" role="alert" hidden></p>
+      <section
+        id="gallery"
+        class="grid"
+        aria-label="Generated artwork"
+        aria-busy="true"
+      ></section>
+      <div class="pagination">
+        <button id="previous" disabled>Previous</button><span id="page"></span
+        ><button id="next" disabled>Next</button>
+      </div>
+    </main>
+    <dialog id="detail" aria-labelledby="detail-title">
+      <div class="detail-head">
+        <div>
+          <p class="eyebrow" id="detail-artist"></p>
+          <h2 id="detail-title"></h2>
+        </div>
+        <button id="close" aria-label="Close artwork review">Close</button>
+      </div>
+      <p id="detail-status" class="muted"></p>
+      <div class="comparison">
+        <figure>
+          <div class="image-stage source"><img id="source-image" alt="" /></div>
+          <figcaption>Original source</figcaption>
+        </figure>
+        <figure>
+          <div class="image-stage disc" id="render-stage">
+            <img id="render-image" alt="" />
+          </div>
+          <figcaption id="render-label">Finished disc</figcaption>
+        </figure>
+      </div>
+      <div class="preview-controls">
+        <label for="preview">Preview</label
+        ><select id="preview">
+          <option value="flat">Flat texture</option>
+          <option value="disc">Disc on a neutral surface</option>
+        </select>
+      </div>
+      <p id="hold-message" class="notice" hidden></p>
+      <form id="feedback-form">
+        <fieldset>
+          <legend>What do you think?</legend>
+          <div class="decisions">
+            <label
+              ><input type="radio" name="status" value="good" required /> Looks
+              good</label
+            ><label
+              ><input
+                type="radio"
+                name="status"
+                value="needs_revision"
+                required
+              />
+              Needs revision</label
+            >
+          </div>
+        </fieldset>
+        <div class="feedback-fields">
+          <label
+            >Reason<select id="reason" aria-label="Reason">
+              <option value="">No specific reason</option>
+              <option value="lettering">Lettering or logos</option>
+              <option value="wrong_artwork">Wrong artwork</option>
+              <option value="crop_geometry">Crop or disc shape</option>
+              <option value="material">Material or transparency</option>
+              <option value="other">Something else</option>
+            </select></label
+          ><label class="note"
+            >Notes<textarea
+              id="note"
+              rows="3"
+              maxlength="1000"
+              placeholder="What should change?"
+            ></textarea>
+          </label>
+        </div>
+        <p class="muted">
+          Needs revision keeps the current disc visible and pauses automatic
+          replacements for this album.
+        </p>
+        <button type="submit" class="primary" id="save">Save review</button>
+      </form>
+      <p id="detail-message" role="status" aria-live="polite"></p>
+      <div class="publication-actions">
+        <button id="activate" hidden>Use this artwork</button
+        ><button id="hide" class="danger" hidden>Hide from player</button>
+      </div>
+      <section class="versions">
+        <h3>Versions of this album</h3>
+        <div id="versions"></div>
+        <button id="more-versions" hidden>More versions</button>
+      </section>
+      <details>
+        <summary>Review history</summary>
+        <ul id="history"></ul>
+      </details>
+    </dialog>
+    <dialog id="confirm" aria-labelledby="confirm-title">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="confirm-actions">
+        <button id="cancel-action">Cancel</button
+        ><button id="confirm-action" class="primary">Confirm</button>
+      </div>
+    </dialog>
+  </body>
+</html>

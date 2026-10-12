@@ -2,6 +2,7 @@ import type { ArtworkEnv, Job } from './types.js';
 import { now, sha256 } from './types.js';
 import { ArtworkError } from './sources.js';
 import { getJob } from './store.js';
+import { refreshReviewHold } from './feedback.js';
 import { artworkMetadata } from './metadata.js';
 import { validateCandidate } from './registration.js';
 export async function reviewJob(
@@ -10,7 +11,8 @@ export async function reviewJob(
   userId: number,
   decision: 'accepted' | 'rejected',
   activate: boolean,
-  reviewer: string
+  reviewer: string,
+  expectedActiveJob?: string | null
 ) {
   const job = await getJob(env, id, userId);
   if (!job) throw new ArtworkError('job_not_found', 404);
@@ -26,6 +28,12 @@ export async function reviewJob(
     .bind(userId, job.album_id)
     .first<{ active_job: string | null; pinned: number }>();
   if (!album) throw new ArtworkError('album_not_found', 404);
+  if (
+    activate &&
+    expectedActiveJob !== undefined &&
+    album.active_job !== expectedActiveJob
+  )
+    throw new ArtworkError('activation_conflict', 409);
   if (activate && (decision !== 'accepted' || album.pinned))
     throw new ArtworkError('activation_not_allowed', 409);
   if (decision === 'rejected' && album.active_job === id)
@@ -53,7 +61,8 @@ export async function reviewJob(
   }
   // Conditional changes protect the active asset even when review/activation
   // requests arrive concurrently. D1 batch is transactional.
-  const timestamp = now();
+  const timestamp = now(),
+    reviewClaim = crypto.randomUUID();
   if (decision === 'rejected') {
     await env.DB.batch([
       env.DB.prepare(
@@ -64,32 +73,91 @@ export async function reviewJob(
       ).bind(userId, job.album_id, id, reviewer, timestamp, id, userId),
     ]);
   } else {
+    const acceptSql =
+      "UPDATE cd_artwork_jobs SET state='accepted',updated_at=?,review_claim=? WHERE id=? AND user_id=? AND state=?";
     const statements = [
-      env.DB.prepare(
-        "UPDATE cd_artwork_jobs SET state='accepted',updated_at=? WHERE id=? AND user_id=?"
-      ).bind(timestamp, id, userId),
+      activate
+        ? env.DB.prepare(
+            acceptSql +
+              ' AND EXISTS(SELECT 1 FROM cd_artwork_albums WHERE user_id=? AND album_id=? AND pinned=0 AND active_job IS ?)'
+          ).bind(
+            timestamp,
+            reviewClaim,
+            id,
+            userId,
+            job.state,
+            userId,
+            job.album_id,
+            album.active_job
+          )
+        : env.DB.prepare(acceptSql).bind(
+            timestamp,
+            reviewClaim,
+            id,
+            userId,
+            job.state
+          ),
     ];
-    if (activate)
+    const claimed =
+      "EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='accepted' AND review_claim=?)";
+    if (activate) {
       statements.push(
         env.DB.prepare(
-          "UPDATE cd_artwork_albums SET active_job=?,release_id=COALESCE((SELECT json_extract(input,'$.release_id') FROM cd_artwork_jobs WHERE id=?),release_id),medium_position=COALESCE((SELECT json_extract(input,'$.medium_position') FROM cd_artwork_jobs WHERE id=?),medium_position) WHERE user_id=? AND album_id=? AND pinned=0 AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='accepted')"
-        ).bind(id, id, id, userId, job.album_id, id, userId)
+          `UPDATE cd_artwork_albums SET active_job=?,release_id=COALESCE((SELECT json_extract(input,'$.release_id') FROM cd_artwork_jobs WHERE id=?),release_id),medium_position=COALESCE((SELECT json_extract(input,'$.medium_position') FROM cd_artwork_jobs WHERE id=?),medium_position) WHERE user_id=? AND album_id=? AND pinned=0 AND active_job IS ? AND ${claimed}`
+        ).bind(
+          id,
+          id,
+          id,
+          userId,
+          job.album_id,
+          album.active_job,
+          id,
+          userId,
+          reviewClaim
+        ),
+        env.DB.prepare(
+          `INSERT INTO cd_artwork_events(user_id,album_id,job_id,action,reviewer,created_at) SELECT user_id,album_id,id,'revision-resolved',?,? FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND feedback_status='needs_revision' AND ${claimed}`
+        ).bind(
+          reviewer,
+          timestamp,
+          userId,
+          job.album_id,
+          id,
+          userId,
+          reviewClaim
+        ),
+        env.DB.prepare(
+          `UPDATE cd_artwork_jobs SET feedback_status='resolved',feedback_updated_at=? WHERE user_id=? AND album_id=? AND feedback_status='needs_revision' AND ${claimed}`
+        ).bind(timestamp, userId, job.album_id, id, userId, reviewClaim),
+        env.DB.prepare(
+          `UPDATE cd_artwork_albums SET hidden_job=NULL WHERE user_id=? AND album_id=? AND active_job=? AND ${claimed}`
+        ).bind(userId, job.album_id, id, id, userId, reviewClaim),
+        refreshReviewHold(env, userId, job.album_id)
       );
+    }
     statements.push(
       env.DB.prepare(
-        'INSERT INTO cd_artwork_events(user_id,album_id,job_id,action,reviewer,created_at) VALUES(?,?,?,?,?,?)'
+        `INSERT INTO cd_artwork_events(user_id,album_id,job_id,action,reviewer,created_at) SELECT ?,?,?,?,?,? WHERE ${claimed}`
       ).bind(
         userId,
         job.album_id,
         id,
         activate ? 'accepted-and-activated' : 'accepted',
         reviewer,
-        timestamp
+        timestamp,
+        id,
+        userId,
+        reviewClaim
       )
     );
     await env.DB.batch(statements);
   }
   const result = await getJob(env, id, userId);
+  if (decision === 'accepted' && result?.review_claim !== reviewClaim)
+    throw new ArtworkError(
+      activate ? 'activation_conflict' : 'review_conflict',
+      409
+    );
   if (result?.state !== decision)
     throw new ArtworkError('review_conflict', 409);
   if (activate) {
