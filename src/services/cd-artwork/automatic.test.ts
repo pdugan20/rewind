@@ -20,6 +20,7 @@ import {
   approvedArtwork,
 } from './store.js';
 import { selectAutomaticSource, verifiedCover } from './selection.js';
+import { ArtworkError } from './sources.js';
 import { checkListeningArtwork } from './discovery.js';
 import { generateOnce, processRaw } from './generation.js';
 import { publishAutomatic } from './automatic.js';
@@ -63,6 +64,27 @@ const lookup = {
       trackName: 'Synthetic song',
     },
   ],
+};
+const appleAlbum = {
+  id: '123',
+  attributes: {
+    name: 'Synthetic album',
+    artistName: 'Synthetic artist',
+    artwork: { url: 'https://is1-ssl.mzstatic.com/synthetic/{w}x{h}bb.jpg' },
+  },
+  relationships: {
+    tracks: {
+      data: [
+        {
+          id: '456',
+          attributes: {
+            name: 'Synthetic song',
+            artistName: 'Synthetic artist',
+          },
+        },
+      ],
+    },
+  },
 };
 function providers({
   retail = false,
@@ -373,6 +395,110 @@ it('cross-user cover selection cannot borrow the owner’s observed tracks', asy
   await expect(
     verifiedCover(runtime, 1, 2, await ownedAlbum(runtime, 1, 1))
   ).rejects.toMatchObject({ code: 'cover_identity_unverified' });
+});
+it('authenticated Apple catalog verifies a cover without requiring a CD edition', async () => {
+  await play();
+  const spy = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValue(Response.json({ data: [appleAlbum] }));
+  const source = await verifiedCover(
+    { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1)
+  );
+  expect(source.request).toMatchObject({
+    release_id: null,
+    medium_position: null,
+    source_kind: 'cover',
+  });
+  expect(source.sourceUrl).toContain('1200x1200bb.jpg');
+  expect(source.discovery.catalog_provider).toBe('apple_music');
+  expect(spy).toHaveBeenCalledWith(
+    'https://api.music.apple.com/v1/catalog/us/albums/123?include=tracks',
+    expect.objectContaining({
+      redirect: 'error',
+      headers: expect.objectContaining({
+        Authorization: 'Bearer synthetic-apple-token',
+      }),
+    })
+  );
+});
+it.each(['artist', 'album', 'track'])(
+  'authenticated Apple catalog holds contradictory %s metadata',
+  async (field) => {
+    await play();
+    const album = structuredClone(appleAlbum);
+    if (field === 'artist') album.attributes.artistName = 'Different artist';
+    if (field === 'album') album.attributes.name = 'Different album';
+    if (field === 'track')
+      album.relationships.tracks.data[0].attributes.name = 'Different song';
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({ data: [album] })
+    );
+    await expect(
+      verifiedCover(
+        { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+        1,
+        1,
+        await ownedAlbum(runtime, 1, 1)
+      )
+    ).rejects.toBeInstanceOf(ArtworkError);
+  }
+);
+it('authenticated Apple search requires one exact album before checking its observed track', async () => {
+  await play();
+  await runtime.DB.exec(
+    'UPDATE lastfm_albums SET apple_music_id=NULL WHERE id=1;'
+  );
+  const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    await runtime.DB.exec(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+    );
+    return Response.json(
+      String(url).includes('/search?')
+        ? { results: { albums: { data: [appleAlbum] } } }
+        : { data: [appleAlbum] }
+    );
+  });
+  const source = await verifiedCover(
+    { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1)
+  );
+  expect(source.discovery.observed_track_verified).toBe(true);
+  expect(spy.mock.calls[0][0]).toContain('types=albums');
+});
+it('authenticated Apple errors remain retryable and never leak the credential to retail providers', async () => {
+  await play();
+  const spy = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValue(new Response('', { status: 503 }));
+  const env = {
+    ...runtime,
+    APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token',
+  };
+  await expect(
+    verifiedCover(env, 1, 1, await ownedAlbum(runtime, 1, 1))
+  ).rejects.toMatchObject({ code: 'discovery_provider_error', status: 503 });
+  await runtime.DB.exec(
+    'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+  );
+  await expect(
+    selectAutomaticSource(
+      env,
+      1,
+      1,
+      { name: 'Synthetic album', artist: 'Synthetic artist' },
+      '',
+      1
+    )
+  ).rejects.toMatchObject({ status: 503 });
+  const retail = spy.mock.calls.find(([url]) =>
+    String(url).includes('musicbrainz.org')
+  );
+  expect(retail?.[1]?.headers).not.toHaveProperty('Authorization');
 });
 it('wrong album, track or ambiguous search never schedules paid work', async () => {
   providers({ searchAmbiguous: true });

@@ -26,12 +26,84 @@ export interface SelectedSource {
   discovery: { outcome: string; [key: string]: unknown };
 }
 interface Collection {
-  collectionId?: number;
+  collectionId?: number | string;
   collectionName?: string;
   artistName?: string;
   artworkUrl100?: string;
   wrapperType?: string;
   trackName?: string;
+}
+interface AppleResource {
+  id: string;
+  attributes?: {
+    name?: string;
+    artistName?: string;
+    artwork?: { url: string };
+  };
+  relationships?: { tracks?: { data?: AppleResource[] } };
+}
+const appleCollection = (album: AppleResource): Collection => ({
+  wrapperType: 'collection',
+  collectionId: album.id,
+  collectionName: album.attributes?.name,
+  artistName: album.attributes?.artistName,
+  artworkUrl100: album.attributes?.artwork?.url
+    .replace('{w}', '1200')
+    .replace('{h}', '1200')
+    .replace('{f}', 'jpg'),
+});
+async function searchCoverCatalog(env: ArtworkEnv, album: CatalogAlbum) {
+  const authenticated = !!env.APPLE_MUSIC_DEVELOPER_TOKEN;
+  const url = new URL(
+    authenticated
+      ? 'https://api.music.apple.com/v1/catalog/us/search'
+      : 'https://itunes.apple.com/search'
+  );
+  url.searchParams.set('term', `${album.artist} ${album.name}`);
+  url.searchParams.set(
+    authenticated ? 'types' : 'entity',
+    'album' + (authenticated ? 's' : '')
+  );
+  url.searchParams.set('limit', '10');
+  if (authenticated) {
+    const result = await providerJson<{
+      results?: { albums?: { data?: AppleResource[] } };
+    }>(env, url.href);
+    return (result?.results?.albums?.data ?? []).map(appleCollection);
+  }
+  return (
+    (await providerJson<{ results: Collection[] }>(env, url.href))?.results ??
+    []
+  );
+}
+async function lookupCoverCatalog(
+  env: ArtworkEnv,
+  id: string
+): Promise<Collection[]> {
+  if (!env.APPLE_MUSIC_DEVELOPER_TOKEN)
+    return (
+      (
+        await providerJson<{ results: Collection[] }>(
+          env,
+          `https://itunes.apple.com/lookup?id=${id}&entity=song&limit=200`
+        )
+      )?.results ?? []
+    );
+  const result = await providerJson<{ data?: AppleResource[] }>(
+    env,
+    `https://api.music.apple.com/v1/catalog/us/albums/${id}?include=tracks`
+  );
+  const album = result?.data?.find((a) => a.id === id);
+  if (!album) return [];
+  return [
+    appleCollection(album),
+    ...(album.relationships?.tracks?.data ?? []).map((song): Collection => ({
+      wrapperType: 'track',
+      collectionId: id,
+      artistName: song.attributes?.artistName,
+      trackName: song.attributes?.name,
+    })),
+  ];
 }
 /** Two independent checks: exact album/artist metadata and an observed track.
  * Cover-only albums never need a physical-release identifier. Provider errors
@@ -63,12 +135,7 @@ export async function verifiedCover(
     throw new ArtworkError('cover_identity_unverified');
   let id = album.apple_music_id == null ? null : String(album.apple_music_id);
   if (!id || !/^\d+$/.test(id)) {
-    const url = new URL('https://itunes.apple.com/search');
-    url.searchParams.set('term', `${album.artist} ${album.name}`);
-    url.searchParams.set('entity', 'album');
-    url.searchParams.set('limit', '10');
-    const search = await providerJson<{ results: Collection[] }>(env, url.href);
-    const candidates = (search?.results ?? []).filter(
+    const candidates = (await searchCoverCatalog(env, album)).filter(
       (c) =>
         c.collectionId &&
         c.collectionName &&
@@ -83,9 +150,9 @@ export async function verifiedCover(
       );
     id = ids[0];
   }
-  const url = `https://itunes.apple.com/lookup?id=${id}&entity=song&limit=200`;
-  const lookup = await providerJson<{ results: Collection[] }>(env, url);
-  const collection = lookup?.results.find(
+  if (!/^\d+$/.test(id)) throw new ArtworkError('cover_identity_unverified');
+  const lookup = await lookupCoverCatalog(env, id);
+  const collection = lookup.find(
     (c) => c.wrapperType === 'collection' && String(c.collectionId) === id
   );
   if (
@@ -96,7 +163,7 @@ export async function verifiedCover(
   )
     throw new ArtworkError('cover_identity_unverified');
   const songs =
-    lookup?.results.filter(
+    lookup.filter(
       (c) =>
         c.wrapperType === 'track' &&
         String(c.collectionId) === id &&
@@ -136,6 +203,9 @@ export async function verifiedCover(
     discovery: {
       outcome: 'cover_found',
       collection_id: id,
+      catalog_provider: env.APPLE_MUSIC_DEVELOPER_TOKEN
+        ? 'apple_music'
+        : 'itunes',
       album_artist_verified: true,
       observed_track_verified: true,
       play_evidence: legacyEvidence

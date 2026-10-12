@@ -179,9 +179,16 @@ export async function providerJson<T>(
   if (delay > 15000) throw new ArtworkError('discovery_busy', 429);
   if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
   const r = await fetch(url, {
+    // Cloudflare can forward headers across redirects; never redirect a credential.
+    redirect:
+      new URL(url).hostname === 'api.music.apple.com' ? 'error' : 'follow',
     headers: {
       Accept: 'application/json',
       'User-Agent': 'Rewind-CD-Artwork/1.0 (https://rewind.rest)',
+      ...(new URL(url).hostname === 'api.music.apple.com' &&
+      env.APPLE_MUSIC_DEVELOPER_TOKEN
+        ? { Authorization: `Bearer ${env.APPLE_MUSIC_DEVELOPER_TOKEN}` }
+        : {}),
     },
     signal: AbortSignal.timeout(15000),
   });

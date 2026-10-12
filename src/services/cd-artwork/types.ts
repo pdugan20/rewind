@@ -49,6 +49,7 @@ export interface ArtworkEnv {
   CD_DISCOVERY: Workflow<{ checkId: number }>;
   CD_WORKFLOW: Workflow<{ jobId: string; userId: number }>;
   OPENAI_API_KEY?: string;
+  APPLE_MUSIC_DEVELOPER_TOKEN?: string;
   ALLOWED_ORIGINS: string;
 }
 export const sha256 = async (bytes: Uint8Array | string) => {
