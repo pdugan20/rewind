@@ -21,3 +21,7 @@ The additive migration does not guess original albums for existing events. Legac
 ## Release gates
 
 Synthetic cases cover the same song on two releases, replay deduplication, explicit missing albums, legacy compatibility, conflicting identifiers, shared title qualifiers, a wrong catalog artist/title, transient failure, binding changes during fetch, user scope and admission against the reported album. Run focused suites, the complete API and artwork suites, type/lint/format checks, build and independent review before the authorized merge/deployment. Verify production health and original accepted master hashes afterward. The MCP version remains unchanged until final release confidence is established.
+
+## Production query correction
+
+The published-package production smoke exposed an album-detail timeout after owner predicates changed SQLite index selection. A production plan showed a scoped album lookup searching the broad user-only track index. Scoped history joins now have composite owner/track/date and owner/date indexes, and track lookup has owner/album and owner/artist indexes. Album and artist detail aggregates start with selective, disjoint snapshot and legacy branches. Album count and first-date reads share one bounded result; default membership does not override explicitly attributed events. Query-plan and endpoint regressions cover the indexed paths, ownership, missing albums and first dates. Deployment verification must exercise the exact published MCP package against the production album endpoint before claiming completion.
