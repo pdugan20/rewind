@@ -3,6 +3,7 @@
  * Used by both the stdio entry point (index.ts) and the remote Worker entry point (worker.ts).
  */
 
+import packageMetadata from '../package.json' with { type: 'json' };
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { RewindClient } from './client.js';
 import { READ_ONLY_ANNOTATIONS } from './tools/helpers.js';
@@ -61,7 +62,7 @@ export function createServer(client: RewindClient): McpServer {
     {
       name: 'rewind',
       title: 'Rewind',
-      version: '0.5.0',
+      version: packageMetadata.version,
       websiteUrl: 'https://rewind.rest',
       icons: [
         {

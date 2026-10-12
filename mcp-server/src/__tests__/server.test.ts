@@ -1,3 +1,4 @@
+import packageMetadata from '../../package.json' with { type: 'json' };
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -788,6 +789,18 @@ function getMockResponse(path: string): unknown {
 
 // --- Tests ---
 
+describe('release version handshake', () => {
+  it('reports the package version to connected clients', async () => {
+    const { client, server } = await createTestClient();
+    try {
+      expect(client.getServerVersion()?.version).toBe(packageMetadata.version);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+});
+
 describe('MCP Server', () => {
   let client: Client;
 
@@ -913,7 +926,7 @@ describe('MCP Server', () => {
         expect(content[0].text.length).toBeGreaterThan(0);
 
         // Should NOT be raw JSON
-        expect(content[0].text).not.toMatch(/^\s*[\[{]/);
+        expect(content[0].text).not.toMatch(/^\s*[[{]/);
 
         // Should not have isError
         expect(result.isError).toBeFalsy();
