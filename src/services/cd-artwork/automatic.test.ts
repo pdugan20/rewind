@@ -72,6 +72,10 @@ function providers({
   missingRetail = false,
 } = {}) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+    // Source tests exercise selection, not wall-clock provider throttling.
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+    ).run();
     const u = String(url);
     if (u.includes('/responses'))
       return failVerifier
@@ -331,12 +335,10 @@ it.each(['identity', 'pin', 'disable', 'filter', 'active'])(
             "UPDATE cd_artwork_albums SET active_job='replacement' WHERE album_id=1;"
           )
         );
-    if (change === 'identity')
-      await expect(publishAutomatic(target, job.id, 1)).rejects.toMatchObject({
-        code: 'catalog_identity_unresolved',
-      });
-    else expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
-    expect((await getJob(target, job.id, 1))?.state).toBe('pending');
+    expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
+    expect((await getJob(target, job.id, 1))?.state).toBe(
+      change === 'disable' ? 'pending' : 'needs_registration'
+    );
   }
 );
 it('budget and duplicate submission are atomic for automatic work', async () => {
@@ -701,4 +703,191 @@ it('a retail disc accepted during source selection blocks even a job expecting t
   ).job;
   expect(await claimSubmission(runtime, job)).toBe(false);
   expect(await generateOnce(withKey(), job.id, 1)).toEqual({ rawKey: null });
+});
+it('a retail scan cannot bypass a contradictory stored Apple album binding', async () => {
+  await play();
+  const bad = structuredClone(lookup);
+  bad.results[0].collectionName = 'Different album';
+  const fetcher = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValue(Response.json(bad));
+  await expect(
+    selectAutomaticSource(
+      runtime,
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1),
+      RELEASE,
+      1
+    )
+  ).rejects.toMatchObject({ code: 'cover_identity_unverified' });
+  expect(
+    fetcher.mock.calls.some(([u]) => String(u).includes('musicbrainz.org'))
+  ).toBe(false);
+});
+it('an independently verified cover remains usable while retail discovery retries', async () => {
+  await play();
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+    ).run();
+    return String(url).includes('itunes.apple.com')
+      ? Response.json(lookup)
+      : new Response('', { status: 503 });
+  });
+  const source = await selectAutomaticSource(
+    runtime,
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1),
+    RELEASE,
+    1
+  );
+  expect(source.sourceKind).toBe('cover');
+  expect(source.retailRetryAfter).toBe(3600);
+  expect(source.discovery.outcome).toBe('retail_provider_pending');
+});
+it('a retail upgrade waits for the unfinished fallback job without a second budget claim', async () => {
+  providers();
+  const cover = await selected();
+  const album = await ownedAlbum(runtime, 1, 1);
+  vi.restoreAllMocks();
+  providers({ retail: true });
+  const retail = await selectAutomaticSource(runtime, 1, 1, album, RELEASE, 1);
+  const deferred = await enqueue(runtime, retail.request, 1, false, {
+    source: retail,
+    expectedActiveJob: null,
+    catalogIdentity: album,
+  });
+  expect(deferred.job.id).toBe(cover.id);
+  expect('blocked' in deferred && deferred.blocked).toBe(true);
+  expect(
+    (
+      await runtime.DB.prepare(
+        'SELECT COUNT(*) n FROM cd_artwork_jobs WHERE automatic=1'
+      ).first<{ n: number }>()
+    )?.n
+  ).toBe(1);
+  expect(await claimSubmission(runtime, cover)).toBe(true);
+  expect(await claimSubmission(runtime, deferred.job)).toBe(false);
+});
+it('simultaneous cover and retail enrollment share one unfinished automatic job', async () => {
+  providers();
+  await play();
+  const album = await ownedAlbum(runtime, 1, 1),
+    cover = await verifiedCover(runtime, 1, 1, album);
+  vi.restoreAllMocks();
+  providers({ retail: true });
+  const retail = await selectAutomaticSource(runtime, 1, 1, album, RELEASE, 1);
+  const jobs = await Promise.all([
+    enqueue(runtime, cover.request, 1, false, {
+      source: cover,
+      expectedActiveJob: null,
+      catalogIdentity: album,
+    }),
+    enqueue(runtime, retail.request, 1, false, {
+      source: retail,
+      expectedActiveJob: null,
+      catalogIdentity: album,
+    }),
+  ]);
+  expect(jobs[0].job.id).toBe(jobs[1].job.id);
+  expect(
+    (
+      await runtime.DB.prepare(
+        'SELECT COUNT(*) n FROM cd_artwork_jobs WHERE automatic=1'
+      ).first<{ n: number }>()
+    )?.n
+  ).toBe(1);
+});
+it('a finished fallback can upgrade to retail with its accepted asset as the expected active job', async () => {
+  providers();
+  const cover = await selected(),
+    target = withKey();
+  await generateOnce(target, cover.id, 1);
+  await processRaw(target, cover.id, 1);
+  await publishAutomatic(target, cover.id, 1);
+  vi.restoreAllMocks();
+  providers({ retail: true });
+  const album = await ownedAlbum(runtime, 1, 1),
+    source = await selectAutomaticSource(runtime, 1, 1, album, RELEASE, 1);
+  const job = (
+    await enqueue(runtime, source.request, 1, false, {
+      source,
+      expectedActiveJob: cover.id,
+      catalogIdentity: album,
+    })
+  ).job;
+  expect(job.id).not.toBe(cover.id);
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
+  expect(
+    await runtime.DB.prepare(
+      'SELECT release_id,active_job FROM cd_artwork_albums WHERE user_id=1 AND album_id=1'
+    ).first()
+  ).toEqual({ release_id: RELEASE, active_job: job.id });
+});
+it('normal metadata enrichment gets a short retry instead of a seven-day hold', async () => {
+  await runtime.DB.exec(
+    'UPDATE lastfm_albums SET apple_music_id=NULL WHERE id=1;'
+  );
+  await play();
+  const fetcher = providers(),
+    impl = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation(async (url, init) => {
+    const response = await impl(url, init);
+    if (String(url).includes('musicbrainz.org'))
+      await runtime.DB.exec(
+        'UPDATE lastfm_albums SET apple_music_id=123 WHERE id=1;'
+      );
+    return response;
+  });
+  const row = await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks'
+  ).first<{ id: number }>();
+  const target = {
+    ...runtime,
+    CD_WORKFLOW: { create: vi.fn(async () => ({})) },
+  } as unknown as ArtworkEnv;
+  expect(await checkListeningArtwork(target, row!.id)).toEqual({
+    outcome: 'catalog_changed',
+    retryAfter: 60,
+  });
+  expect(
+    (
+      await runtime.DB.prepare(
+        'SELECT completed_at FROM cd_artwork_checks'
+      ).first<{ completed_at: null }>()
+    )?.completed_at
+  ).toBeNull();
+  expect(await checkListeningArtwork(target, row!.id)).toEqual({
+    outcome: 'generation_queued',
+    retryAfter: 0,
+  });
+});
+it('stale queued artwork retires and a new active context gets a fresh immutable job', async () => {
+  providers({ retail: true });
+  const old = await selected(true);
+  await runtime.DB.prepare(
+    "INSERT INTO cd_artwork_jobs(id,user_id,album_id,state,input,source_hash,source_key,source_mime,provenance,updated_at,created_at) VALUES('new-cover',1,1,'accepted',?, 'hash','key','image/png','{}',?,?)"
+  )
+    .bind(JSON.stringify({ source_kind: 'cover' }), now(), now())
+    .run();
+  await runtime.DB.exec(
+    "UPDATE cd_artwork_albums SET active_job='new-cover' WHERE user_id=1 AND album_id=1;"
+  );
+  expect(await generateOnce(withKey(), old.id, 1)).toEqual({ rawKey: null });
+  expect((await getJob(runtime, old.id, 1))?.state).toBe('needs_registration');
+  const album = await ownedAlbum(runtime, 1, 1),
+    source = await selectAutomaticSource(runtime, 1, 1, album, RELEASE, 1);
+  const next = (
+    await enqueue(runtime, source.request, 1, false, {
+      source,
+      expectedActiveJob: 'new-cover',
+      catalogIdentity: album,
+    })
+  ).job;
+  expect(next.id).not.toBe(old.id);
+  expect(next.expected_active_job).toBe('new-cover');
 });

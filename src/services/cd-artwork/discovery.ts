@@ -1,7 +1,7 @@
 import type { ArtworkEnv } from './types.js';
 import { now } from './types.js';
 import { ArtworkError, resolveSource } from './sources.js';
-import { ownedAlbum, enqueue, dispatch } from './store.js';
+import { ownedAlbum, enqueue, dispatch, getPendingAutomatic } from './store.js';
 import { selectAutomaticSource } from './selection.js';
 
 export interface DiscoveryCheck {
@@ -74,7 +74,15 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     const control = await env.DB.prepare(
       'SELECT automatic_enabled FROM cd_artwork_control WHERE id=1'
     ).first<{ automatic_enabled: number }>();
-    if (control?.automatic_enabled && row.user_id === 1) {
+    if (
+      control?.automatic_enabled &&
+      row.user_id === 1 &&
+      (await getPendingAutomatic(env, row.album_id, row.user_id))
+    ) {
+      outcome = 'generation_pending';
+      evidence = { outcome };
+      retryAfter = 3600;
+    } else if (control?.automatic_enabled && row.user_id === 1) {
       const active = await env.DB.prepare(
         "SELECT c.active_job,j.state,json_extract(j.input,'$.source_kind') AS source_kind FROM cd_artwork_albums c LEFT JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE c.user_id=? AND c.album_id=?"
       )
@@ -107,9 +115,14 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
           }
         );
         await dispatch(env, result.job);
-        outcome = 'generation_queued';
+        outcome =
+          'blocked' in result && result.blocked
+            ? 'generation_pending'
+            : 'generation_queued';
+        if (outcome === 'generation_pending') retryAfter = 3600;
       }
       evidence = selected.discovery;
+      retryAfter = Math.max(retryAfter, selected.retailRetryAfter ?? 0);
     } else {
       const result = await resolveSource(
         env,
@@ -127,22 +140,25 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     }
   } catch (error) {
     outcome =
-      error instanceof ArtworkError &&
-      [
-        'edition_identity_mismatch',
-        'catalog_identity_unresolved',
-        'cover_identity_unverified',
-        'cover_identity_ambiguous',
-        'cover_track_mismatch',
-      ].includes(error.code)
-        ? 'identity_required'
-        : error instanceof ArtworkError && error.status === 422
-          ? 'source_unavailable'
-          : 'error';
+      error instanceof ArtworkError && error.code === 'catalog_identity_changed'
+        ? 'catalog_changed'
+        : error instanceof ArtworkError &&
+            [
+              'edition_identity_mismatch',
+              'catalog_identity_unresolved',
+              'cover_identity_unverified',
+              'cover_identity_ambiguous',
+              'cover_track_mismatch',
+            ].includes(error.code)
+          ? 'identity_required'
+          : error instanceof ArtworkError && error.status === 422
+            ? 'source_unavailable'
+            : 'error';
     evidence = {
       outcome,
       code: error instanceof ArtworkError ? error.code : 'provider_unavailable',
     };
+    if (outcome === 'catalog_changed') retryAfter = 60;
     if (outcome === 'error')
       retryAfter = error instanceof ArtworkError ? error.retryAfter : 3600;
   }

@@ -19,6 +19,7 @@ export interface SelectedSource {
   sourceUrl: string;
   preparedBytes?: Uint8Array;
   preparedMime?: string;
+  retailRetryAfter?: number;
   sourceKind: 'retail' | 'cover';
   identityType: 'representative_release' | 'reviewed_source';
   selectedImageId: string | null;
@@ -152,70 +153,97 @@ export async function selectAutomaticSource(
   mediumPosition: number,
   allowLegacy = false
 ): Promise<SelectedSource> {
-  let releases = releaseId ? [releaseId] : [];
-  if (!releases.length) {
-    const candidates = await resolveEditionCandidates(env, album);
-    // Multiple pressings of one proven logical album can supply representative
-    // art. Different/unknown release groups remain ambiguous. Inspect at most
-    // three stable IDs; never claim that a representative scan is owned.
-    const groups = new Set(
-      candidates.candidates.map((c) => c.release_group_id)
-    );
-    if (
-      groups.size === 1 &&
-      !groups.has(null) &&
-      (candidates.group_verified || !candidates.results_truncated)
-    )
-      releases = candidates.candidates
-        .map((c) => c.release_id)
-        .sort()
-        .slice(0, 3);
-  }
+  // A stored Apple binding is independent identity evidence, not permission
+  // to ignore contradictory metadata when a retail scan happens to exist.
+  const verified = album.apple_music_id
+    ? await verifiedCover(env, albumId, userId, album, allowLegacy)
+    : null;
   let cover: SelectedSource | null = null;
-  for (const release of releases) {
-    const request: JobRequest = {
-      album_id: albumId,
-      release_id: release,
-      medium_position: mediumPosition,
-      source_kind: 'retail',
+  try {
+    let releases = releaseId ? [releaseId] : [];
+    if (!releases.length) {
+      const candidates = await resolveEditionCandidates(env, album);
+      // Multiple pressings of one proven logical album can supply representative
+      // art. Different/unknown release groups remain ambiguous. Inspect at most
+      // three stable IDs; never claim that a representative scan is owned.
+      const groups = new Set(
+        candidates.candidates.map((c) => c.release_group_id)
+      );
+      if (
+        groups.size === 1 &&
+        !groups.has(null) &&
+        (candidates.group_verified || !candidates.results_truncated)
+      )
+        releases = candidates.candidates
+          .map((c) => c.release_id)
+          .sort()
+          .slice(0, 3);
+    }
+    for (const release of releases) {
+      const request: JobRequest = {
+        album_id: albumId,
+        release_id: release,
+        medium_position: mediumPosition,
+        source_kind: 'retail',
+      };
+      const found = await resolveSource(env, request, album, true);
+      const images = found.discovery.images.filter((i) => i.approved);
+      if (found.discovery.outcome === 'found' && images.length === 1) {
+        request.image_id = images[0].id;
+        const downloaded = await usableSource(images[0].url);
+        if (downloaded)
+          return {
+            preparedBytes: downloaded.bytes,
+            preparedMime: downloaded.mime,
+            ...found,
+            sourceUrl: images[0].url,
+            sourceKind: 'retail',
+            identityType: 'representative_release',
+            selectedImageId: images[0].id,
+            request,
+          };
+      }
+      if (found.discovery.covers.length === 1) {
+        // Keep one verified cover while checking the remaining bounded retail candidates.
+        const front = found.discovery.covers[0];
+        const downloaded = await usableSource(front.url);
+        if (downloaded)
+          cover ??= {
+            preparedBytes: downloaded.bytes,
+            preparedMime: downloaded.mime,
+            request: { ...request, source_kind: 'cover', cover_url: front.url },
+            sourceUrl: front.url,
+            sourceKind: 'cover',
+            identityType: 'representative_release',
+            selectedImageId: front.id,
+            discovery: { ...found.discovery, outcome: 'cover_found' },
+          };
+      }
+    }
+    return (
+      cover ??
+      verified ??
+      (await verifiedCover(env, albumId, userId, album, allowLegacy))
+    );
+  } catch (error) {
+    if (!(error instanceof ArtworkError) || ![429, 503].includes(error.status))
+      throw error;
+    // Available cover evidence can produce a design while retail discovery is
+    // pending. Retain the outage and retry; never record retail art as absent.
+    const fallback =
+      verified ??
+      cover ??
+      (await verifiedCover(env, albumId, userId, album, allowLegacy));
+    return {
+      ...fallback,
+      retailRetryAfter: error.retryAfter,
+      discovery: {
+        ...fallback.discovery,
+        outcome: 'retail_provider_pending',
+        retail_retry_after: error.retryAfter,
+      },
     };
-    const found = await resolveSource(env, request, album, true);
-    const images = found.discovery.images.filter((i) => i.approved);
-    if (found.discovery.outcome === 'found' && images.length === 1) {
-      request.image_id = images[0].id;
-      const downloaded = await usableSource(images[0].url);
-      if (downloaded)
-        return {
-          preparedBytes: downloaded.bytes,
-          preparedMime: downloaded.mime,
-          ...found,
-          sourceUrl: images[0].url,
-          sourceKind: 'retail',
-          identityType: 'representative_release',
-          selectedImageId: images[0].id,
-          request,
-        };
-    }
-    if (found.discovery.covers.length === 1) {
-      // Keep one verified cover while checking the remaining bounded retail candidates.
-      const front = found.discovery.covers[0];
-      const downloaded = await usableSource(front.url);
-      if (downloaded)
-        cover ??= {
-          preparedBytes: downloaded.bytes,
-          preparedMime: downloaded.mime,
-          request: { ...request, source_kind: 'cover', cover_url: front.url },
-          sourceUrl: front.url,
-          sourceKind: 'cover',
-          identityType: 'representative_release',
-          selectedImageId: front.id,
-          discovery: { ...found.discovery, outcome: 'cover_found' },
-        };
-    }
   }
-  return (
-    cover ?? (await verifiedCover(env, albumId, userId, album, allowLegacy))
-  );
 }
 
 async function usableSource(url: string) {

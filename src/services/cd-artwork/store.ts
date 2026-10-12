@@ -11,6 +11,16 @@ export const getJob = (env: ArtworkEnv, id: string, userId: number) =>
   env.DB.prepare('SELECT * FROM cd_artwork_jobs WHERE id=? AND user_id=?')
     .bind(id, userId)
     .first<Job>();
+export const getPendingAutomatic = (
+  env: ArtworkEnv,
+  albumId: number,
+  userId: number
+) =>
+  env.DB.prepare(
+    "SELECT * FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND automatic=1 AND (state IN ('queued','submitted','provider_unknown','pending') OR (state='needs_registration' AND COALESCE(validation_state,'') IN ('','claimed','passed'))) LIMIT 1"
+  )
+    .bind(userId, albumId)
+    .first<Job>();
 export async function ownedAlbum(env: ArtworkEnv, id: number, userId: number) {
   const album = await env.DB.prepare(
     'SELECT a.name,a.mbid,a.identity_conflict,a.apple_music_id,r.name AS artist,r.mbid AS artist_mbid,r.identity_conflict AS artist_identity_conflict FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=? AND a.user_id=?'
@@ -57,6 +67,7 @@ export async function enqueue(
         prepared,
         catalogIdentity: album,
         automatic: !!automatic,
+        expectedActiveJob: automatic?.expectedActiveJob ?? null,
       })
     )
   );
@@ -66,6 +77,10 @@ export async function enqueue(
     .bind(userId, request.album_id, requestKey, PROCESSOR_HASH)
     .first<Job>();
   if (existing && !refresh_source) return { job: existing, reused: true };
+  if (automatic) {
+    const pending = await getPendingAutomatic(env, request.album_id, userId);
+    if (pending) return { job: pending, reused: true, blocked: true };
+  }
   const source =
     automatic?.source ??
     (request.release_id
@@ -177,7 +192,13 @@ export async function enqueue(
     ),
   ]);
   const job = await getJob(env, id, userId);
-  if (!job) throw new ArtworkError('job_storage_failed', 503);
+  if (!job) {
+    if (automatic) {
+      const pending = await getPendingAutomatic(env, request.album_id, userId);
+      if (pending) return { job: pending, reused: true, blocked: true };
+    }
+    throw new ArtworkError('job_storage_failed', 503);
+  }
   return { job, reused: false };
 }
 export async function dispatch(env: ArtworkEnv, job: Job, recover = false) {
