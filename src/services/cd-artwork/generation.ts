@@ -1,8 +1,9 @@
+import { automaticEligible, processAutomaticRaw } from './automatic.js';
 import guide from './assets/geometry-reference.png';
 import { artworkMetadata } from './metadata.js';
 import type { ArtworkEnv, JobInput } from './types.js';
 import { MODEL, now, sha256 } from './types.js';
-import { boundedBytes } from './sources.js';
+import { boundedBytes, ArtworkError } from './sources.js';
 import { getJob, claimSubmission } from './store.js';
 import { prepareCandidate } from './registration.js';
 
@@ -14,6 +15,31 @@ export async function generateOnce(
 ) {
   const job = await getJob(env, id, userId);
   if (!job) throw Error('job_not_found');
+  if (job.automatic) {
+    const control = await env.DB.prepare(
+      'SELECT enabled,automatic_enabled FROM cd_artwork_control WHERE id=1'
+    ).first<{ enabled: number; automatic_enabled: number }>();
+    if (!control?.enabled || !control.automatic_enabled)
+      return { rawKey: null };
+    let eligible = false;
+    try {
+      eligible = await automaticEligible(env, job);
+    } catch (error) {
+      if (
+        !(error instanceof ArtworkError) ||
+        !['catalog_identity_unresolved', 'album_not_found'].includes(error.code)
+      )
+        throw error;
+    }
+    if (!eligible) {
+      await env.DB.prepare(
+        "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_identity_or_activation_changed',updated_at=? WHERE id=? AND user_id=? AND state='queued' AND automatic=1"
+      )
+        .bind(now(), id, userId)
+        .run();
+      return { rawKey: null };
+    }
+  }
   const key = rawKey(userId, id);
   if (await env.ARTWORK.head(key)) return { rawKey: key };
   if (['pending', 'accepted', 'rejected'].includes(job.state))
@@ -172,6 +198,7 @@ export async function generateOnce(
 export async function processRaw(env: ArtworkEnv, id: string, userId: number) {
   const job = await getJob(env, id, userId);
   if (!job) throw Error('job_not_found');
+  if (job.automatic) return processAutomaticRaw(env, id, userId);
   if (job.candidate_key && (await env.ARTWORK.head(job.candidate_key)))
     return { state: job.state, candidateHash: job.candidate_hash };
   const key = job.raw_key ?? rawKey(userId, id),

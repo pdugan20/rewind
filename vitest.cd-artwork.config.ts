@@ -21,6 +21,7 @@ export default defineConfig(async () => ({
         // Match the pinned local workerd; production retains its configured date.
         compatibilityDate: '2026-07-29',
         bindings: {
+          OPENAI_API_KEY: 'synthetic-artwork-test-key',
           TEST_MIGRATIONS: await readD1Migrations(
             `${import.meta.dirname}/migrations`
           ),
