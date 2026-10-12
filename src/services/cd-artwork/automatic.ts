@@ -143,6 +143,17 @@ export function verdictPasses(verdict: Verdict, kind: JobInput['source_kind']) {
         verdict.material_opacity <= 0.9))
   );
 }
+export async function deferStaleAutomatic(env: ArtworkEnv, job: Job) {
+  const stamp = now();
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_identity_or_activation_changed',updated_at=? WHERE id=? AND user_id=? AND automatic=1 AND state IN ('queued','submitted','provider_unknown','needs_registration','pending')"
+    ).bind(stamp, job.id, job.user_id),
+    env.DB.prepare(
+      "UPDATE cd_artwork_albums SET last_checked_at=NULL,next_check=? WHERE user_id=? AND album_id=? AND pinned=0 AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='needs_registration' AND error_code='automatic_identity_or_activation_changed' AND updated_at=?)"
+    ).bind(stamp, job.user_id, job.album_id, job.id, job.user_id, stamp),
+  ]);
+}
 export async function automaticEligible(env: ArtworkEnv, job: Job) {
   if (!job.automatic || job.user_id !== 1) return false;
   const control = await env.DB.prepare(
@@ -182,8 +193,25 @@ export async function processAutomaticRaw(
   if (!job?.automatic) throw new ArtworkError('automatic_job_required');
   if (job.state === 'accepted' || job.state === 'rejected' || job.candidate_key)
     return { state: job.state, candidateHash: job.candidate_hash };
-  if (!(await automaticEligible(env, job)))
+  const control = await env.DB.prepare(
+    'SELECT enabled,automatic_enabled FROM cd_artwork_control WHERE id=1'
+  ).first<{ enabled: number; automatic_enabled: number }>();
+  if (!control?.enabled || !control.automatic_enabled)
     return { state: 'held', candidateHash: null };
+  let eligible = false;
+  try {
+    eligible = await automaticEligible(env, job);
+  } catch (error) {
+    if (
+      !(error instanceof ArtworkError) ||
+      !['catalog_identity_unresolved', 'album_not_found'].includes(error.code)
+    )
+      throw error;
+  }
+  if (!eligible) {
+    await deferStaleAutomatic(env, job);
+    return { state: 'held', candidateHash: null };
+  }
   const raw = await env.ARTWORK.get(
     job.raw_key ?? `jobs/${userId}/${id}/raw.png`
   );
@@ -332,10 +360,27 @@ export async function publishAutomatic(
     job.state !== 'pending' ||
     job.validation_state !== 'passed' ||
     !job.candidate_key ||
-    !job.candidate_hash ||
-    !(await automaticEligible(env, job))
+    !job.candidate_hash
   )
     return { state: 'held' };
+  const control = await env.DB.prepare(
+    'SELECT enabled,automatic_enabled FROM cd_artwork_control WHERE id=1'
+  ).first<{ enabled: number; automatic_enabled: number }>();
+  if (!control?.enabled || !control.automatic_enabled) return { state: 'held' };
+  let eligible = false;
+  try {
+    eligible = await automaticEligible(env, job);
+  } catch (error) {
+    if (
+      !(error instanceof ArtworkError) ||
+      !['catalog_identity_unresolved', 'album_not_found'].includes(error.code)
+    )
+      throw error;
+  }
+  if (!eligible) {
+    await deferStaleAutomatic(env, job);
+    return { state: 'held' };
+  }
   const p = JSON.parse(job.provenance);
   if (
     p.verifiedCandidateHash !== job.candidate_hash ||
@@ -379,8 +424,10 @@ export async function publishAutomatic(
         AND a.apple_music_id IS json_extract(cd_artwork_jobs.provenance,'$.catalogIdentity.apple_music_id')) RETURNING id`
     ).bind(stamp, id, userId),
     env.DB.prepare(
-      "UPDATE cd_artwork_albums SET active_job=? WHERE user_id=? AND album_id=? AND pinned=0 AND active_job IS ? AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='accepted' AND automatic=1 AND updated_at=?)"
+      "UPDATE cd_artwork_albums SET active_job=?,release_id=COALESCE((SELECT json_extract(input,'$.release_id') FROM cd_artwork_jobs WHERE id=?),release_id),medium_position=COALESCE((SELECT json_extract(input,'$.medium_position') FROM cd_artwork_jobs WHERE id=?),medium_position) WHERE user_id=? AND album_id=? AND pinned=0 AND active_job IS ? AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='accepted' AND automatic=1 AND updated_at=?)"
     ).bind(
+      id,
+      id,
       id,
       userId,
       job.album_id,
@@ -393,6 +440,21 @@ export async function publishAutomatic(
       "INSERT INTO cd_artwork_events(user_id,album_id,job_id,action,reviewer,created_at) SELECT ?,?,?,'automatically-accepted-and-activated','automatic-visual-verification',? WHERE EXISTS(SELECT 1 FROM cd_artwork_albums WHERE user_id=? AND album_id=? AND active_job=?) AND NOT EXISTS(SELECT 1 FROM cd_artwork_events WHERE job_id=? AND action='automatically-accepted-and-activated')"
     ).bind(userId, job.album_id, id, stamp, userId, job.album_id, id, id),
   ]);
+  if (!accepted.results.length) {
+    const current = await getJob(env, id, userId);
+    if (current?.state === 'accepted')
+      return { state: 'accepted', candidateHash: current.candidate_hash };
+    const enabled = await env.DB.prepare(
+      'SELECT enabled,automatic_enabled FROM cd_artwork_control WHERE id=1'
+    ).first<{ enabled: number; automatic_enabled: number }>();
+    if (
+      enabled?.enabled &&
+      enabled.automatic_enabled &&
+      current &&
+      current.state === 'pending'
+    )
+      await deferStaleAutomatic(env, current);
+  }
   return {
     state: accepted.results.length ? 'accepted' : 'held',
     candidateHash: job.candidate_hash,

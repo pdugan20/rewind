@@ -546,7 +546,9 @@ export class CdDiscoveryWorkflow extends WorkflowEntrypoint<
       if (attempt < 3)
         await step.sleep(
           `provider-backoff-${attempt}`,
-          Math.max(3600 * 2 ** attempt, result.retryAfter) * 1000
+          (result.outcome === 'catalog_changed'
+            ? result.retryAfter
+            : Math.max(3600 * 2 ** attempt, result.retryAfter)) * 1000
         );
     }
     await step.do('finish-exhausted-check', async () => {

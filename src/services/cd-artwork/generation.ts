@@ -1,4 +1,8 @@
-import { automaticEligible, processAutomaticRaw } from './automatic.js';
+import {
+  automaticEligible,
+  processAutomaticRaw,
+  deferStaleAutomatic,
+} from './automatic.js';
 import guide from './assets/geometry-reference.png';
 import { artworkMetadata } from './metadata.js';
 import type { ArtworkEnv, JobInput } from './types.js';
@@ -32,11 +36,7 @@ export async function generateOnce(
         throw error;
     }
     if (!eligible) {
-      await env.DB.prepare(
-        "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_identity_or_activation_changed',updated_at=? WHERE id=? AND user_id=? AND state='queued' AND automatic=1"
-      )
-        .bind(now(), id, userId)
-        .run();
+      await deferStaleAutomatic(env, job);
       return { rawKey: null };
     }
   }
