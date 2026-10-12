@@ -13,6 +13,7 @@ import {
 } from './feedback.js';
 import { getJob } from './store.js';
 import { reviewJob } from './review.js';
+import { dispatchWebpVariant } from './webp-storage.js';
 import { ArtworkError, boundedBytes } from './sources.js';
 import page from './gallery/page.html';
 import stylesheet from './gallery/style.css';
@@ -109,7 +110,7 @@ export function registerGalleryData(app: App, base: string) {
       .object({ expected_active_job: idSchema.nullable().optional() })
       .strict()
       .parse(await body(c.req.raw));
-    await reviewJob(
+    const job = await reviewJob(
       c.env,
       idSchema.parse(c.req.param('id')),
       c.get('userId'),
@@ -118,6 +119,8 @@ export function registerGalleryData(app: App, base: string) {
       'gallery-owner',
       request.expected_active_job
     );
+    if (job.candidate_hash)
+      await dispatchWebpVariant(c.env, job.candidate_hash, job.user_id);
     return c.json({ activated: true });
   });
 }

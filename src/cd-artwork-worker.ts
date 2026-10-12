@@ -35,6 +35,12 @@ import {
 import { generateOnce, processRaw } from './services/cd-artwork/generation.js';
 import { reviewJob, importCandidate } from './services/cd-artwork/review.js';
 import {
+  dispatchWebpVariant,
+  prepareAcceptedWebpVariant,
+  readStoredWebpVariant,
+  readWebpVariantByHash,
+} from './services/cd-artwork/webp-storage.js';
+import {
   reviewedMasterSchema,
   prepareReviewedMaster,
   persistReviewedMaster,
@@ -83,6 +89,48 @@ const app = new Hono<{ Bindings: Env & ArtworkEnv }>();
 app.notFound((c) => c.json({ error: 'Not found', status: 404 }, 404));
 const read = '/v1/listening/cd-artwork',
   admin = '/v1/admin/cd-artwork';
+async function artworkSnapshotWithVariants(
+  env: ArtworkEnv,
+  albumIds: number[],
+  userId: number
+) {
+  const snapshot = await artworkSnapshot(env, albumIds, userId);
+  const data = new Array<(typeof snapshot.data)[number]>(snapshot.data.length);
+  let next = 0;
+  const projectNext = async () => {
+    while (true) {
+      const index = next++;
+      if (index >= snapshot.data.length) return;
+      const artwork = snapshot.data[index];
+      if (!artwork.sha256) {
+        data[index] = artwork;
+        continue;
+      }
+      const variant = await readStoredWebpVariant(env, artwork.sha256);
+      if (!variant) {
+        data[index] = artwork;
+        continue;
+      }
+      data[index] = {
+        ...artwork,
+        variants: [
+          {
+            image_url: `https://api.rewind.rest${read}/assets/${variant.sha256}.webp`,
+            sha256: variant.sha256,
+            format: variant.format,
+            width: variant.width,
+            height: variant.height,
+            bytes: variant.bytes,
+          },
+        ],
+      };
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(2, snapshot.data.length) }, projectNext)
+  );
+  return { ...snapshot, data };
+}
 app.use('*', async (c, next) => cors(c.env)(c, next));
 app.use(
   `${admin}/*`,
@@ -121,14 +169,21 @@ app.get(`${read}/albums`, async (c) => {
     .array(z.coerce.number().int().positive())
     .max(20)
     .parse((c.req.query('ids') ?? '').split(',').filter(Boolean));
-  return c.json(await artworkSnapshot(c.env, ids, c.get('userId')), {
-    headers: { 'Cache-Control': 'private, max-age=60' },
-  });
+  return c.json(
+    await artworkSnapshotWithVariants(c.env, ids, c.get('userId')),
+    {
+      headers: { 'Cache-Control': 'private, max-age=60' },
+    }
+  );
 });
 app.get(`${read}/albums/:id`, async (c) => {
   const id = z.coerce.number().int().positive().parse(c.req.param('id'));
   await ownedAlbum(c.env, id, c.get('userId'));
-  const snapshot = await artworkSnapshot(c.env, [id], c.get('userId'));
+  const snapshot = await artworkSnapshotWithVariants(
+    c.env,
+    [id],
+    c.get('userId')
+  );
   return c.json(
     {
       album_id: id,
@@ -140,6 +195,20 @@ app.get(`${read}/albums/:id`, async (c) => {
 });
 app.get(`${read}/assets/:file`, async (c) => {
   const file = c.req.param('file');
+  if (/^[a-f0-9]{64}\.webp$/.test(file)) {
+    const hash = file.slice(0, 64);
+    const variant = await readWebpVariantByHash(c.env, hash);
+    if (!variant) return c.notFound();
+    return new Response(variant.bytes, {
+      headers: {
+        'Content-Type': 'image/webp',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options': 'nosniff',
+        ETag: `"${hash}"`,
+      },
+    });
+  }
   if (!/^[a-f0-9]{64}\.png$/.test(file)) return c.notFound();
   const h = file.slice(0, 64);
   const approved = await c.env.DB.prepare(
@@ -167,6 +236,60 @@ app.get(`${admin}/identities`, async (c) => {
     .bind(c.get('userId'))
     .all();
   return c.json({ data: rows.results });
+});
+app.post(`${admin}/webp-backfill`, async (c) => {
+  const body = z
+    .object({
+      album_ids: z.array(z.number().int().positive()).min(1).max(20),
+      dry_run: z.boolean().default(true),
+    })
+    .strict()
+    .parse(await jsonBody(c.req.raw));
+  const userId = c.get('userId');
+  const albumIds = [...new Set(body.album_ids)];
+  for (const albumId of albumIds) await ownedAlbum(c.env, albumId, userId);
+
+  // The scoped snapshot excludes hidden, withdrawn, rejected, and inactive jobs.
+  const snapshot = await artworkSnapshot(c.env, albumIds, userId);
+  const byHash = new Map<string, { album_ids: number[] }>();
+  for (const artwork of snapshot.data) {
+    if (!artwork.sha256) continue;
+    const existing = byHash.get(artwork.sha256);
+    if (existing) existing.album_ids.push(artwork.album_id);
+    else byHash.set(artwork.sha256, { album_ids: [artwork.album_id] });
+  }
+
+  const items: Array<{
+    album_ids: number[];
+    canonical_sha256: string;
+    status: string;
+  }> = [];
+  for (const [canonicalHash, { album_ids }] of byHash) {
+    const prepared = await readStoredWebpVariant(c.env, canonicalHash);
+    const status = prepared
+      ? 'already_prepared'
+      : body.dry_run
+        ? 'would_dispatch'
+        : await dispatchWebpVariant(c.env, canonicalHash, userId);
+    items.push({ album_ids, canonical_sha256: canonicalHash, status });
+  }
+  const status_counts = items.reduce<Record<string, number>>((counts, item) => {
+    counts[item.status] = (counts[item.status] ?? 0) + 1;
+    return counts;
+  }, {});
+  const eligibleAlbumIds = new Set(snapshot.data.map((item) => item.album_id));
+  return c.json(
+    {
+      dry_run: body.dry_run,
+      requested_album_count: albumIds.length,
+      eligible_album_count: eligibleAlbumIds.size,
+      skipped_album_ids: albumIds.filter((id) => !eligibleAlbumIds.has(id)),
+      unique_hash_count: items.length,
+      status_counts,
+      items,
+    },
+    body.dry_run ? 200 : 202
+  );
 });
 app.post(`${admin}/albums/:id/resolve`, async (c) => {
   const id = z.coerce.number().int().positive().parse(c.req.param('id'));
@@ -317,6 +440,8 @@ app.post(`${admin}/jobs/:id/review`, async (c) => {
     body.activate,
     body.reviewer
   );
+  if (body.decision === 'accepted' && job.candidate_hash)
+    await dispatchWebpVariant(c.env, job.candidate_hash, job.user_id);
   return c.json(publicJob(job));
 });
 app.get(`${admin}/jobs/:id/raw`, async (c) => {
@@ -585,13 +710,24 @@ export class CdDiscoveryWorkflow extends WorkflowEntrypoint<
 }
 export class CdArtworkWorkflow extends WorkflowEntrypoint<
   ArtworkEnv,
-  { jobId: string; userId: number }
+  { jobId: string; userId: number; variantOnly?: true }
 > {
   async run(
-    event: WorkflowEvent<{ jobId: string; userId: number }>,
+    event: WorkflowEvent<{
+      jobId: string;
+      userId: number;
+      variantOnly?: true;
+    }>,
     step: WorkflowStep
   ) {
     const { jobId, userId } = event.payload;
+    if (event.payload.variantOnly) {
+      return step.do(
+        'prepare-accepted-lossless-webp-v1',
+        { retries: { limit: 1, delay: '10 seconds' }, timeout: '2 minutes' },
+        () => prepareAcceptedWebpVariant(this.env, jobId, userId)
+      );
+    }
     const result = await step.do(
       'submit-once-and-persist-raw',
       { retries: { limit: 0, delay: '1 second' }, timeout: '5 minutes' },
@@ -604,12 +740,33 @@ export class CdArtworkWorkflow extends WorkflowEntrypoint<
       () => processRaw(this.env, jobId, userId)
     );
     const job = await getJob(this.env, jobId, userId);
-    if (job?.automatic && registered.candidateHash)
-      return step.do(
+    if (job?.automatic && registered.candidateHash) {
+      const published = await step.do(
         'publish-verified-candidate',
         { retries: { limit: 2, delay: '10 seconds' }, timeout: '1 minute' },
         () => publishAutomatic(this.env, jobId, userId)
       );
+      if (published.candidateHash) {
+        try {
+          await step.do(
+            'prepare-accepted-lossless-webp-v1',
+            {
+              retries: { limit: 1, delay: '10 seconds' },
+              timeout: '2 minutes',
+            },
+            () =>
+              prepareAcceptedWebpVariant(
+                this.env,
+                published.candidateHash!,
+                userId
+              )
+          );
+        } catch {
+          console.log('[ERROR] CD artwork optional WebP preparation failed');
+        }
+      }
+      return published;
+    }
     return registered;
   }
 }

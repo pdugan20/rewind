@@ -49,7 +49,11 @@ export interface ArtworkEnv {
   ARTWORK: R2Bucket;
   IMAGES: R2Bucket;
   CD_DISCOVERY: Workflow<{ checkId: number }>;
-  CD_WORKFLOW: Workflow<{ jobId: string; userId: number }>;
+  CD_WORKFLOW: Workflow<{
+    jobId: string;
+    userId: number;
+    variantOnly?: true;
+  }>;
   OPENAI_API_KEY?: string;
   APPLE_MUSIC_DEVELOPER_TOKEN?: string;
   ALLOWED_ORIGINS: string;

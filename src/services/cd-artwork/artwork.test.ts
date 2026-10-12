@@ -25,6 +25,10 @@ import { generateOnce, processRaw } from './generation.js';
 import { prepareCandidate } from './registration.js';
 import { reviewJob } from './review.js';
 import {
+  dispatchWebpVariant,
+  prepareAcceptedWebpVariant,
+} from './webp-storage.js';
+import {
   prepareReviewedMaster,
   persistReviewedMaster,
   reviewedMasterSchema,
@@ -51,6 +55,12 @@ function rawDisc() {
       if (r >= 60 && r <= 480) data.set([70, 85, 90, 255], i);
     }
   return png({ width: 1024, height: 1024, data });
+}
+function base64(bytes: Uint8Array) {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000)
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  return btoa(binary);
 }
 async function seed(
   id = 'a'.repeat(64),
@@ -99,8 +109,8 @@ async function seed(
     .bind(id)
     .first<Job>())!;
 }
-async function candidate(id: string, userId = 1) {
-  await seed(id, userId, 'submitted');
+async function candidate(id: string, userId = 1, albumId = 1) {
+  await seed(id, userId, 'submitted', albumId);
   await runtime.ARTWORK.put(`jobs/${userId}/${id}/raw.png`, rawDisc());
   const result = await processRaw(runtime, id, userId);
   expect(result.state).toBe('pending');
@@ -132,7 +142,12 @@ beforeEach(async () => {
     token: 'rw_cd_other',
   });
 });
-const request = async (route: string, key?: string, body?: unknown) => {
+const request = async (
+  route: string,
+  key?: string,
+  body?: unknown,
+  environment: ArtworkEnv = runtime
+) => {
   const ctx = createExecutionContext();
   const response = await artworkApp.request(
     'https://api.rewind.rest' + route,
@@ -144,7 +159,7 @@ const request = async (route: string, key?: string, body?: unknown) => {
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     },
-    runtime,
+    environment,
     ctx
   );
   const bytes = await response.arrayBuffer();
@@ -296,6 +311,384 @@ describe('authorization, publication and accepted-state preservation', () => {
       ).headers.get('Content-Type')
     ).toBe('image/png');
     expect(await approvedArtwork(runtime, [1], 2)).toEqual([]);
+  });
+  it('advertises and serves only the verified optional WebP while preserving PNG identity', async () => {
+    const job = await candidate('4'.repeat(64));
+    await reviewJob(runtime, job.id, 1, 'accepted', true, 'synthetic-test');
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_albums SET visibility_revision=1 WHERE user_id=1 AND album_id=1'
+    ).run();
+    const revisionOne = await (
+      await request(`${read}/albums?ids=1`, readKey)
+    ).json();
+    const pngKey = `listening/cd-artwork/${job.candidate_hash}.png`;
+    const canonicalBefore = new Uint8Array(
+      await (await runtime.IMAGES.get(pngKey))!.arrayBuffer()
+    );
+    const stored = await prepareAcceptedWebpVariant(
+      runtime,
+      job.candidate_hash!,
+      1
+    );
+    const repeated = await prepareAcceptedWebpVariant(
+      runtime,
+      job.candidate_hash!,
+      1
+    );
+    expect(repeated).toEqual(stored);
+    await runtime.IMAGES.delete(
+      `listening/cd-artwork-variants/by-hash/${stored!.sha256}.json`
+    );
+    const recoveredIndex = await prepareAcceptedWebpVariant(
+      runtime,
+      job.candidate_hash!,
+      1
+    );
+    expect(recoveredIndex).toEqual(stored);
+    const indexKey = `listening/cd-artwork-variants/by-hash/${stored!.sha256}.json`;
+    await runtime.IMAGES.put(
+      indexKey,
+      JSON.stringify({ ...stored, bytes: stored!.bytes + 1 }),
+      { httpMetadata: { contentType: 'application/json' } }
+    );
+    const inconsistentIndex = (await (
+      await request(`${read}/albums?ids=1`, readKey)
+    ).json()) as { data: Array<Record<string, unknown>> };
+    expect(inconsistentIndex.data[0].variants).toBeUndefined();
+    expect(
+      (await request(`${read}/assets/${stored!.sha256}.webp`, readKey)).status
+    ).toBe(404);
+    await runtime.IMAGES.put(indexKey, JSON.stringify(stored), {
+      httpMetadata: { contentType: 'application/json' },
+    });
+    const metadataKey = `listening/cd-artwork-variants/${job.candidate_hash}.json`;
+    await runtime.IMAGES.put(
+      metadataKey,
+      JSON.stringify({ ...stored, bytes: stored!.bytes + 1 }),
+      { httpMetadata: { contentType: 'application/json' } }
+    );
+    expect(
+      (await request(`${read}/assets/${stored!.sha256}.webp`, readKey)).status
+    ).toBe(404);
+    await runtime.IMAGES.put(metadataKey, JSON.stringify(stored), {
+      httpMetadata: { contentType: 'application/json' },
+    });
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_albums SET visibility_revision=2 WHERE user_id=1 AND album_id=1'
+    ).run();
+    const revisionTwo = await (
+      await request(`${read}/albums?ids=1`, readKey)
+    ).json();
+    if (import.meta.env.VITE_CD_ARTWORK_EXPORT_FIXTURE === '1') {
+      const pngResponse = await request(
+        `${read}/assets/${job.candidate_hash}.png`,
+        readKey
+      );
+      const webpResponse = await request(
+        `${read}/assets/${stored!.sha256}.webp`,
+        readKey
+      );
+      console.log(
+        `DISC_DELIVERY_FIXTURE:${JSON.stringify({
+          revisionOne,
+          revisionTwo,
+          canonicalPng: base64(new Uint8Array(await pngResponse.arrayBuffer())),
+          variantWebp: base64(new Uint8Array(await webpResponse.arrayBuffer())),
+        })}`
+      );
+    }
+    expect(stored).toMatchObject({
+      canonical_hash: job.candidate_hash,
+      format: 'webp',
+      width: 1024,
+      height: 1024,
+      version: 1,
+    });
+    expect(stored!.bytes).toBeLessThan(canonicalBefore.byteLength);
+    const snapshot = (await (
+      await request(`${read}/albums?ids=1`, readKey)
+    ).json()) as { data: Array<Record<string, unknown>> };
+    expect(snapshot.data[0].variants).toEqual([
+      {
+        image_url: `https://api.rewind.rest/v1/listening/cd-artwork/assets/${stored!.sha256}.webp`,
+        sha256: stored!.sha256,
+        format: 'webp',
+        width: 1024,
+        height: 1024,
+        bytes: stored!.bytes,
+      },
+    ]);
+    const response = await request(
+      `${read}/assets/${stored!.sha256}.webp`,
+      readKey
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('image/webp');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Cache-Control')).toContain('immutable');
+    const originalWebp = new Uint8Array(await response.arrayBuffer());
+    expect(originalWebp.byteLength).toBe(stored!.bytes);
+    const variantKey = `listening/cd-artwork-variants/${stored!.sha256}.webp`;
+    const corruptWebp = originalWebp.slice();
+    corruptWebp[corruptWebp.length - 1] ^= 1;
+    await runtime.IMAGES.put(variantKey, corruptWebp, {
+      httpMetadata: { contentType: 'image/webp' },
+    });
+    const afterCorruptObject = (await (
+      await request(`${read}/albums?ids=1`, readKey)
+    ).json()) as { data: Array<Record<string, unknown>> };
+    expect(afterCorruptObject.data[0].variants).toBeUndefined();
+    expect(
+      (await request(`${read}/assets/${stored!.sha256}.webp`, readKey)).status
+    ).toBe(404);
+    await runtime.IMAGES.put(variantKey, originalWebp, {
+      httpMetadata: { contentType: 'image/webp' },
+    });
+    const canonicalAfter = new Uint8Array(
+      await (await runtime.IMAGES.get(pngKey))!.arrayBuffer()
+    );
+    expect(canonicalAfter).toEqual(canonicalBefore);
+    expect(
+      (await request(`${read}/assets/${'9'.repeat(64)}.webp`, readKey)).status
+    ).toBe(404);
+    await runtime.IMAGES.delete(variantKey);
+    const afterMissing = (await (
+      await request(`${read}/albums?ids=1`, readKey)
+    ).json()) as { data: Array<Record<string, unknown>> };
+    expect(afterMissing.data[0].variants).toBeUndefined();
+    expect(
+      (await request(`${read}/assets/${stored!.sha256}.webp`, readKey)).status
+    ).toBe(404);
+    expect(
+      (await request(`${read}/assets/${job.candidate_hash}.png`, readKey))
+        .status
+    ).toBe(200);
+  });
+  it('does not serve a verified variant after its accepted job is rejected', async () => {
+    const job = await candidate('5'.repeat(64));
+    await reviewJob(runtime, job.id, 1, 'accepted', false, 'synthetic-test');
+    const stored = await prepareAcceptedWebpVariant(
+      runtime,
+      job.candidate_hash!,
+      1
+    );
+    expect(stored).toBeTruthy();
+    await reviewJob(runtime, job.id, 1, 'rejected', false, 'synthetic-test');
+    expect(
+      (await request(`${read}/assets/${stored!.sha256}.webp`, readKey)).status
+    ).toBe(404);
+    expect(await approvedArtwork(runtime, [1], 1)).toEqual([]);
+  });
+  it('recovers only once after a confirmed terminal variant workflow failure', async () => {
+    const job = await candidate('6'.repeat(64));
+    await reviewJob(runtime, job.id, 1, 'accepted', false, 'synthetic-test');
+    const canonicalHash = job.candidate_hash!;
+    const baseId = `webp-v1-${canonicalHash}`;
+    const recoveryId = `webp-v1-r1-${canonicalHash}`;
+    const fakeWorkflow = (
+      state: 'running' | 'complete' | 'errored',
+      unknown = false
+    ) => {
+      const existing = new Set([baseId]);
+      const attempts: string[] = [];
+      return {
+        attempts,
+        api: {
+          create: async ({ id }: { id: string }) => {
+            attempts.push(id);
+            if (existing.has(id)) throw new Error('duplicate');
+            existing.add(id);
+            return {};
+          },
+          get: async (id: string) => {
+            if (!existing.has(id) || (unknown && id === baseId))
+              throw new Error('status unavailable');
+            return {
+              status: async () => ({
+                status: id === baseId ? state : 'errored',
+              }),
+            };
+          },
+        },
+      };
+    };
+    for (const state of ['running', 'complete'] as const) {
+      const fake = fakeWorkflow(state);
+      await dispatchWebpVariant(
+        { ...runtime, CD_WORKFLOW: fake.api } as unknown as ArtworkEnv,
+        canonicalHash,
+        1
+      );
+      expect(fake.attempts).toEqual([baseId]);
+    }
+    const unknown = fakeWorkflow('errored', true);
+    await dispatchWebpVariant(
+      { ...runtime, CD_WORKFLOW: unknown.api } as unknown as ArtworkEnv,
+      canonicalHash,
+      1
+    );
+    expect(unknown.attempts).toEqual([baseId]);
+
+    const failed = fakeWorkflow('errored');
+    const envWithFailedWorkflow = {
+      ...runtime,
+      CD_WORKFLOW: failed.api,
+    } as unknown as ArtworkEnv;
+    await dispatchWebpVariant(envWithFailedWorkflow, canonicalHash, 1);
+    await dispatchWebpVariant(envWithFailedWorkflow, canonicalHash, 1);
+    expect(failed.attempts).toEqual([baseId, recoveryId, baseId, recoveryId]);
+    expect(new Set(failed.attempts).size).toBe(2);
+  });
+  it('previews a scoped bounded backfill by default and deduplicates active hashes', async () => {
+    await runtime.DB.prepare(
+      "INSERT INTO lastfm_albums(id,user_id,artist_id,name,created_at,updated_at) VALUES(3,1,1,'Second synthetic album','2026-01-01','2026-01-01')"
+    ).run();
+    const first = await candidate('7'.repeat(64), 1, 1);
+    const second = await candidate('8'.repeat(64), 1, 3);
+    expect(second.candidate_hash).toBe(first.candidate_hash);
+    const variantHash = first.candidate_hash!;
+    await Promise.all([
+      runtime.IMAGES.delete(
+        `listening/cd-artwork-variants/${variantHash}.json`
+      ),
+      runtime.IMAGES.delete(
+        `listening/cd-artwork-variants/by-hash/${variantHash}.json`
+      ),
+      runtime.IMAGES.delete(
+        `listening/cd-artwork-variants/${variantHash}.webp`
+      ),
+    ]);
+    await reviewJob(runtime, first.id, 1, 'accepted', true, 'synthetic-test');
+    await reviewJob(runtime, second.id, 1, 'accepted', true, 'synthetic-test');
+
+    const starts: string[] = [];
+    const existing = new Set<string>();
+    const environment = {
+      ...runtime,
+      CD_WORKFLOW: {
+        create: async ({ id }: { id: string }) => {
+          if (existing.has(id)) throw new Error('duplicate workflow');
+          existing.add(id);
+          starts.push(id);
+          return {};
+        },
+        get: async (id: string) => {
+          if (!existing.has(id)) throw new Error('missing workflow');
+          return { status: async () => ({ status: 'running' }) };
+        },
+      },
+    } as unknown as ArtworkEnv;
+    const preview = await request(
+      `${admin}/webp-backfill`,
+      adminKey,
+      { album_ids: [1, 3, 1] },
+      environment
+    );
+    expect(preview.status).toBe(200);
+    const previewBody = (await preview.json()) as {
+      dry_run: boolean;
+      requested_album_count: number;
+      eligible_album_count: number;
+      unique_hash_count: number;
+      items: Array<{ album_ids: number[]; status: string }>;
+    };
+    expect(previewBody).toMatchObject({
+      dry_run: true,
+      requested_album_count: 2,
+      eligible_album_count: 2,
+      unique_hash_count: 1,
+      items: [{ album_ids: [1, 3], status: 'would_dispatch' }],
+    });
+    expect(starts).toEqual([]);
+
+    const applied = await request(
+      `${admin}/webp-backfill`,
+      adminKey,
+      { album_ids: [1, 3], dry_run: false },
+      environment
+    );
+    expect(applied.status).toBe(202);
+    expect(
+      ((await applied.json()) as { items: Array<{ status: string }> }).items[0]
+        .status
+    ).toBe('created');
+    const repeated = await request(
+      `${admin}/webp-backfill`,
+      adminKey,
+      { album_ids: [1, 3], dry_run: false },
+      environment
+    );
+    expect(
+      ((await repeated.json()) as { items: Array<{ status: string }> }).items[0]
+        .status
+    ).toBe('already_active');
+    expect(starts).toEqual([`webp-v1-${first.candidate_hash}`]);
+    await prepareAcceptedWebpVariant(runtime, variantHash, 1);
+    const prepared = await request(
+      `${admin}/webp-backfill`,
+      adminKey,
+      { album_ids: [1, 3], dry_run: false },
+      environment
+    );
+    expect(
+      ((await prepared.json()) as { items: Array<{ status: string }> }).items[0]
+        .status
+    ).toBe('already_prepared');
+    expect(starts).toEqual([`webp-v1-${first.candidate_hash}`]);
+  });
+  it('requires admin auth and owned IDs, and skips hidden or rejected assets', async () => {
+    const hidden = await candidate('9'.repeat(64));
+    await reviewJob(runtime, hidden.id, 1, 'accepted', true, 'synthetic-test');
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_albums SET active_job=NULL,hidden_job=? WHERE user_id=1 AND album_id=1'
+    )
+      .bind(hidden.id)
+      .run();
+    await runtime.DB.prepare(
+      "INSERT INTO lastfm_albums(id,user_id,artist_id,name,created_at,updated_at) VALUES(3,1,1,'Rejected synthetic album','2026-01-01','2026-01-01')"
+    ).run();
+    const rejected = await candidate('a'.repeat(64), 1, 3);
+    await reviewJob(
+      runtime,
+      rejected.id,
+      1,
+      'rejected',
+      false,
+      'synthetic-test'
+    );
+    expect(
+      (await request(`${admin}/webp-backfill`, undefined, { album_ids: [1] }))
+        .status
+    ).toBe(401);
+    expect(
+      (await request(`${admin}/webp-backfill`, readKey, { album_ids: [1] }))
+        .status
+    ).toBe(403);
+    expect(
+      (
+        await request(`${admin}/webp-backfill`, otherKey, {
+          album_ids: [1],
+        })
+      ).status
+    ).toBe(404);
+    expect(
+      (
+        await request(`${admin}/webp-backfill`, adminKey, {
+          album_ids: Array.from({ length: 21 }, (_, index) => index + 1),
+        })
+      ).status
+    ).toBe(400);
+    const skipped = await request(`${admin}/webp-backfill`, adminKey, {
+      album_ids: [1, 3],
+    });
+    expect(skipped.status).toBe(200);
+    expect(await skipped.json()).toMatchObject({
+      dry_run: true,
+      eligible_album_count: 0,
+      skipped_album_ids: [1, 3],
+      unique_hash_count: 0,
+      items: [],
+    });
   });
   it('pins and failures cannot replace accepted art or reject the active asset', async () => {
     const first = await candidate('f'.repeat(64));
