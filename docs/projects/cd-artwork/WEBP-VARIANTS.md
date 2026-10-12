@@ -66,8 +66,7 @@ exercises the fixed input bounds. Local R2 state lives only in the test runtime.
 On 2026-10-12, the focused artwork command passed 125 Vitest tests and 7 Node
 pipeline tests, including the bounded backfill endpoint. After adding the
 16-bit boundary regression, the focused codec file passed all 3 tests. The
-broader `npm test` passed 103 files and 1,104 tests before that isolated codec
-case was added.
+final broader `npm test` passed 103 files and 1,104 tests after that regression.
 `npm run type-check`, focused ESLint, Prettier, and `git diff --check` passed.
 The final artwork Worker dry-run built at 1,956.28 KiB (608.93 KiB gzip); the root
 `npm run build` dry-run built at 2,257.69 KiB (402.16 KiB gzip). Local test runs
@@ -111,3 +110,21 @@ by disabling the consumer preference or reverting the producer code; clients
 continue to receive the canonical PNG. Existing immutable variants can remain
 unreferenced in R2 until ordinary retention policy removes them. Production
 deployment and any live backfill are separate release actions.
+
+## Production verification
+
+PR [#315](https://github.com/pdugan20/rewind/pull/315) merged on 2026-10-12 as
+`25e9125ee6ac4ddb60fd1a8cd9e4d00ae821484a`. Its [protected CI run](https://github.com/pdugan20/rewind/actions/runs/38295289225)
+passed. The [main CI run](https://github.com/pdugan20/rewind/actions/runs/38295712990)
+and [automatic Deploy run](https://github.com/pdugan20/rewind/actions/runs/38296207560)
+also passed. Deployment published artwork Worker version
+`5b329225-7149-4f0c-b196-358a43825618` at `https://api.rewind.rest`; no D1
+migration was needed.
+
+The bounded owner backfill requested five explicit album IDs. Two had active
+accepted artwork and produced two variant-only Workflow instances; three had
+no active accepted snapshot and were skipped. The resulting public snapshot
+advertised two variants. Production PNG and WebP responses both matched their
+SHA-256 descriptors, decoded to 1024×1024, and had identical RGBA pixels. The
+two PNGs totaled 3,334,727 bytes and the WebPs 1,743,746 bytes, saving
+1,590,981 bytes (47.7%). No paid image API or listening-history write occurred.
