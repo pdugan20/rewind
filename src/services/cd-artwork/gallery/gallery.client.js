@@ -8,7 +8,8 @@ let filter = 'all',
   versionPage = 1,
   listSequence = 0,
   detailSequence = 0,
-  busy = false;
+  busy = false,
+  canHide = false;
 const date = (value) =>
   new Date(value).toLocaleString(undefined, {
     dateStyle: 'medium',
@@ -42,10 +43,21 @@ async function api(path = '', data) {
   )
     throw Error('Your sign-in expired. Reload this page to sign in again.');
   const value = await response.json();
-  if (!response.ok)
+  if (!response.ok) {
+    const messages = {
+      activation_conflict:
+        'Artwork changed since this card was opened. Refresh and review the current version.',
+      pinned_artwork_preserved:
+        'This album is pinned. Unpin it before hiding its artwork.',
+      withdrawal_consumer_not_ready:
+        'Hiding artwork will be available after the player update is released.',
+    };
     throw Error(
-      value.error || 'The review could not be saved. Please try again.'
+      messages[value.error] ||
+        value.error ||
+        'The review could not be saved. Please try again.'
     );
+  }
   return value;
 }
 function image(item, kind, alt) {
@@ -91,6 +103,7 @@ async function load() {
   try {
     const result = await api(`?filter=${filter}&page=${page}`);
     if (sequence !== listSequence) return;
+    canHide = result.capabilities?.hide_from_player === true;
     $('gallery').replaceChildren();
     for (const item of result.data) {
       const card = node('article', null, 'card'),
@@ -171,7 +184,7 @@ async function open(item) {
     : item.hidden
       ? 'Hidden from the player. Automatic replacements are paused until you approve artwork to use.'
       : 'Automatic replacements for this album are paused while feedback needs attention.';
-  $('hide').hidden = !item.active || item.pinned;
+  $('hide').hidden = !canHide || !item.active || item.pinned;
   $('activate').hidden =
     !item.has_candidate ||
     !['pending', 'accepted', 'rejected'].includes(item.state) ||

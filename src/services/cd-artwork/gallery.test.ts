@@ -594,3 +594,32 @@ it('requires exact same-origin JSON mutations with a custom CSRF header', async 
     ).status
   ).toBe(200);
 });
+it('keeps browser withdrawal unavailable until the consumer rollout is verified', async () => {
+  keys();
+  const token = await jwt();
+  const result = await (
+    await request(gallery + '/data', { config: access, token })
+  ).json();
+  expect(result).toMatchObject({ capabilities: { hide_from_player: false } });
+  expect(
+    (
+      await request(`${gallery}/data/${first}/hide`, {
+        config: access,
+        token,
+        data: {},
+        headers: { Origin: 'https://api.rewind.rest', 'X-Artwork-Review': '1' },
+      })
+    ).status
+  ).toBe(409);
+  const ready = JSON.stringify({ ...JSON.parse(access), hide_ready: true });
+  expect(
+    (
+      await request(`${gallery}/data/${first}/hide`, {
+        config: ready,
+        token,
+        data: {},
+        headers: { Origin: 'https://api.rewind.rest', 'X-Artwork-Review': '1' },
+      })
+    ).status
+  ).toBe(200);
+});

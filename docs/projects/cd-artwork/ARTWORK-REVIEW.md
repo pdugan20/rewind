@@ -44,7 +44,8 @@ Install one artwork Worker secret named `CD_GALLERY_ACCESS`, containing:
 {
   "issuer": "https://your-team.cloudflareaccess.com",
   "audience": "the-access-application-aud-tag",
-  "users": { "owner@example.test": 1 }
+  "users": { "owner@example.test": 1 },
+  "hide_ready": false
 }
 ```
 
@@ -93,7 +94,10 @@ and restore only newer approved artwork. Fetch artwork for pinned album IDs as
 well as recent collection IDs. Missing fields from legacy responses preserve
 previously observed withdrawals. Collection membership, selection and audio
 playback remain unchanged by artwork decisions. Release this consumer support
-before exposing the gallery's hide action.
+before exposing the gallery's hide action. `hide_ready` defaults to false in the
+Access secret: the browser hides the action and the gallery rejects withdrawals
+until this is explicitly set true after the consumer release. Privileged
+Bearer-admin operator actions remain separate.
 
 ## Deployment and rollback
 

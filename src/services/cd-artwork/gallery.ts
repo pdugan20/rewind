@@ -31,11 +31,14 @@ async function body(request: Request) {
 export function registerGalleryData(app: App, base: string) {
   app.get(base, async (c) =>
     c.json(
-      await galleryList(
-        c.env,
-        c.get('userId'),
-        galleryQuerySchema.parse(c.req.query())
-      ),
+      {
+        ...(await galleryList(
+          c.env,
+          c.get('userId'),
+          galleryQuerySchema.parse(c.req.query())
+        )),
+        capabilities: { hide_from_player: c.get('galleryHideReady') !== false },
+      },
       { headers: { 'Cache-Control': 'private, no-store' } }
     )
   );
@@ -88,6 +91,8 @@ export function registerGalleryData(app: App, base: string) {
     return c.json({ saved: true });
   });
   app.post(`${base}/:id/hide`, async (c) => {
+    if (c.get('galleryHideReady') === false)
+      throw new ArtworkError('withdrawal_consumer_not_ready', 409);
     z.object({})
       .strict()
       .parse(await body(c.req.raw));

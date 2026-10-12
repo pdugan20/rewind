@@ -4,6 +4,11 @@ import { z } from 'zod';
 import type { Env } from '../../types/env.js';
 import type { ArtworkEnv } from './types.js';
 import { boundedBytes } from './sources.js';
+declare module 'hono' {
+  interface ContextVariableMap {
+    galleryHideReady: boolean;
+  }
+}
 
 type Keys = NonNullable<Parameters<typeof verifyWithJwks>[1]['keys']>;
 let certificateCache: { issuer: string; expires: number; keys: Keys } | null =
@@ -46,6 +51,7 @@ const configuration = z
     issuer: z.string().regex(/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/),
     audience: z.string().regex(/^[a-f0-9]{64}$/),
     users: z.record(z.email(), z.number().int().positive()),
+    hide_ready: z.boolean().default(false),
   })
   .strict();
 // Store this configuration as one Worker secret; owner identities never enter
@@ -104,6 +110,7 @@ export const galleryAuth = createMiddleware<{ Bindings: Env & ArtworkEnv }>(
         return c.json({ error: 'Invalid review origin', status: 403 }, 403);
     }
     c.set('userId', userId);
+    c.set('galleryHideReady', parsed.data.hide_ready);
     await next();
   }
 );
