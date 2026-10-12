@@ -1,3 +1,5 @@
+import { selectAutomaticSource } from './services/cd-artwork/selection.js';
+import { publishAutomatic } from './services/cd-artwork/automatic.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import {
@@ -53,8 +55,8 @@ const materialSchema = z
 export const inputSchema = z
   .object({
     album_id: z.number().int().positive(),
-    release_id: z.uuid(),
-    medium_position: z.number().int().min(1).max(10),
+    release_id: z.uuid().nullable(),
+    medium_position: z.number().int().min(1).max(10).nullable(),
     source_kind: z.enum(['auto', 'retail', 'cover']).default('auto'),
     image_id: z.string().regex(/^\d+$/).optional(),
     cover_url: z.url().max(2000).optional(),
@@ -65,7 +67,13 @@ export const inputSchema = z
       .regex(/^[a-z0-9-]{1,80}$/)
       .optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (v) =>
+      (v.release_id === null) === (v.medium_position === null) &&
+      (v.release_id !== null || v.source_kind === 'cover'),
+    'A release and medium are required for retail artwork'
+  );
 const app = new Hono<{ Bindings: Env & ArtworkEnv }>();
 app.notFound((c) => c.json({ error: 'Not found', status: 404 }, 404));
 const read = '/v1/listening/cd-artwork',
@@ -165,6 +173,81 @@ app.post(`${admin}/jobs`, async (c) => {
     result.reused ? 200 : 202
   );
 });
+// Replay the automatic policy for one owned album with real recorded history.
+// Preview is the default; apply never fabricates a listening event.
+app.post(`${admin}/albums/:id/automatic`, async (c) => {
+  const id = z.coerce.number().int().positive().parse(c.req.param('id'));
+  const userId = c.get('userId');
+  const album = await ownedAlbum(c.env, id, userId);
+  const control = await c.env.DB.prepare(
+    'SELECT enabled,automatic_enabled FROM cd_artwork_control WHERE id=1'
+  ).first<{ enabled: number; automatic_enabled: number }>();
+  if (
+    userId !== 1 ||
+    !control?.enabled ||
+    (c.req.query('apply') === 'true' && !control.automatic_enabled)
+  )
+    throw new ArtworkError('automatic_processing_disabled', 409);
+  const recorded = await c.env.DB.prepare(
+    'SELECT id FROM lastfm_scrobbles WHERE user_id=? AND album_recorded=1 AND album_id=? UNION ALL SELECT s.id FROM lastfm_tracks t INDEXED BY idx_lastfm_tracks_user_album JOIN lastfm_scrobbles s INDEXED BY idx_lastfm_scrobbles_user_track_date ON s.track_id=t.id AND s.user_id=t.user_id WHERE t.user_id=? AND t.album_id=? AND s.album_recorded=0 LIMIT 1'
+  )
+    .bind(userId, id, userId, id)
+    .first();
+  if (!recorded) throw new ArtworkError('recorded_album_play_required');
+  const filtered = await c.env.DB.prepare(
+    'SELECT a.id FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=? AND a.user_id=? AND a.is_filtered=0 AND r.is_filtered=0'
+  )
+    .bind(id, userId)
+    .first();
+  if (!filtered) throw new ArtworkError('album_not_eligible');
+  const active = await c.env.DB.prepare(
+    "SELECT c.release_id,c.medium_position,c.active_job,c.pinned,json_extract(j.input,'$.source_kind') AS source_kind,j.state FROM cd_artwork_albums c LEFT JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE c.user_id=? AND c.album_id=?"
+  )
+    .bind(userId, id)
+    .first<{
+      release_id: string;
+      medium_position: number;
+      active_job: string | null;
+      pinned: number;
+      source_kind: string | null;
+      state: string | null;
+    }>();
+  if (
+    active?.pinned ||
+    (active?.state === 'accepted' && active.source_kind === 'retail')
+  )
+    throw new ArtworkError('active_artwork_preserved', 409);
+  const source = await selectAutomaticSource(
+    c.env,
+    id,
+    userId,
+    album,
+    active?.release_id ?? '',
+    active?.medium_position ?? 1,
+    true
+  );
+  if (active?.state === 'accepted' && source.sourceKind === 'cover')
+    return c.json({ reused: true, album_id: id, source_kind: 'cover' });
+  if (c.req.query('apply') !== 'true')
+    return c.json({
+      validated: true,
+      album_id: id,
+      source_kind: source.sourceKind,
+      identity_type: source.identityType,
+      release_id: source.request.release_id,
+      medium_position: source.request.medium_position,
+    });
+  const result = await enqueue(c.env, source.request, userId, false, {
+    source,
+    expectedActiveJob: active?.active_job ?? null,
+    catalogIdentity: album,
+  });
+  await dispatch(c.env, result.job);
+  return c.json(
+    { ...publicJob(result.job), reused: result.reused },
+    result.reused ? 200 : 202
+  );
+});
 app.get(`${admin}/jobs`, async (c) => {
   const rows = await c.env.DB.prepare(
     'SELECT * FROM cd_artwork_jobs WHERE user_id=? ORDER BY created_at DESC LIMIT 25'
@@ -214,6 +297,25 @@ app.post(`${admin}/jobs/:id/review`, async (c) => {
     body.reviewer
   );
   return c.json(publicJob(job));
+});
+app.get(`${admin}/jobs/:id/raw`, async (c) => {
+  const job = await getJob(
+    c.env,
+    assetId.parse(c.req.param('id')),
+    c.get('userId')
+  );
+  if (!job) return c.notFound();
+  const object = await c.env.ARTWORK.get(
+    job.raw_key ?? `jobs/${job.user_id}/${job.id}/raw.png`
+  );
+  if (!object) return c.notFound();
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
 });
 app.post(`${admin}/jobs/:id/raw`, async (c) => {
   const id = assetId.parse(c.req.param('id')),
@@ -388,7 +490,7 @@ app.use(`${admin}/recheck`, async (c, next) =>
 app.get(`${admin}/control`, async (c) =>
   c.json(
     await c.env.DB.prepare(
-      'SELECT enabled,daily_limit,budget_day,submitted_count FROM cd_artwork_control WHERE id=1'
+      'SELECT enabled,automatic_enabled,daily_limit,budget_day,submitted_count FROM cd_artwork_control WHERE id=1'
     ).first()
   )
 );
@@ -396,14 +498,21 @@ app.post(`${admin}/control`, async (c) => {
   const body = z
     .object({
       enabled: z.boolean(),
+      automatic_enabled: z.boolean().optional(),
       daily_limit: z.number().int().min(0).max(10),
     })
     .strict()
     .parse(await jsonBody(c.req.raw));
   await c.env.DB.prepare(
-    'UPDATE cd_artwork_control SET enabled=?,daily_limit=? WHERE id=1'
+    'UPDATE cd_artwork_control SET enabled=?,daily_limit=?,automatic_enabled=COALESCE(?,automatic_enabled) WHERE id=1'
   )
-    .bind(Number(body.enabled), body.daily_limit)
+    .bind(
+      Number(body.enabled),
+      body.daily_limit,
+      body.automatic_enabled === undefined
+        ? null
+        : Number(body.automatic_enabled)
+    )
     .run();
   return c.json(body);
 });
@@ -466,11 +575,19 @@ export class CdArtworkWorkflow extends WorkflowEntrypoint<
       () => generateOnce(this.env, jobId, userId)
     );
     if (!result.rawKey) return { state: 'held_or_budget_limited' };
-    return step.do(
+    const registered = await step.do(
       'register-material-and-persist-candidate',
-      { retries: { limit: 2, delay: '10 seconds' }, timeout: '3 minutes' },
+      { retries: { limit: 2, delay: '10 seconds' }, timeout: '4 minutes' },
       () => processRaw(this.env, jobId, userId)
     );
+    const job = await getJob(this.env, jobId, userId);
+    if (job?.automatic && registered.candidateHash)
+      return step.do(
+        'publish-verified-candidate',
+        { retries: { limit: 2, delay: '10 seconds' }, timeout: '1 minute' },
+        () => publishAutomatic(this.env, jobId, userId)
+      );
+    return registered;
   }
 }
 export { app as artworkApp };

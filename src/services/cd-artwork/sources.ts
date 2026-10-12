@@ -72,7 +72,11 @@ export async function downloadImage(
       url = new URL(location, u).href;
       continue;
     }
-    if (!r.ok) throw new ArtworkError('source_fetch_failed', 422);
+    if (!r.ok)
+      throw new ArtworkError(
+        'source_fetch_failed',
+        r.status === 429 || r.status >= 500 ? 503 : 422
+      );
     const bytes = await boundedBytes(r);
     const mime =
       bytes[0] === 255 && bytes[1] === 216
@@ -95,29 +99,47 @@ interface Release {
     artist?: { id?: string; name: string };
   }>;
 }
-interface CatalogAlbum {
+export interface CatalogAlbum {
   name: string;
   artist: string;
   mbid?: string | null;
   artist_mbid?: string | null;
+  apple_music_id?: number | null;
 }
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
-async function catalogGroup(env: ArtworkEnv, mbid?: string | null) {
+async function catalogGroup(
+  env: ArtworkEnv,
+  mbid?: string | null,
+  album?: CatalogAlbum
+) {
   if (!mbid || !uuid.test(mbid)) return null;
   const release = await providerJson<Release>(
     env,
-    `https://musicbrainz.org/ws/2/release/${mbid}?inc=release-groups&fmt=json`
+    `https://musicbrainz.org/ws/2/release/${mbid}?inc=release-groups+artist-credits&fmt=json`
   );
   if (release) {
+    if (
+      album &&
+      ((release.title &&
+        !albumMatches(album.name, release.title, album.artist)) ||
+        (release['artist-credit'] && !artistIdentityMatches(album, release)))
+    )
+      throw new ArtworkError('catalog_identity_unresolved');
     if (!release['release-group']?.id)
       throw new ArtworkError('catalog_identity_unresolved');
     return release['release-group'].id;
   }
-  const group = await providerJson<{ id: string }>(
+  const group = await providerJson<Release>(
     env,
-    `https://musicbrainz.org/ws/2/release-group/${mbid}?fmt=json`
+    `https://musicbrainz.org/ws/2/release-group/${mbid}?inc=artist-credits&fmt=json`
   );
   if (!group?.id) throw new ArtworkError('catalog_identity_unresolved');
+  if (
+    album &&
+    ((group.title && !albumMatches(album.name, group.title, album.artist)) ||
+      (group['artist-credit'] && !artistIdentityMatches(album, group)))
+  )
+    throw new ArtworkError('catalog_identity_unresolved');
   return group.id;
 }
 function artistIdentityMatches(album: CatalogAlbum, release: Release) {
@@ -140,19 +162,20 @@ interface ArchiveImage {
 interface Archive {
   images: ArchiveImage[];
 }
-async function providerJson<T>(
+export async function providerJson<T>(
   env: ArtworkEnv,
   url: string
 ): Promise<T | null> {
   // Atomic shared spacing across isolates/workflows/manual requests. No parallel
   // provider loop can bypass this reservation by using a separate process.
+  const spacing = new URL(url).hostname === 'itunes.apple.com' ? 3100 : 1100;
   const row = await env.DB.prepare(
-    'UPDATE cd_artwork_control SET provider_next_ms=MAX(provider_next_ms,?)+1100 WHERE id=1 RETURNING provider_next_ms'
+    'UPDATE cd_artwork_control SET provider_next_ms=MAX(provider_next_ms,?)+? WHERE id=1 RETURNING provider_next_ms'
   )
-    .bind(Date.now())
+    .bind(Date.now(), spacing)
     .first<{ provider_next_ms: number }>();
   if (!row) throw new ArtworkError('control_missing', 503);
-  const delay = row.provider_next_ms - 1100 - Date.now();
+  const delay = row.provider_next_ms - spacing - Date.now();
   if (delay > 15000) throw new ArtworkError('discovery_busy', 429);
   if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
   const r = await fetch(url, {
@@ -186,6 +209,7 @@ export async function resolveSource(
   album: CatalogAlbum,
   discoveryOnly = false
 ) {
+  if (!input.release_id) throw new ArtworkError('edition_identity_mismatch');
   const release = await providerJson<Release>(
     env,
     `https://musicbrainz.org/ws/2/release/${input.release_id}?inc=artist-credits+release-groups+media&fmt=json`
@@ -201,7 +225,7 @@ export async function resolveSource(
     uuid.test(album.mbid) &&
     album.mbid.toLowerCase() !== input.release_id.toLowerCase()
   ) {
-    const group = await catalogGroup(env, album.mbid);
+    const group = await catalogGroup(env, album.mbid, album);
     if (group !== release['release-group']?.id)
       throw new ArtworkError('edition_identity_mismatch');
   }
@@ -220,6 +244,13 @@ export async function resolveSource(
   const discovery = {
     outcome: media.length ? (ambiguous ? 'ambiguous' : 'found') : 'not_found',
     release_id: input.release_id,
+    covers:
+      archive?.images
+        ?.filter((i) => i.approved && i.types?.includes('Front'))
+        .map((i) => ({
+          id: String(i.id),
+          url: i.image.replace(/^http:/, 'https:'),
+        })) ?? [],
     images: media.map((i) => ({
       id: String(i.id),
       url: i.image.replace(/^http:/, 'https:'),
@@ -274,13 +305,14 @@ export async function resolveEditionCandidates(
   album: CatalogAlbum
 ) {
   const escape = (s: string) => s.replace(/["\\]/g, ' ');
-  const group = await catalogGroup(env, album.mbid);
+  const group = await catalogGroup(env, album.mbid, album);
   const artist =
     album.artist_mbid && uuid.test(album.artist_mbid)
       ? `arid:${album.artist_mbid}`
       : `artist:"${escape(album.artist)}"`;
   const query = `release:"${escape(album.name)}" AND ${artist}${group ? ` AND rgid:${group}` : ''}`;
   const result = await providerJson<{
+    count?: number;
     releases: Array<
       Release & {
         id: string;
@@ -304,6 +336,7 @@ export async function resolveEditionCandidates(
     )
     .map((r) => ({
       release_id: r.id,
+      release_group_id: r['release-group']?.id ?? null,
       title: r.title,
       country: r.country ?? null,
       date: r.date ?? null,
@@ -311,6 +344,10 @@ export async function resolveEditionCandidates(
       requires_medium_verification: true,
     }));
   return {
+    group_verified: !!group,
+    results_truncated:
+      result?.count === undefined ||
+      result.count > (result.releases?.length ?? 0),
     outcome: candidates.length
       ? 'edition_choice_required'
       : 'identity_required',

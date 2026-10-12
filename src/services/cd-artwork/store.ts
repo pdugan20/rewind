@@ -1,3 +1,4 @@
+import { verifiedCover, type SelectedSource } from './selection.js';
 import type { ArtworkEnv, Job, JobInput, JobRequest } from './types.js';
 import { MODEL, PROCESSOR_VERSION, sha256, stable, now } from './types.js';
 import { ArtworkError, downloadImage, resolveSource } from './sources.js';
@@ -12,7 +13,7 @@ export const getJob = (env: ArtworkEnv, id: string, userId: number) =>
     .first<Job>();
 export async function ownedAlbum(env: ArtworkEnv, id: number, userId: number) {
   const album = await env.DB.prepare(
-    'SELECT a.name,a.mbid,a.identity_conflict,r.name AS artist,r.mbid AS artist_mbid,r.identity_conflict AS artist_identity_conflict FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=? AND a.user_id=?'
+    'SELECT a.name,a.mbid,a.identity_conflict,a.apple_music_id,r.name AS artist,r.mbid AS artist_mbid,r.identity_conflict AS artist_identity_conflict FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=? AND a.user_id=?'
   )
     .bind(id, userId)
     .first<{
@@ -22,6 +23,7 @@ export async function ownedAlbum(env: ArtworkEnv, id: number, userId: number) {
       identity_conflict: number;
       artist_identity_conflict: number;
       artist_mbid: string | null;
+      apple_music_id: number | null;
     }>();
   if (!album) throw new ArtworkError('album_not_found', 404);
   if (album.identity_conflict || album.artist_identity_conflict)
@@ -32,15 +34,30 @@ export async function enqueue(
   env: ArtworkEnv,
   request: JobRequest,
   userId: number,
-  prepared = false
+  prepared = false,
+  automatic?: {
+    source: SelectedSource;
+    expectedActiveJob: string | null;
+    catalogIdentity: Awaited<ReturnType<typeof ownedAlbum>>;
+  }
 ) {
   const album = await ownedAlbum(env, request.album_id, userId);
+  if (
+    automatic &&
+    JSON.stringify(automatic.catalogIdentity) !== JSON.stringify(album)
+  )
+    throw new ArtworkError('catalog_identity_changed');
   // Repeated identical requests avoid even source/provider reads. Changed bytes
   // can be explicitly rechecked; their content changes the final fingerprint.
   const { refresh_source, ...identityInput } = request;
   const requestKey = await sha256(
     JSON.stringify(
-      stable({ input: identityInput, prepared, catalogIdentity: album })
+      stable({
+        input: identityInput,
+        prepared,
+        catalogIdentity: album,
+        automatic: !!automatic,
+      })
     )
   );
   const existing = await env.DB.prepare(
@@ -49,9 +66,25 @@ export async function enqueue(
     .bind(userId, request.album_id, requestKey, PROCESSOR_HASH)
     .first<Job>();
   if (existing && !refresh_source) return { job: existing, reused: true };
-  const source = await resolveSource(env, request, album);
+  const source =
+    automatic?.source ??
+    (request.release_id
+      ? await resolveSource(env, request, album)
+      : await verifiedCover(env, request.album_id, userId, album));
+  if (
+    !request.release_id &&
+    request.cover_url &&
+    request.cover_url !== source.sourceUrl
+  )
+    throw new ArtworkError('cover_identity_unverified');
   const input: JobInput = { ...request, source_kind: source.sourceKind };
-  const { bytes, mime } = await downloadImage(source.sourceUrl);
+  const { bytes, mime } =
+    automatic?.source.preparedBytes && automatic.source.preparedMime
+      ? {
+          bytes: automatic.source.preparedBytes,
+          mime: automatic.source.preparedMime,
+        }
+      : await downloadImage(source.sourceUrl);
   const pixels = readPixels(bytes);
   if (Math.max(pixels.width, pixels.height) < 660)
     throw new ArtworkError('needs_better_source');
@@ -75,6 +108,9 @@ export async function enqueue(
   const provenance = {
     generationKey,
     requestKey,
+    catalogIdentity: album,
+    automatic: !!automatic,
+    expectedActiveJob: automatic?.expectedActiveJob ?? null,
     prepared,
     sourceUrl: source.sourceUrl,
     sourceHash,
@@ -82,6 +118,7 @@ export async function enqueue(
     identityType: source.identityType,
     selectedImageId: source.selectedImageId,
     sourceKind: input.source_kind,
+    sourceIdentityEvidence: source.discovery,
     releaseId: input.release_id,
     mediumPosition: input.medium_position,
     processorVersion: PROCESSOR_VERSION,
@@ -106,12 +143,12 @@ export async function enqueue(
   const timestamp = now(),
     state = prepared
       ? 'needs_registration'
-      : input.source_kind === 'retail' && !input.material
+      : input.source_kind === 'retail' && !input.material && !automatic
         ? 'needs_material_review'
         : 'queued';
   await env.DB.batch([
     env.DB.prepare(
-      'INSERT OR IGNORE INTO cd_artwork_jobs(id,user_id,album_id,state,input,source_hash,source_key,source_mime,provenance,updated_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)'
+      'INSERT OR IGNORE INTO cd_artwork_jobs(id,user_id,album_id,state,input,source_hash,source_key,source_mime,provenance,updated_at,created_at,automatic,expected_active_job) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)'
     ).bind(
       id,
       userId,
@@ -123,16 +160,18 @@ export async function enqueue(
       mime,
       JSON.stringify(provenance),
       timestamp,
-      timestamp
+      timestamp,
+      Number(!!automatic),
+      automatic?.expectedActiveJob ?? null
     ),
     env.DB.prepare(
-      'INSERT INTO cd_artwork_albums(user_id,album_id,release_id,medium_position,next_check,discovery_outcome,discovery_evidence) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,album_id) DO UPDATE SET release_id=excluded.release_id,medium_position=excluded.medium_position,next_check=excluded.next_check,discovery_outcome=excluded.discovery_outcome,discovery_evidence=excluded.discovery_evidence WHERE cd_artwork_albums.active_job IS NULL AND cd_artwork_albums.pinned=0'
+      "INSERT INTO cd_artwork_albums(user_id,album_id,release_id,medium_position,next_check,discovery_outcome,discovery_evidence) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,album_id) DO UPDATE SET release_id=CASE WHEN excluded.release_id<>'' THEN excluded.release_id ELSE cd_artwork_albums.release_id END,medium_position=CASE WHEN excluded.release_id<>'' THEN excluded.medium_position ELSE cd_artwork_albums.medium_position END,next_check=excluded.next_check,discovery_outcome=excluded.discovery_outcome,discovery_evidence=excluded.discovery_evidence WHERE cd_artwork_albums.active_job IS NULL AND cd_artwork_albums.pinned=0"
     ).bind(
       userId,
       input.album_id,
-      input.release_id,
-      input.medium_position,
-      new Date(Date.now() + 30 * 86400000).toISOString(),
+      input.release_id ?? '',
+      input.medium_position ?? 1,
+      new Date(Date.now() + (automatic ? 7 : 30) * 86400000).toISOString(),
       source.discovery.outcome,
       JSON.stringify(source.discovery)
     ),
@@ -141,8 +180,21 @@ export async function enqueue(
   if (!job) throw new ArtworkError('job_storage_failed', 503);
   return { job, reused: false };
 }
-export async function dispatch(env: ArtworkEnv, job: Job) {
-  if (job.state !== 'queued') return;
+export async function dispatch(env: ArtworkEnv, job: Job, recover = false) {
+  if (
+    job.state !== 'queued' &&
+    !(
+      recover &&
+      job.automatic &&
+      [
+        'submitted',
+        'provider_unknown',
+        'needs_registration',
+        'pending',
+      ].includes(job.state)
+    )
+  )
+    return;
   try {
     await env.CD_WORKFLOW.create({
       id: job.id,
@@ -170,7 +222,7 @@ export async function claimSubmission(env: ArtworkEnv, job: Job) {
   // Sync cannot introduce a conflict between identity validation and reservation.
   const [claimed, budget] = await env.DB.batch([
     env.DB.prepare(
-      "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=?,submission_claim=? WHERE id=? AND user_id=? AND state='queued' AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_jobs.album_id AND a.user_id=cd_artwork_jobs.user_id AND a.identity_conflict=0 AND r.identity_conflict=0) RETURNING id"
+      "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=?,submission_claim=? WHERE id=? AND user_id=? AND state='queued' AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_jobs.album_id AND a.user_id=cd_artwork_jobs.user_id AND a.identity_conflict=0 AND r.identity_conflict=0 AND (automatic=0 OR (a.is_filtered=0 AND r.is_filtered=0 AND a.name=json_extract(provenance,'$.catalogIdentity.name') AND r.name=json_extract(provenance,'$.catalogIdentity.artist') AND a.mbid IS json_extract(provenance,'$.catalogIdentity.mbid') AND r.mbid IS json_extract(provenance,'$.catalogIdentity.artist_mbid') AND a.apple_music_id IS json_extract(provenance,'$.catalogIdentity.apple_music_id') AND EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.pinned=0 AND c.active_job IS cd_artwork_jobs.expected_active_job AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs prior WHERE prior.id=c.active_job AND prior.user_id=c.user_id AND prior.album_id=c.album_id AND prior.state='accepted' AND json_extract(prior.input,'$.source_kind')='retail')) AND (SELECT automatic_enabled FROM cd_artwork_control WHERE id=1)=1))) RETURNING id"
     ).bind(stamp, stamp, token, job.id, job.user_id),
     env.DB.prepare(
       "UPDATE cd_artwork_control SET budget_day=?,submitted_count=CASE WHEN budget_day=? THEN submitted_count+1 ELSE 1 END WHERE id=1 AND enabled=1 AND daily_limit>0 AND (budget_day<>? OR submitted_count<daily_limit) AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?) RETURNING id"

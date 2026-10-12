@@ -10,8 +10,8 @@ export interface MaterialRegion {
 export interface JobInput {
   album_id: number;
   refresh_source?: boolean;
-  release_id: string;
-  medium_position: number;
+  release_id: string | null;
+  medium_position: number | null;
   source_kind: SourceKind;
   image_id?: string;
   cover_url?: string;
@@ -36,6 +36,9 @@ export interface Job {
   provenance: string;
   error_code: string | null;
   submitted_at: string | null;
+  automatic: number;
+  expected_active_job: string | null;
+  validation_state: string | null;
   updated_at: string;
   created_at: string;
 }

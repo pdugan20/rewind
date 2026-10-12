@@ -1,7 +1,8 @@
 import type { ArtworkEnv } from './types.js';
 import { now } from './types.js';
 import { ArtworkError, resolveSource } from './sources.js';
-import { ownedAlbum } from './store.js';
+import { ownedAlbum, enqueue, dispatch } from './store.js';
+import { selectAutomaticSource } from './selection.js';
 
 export interface DiscoveryCheck {
   id: number;
@@ -70,27 +71,74 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     retryAfter = 0;
   try {
     const album = await ownedAlbum(env, row.album_id, row.user_id);
-    const result = await resolveSource(
-      env,
-      {
-        album_id: row.album_id,
-        release_id: row.release_id,
-        medium_position: row.medium_position,
-        source_kind: 'cover',
-      },
-      album,
-      true
-    );
-    outcome = result.discovery.outcome;
-    evidence = result.discovery;
+    const control = await env.DB.prepare(
+      'SELECT automatic_enabled FROM cd_artwork_control WHERE id=1'
+    ).first<{ automatic_enabled: number }>();
+    if (control?.automatic_enabled && row.user_id === 1) {
+      const active = await env.DB.prepare(
+        "SELECT c.active_job,j.state,json_extract(j.input,'$.source_kind') AS source_kind FROM cd_artwork_albums c LEFT JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE c.user_id=? AND c.album_id=?"
+      )
+        .bind(row.user_id, row.album_id)
+        .first<{
+          active_job: string | null;
+          state: string | null;
+          source_kind: string | null;
+        }>();
+      const selected = await selectAutomaticSource(
+        env,
+        row.album_id,
+        row.user_id,
+        album,
+        row.release_id,
+        row.medium_position
+      );
+      if (active?.state === 'accepted' && selected.sourceKind === 'cover') {
+        outcome = 'cover_reused';
+      } else {
+        const result = await enqueue(
+          env,
+          selected.request,
+          row.user_id,
+          false,
+          {
+            source: selected,
+            expectedActiveJob: active?.active_job ?? null,
+            catalogIdentity: album,
+          }
+        );
+        await dispatch(env, result.job);
+        outcome = 'generation_queued';
+      }
+      evidence = selected.discovery;
+    } else {
+      const result = await resolveSource(
+        env,
+        {
+          album_id: row.album_id,
+          release_id: row.release_id,
+          medium_position: row.medium_position,
+          source_kind: 'cover',
+        },
+        album,
+        true
+      );
+      outcome = result.discovery.outcome;
+      evidence = result.discovery;
+    }
   } catch (error) {
     outcome =
       error instanceof ArtworkError &&
-      ['edition_identity_mismatch', 'catalog_identity_unresolved'].includes(
-        error.code
-      )
+      [
+        'edition_identity_mismatch',
+        'catalog_identity_unresolved',
+        'cover_identity_unverified',
+        'cover_identity_ambiguous',
+        'cover_track_mismatch',
+      ].includes(error.code)
         ? 'identity_required'
-        : 'error';
+        : error instanceof ArtworkError && error.status === 422
+          ? 'source_unavailable'
+          : 'error';
     evidence = {
       outcome,
       code: error instanceof ArtworkError ? error.code : 'provider_unavailable',
@@ -98,10 +146,10 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     if (outcome === 'error')
       retryAfter = error instanceof ArtworkError ? error.retryAfter : 3600;
   }
-  // A stale request must not overwrite a newly reviewed edition. Never change
-  // active artwork, generation jobs, or the paid budget.
+  // Record completion of this admitted check. Selection can bind a previously
+  // unknown release; active artwork is changed only by conditional publication.
   await env.DB.prepare(
-    'UPDATE cd_artwork_albums SET discovery_outcome=?,discovery_evidence=?,last_checked_at=?,next_check=? WHERE user_id=? AND album_id=? AND release_id=? AND medium_position=?'
+    'UPDATE cd_artwork_albums SET discovery_outcome=?,discovery_evidence=?,last_checked_at=?,next_check=? WHERE user_id=? AND album_id=? AND EXISTS(SELECT 1 FROM cd_artwork_checks WHERE id=? AND completed_at IS NULL)'
   )
     .bind(
       outcome,
@@ -110,8 +158,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
       new Date(Date.now() + Math.max(WEEK, retryAfter * 1000)).toISOString(),
       row.user_id,
       row.album_id,
-      row.release_id,
-      row.medium_position
+      row.id
     )
     .run();
   if (!retryAfter) await finishCheck(env, row, outcome);
