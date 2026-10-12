@@ -553,6 +553,14 @@ it('validates Access signature, issuer, audience, expiry and owner identity, inc
   ).toBe(403);
   expect(
     (
+      await request(gallery, {
+        config: access,
+        token: await jwt({ email: 'constructor' }),
+      })
+    ).status
+  ).toBe(403);
+  expect(
+    (
       await request(gallery + '/data', {
         config: access,
         token: token.slice(0, -5) + 'aaaaa',

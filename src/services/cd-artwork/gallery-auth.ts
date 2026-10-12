@@ -88,7 +88,8 @@ export const galleryAuth = createMiddleware<{ Bindings: Env & ArtworkEnv }>(
         payload.type !== 'app'
       )
         throw new Error('Invalid identity');
-      userId = config.users[payload.email.toLowerCase()];
+      const email = payload.email.toLowerCase();
+      if (Object.hasOwn(config.users, email)) userId = config.users[email];
     } catch {
       return c.json({ error: 'Invalid gallery session', status: 401 }, 401);
     }
