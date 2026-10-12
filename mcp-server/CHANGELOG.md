@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0](https://github.com/pdugan20/rewind/compare/v1.0.1...v1.1.0) (2026-10-12)
+
+
+### Features
+
+* **listening:** add reviewed CD artwork pipeline and MCP attachments ([#299](https://github.com/pdugan20/rewind/issues/299)) ([c8f4695](https://github.com/pdugan20/rewind/commit/c8f4695ea3e3c6eff753c8a1a85d3d874a02843d))
+* serve prepared Lately snapshots ([#277](https://github.com/pdugan20/rewind/issues/277)) ([ba6dc0a](https://github.com/pdugan20/rewind/commit/ba6dc0aff57e4f46f1cdf809ba98a7c84741ce2a))
+
+
+### Bug Fixes
+
+* **deps:** consolidate MCP security patches ([#282](https://github.com/pdugan20/rewind/issues/282)) ([40a5082](https://github.com/pdugan20/rewind/commit/40a508209fd13c80b59604362c744e9fe78c1b90))
+* **deps:** update Prettier and apply formatting ([#240](https://github.com/pdugan20/rewind/issues/240)) ([5b608a6](https://github.com/pdugan20/rewind/commit/5b608a64c5ff9c5d8e5c1c8f7186417cc99aef18))
+* **listening:** import reviewed CD masters into the durable registry ([#301](https://github.com/pdugan20/rewind/issues/301)) ([d409a0d](https://github.com/pdugan20/rewind/commit/d409a0d3e5c95775f06e4436f54754cc86f03aa8))
+* **mcp:** report the package version during initialization ([#307](https://github.com/pdugan20/rewind/issues/307)) ([da40c89](https://github.com/pdugan20/rewind/commit/da40c8911777775fe32a33558b7ca2d9f16976e9))
+
 ## [1.0.1](https://github.com/pdugan20/rewind/compare/mcp-server-v1.0.0...mcp-server-v1.0.1) (2026-08-15)
 
 
