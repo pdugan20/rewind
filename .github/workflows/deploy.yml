@@ -253,6 +253,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+      - name: Deploy CD artwork Worker
+        run: npm exec -- wrangler deploy -c wrangler.cd-artwork.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
   root-worker-no-impact:
     name: Root Worker — no production impact
     needs: impact

@@ -1,3 +1,4 @@
+import { albumCdArtwork } from './cd-artwork.js';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RewindClient } from '../client.js';
@@ -782,6 +783,7 @@ export function registerListeningTools(
     async ({ id, include_images }) =>
       withRichResponse(async () => {
         const data = await client.get<AlbumDetail>(`/listening/albums/${id}`);
+        data.cd_artwork = await albumCdArtwork(client, id);
 
         const lines = [
           `${data.name} by ${data.artist.name}`,
@@ -802,6 +804,11 @@ export function registerListeningTools(
           ? await imageBlock(client, data.image)
           : null;
 
+        const discImage =
+          include_images && data.cd_artwork
+            ? await imageBlock(client, { cdn_url: data.cd_artwork.image_url })
+            : null;
+
         const links = [
           resourceLink(data.apple_music_url, 'Apple Music -- album', {
             mimeType: 'text/html',
@@ -812,6 +819,16 @@ export function registerListeningTools(
         const content: ContentBlock[] = [
           text(lines.join('\n')),
           ...(cover ? [cover] : []),
+          ...(discImage
+            ? [
+                text(
+                  data.cd_artwork?.source_kind === 'retail'
+                    ? 'CD artwork: restored retail face'
+                    : 'CD artwork: composed from album cover'
+                ),
+                discImage,
+              ]
+            : []),
           ...links,
         ];
 

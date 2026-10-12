@@ -306,3 +306,19 @@ test('divergent PR history compares from the merge base', () => {
     assert.equal(git(directory, ['merge-base', base, head]), common);
   });
 });
+
+test('artwork processing inputs trigger the CI-gated root deployment batch', () => {
+  for (const path of [
+    'wrangler.cd-artwork.jsonc',
+    'scripts/cd-artwork/pixels.mjs',
+    'src/services/cd-artwork/assets/cover-template.png',
+  ]) {
+    const impact = classifyChangedFiles([path]);
+    assert.equal(impact.rootWorker, true, path);
+    assert.equal(impact.mcpWorker, false, path);
+  }
+  assert.equal(
+    classifyChangedFiles(['scripts/cd-artwork/pipeline.test.mjs']).rootWorker,
+    false
+  );
+});

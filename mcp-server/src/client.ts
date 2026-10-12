@@ -17,7 +17,8 @@ export class RewindClient {
 
   async get<T>(
     path: string,
-    params?: Record<string, string | number | undefined>
+    params?: Record<string, string | number | undefined>,
+    options?: { signal?: AbortSignal }
   ): Promise<T> {
     const url = new URL(`/v1${path}`, this.baseUrl);
     if (params) {
@@ -31,6 +32,7 @@ export class RewindClient {
     log(`GET ${url.pathname}${url.search}`);
 
     const res = await fetch(url.toString(), {
+      signal: options?.signal,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         Accept: 'application/json',

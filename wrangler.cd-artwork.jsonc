@@ -1,0 +1,48 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "rewind-cd-artwork",
+  "main": "src/cd-artwork-worker.ts",
+  "build": { "command": "node scripts/cd-artwork/build.mjs" },
+  "compatibility_date": "2026-10-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "api.rewind.rest/v1/listening/cd-artwork/*",
+      "zone_name": "rewind.rest",
+    },
+    {
+      "pattern": "api.rewind.rest/v1/admin/cd-artwork/*",
+      "zone_name": "rewind.rest",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rewind-db",
+      "database_id": "35a4edf8-0d4f-4cbe-9a6e-6f1525716774",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [
+    { "binding": "IMAGES", "bucket_name": "rewind-images" },
+    { "binding": "ARTWORK", "bucket_name": "rewind-cd-artwork-private" },
+  ],
+  "workflows": [
+    {
+      "binding": "CD_WORKFLOW",
+      "name": "rewind-cd-artwork-generation",
+      "class_name": "CdArtworkWorkflow",
+    },
+  ],
+  "rules": [
+    {
+      "type": "Data",
+      "globs": ["**/*.png"],
+      "fallthrough": true,
+    },
+  ],
+  "triggers": { "crons": ["20 * * * *"] },
+  "observability": { "enabled": true, "traces": { "enabled": true } },
+  "vars": { "ALLOWED_ORIGINS": "patdugan.me,docs.rewind.rest,localhost:3000" },
+}

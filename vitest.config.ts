@@ -27,12 +27,14 @@ export default defineConfig(async () => {
       }),
     ],
     test: {
+      include: ['src/**/*.test.ts'],
       clearMocks: true,
       testTimeout: 15000,
       exclude: [
         '**/node_modules/**',
         '**/.claude/**',
         'mcp-server/**',
+        'src/services/cd-artwork/*.test.ts',
         'scripts/automation-policy.test.mjs',
         'scripts/deploy-checkpoint.test.mjs',
         'scripts/deploy-impact.test.mjs',

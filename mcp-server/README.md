@@ -89,3 +89,5 @@ The server is **read-only**. No write or admin operations are exposed.
 - [Privacy policy](https://rewind.rest/privacy)
 - [Documentation](https://docs.rewind.rest/mcp-server)
 - [Report an issue](https://github.com/pdugan20/rewind/issues)
+
+Album details optionally include accepted `cd_artwork` metadata and a transparent CD image. `include_images: false` retains the metadata without image content. Retail restorations and cover compositions are identified separately; missing or unavailable CD artwork preserves the existing album response.
