@@ -690,16 +690,17 @@ describe('reviewed master coverage without generation', () => {
     const beforeObjects = (await runtime.ARTWORK.list()).objects.map(
       (o) => o.key
     );
-    const beforeAlbums = await runtime.DB.prepare(
-      'SELECT * FROM cd_artwork_albums'
-    ).all();
+    const beforeAlbums = (
+      await runtime.DB.prepare('SELECT * FROM cd_artwork_albums').all()
+    ).results;
     const valid = await upload(adminKey);
     expect(valid.response.status).toBe(200);
     expect((await runtime.ARTWORK.list()).objects.map((o) => o.key)).toEqual(
       beforeObjects
     );
     expect(
-      await runtime.DB.prepare('SELECT * FROM cd_artwork_albums').all()
+      (await runtime.DB.prepare('SELECT * FROM cd_artwork_albums').all())
+        .results
     ).toEqual(beforeAlbums);
     expect(
       await runtime.DB.prepare(
