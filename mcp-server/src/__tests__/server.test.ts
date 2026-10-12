@@ -926,7 +926,7 @@ describe('MCP Server', () => {
         expect(content[0].text.length).toBeGreaterThan(0);
 
         // Should NOT be raw JSON
-        expect(content[0].text).not.toMatch(/^\s*[\[{]/);
+        expect(content[0].text).not.toMatch(/^\s*[[{]/);
 
         // Should not have isError
         expect(result.isError).toBeFalsy();
