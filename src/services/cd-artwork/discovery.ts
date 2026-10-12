@@ -86,7 +86,9 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
   } catch (error) {
     outcome =
       error instanceof ArtworkError &&
-      error.code === 'edition_identity_mismatch'
+      ['edition_identity_mismatch', 'catalog_identity_unresolved'].includes(
+        error.code
+      )
         ? 'identity_required'
         : 'error';
     evidence = {

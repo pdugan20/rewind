@@ -2904,7 +2904,12 @@ listening.openapi(browseAlbumsRoute, async (c) => {
   const artist = c.req.query('artist');
   const search = c.req.query('search');
 
-  const conditions = [eq(lastfmAlbums.isFiltered, 0)];
+  const conditions = [
+    eq(lastfmAlbums.userId, c.get('userId')),
+    eq(lastfmArtists.userId, lastfmAlbums.userId),
+    eq(lastfmAlbums.isFiltered, 0),
+    eq(lastfmArtists.isFiltered, 0),
+  ];
   if (artist) conditions.push(like(lastfmArtists.name, `%${artist}%`));
   if (search) conditions.push(like(lastfmAlbums.name, `%${search}%`));
 
@@ -2954,7 +2959,9 @@ listening.openapi(browseAlbumsRoute, async (c) => {
     db,
     'listening',
     'albums',
-    albumIds
+    albumIds,
+    'medium',
+    c.get('userId')
   );
 
   return c.json({

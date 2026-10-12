@@ -26,19 +26,33 @@ export function cleanArtistName(name: string): string {
 
 /**
  * Clean an album name for search queries.
- * Strips parenthetical/bracketed suffixes (deluxe, remastered, bonus, EP, single)
- * and version suffixes that confuse search APIs without affecting matching accuracy.
+ * Removes recognized edition labels and store format suffixes for search.
+ * Significant qualifiers remain part of the title used for matching.
  * Also rewrites `&` to `and` for the same reason as cleanArtistName.
  */
 export function cleanAlbumName(name: string): string {
-  const stripped = name
-    .replace(
-      /\s*[([][^)\]]*(?:deluxe|remaster|bonus|expanded|anniversary|edition|version|ep|single)[^)\]]*[)\]]/gi,
-      ''
-    )
+  const stripped = stripEditionLabels(name)
     .replace(/\s*-\s*(?:EP|Single)$/i, '')
     .trim();
   return substituteAmpersand(stripped);
+}
+
+/** Remove recognized edition labels while retaining title disambiguators. */
+function stripEditionLabels(name: string): string {
+  const edition = (s: string) =>
+    /^(?:(?:\d{4}|\d+(?:st|nd|rd|th))\s+)?(?:(?:deluxe|expanded)(?:\s+(?:edition|version))?|(?:special|bonus|anniversary)\s+(?:edition|version|tracks?)|remaster(?:ed)?)(?:\s+\d{4})?$/i.test(
+      s.trim()
+    );
+  return name
+    .replace(
+      /\s*([([])([^)\]]+)([)\]])/g,
+      (_all, open, body: string, close) => {
+        const parts = body.split(/\s*[/\u2013\u2014]\s*|\s+-\s+/);
+        while (parts.length && edition(parts[parts.length - 1])) parts.pop();
+        return parts.length ? ` ${open}${parts.join(' - ')}${close}` : '';
+      }
+    )
+    .trim();
 }
 
 /** Map of number words to digits for title normalization. */
@@ -62,9 +76,10 @@ const NUMBER_WORDS: Record<string, string> = {
  */
 function normalize(name: string): string {
   return name
+    .normalize('NFKC')
     .toLowerCase()
     .replace(/['\u2018\u2019`]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b(?:part|pt)\b/g, 'pt')
@@ -107,24 +122,18 @@ export function artistMatches(requested: string, returned: string): boolean {
 }
 
 /**
- * Check if two normalized names match at a word boundary (one starts with the other).
+ * Compare song identity without accepting arbitrary title extensions or live versions.
  */
-function wordBoundaryMatch(a: string, b: string): boolean {
-  if (a === b) return true;
-  if (b.startsWith(a) && (b.length === a.length || b[a.length] === ' ')) {
-    return true;
-  }
-  if (a.startsWith(b) && (a.length === b.length || a[b.length] === ' ')) {
-    return true;
-  }
-  return false;
+export function trackMatches(requested: string, returned: string): boolean {
+  const req = normalize(stripEditionLabels(requested));
+  const ret = normalize(stripEditionLabels(returned));
+  return !!req && !!ret && req === ret;
 }
 
 /**
  * Check if a returned album/collection name is a reasonable match.
- * The returned name must start with the requested name (allowing
- * suffixes like "(Deluxe Edition)"). Exact word boundary required.
- * "GUTS" matches "GUTS (Deluxe)" but "Gold" does NOT match "Golden Greats".
+ * Titles must be equal after removing recognized edition labels. Distinct
+ * qualifiers, live versions, and Single/EP types cannot match a bare title.
  *
  * When artistName is provided, also tries stripping the artist name prefix
  * from the requested album. Last.fm sometimes stores albums as
@@ -136,17 +145,17 @@ export function albumMatches(
   returned: string,
   artistName?: string
 ): boolean {
-  const req = stripThe(normalize(requested));
-  const ret = stripThe(normalize(returned));
+  const req = stripThe(normalize(stripEditionLabels(requested)));
+  const ret = stripThe(normalize(stripEditionLabels(returned)));
   if (!req || !ret) return false;
-  if (wordBoundaryMatch(req, ret)) return true;
+  if (req === ret) return true;
 
   // Try stripping artist name prefix from requested album
   if (artistName) {
     const normArtist = stripThe(normalize(cleanArtistName(artistName)));
     if (normArtist && req.startsWith(normArtist + ' ')) {
       const stripped = req.slice(normArtist.length + 1);
-      if (stripped && wordBoundaryMatch(stripped, ret)) return true;
+      if (stripped && stripped === ret) return true;
     }
   }
 

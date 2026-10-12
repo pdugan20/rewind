@@ -4,9 +4,18 @@ import {
   cleanAlbumName,
   artistMatches,
   albumMatches,
+  trackMatches,
 } from './utils.js';
 
 describe('cleanAlbumName', () => {
+  it('retains title disambiguation beside an edition label', () => {
+    expect(cleanAlbumName('Synthetic (White Album - Deluxe Edition)')).toBe(
+      'Synthetic (White Album)'
+    );
+    expect(cleanAlbumName('Synthetic (Deep Cuts)')).toBe(
+      'Synthetic (Deep Cuts)'
+    );
+  });
   it('strips deluxe edition parenthetical', () => {
     expect(
       cleanAlbumName('Ill Communication (Deluxe Edition/Remastered)')
@@ -117,6 +126,32 @@ describe('artistMatches', () => {
 });
 
 describe('albumMatches', () => {
+  it('rejects an unqualified self-title and conflicting album qualifiers', () => {
+    expect(albumMatches('Synthetic', 'Synthetic (Black Album)')).toBe(false);
+    expect(
+      albumMatches(
+        'Synthetic (White Album - Deluxe Edition)',
+        'Synthetic (Green Album)'
+      )
+    ).toBe(false);
+    expect(
+      albumMatches(
+        'Synthetic (White Album - Deluxe Edition)',
+        'Synthetic (White Album)'
+      )
+    ).toBe(true);
+  });
+  it('rejects arbitrary title extensions, types, and alternate performances', () => {
+    expect(albumMatches('Gold', 'Gold Greatest Hits')).toBe(false);
+    expect(albumMatches('Synthetic', 'Synthetic - Single')).toBe(false);
+    expect(albumMatches('Synthetic', 'Synthetic (Live)')).toBe(false);
+    expect(albumMatches('Synthetic', 'Synthetic (Special)')).toBe(false);
+    expect(albumMatches('Synthetic', 'Synthetic (Bonus)')).toBe(false);
+  });
+  it('retains non-Latin identity and rejects different non-Latin titles', () => {
+    expect(albumMatches('夜の音', '夜の音 (Deluxe Edition)')).toBe(true);
+    expect(albumMatches('夜の音', '朝の音')).toBe(false);
+  });
   it('matches exact names', () => {
     expect(albumMatches('Blue', 'Blue')).toBe(true);
   });
@@ -200,5 +235,16 @@ describe('albumMatches', () => {
     expect(
       albumMatches('Greatest Hits Vol. 1', 'Greatest Hits Volume One')
     ).toBe(true);
+  });
+});
+
+describe('trackMatches', () => {
+  it('allows punctuation and remaster labels but rejects a different song or performance', () => {
+    expect(
+      trackMatches('Synthetic Song', 'Synthetic Song (2011 Remaster)')
+    ).toBe(true);
+    expect(trackMatches('Synthetic Song', 'Synthetic Song Two')).toBe(false);
+    expect(trackMatches('Synthetic Song', 'Synthetic Song (Live)')).toBe(false);
+    expect(trackMatches('', '')).toBe(false);
   });
 });

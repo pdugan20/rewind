@@ -15,7 +15,12 @@ import {
   lastfmAlbums,
   lastfmArtists,
 } from '../../db/schema/lastfm.js';
-import { artistMatches, cleanArtistName } from '../images/sources/utils.js';
+import {
+  artistMatches,
+  albumMatches,
+  trackMatches,
+  cleanArtistName,
+} from '../images/sources/utils.js';
 
 const ITUNES_SEARCH_URL = 'https://itunes.apple.com/search';
 
@@ -110,7 +115,12 @@ async function searchItunes(
   for (const result of data.results) {
     if (!result.trackViewUrl) continue;
 
-    if (result.artistName && !artistMatches(artistName, result.artistName)) {
+    if (
+      !result.artistName ||
+      !artistMatches(artistName, result.artistName) ||
+      !result.trackName ||
+      !trackMatches(trackName, result.trackName)
+    ) {
       continue;
     }
 
@@ -127,10 +137,12 @@ async function enrichTrack(
   db: Database,
   track: {
     id: number;
+    userId: number;
     name: string;
     artistId: number;
     artistName: string;
     albumId: number | null;
+    albumName: string | null;
   }
 ): Promise<'enriched' | 'no_match' | 'rate_limited' | 'error'> {
   try {
@@ -148,7 +160,12 @@ async function enrichTrack(
       await db
         .update(lastfmTracks)
         .set({ itunesEnrichedAt: new Date().toISOString() })
-        .where(eq(lastfmTracks.id, track.id));
+        .where(
+          and(
+            eq(lastfmTracks.id, track.id),
+            eq(lastfmTracks.userId, track.userId)
+          )
+        );
       return 'no_match';
     }
 
@@ -163,7 +180,12 @@ async function enrichTrack(
         previewUrl: result.previewUrl ?? null,
         itunesEnrichedAt: now,
       })
-      .where(eq(lastfmTracks.id, track.id));
+      .where(
+        and(
+          eq(lastfmTracks.id, track.id),
+          eq(lastfmTracks.userId, track.userId)
+        )
+      );
 
     if (result.artistId && result.artistViewUrl) {
       await db
@@ -176,12 +198,21 @@ async function enrichTrack(
         .where(
           and(
             eq(lastfmArtists.id, track.artistId),
+            eq(lastfmArtists.userId, track.userId),
             isNull(lastfmArtists.itunesEnrichedAt)
           )
         );
     }
 
-    if (track.albumId && result.collectionId && result.collectionViewUrl) {
+    if (
+      track.albumId &&
+      track.albumName &&
+      result.collectionName &&
+      !albumMatches(track.artistName, track.albumName) &&
+      albumMatches(track.albumName, result.collectionName, track.artistName) &&
+      result.collectionId &&
+      result.collectionViewUrl
+    ) {
       await db
         .update(lastfmAlbums)
         .set({
@@ -192,6 +223,7 @@ async function enrichTrack(
         .where(
           and(
             eq(lastfmAlbums.id, track.albumId),
+            eq(lastfmAlbums.userId, track.userId),
             isNull(lastfmAlbums.itunesEnrichedAt)
           )
         );
@@ -218,13 +250,28 @@ export async function enrichBatch(
   const tracks = await db
     .select({
       id: lastfmTracks.id,
+      userId: lastfmTracks.userId,
       name: lastfmTracks.name,
       artistId: lastfmTracks.artistId,
       artistName: lastfmArtists.name,
       albumId: lastfmTracks.albumId,
+      albumName: lastfmAlbums.name,
     })
     .from(lastfmTracks)
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
+    .leftJoin(
+      lastfmAlbums,
+      and(
+        eq(lastfmTracks.albumId, lastfmAlbums.id),
+        eq(lastfmTracks.userId, lastfmAlbums.userId)
+      )
+    )
     .where(
       and(isNull(lastfmTracks.itunesEnrichedAt), eq(lastfmTracks.isFiltered, 0))
     )

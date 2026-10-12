@@ -446,6 +446,15 @@ describe('source freshness and material revisions', () => {
     expect(refreshed.job.id).not.toBe(first.job.id);
     expect(refreshed.job.source_hash).not.toBe(first.job.source_hash);
     expect(fetcher).toHaveBeenCalledTimes(6);
+    await runtime.DB.prepare(
+      'UPDATE lastfm_artists SET mbid=? WHERE id=1 AND user_id=1'
+    )
+      .bind('55555555-5555-4555-8555-555555555555')
+      .run();
+    await expect(enqueue(runtime, input, 1)).rejects.toMatchObject({
+      code: 'edition_identity_mismatch',
+    });
+    expect(fetcher).toHaveBeenCalledTimes(7);
   });
   it('creates an immutable material revision while reusing previously paid raw bytes', async () => {
     const old = await seed('4'.repeat(64), 1, 'needs_registration');
@@ -525,7 +534,7 @@ describe('retail-first selection', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       const u = String(url);
       if (u.includes('musicbrainz.org')) {
-        expect(u).toContain('inc=artist-credits+media');
+        expect(u).toContain('inc=artist-credits+release-groups+media');
         return Response.json({
           title: 'Synthetic album',
           media: [{ format: 'HDCD', position: 1 }],
