@@ -224,7 +224,8 @@ app.post(`${admin}/albums/:id/automatic`, async (c) => {
     album,
     active?.release_id ?? '',
     active?.medium_position ?? 1,
-    true
+    true,
+    active?.source_kind === 'cover'
   );
   if (active?.state === 'accepted' && source.sourceKind === 'cover')
     return c.json({ reused: true, album_id: id, source_kind: 'cover' });

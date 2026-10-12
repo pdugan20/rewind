@@ -309,15 +309,21 @@ export async function resolveSource(
 /** Exact title/artist candidates; ambiguous editions require a recorded choice. */
 export async function resolveEditionCandidates(
   env: ArtworkEnv,
-  album: CatalogAlbum
+  album: CatalogAlbum,
+  cdOnly = false,
+  knownRelease?: string
 ) {
   const escape = (s: string) => s.replace(/["\\]/g, ' ');
-  const group = await catalogGroup(env, album.mbid, album);
+  const group = await catalogGroup(
+    env,
+    album.mbid && uuid.test(album.mbid) ? album.mbid : knownRelease,
+    album
+  );
   const artist =
     album.artist_mbid && uuid.test(album.artist_mbid)
       ? `arid:${album.artist_mbid}`
       : `artist:"${escape(album.artist)}"`;
-  const query = `release:"${escape(album.name)}" AND ${artist}${group ? ` AND rgid:${group}` : ''}`;
+  const query = `release:"${escape(album.name)}" AND ${artist}${group ? ` AND rgid:${group}` : ''}${cdOnly ? ' AND format:(CD OR HDCD)' : ''}`;
   const result = await providerJson<{
     count?: number;
     releases: Array<

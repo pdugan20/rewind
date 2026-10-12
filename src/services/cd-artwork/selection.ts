@@ -221,7 +221,8 @@ export async function selectAutomaticSource(
   album: CatalogAlbum,
   releaseId: string,
   mediumPosition: number,
-  allowLegacy = false
+  allowLegacy = false,
+  revisitEdition = false
 ): Promise<SelectedSource> {
   // A stored Apple binding is independent identity evidence, not permission
   // to ignore contradictory metadata when a retail scan happens to exist.
@@ -231,8 +232,13 @@ export async function selectAutomaticSource(
   let cover: SelectedSource | null = null;
   try {
     let releases = releaseId ? [releaseId] : [];
-    if (!releases.length) {
-      const candidates = await resolveEditionCandidates(env, album);
+    if (!releases.length || revisitEdition) {
+      const candidates = await resolveEditionCandidates(
+        env,
+        album,
+        true,
+        releaseId || undefined
+      );
       // Multiple pressings of one proven logical album can supply representative
       // art. Different/unknown release groups remain ambiguous. Inspect at most
       // three stable IDs; never claim that a representative scan is owned.
@@ -243,17 +249,18 @@ export async function selectAutomaticSource(
         groups.size === 1 &&
         !groups.has(null) &&
         (candidates.group_verified || !candidates.results_truncated)
-      )
-        releases = candidates.candidates
+      ) {
+        const discovered = candidates.candidates
           .map((c) => c.release_id)
-          .sort()
-          .slice(0, 3);
+          .sort();
+        releases = [...new Set([...releases, ...discovered])].slice(0, 3);
+      }
     }
     for (const release of releases) {
       const request: JobRequest = {
         album_id: albumId,
         release_id: release,
-        medium_position: mediumPosition,
+        medium_position: release === releaseId ? mediumPosition : 1,
         source_kind: 'retail',
       };
       const found = await resolveSource(env, request, album, true);
