@@ -246,3 +246,99 @@ test('discovery distinguishes missing art, transient errors and ambiguous media'
     'found'
   );
 });
+
+test('reviewed import is preflighted as one finite batch before mutations', async () => {
+  const { runImport } = await import('./import-reviewed.mjs');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cd-import-'));
+  try {
+    const bytes = Buffer.from('synthetic source');
+    await fs.writeFile(path.join(dir, 'source'), bytes);
+    const h = hash(bytes),
+      entry = (id) => ({
+        input: {
+          album_id: id,
+          source_sha256: h,
+          candidate_sha256: h,
+          processing: { evidence_hashes: {} },
+        },
+        files: { source: 'source', candidate: 'source' },
+      });
+    const manifest = path.join(dir, 'manifest.json');
+    await fs.writeFile(
+      manifest,
+      JSON.stringify({ entries: [entry(1), entry(2)] })
+    );
+    const calls = [];
+    const fetcher = async (url) => {
+      calls.push(String(url));
+      return Response.json({
+        validated: true,
+        id: 'a'.repeat(64),
+        candidate_hash: h,
+        activation_allowed: true,
+      });
+    };
+    const dry = await runImport({ manifest, apiKey: 'rw_synthetic', fetcher });
+    assert.equal(dry.applied, 0);
+    assert.equal(calls.length, 2);
+    assert.ok(calls.every((u) => !u.includes('apply=true')));
+    let n = 0;
+    await assert.rejects(
+      runImport({
+        manifest,
+        apiKey: 'rw_synthetic',
+        apply: true,
+        fetcher: async (url) => {
+          assert.ok(!String(url).includes('apply=true'));
+          return ++n === 1
+            ? Response.json({
+                validated: true,
+                id: 'a'.repeat(64),
+                candidate_hash: h,
+              })
+            : new Response('', { status: 409 });
+        },
+      }),
+      /import_request_failed_409/
+    );
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('reviewed import files cannot escape the private bundle, including symlinks', async () => {
+  const { masterForm } = await import('./import-reviewed.mjs');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'cd-bundle-'));
+  try {
+    const bundle = path.join(directory, 'bundle');
+    await fs.mkdir(bundle);
+    const secret = path.join(directory, 'private.png');
+    const bytes = Buffer.from('synthetic private image');
+    await fs.writeFile(secret, bytes);
+    const entry = {
+      input: {
+        source_sha256: hash(bytes),
+        candidate_sha256: hash(bytes),
+        processing: { evidence_hashes: {} },
+      },
+      files: { source: '../private.png', candidate: '../private.png' },
+    };
+    await assert.rejects(
+      masterForm(entry, bundle),
+      /import_path_outside_bundle/
+    );
+    entry.files.source = secret;
+    await assert.rejects(
+      masterForm(entry, bundle),
+      /import_path_outside_bundle/
+    );
+    await fs.symlink(secret, path.join(bundle, 'outside.png'));
+    entry.files.source = 'outside.png';
+    await assert.rejects(
+      masterForm(entry, bundle),
+      /import_path_outside_bundle/
+    );
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

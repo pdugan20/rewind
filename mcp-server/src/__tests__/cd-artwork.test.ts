@@ -24,6 +24,17 @@ describe('optional album CD attachment', () => {
     vi.spyOn(client, 'get').mockResolvedValue({ artwork: art });
     expect(await albumCdArtwork(client, 1)).toEqual(art);
   });
+  it('accepts reviewed-source artwork without fabricating release or medium identifiers', async () => {
+    const client = new RewindClient('https://api.test', 'rw_synthetic');
+    const reviewed = {
+      ...art,
+      release_id: null,
+      medium_position: null,
+      identity_type: 'reviewed_source',
+    };
+    vi.spyOn(client, 'get').mockResolvedValue({ artwork: reviewed });
+    expect(await albumCdArtwork(client, 1)).toEqual(reviewed);
+  });
   it('preserves compatibility with an unavailable or older artwork service', async () => {
     const client = new RewindClient('https://api.test', 'rw_synthetic');
     vi.spyOn(client, 'get').mockRejectedValue(Error('unavailable'));

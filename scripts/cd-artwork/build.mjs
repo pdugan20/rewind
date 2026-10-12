@@ -7,6 +7,7 @@ const files = [
   'src/services/cd-artwork/store.ts',
   'src/services/cd-artwork/generation.ts',
   'src/services/cd-artwork/metadata.ts',
+  'src/services/cd-artwork/reviewed-master.ts',
   'src/services/cd-artwork/assets/cover-template.png',
   'src/services/cd-artwork/assets/geometry-reference.png',
 ];

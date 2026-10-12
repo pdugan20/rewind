@@ -543,12 +543,33 @@
                     ]
                   },
                   "release_id": {
-                    "type": "string",
-                    "format": "uuid"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "medium_position": {
-                    "type": "integer",
-                    "exclusiveMinimum": 0
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "identity_type": {
+                    "type": "string",
+                    "enum": [
+                      "representative_release",
+                      "reviewed_source"
+                    ]
                   },
                   "source": {
                     "type": "string",
