@@ -400,7 +400,12 @@ it('authenticated Apple catalog verifies a cover without requiring a CD edition'
   await play();
   const spy = vi
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValue(Response.json({ data: [appleAlbum] }));
+    .mockImplementation(async (url, init) => {
+      // A mocked fetch otherwise hides unsupported Workers RequestInit values.
+      const request = new Request(String(url), init);
+      expect(request.redirect).toBe('manual');
+      return Response.json({ data: [appleAlbum] });
+    });
   const source = await verifiedCover(
     { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
     1,
@@ -417,7 +422,7 @@ it('authenticated Apple catalog verifies a cover without requiring a CD edition'
   expect(spy).toHaveBeenCalledWith(
     'https://api.music.apple.com/v1/catalog/us/albums/123?include=tracks',
     expect.objectContaining({
-      redirect: 'error',
+      redirect: 'manual',
       headers: expect.objectContaining({
         Authorization: 'Bearer synthetic-apple-token',
       }),
@@ -1016,4 +1021,26 @@ it('stale queued artwork retires and a new active context gets a fresh immutable
   ).job;
   expect(next.id).not.toBe(old.id);
   expect(next.expected_active_job).toBe('new-cover');
+});
+
+it('authenticated catalog redirects remain a private retryable hold', async () => {
+  await play();
+  const spy = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(async (url, init) => {
+      expect(new Request(String(url), init).redirect).toBe('manual');
+      return new Response('', {
+        status: 302,
+        headers: { Location: 'https://untrusted.invalid/' },
+      });
+    });
+  await expect(
+    verifiedCover(
+      { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1)
+    )
+  ).rejects.toMatchObject({ code: 'discovery_provider_error', status: 503 });
+  expect(spy).toHaveBeenCalledTimes(1);
 });

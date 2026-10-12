@@ -181,7 +181,7 @@ export async function providerJson<T>(
   const r = await fetch(url, {
     // Cloudflare can forward headers across redirects; never redirect a credential.
     redirect:
-      new URL(url).hostname === 'api.music.apple.com' ? 'error' : 'follow',
+      new URL(url).hostname === 'api.music.apple.com' ? 'manual' : 'follow',
     headers: {
       Accept: 'application/json',
       'User-Agent': 'Rewind-CD-Artwork/1.0 (https://rewind.rest)',
