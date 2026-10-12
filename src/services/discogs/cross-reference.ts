@@ -197,13 +197,13 @@ export async function runCrossReference(
           COALESCE(sc.cnt, 0) AS playcount,
           sc.last_played AS lastPlayed
         FROM lastfm_albums a
-        JOIN lastfm_artists ar ON a.artist_id = ar.id
+        JOIN lastfm_artists ar ON a.artist_id = ar.id AND ar.user_id = a.user_id
         LEFT JOIN (
-          SELECT t.album_id, COUNT(*) AS cnt, MAX(s.scrobbled_at) AS last_played
+          SELECT CASE WHEN s.album_recorded=1 THEN s.album_id ELSE t.album_id END AS album_id, COUNT(*) AS cnt, MAX(s.scrobbled_at) AS last_played
           FROM lastfm_scrobbles s
-          JOIN lastfm_tracks t ON s.track_id = t.id
+          JOIN lastfm_tracks t ON s.track_id = t.id AND s.user_id = t.user_id
           WHERE s.user_id = ?1
-          GROUP BY t.album_id
+          GROUP BY CASE WHEN s.album_recorded=1 THEN s.album_id ELSE t.album_id END
         ) sc ON sc.album_id = a.id
         WHERE a.user_id = ?1 AND a.is_filtered = 0`
       )

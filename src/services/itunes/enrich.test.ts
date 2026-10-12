@@ -72,6 +72,56 @@ describe('enrichArtistsByName', () => {
     vi.unstubAllGlobals();
   });
 
+  it('holds a longer artist name that shares a prefix', async () => {
+    const artist = await seedArtist(db, { name: 'Synthetic' });
+    mockItunesResponse([
+      {
+        artistId: 11,
+        artistName: 'Synthetic Orchestra',
+        artistLinkUrl: 'https://example.com/artist',
+      },
+    ]);
+    expect((await enrichArtistsByName(db, 10)).succeeded).toBe(0);
+    const [row] = await db
+      .select()
+      .from(lastfmArtists)
+      .where(eq(lastfmArtists.id, artist.id));
+    expect(row.appleMusicId).toBeNull();
+  });
+  it('does not write an old artist lookup over a concurrent name change', async () => {
+    const artist = await seedArtist(db, { name: 'Synthetic' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        await db
+          .update(lastfmArtists)
+          .set({ name: 'Changed identity' })
+          .where(eq(lastfmArtists.id, artist.id));
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            resultCount: 1,
+            results: [
+              {
+                artistId: 11,
+                artistName: 'Synthetic',
+                artistLinkUrl: 'https://example.com/artist',
+              },
+            ],
+          }),
+        };
+      })
+    );
+    await enrichArtistsByName(db, 10);
+    const [row] = await db
+      .select()
+      .from(lastfmArtists)
+      .where(eq(lastfmArtists.id, artist.id));
+    expect(row.appleMusicId).toBeNull();
+    expect(row.itunesEnrichedAt).toBeNull();
+  });
+
   it('writes apple_music_id + apple_music_url on a direct-artist match', async () => {
     const { id } = await seedArtist(db, { name: 'Silk Sonic', playcount: 20 });
 

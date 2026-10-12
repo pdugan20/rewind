@@ -300,28 +300,50 @@ describe('prepared Lately refresh', () => {
       .bind(JSON.stringify({ music: now + 365 * 86_400_000, movie: null }))
       .run();
     now += 60_000;
-    body = response('New Song');
+    body = response('New Song', 'Test Artist', 'Pending Album');
     await refreshLately(testEnv);
     expect((await snapshot()).music?.name).toBe('First Song');
     now += 60_000;
-    body = response('Another Song');
+    body = response('Another Song', 'Test Artist', 'Pending Album');
     await refreshLately(testEnv);
     expect((await snapshot()).music?.name).toBe('First Song');
     now += 60_000;
-    body = response('Another Song');
+    body = response('Another Song', 'Test Artist', 'Pending Album');
     await refreshLately(testEnv);
     expect((await snapshot()).music).toMatchObject({
       name: 'Another Song',
       image: null,
     });
     const [artist] = await db.select().from(lastfmArtists);
-    const [album] = await db.select().from(lastfmAlbums);
+    const [album] = await db
+      .insert(lastfmAlbums)
+      .values({ name: 'Pending Album', artistId: artist.id })
+      .returning();
+    await seedImage('listening', 'albums', album.id);
     await db
       .insert(lastfmTracks)
       .values({ name: 'Another Song', artistId: artist.id, albumId: album.id });
     now += 60_000;
     await refreshLately(testEnv);
     expect((await snapshot()).music?.image?.cdn_url).toContain('v=2');
+  });
+
+  it('uses the reported album artwork even when the song default points elsewhere', async () => {
+    const { artist, album, track } = await seedMusic();
+    const [other] = await db
+      .insert(lastfmAlbums)
+      .values({ name: 'Other Album', artistId: artist.id })
+      .returning();
+    await seedImage('listening', 'albums', other.id);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json(response(track.name, artist.name, other.name))
+    );
+    await refreshLately(testEnv);
+    expect((await snapshot()).music?.album).toBe(other.name);
+    expect((await snapshot()).music?.image?.cdn_url).toContain(
+      String(other.id)
+    );
+    expect(other.id).not.toBe(album.id);
   });
 
   it('does not make an older replica response replace a newer scrobble', async () => {

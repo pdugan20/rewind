@@ -157,6 +157,25 @@ const request = async (route: string, key?: string, body?: unknown) => {
 const admin = '/v1/admin/cd-artwork',
   read = '/v1/listening/cd-artwork';
 
+it.each(['lastfm_albums', 'lastfm_artists'])(
+  'does not claim a paid submission after a catalog conflict on %s',
+  async (table) => {
+    const job = await seed('held-conflict', 1, 'queued');
+    await runtime.DB.prepare(
+      `UPDATE ${table} SET identity_conflict=1 WHERE id=1`
+    ).run();
+    expect(await claimSubmission(runtime, job)).toBe(false);
+    expect((await getJob(runtime, job.id, 1))?.state).toBe('queued');
+    expect(
+      (
+        await runtime.DB.prepare(
+          'SELECT submitted_count FROM cd_artwork_control WHERE id=1'
+        ).first<{ submitted_count: number }>()
+      )?.submitted_count
+    ).toBe(0);
+  }
+);
+
 describe('CD registration and material contract', () => {
   it('normalizes physical geometry and preserves protected print during cover material processing', () => {
     const result = prepareCandidate(rawDisc(), input);

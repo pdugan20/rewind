@@ -87,7 +87,7 @@ export async function musicCard(
     })
   )
     return null;
-  // Preserve canonical track -> album attribution, and scope every join.
+  // Resolve artwork for the reported album, never another release of this song.
   const row = await db
     .prepare(
       `SELECT t.id AS track_id, al.id AS album_id,
@@ -95,12 +95,13 @@ export async function musicCard(
     t.is_filtered AS track_filtered, al.is_filtered AS album_filtered
     FROM lastfm_artists a
     LEFT JOIN lastfm_tracks t ON t.artist_id = a.id AND t.name = ? AND t.user_id = ?
-    LEFT JOIN lastfm_albums al ON al.id = t.album_id AND al.user_id = ?
+    LEFT JOIN lastfm_albums al ON al.artist_id = a.id AND al.name = ? AND al.user_id = ?
     WHERE a.name = ? AND a.user_id = ? LIMIT 1`
     )
     .bind(
       item.name,
       LATELY_OWNER_ID,
+      item.album,
       LATELY_OWNER_ID,
       item.artist,
       LATELY_OWNER_ID
@@ -143,7 +144,7 @@ export async function storedMusic(db: D1Database): Promise<MusicCard | null> {
     al.name AS album, s.scrobbled_at FROM lastfm_scrobbles s
     INNER JOIN lastfm_tracks t ON t.id = s.track_id AND t.user_id = ?
     INNER JOIN lastfm_artists a ON a.id = t.artist_id AND a.user_id = ?
-    LEFT JOIN lastfm_albums al ON al.id = t.album_id AND al.user_id = ?
+    LEFT JOIN lastfm_albums al ON al.id = CASE WHEN s.album_recorded=1 THEN s.album_id ELSE t.album_id END AND al.user_id = ?
     WHERE s.user_id = ? AND COALESCE(t.is_filtered, 0) = 0
     AND COALESCE(a.is_filtered, 0) = 0 AND COALESCE(al.is_filtered, 0) = 0
     ORDER BY s.scrobbled_at DESC, s.id DESC LIMIT 50`

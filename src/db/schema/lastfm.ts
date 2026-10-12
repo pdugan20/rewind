@@ -12,6 +12,7 @@ export const lastfmArtists = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     userId: integer('user_id').notNull().default(1),
     mbid: text('mbid'),
+    identityConflict: integer('identity_conflict').notNull().default(0),
     name: text('name').notNull(),
     url: text('url'),
     playcount: integer('playcount').default(0),
@@ -57,6 +58,7 @@ export const lastfmAlbums = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     userId: integer('user_id').notNull().default(1),
     mbid: text('mbid'),
+    identityConflict: integer('identity_conflict').notNull().default(0),
     name: text('name').notNull(),
     artistId: integer('artist_id')
       .notNull()
@@ -132,6 +134,9 @@ export const lastfmScrobbles = sqliteTable(
     trackId: integer('track_id')
       .notNull()
       .references(() => lastfmTracks.id),
+    // New events preserve their reported album, including an explicit absence.
+    albumId: integer('album_id').references(() => lastfmAlbums.id),
+    albumRecorded: integer('album_recorded').notNull().default(0),
     scrobbledAt: text('scrobbled_at').notNull(),
     createdAt: text('created_at')
       .notNull()

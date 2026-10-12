@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, isNull } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
   lastfmArtists,
@@ -25,6 +25,7 @@ import {
 import { afterSync } from '../../lib/after-sync.js';
 import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import { cleanArtistName } from '../images/sources/utils.js';
+import { scrobbleAlbumId } from '../../lib/scrobble-album.js';
 import { resolveGenre } from './genres.js';
 
 // Exported so the album-attribution-repair test suite can assert the
@@ -63,7 +64,11 @@ export async function upsertArtist(
     if (mbid) {
       await db
         .update(lastfmArtists)
-        .set({ mbid, updatedAt: new Date().toISOString() })
+        .set({
+          mbid: sql`COALESCE(${lastfmArtists.mbid}, ${mbid})`,
+          identityConflict: sql`CASE WHEN ${lastfmArtists.mbid} IS NOT NULL AND ${lastfmArtists.mbid} != ${mbid} THEN 1 ELSE ${lastfmArtists.identityConflict} END`,
+          updatedAt: new Date().toISOString(),
+        })
         .where(
           and(eq(lastfmArtists.id, existing.id), eq(lastfmArtists.userId, 1))
         );
@@ -102,10 +107,14 @@ export async function upsertAlbum(
 ): Promise<{ id: number; isNew: boolean }> {
   // 1. Exact match: same album name + same artist
   const [existing] = await db
-    .select({ id: lastfmAlbums.id })
+    .select({ id: lastfmAlbums.id, mbid: lastfmAlbums.mbid })
     .from(lastfmAlbums)
     .where(
-      and(eq(lastfmAlbums.name, name), eq(lastfmAlbums.artistId, artistId))
+      and(
+        eq(lastfmAlbums.userId, 1),
+        eq(lastfmAlbums.name, name),
+        eq(lastfmAlbums.artistId, artistId)
+      )
     )
     .limit(1);
 
@@ -113,8 +122,14 @@ export async function upsertAlbum(
     if (mbid) {
       await db
         .update(lastfmAlbums)
-        .set({ mbid, updatedAt: new Date().toISOString() })
-        .where(eq(lastfmAlbums.id, existing.id));
+        .set({
+          mbid: sql`COALESCE(${lastfmAlbums.mbid}, ${mbid})`,
+          identityConflict: sql`CASE WHEN ${lastfmAlbums.mbid} IS NOT NULL AND ${lastfmAlbums.mbid} != ${mbid} THEN 1 ELSE ${lastfmAlbums.identityConflict} END`,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(
+          and(eq(lastfmAlbums.id, existing.id), eq(lastfmAlbums.userId, 1))
+        );
     }
     return { id: existing.id, isNew: false };
   }
@@ -148,16 +163,20 @@ async function upsertTrack(
   url?: string
 ): Promise<number> {
   const [existing] = await db
-    .select({ id: lastfmTracks.id })
+    .select({ id: lastfmTracks.id, albumId: lastfmTracks.albumId })
     .from(lastfmTracks)
     .where(
-      and(eq(lastfmTracks.name, name), eq(lastfmTracks.artistId, artistId))
+      and(
+        eq(lastfmTracks.userId, 1),
+        eq(lastfmTracks.name, name),
+        eq(lastfmTracks.artistId, artistId)
+      )
     )
     .limit(1);
 
   if (existing) {
     // Update album association if we have one and the track doesn't
-    if (albumId) {
+    if (albumId && existing.albumId === null) {
       await db
         .update(lastfmTracks)
         .set({
@@ -165,7 +184,13 @@ async function upsertTrack(
           mbid: mbid || undefined,
           updatedAt: new Date().toISOString(),
         })
-        .where(eq(lastfmTracks.id, existing.id));
+        .where(
+          and(
+            eq(lastfmTracks.id, existing.id),
+            eq(lastfmTracks.userId, 1),
+            isNull(lastfmTracks.albumId)
+          )
+        );
     }
     return existing.id;
   }
@@ -629,6 +654,8 @@ export async function syncRecentScrobbles(
         if (!existingScrobble) {
           await db.insert(lastfmScrobbles).values({
             trackId,
+            albumId: album?.id ?? null,
+            albumRecorded: 1,
             scrobbledAt: track.scrobbledAt,
           });
           totalSynced++;
@@ -714,7 +741,7 @@ export async function syncMonthlyStats(db: Database): Promise<number> {
       yearMonth: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
       scrobbles: sql<number>`count(*)`,
       uniqueArtists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
-      uniqueAlbums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+      uniqueAlbums: sql<number>`count(distinct ${scrobbleAlbumId})`,
     })
     .from(lastfmScrobbles)
     .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
@@ -766,7 +793,7 @@ export async function syncYearlyStats(db: Database): Promise<number> {
       year: sql<number>`cast(strftime('%Y', ${lastfmScrobbles.scrobbledAt}) as integer)`,
       scrobbles: sql<number>`count(*)`,
       uniqueArtists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
-      uniqueAlbums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+      uniqueAlbums: sql<number>`count(distinct ${scrobbleAlbumId})`,
       uniqueTracks: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
     })
     .from(lastfmScrobbles)
@@ -1073,7 +1100,7 @@ export async function syncUserStats(
       .select({
         totalScrobbles: sql<number>`count(*)`,
         uniqueArtists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
-        uniqueAlbums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+        uniqueAlbums: sql<number>`count(distinct ${scrobbleAlbumId})`,
         uniqueTracks: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
       })
       .from(lastfmScrobbles)
@@ -1207,6 +1234,8 @@ export async function backfillScrobbles(
         if (!existingScrobble) {
           await db.insert(lastfmScrobbles).values({
             trackId,
+            albumId: album?.id ?? null,
+            albumRecorded: 1,
             scrobbledAt: track.scrobbledAt,
           });
           totalSynced++;

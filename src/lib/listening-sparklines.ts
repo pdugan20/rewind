@@ -1,3 +1,4 @@
+import { scrobbleAlbumId } from './scrobble-album.js';
 import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import type { Database } from '../db/client.js';
 import { lastfmScrobbles, lastfmTracks } from '../db/schema/lastfm.js';
@@ -208,11 +209,11 @@ function bucketSqlForGranularity(granularity: SparklineGranularity): string {
 function entityColumn(entity: SparklineEntity) {
   switch (entity) {
     case 'artist':
-      return lastfmTracks.artistId;
+      return sql<number | null>`${lastfmTracks.artistId}`;
     case 'album':
-      return lastfmTracks.albumId;
+      return scrobbleAlbumId;
     case 'track':
-      return lastfmScrobbles.trackId;
+      return sql<number | null>`${lastfmScrobbles.trackId}`;
   }
 }
 
@@ -232,7 +233,8 @@ export async function buildSparklinesForWindow(
   db: Database,
   ids: number[],
   window: SparklineWindow,
-  entity: SparklineEntity
+  entity: SparklineEntity,
+  userId = 1
 ): Promise<Map<number, SparklineSeries>> {
   if (ids.length === 0) return new Map();
 
@@ -252,7 +254,9 @@ export async function buildSparklinesForWindow(
         inArray(idCol, ids),
         gte(lastfmScrobbles.scrobbledAt, window.from),
         lt(lastfmScrobbles.scrobbledAt, window.to),
-        eq(lastfmTracks.isFiltered, 0)
+        eq(lastfmTracks.isFiltered, 0),
+        eq(lastfmScrobbles.userId, userId),
+        eq(lastfmTracks.userId, userId)
       )
     )
     .groupBy(idCol, sql.raw(bucketSql));

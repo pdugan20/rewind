@@ -1,3 +1,4 @@
+import { scrobbleAlbumId, latestTrackAlbumId } from '../lib/scrobble-album.js';
 import { createRoute, z } from '@hono/zod-openapi';
 import {
   eq,
@@ -1824,11 +1825,17 @@ listening.openapi(nowPlayingRoute, async (c) => {
           id: lastfmTracks.id,
           appleMusicUrl: lastfmTracks.appleMusicUrl,
           previewUrl: lastfmTracks.previewUrl,
-          albumId: lastfmTracks.albumId,
+          albumId: latestTrackAlbumId,
           albumName: lastfmAlbums.name,
         })
         .from(lastfmTracks)
-        .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+        .leftJoin(
+          lastfmAlbums,
+          and(
+            eq(latestTrackAlbumId, lastfmAlbums.id),
+            eq(lastfmTracks.userId, lastfmAlbums.userId)
+          )
+        )
         .where(
           and(
             eq(lastfmTracks.name, latestTrack.name),
@@ -1915,9 +1922,28 @@ listening.openapi(recentRoute, async (c) => {
       albumId: lastfmAlbums.id,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-    .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
+    .leftJoin(
+      lastfmAlbums,
+      and(
+        eq(scrobbleAlbumId, lastfmAlbums.id),
+        eq(lastfmAlbums.userId, lastfmScrobbles.userId)
+      )
+    )
     .where(
       and(
         eq(lastfmTracks.isFiltered, 0),
@@ -1939,7 +1965,9 @@ listening.openapi(recentRoute, async (c) => {
     db,
     'listening',
     'albums',
-    albumIds
+    albumIds,
+    'medium',
+    c.get('userId')
   );
 
   return c.json({
@@ -2023,8 +2051,21 @@ listening.openapi(recentAlbumsRoute, async (c) => {
         artistName: lastfmArtists.name,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-      .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
+      .leftJoin(
+        lastfmAlbums,
+        and(
+          eq(scrobbleAlbumId, lastfmAlbums.id),
+          eq(lastfmAlbums.userId, lastfmScrobbles.userId)
+        )
+      )
       .leftJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
       .where(cursorCondition)
       .orderBy(desc(lastfmScrobbles.scrobbledAt), desc(lastfmScrobbles.id))
@@ -2159,7 +2200,14 @@ listening.openapi(topArtistsRoute, async (c) => {
         count: sql<number>`count(distinct ${lastfmTracks.artistId})`,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
       .where(and(...liveConditions));
     total = countResult;
 
@@ -2173,8 +2221,21 @@ listening.openapi(topArtistsRoute, async (c) => {
         playcount: sql<number>`count(${lastfmScrobbles.id})`,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-      .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
+      .innerJoin(
+        lastfmArtists,
+        and(
+          eq(lastfmTracks.artistId, lastfmArtists.id),
+          eq(lastfmTracks.userId, lastfmArtists.userId)
+        )
+      )
       .where(and(...liveConditions))
       .groupBy(lastfmArtists.id)
       .orderBy(desc(sql`count(${lastfmScrobbles.id})`))
@@ -2239,7 +2300,8 @@ listening.openapi(topArtistsRoute, async (c) => {
           db,
           numericArtistIds,
           sparklineWindow,
-          'artist'
+          'artist',
+          c.get('userId')
         )
       : Promise.resolve(undefined),
   ]);
@@ -2326,7 +2388,13 @@ listening.openapi(topAlbumsRoute, async (c) => {
   const [imageMap, sparklineMap] = await Promise.all([
     getImageAttachmentBatch(db, 'listening', 'albums', albumIds),
     sparklineWindow
-      ? buildSparklinesForWindow(db, numericAlbumIds, sparklineWindow, 'album')
+      ? buildSparklinesForWindow(
+          db,
+          numericAlbumIds,
+          sparklineWindow,
+          'album',
+          c.get('userId')
+        )
       : Promise.resolve(undefined),
   ]);
 
@@ -2474,7 +2542,14 @@ listening.openapi(topTracksRoute, async (c) => {
         count: sql<number>`count(distinct ${lastfmTracks.id})`,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
       .where(and(...liveConditions));
     total = countResult;
 
@@ -2486,7 +2561,7 @@ listening.openapi(topTracksRoute, async (c) => {
         trackUrl: lastfmTracks.url,
         trackAppleMusicUrl: lastfmTracks.appleMusicUrl,
         trackPreviewUrl: lastfmTracks.previewUrl,
-        albumId: lastfmTracks.albumId,
+        albumId: latestTrackAlbumId,
         albumName: lastfmAlbums.name,
         albumAppleMusicUrl: lastfmAlbums.appleMusicUrl,
         albumReleasedYear: lastfmAlbums.releasedYear,
@@ -2495,9 +2570,28 @@ listening.openapi(topTracksRoute, async (c) => {
         playcount: sql<number>`count(${lastfmScrobbles.id})`,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-      .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-      .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
+      .innerJoin(
+        lastfmArtists,
+        and(
+          eq(lastfmTracks.artistId, lastfmArtists.id),
+          eq(lastfmTracks.userId, lastfmArtists.userId)
+        )
+      )
+      .leftJoin(
+        lastfmAlbums,
+        and(
+          eq(latestTrackAlbumId, lastfmAlbums.id),
+          eq(lastfmAlbums.userId, lastfmScrobbles.userId)
+        )
+      )
       .where(and(...liveConditions))
       .groupBy(lastfmTracks.id)
       .orderBy(desc(sql`count(${lastfmScrobbles.id})`))
@@ -2523,6 +2617,8 @@ listening.openapi(topTracksRoute, async (c) => {
     // No artist filter — use the precomputed top-tracks table.
     const baseConditions = [
       eq(lastfmTopTracks.period, period),
+      eq(lastfmTopTracks.userId, c.get('userId')),
+      eq(lastfmTracks.userId, c.get('userId')),
       eq(lastfmTracks.isFiltered, 0),
     ];
 
@@ -2542,7 +2638,7 @@ listening.openapi(topTracksRoute, async (c) => {
         trackUrl: lastfmTracks.url,
         trackAppleMusicUrl: lastfmTracks.appleMusicUrl,
         trackPreviewUrl: lastfmTracks.previewUrl,
-        albumId: lastfmTracks.albumId,
+        albumId: latestTrackAlbumId,
         albumName: lastfmAlbums.name,
         albumAppleMusicUrl: lastfmAlbums.appleMusicUrl,
         albumReleasedYear: lastfmAlbums.releasedYear,
@@ -2551,8 +2647,20 @@ listening.openapi(topTracksRoute, async (c) => {
       })
       .from(lastfmTopTracks)
       .innerJoin(lastfmTracks, eq(lastfmTopTracks.trackId, lastfmTracks.id))
-      .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-      .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+      .innerJoin(
+        lastfmArtists,
+        and(
+          eq(lastfmTracks.artistId, lastfmArtists.id),
+          eq(lastfmTracks.userId, lastfmArtists.userId)
+        )
+      )
+      .leftJoin(
+        lastfmAlbums,
+        and(
+          eq(latestTrackAlbumId, lastfmAlbums.id),
+          eq(lastfmAlbums.userId, lastfmTracks.userId)
+        )
+      )
       .where(and(...baseConditions))
       .orderBy(asc(lastfmTopTracks.rank))
       .limit(limit)
@@ -2571,7 +2679,8 @@ listening.openapi(topTracksRoute, async (c) => {
         db,
         numericTrackIds,
         sparklineWindow,
-        'track'
+        'track',
+        c.get('userId')
       )
     : undefined;
 
@@ -2587,7 +2696,9 @@ listening.openapi(topTracksRoute, async (c) => {
     db,
     'listening',
     'albums',
-    albumIds
+    albumIds,
+    'medium',
+    c.get('userId')
   );
 
   return c.json({
@@ -2638,13 +2749,20 @@ listening.openapi(statsRoute, async (c) => {
       .select({
         totalScrobbles: sql<number>`count(*)`,
         uniqueArtists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
-        uniqueAlbums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+        uniqueAlbums: sql<number>`count(distinct ${scrobbleAlbumId})`,
         uniqueTracks: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
         minDate: sql<string>`min(${lastfmScrobbles.scrobbledAt})`,
         maxDate: sql<string>`max(${lastfmScrobbles.scrobbledAt})`,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
       .where(scopedCondition);
 
     const daysInRange =
@@ -2753,9 +2871,28 @@ listening.openapi(historyRoute, async (c) => {
   const baseQuery = db
     .select({ count: sql<number>`count(*)` })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-    .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id));
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
+    .leftJoin(
+      lastfmAlbums,
+      and(
+        eq(scrobbleAlbumId, lastfmAlbums.id),
+        eq(lastfmAlbums.userId, lastfmScrobbles.userId)
+      )
+    );
 
   const [{ count: total }] = await baseQuery.where(whereClause);
 
@@ -2774,9 +2911,28 @@ listening.openapi(historyRoute, async (c) => {
       albumId: lastfmAlbums.id,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
-    .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
+    .leftJoin(
+      lastfmAlbums,
+      and(
+        eq(scrobbleAlbumId, lastfmAlbums.id),
+        eq(lastfmAlbums.userId, lastfmScrobbles.userId)
+      )
+    )
     .where(whereClause)
     .orderBy(desc(lastfmScrobbles.scrobbledAt))
     .limit(limit)
@@ -2791,7 +2947,9 @@ listening.openapi(historyRoute, async (c) => {
     db,
     'listening',
     'albums',
-    albumIds
+    albumIds,
+    'medium',
+    c.get('userId')
   );
 
   return c.json({
@@ -2989,7 +3147,9 @@ listening.openapi(artistDetailRoute, async (c) => {
   const [artist] = await db
     .select()
     .from(lastfmArtists)
-    .where(eq(lastfmArtists.id, id))
+    .where(
+      and(eq(lastfmArtists.id, id), eq(lastfmArtists.userId, c.get('userId')))
+    )
     .limit(1);
 
   if (!artist) return notFound(c, 'Artist not found') as any;
@@ -3003,7 +3163,14 @@ listening.openapi(artistDetailRoute, async (c) => {
       distinctTracks: sql<number>`count(distinct ${lastfmTracks.id})`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
     .where(and(eq(lastfmTracks.artistId, id), eq(lastfmTracks.isFiltered, 0)));
 
   const [albumCount] = await db
@@ -3035,9 +3202,22 @@ listening.openapi(artistDetailRoute, async (c) => {
       appleMusicUrl: lastfmAlbums.appleMusicUrl,
       playcount: sql<number>`count(${lastfmScrobbles.id})`,
     })
-    .from(lastfmAlbums)
-    .leftJoin(lastfmTracks, eq(lastfmTracks.albumId, lastfmAlbums.id))
-    .leftJoin(lastfmScrobbles, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .from(lastfmScrobbles)
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .innerJoin(
+      lastfmAlbums,
+      and(
+        eq(scrobbleAlbumId, lastfmAlbums.id),
+        eq(lastfmAlbums.userId, lastfmScrobbles.userId)
+      )
+    )
     .where(
       and(
         eq(lastfmAlbums.artistId, id),
@@ -3062,15 +3242,28 @@ listening.openapi(artistDetailRoute, async (c) => {
     .select({
       id: lastfmTracks.id,
       name: lastfmTracks.name,
-      albumId: lastfmTracks.albumId,
+      albumId: latestTrackAlbumId,
       albumName: lastfmAlbums.name,
       appleMusicUrl: lastfmTracks.appleMusicUrl,
       previewUrl: lastfmTracks.previewUrl,
       scrobbleCount: sql<number>`count(${lastfmScrobbles.id})`,
     })
     .from(lastfmTracks)
-    .leftJoin(lastfmScrobbles, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .leftJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
+    .leftJoin(
+      lastfmScrobbles,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .leftJoin(
+      lastfmAlbums,
+      and(
+        eq(latestTrackAlbumId, lastfmAlbums.id),
+        eq(lastfmTracks.userId, lastfmAlbums.userId)
+      )
+    )
     .where(and(eq(lastfmTracks.artistId, id), eq(lastfmTracks.isFiltered, 0)))
     .groupBy(lastfmTracks.id)
     .orderBy(desc(sql`count(${lastfmScrobbles.id})`))
@@ -3096,7 +3289,9 @@ listening.openapi(artistDetailRoute, async (c) => {
     db,
     'listening',
     'albums',
-    albumIds
+    albumIds,
+    'medium',
+    c.get('userId')
   );
 
   // Lazy-fill bio if missing. ~200ms additional latency on first call per
@@ -3207,7 +3402,8 @@ listening.openapi(artistDetailRoute, async (c) => {
         db,
         [id],
         window,
-        'artist'
+        'artist',
+        c.get('userId')
       );
       const series = seriesMap.get(id);
       if (series) {
@@ -3284,7 +3480,9 @@ listening.openapi(albumDetailRoute, async (c) => {
     })
     .from(lastfmAlbums)
     .innerJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
-    .where(eq(lastfmAlbums.id, id))
+    .where(
+      and(eq(lastfmAlbums.id, id), eq(lastfmAlbums.userId, c.get('userId')))
+    )
     .limit(1);
 
   if (!album) return notFound(c, 'Album not found') as any;
@@ -3299,8 +3497,15 @@ listening.openapi(albumDetailRoute, async (c) => {
       scrobbleCount: sql<number>`count(${lastfmScrobbles.id})`,
     })
     .from(lastfmTracks)
-    .leftJoin(lastfmScrobbles, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(and(eq(lastfmTracks.albumId, id), eq(lastfmTracks.isFiltered, 0)))
+    .leftJoin(
+      lastfmScrobbles,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .where(and(eq(scrobbleAlbumId, id), eq(lastfmTracks.isFiltered, 0)))
     .groupBy(lastfmTracks.id)
     .orderBy(desc(sql`count(${lastfmScrobbles.id})`));
 
@@ -3317,8 +3522,15 @@ listening.openapi(albumDetailRoute, async (c) => {
       firstScrobbledAt: sql<string>`min(${lastfmScrobbles.scrobbledAt})`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .where(and(eq(lastfmTracks.albumId, id), eq(lastfmTracks.isFiltered, 0)));
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .where(and(eq(scrobbleAlbumId, id), eq(lastfmTracks.isFiltered, 0)));
 
   return c.json({
     id: album.id,
@@ -3369,7 +3581,14 @@ listening.openapi(calendarRoute, async (c) => {
       count: sql<number>`count(*)`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
     .where(
       and(
         gte(lastfmScrobbles.scrobbledAt, startDate),
@@ -3424,7 +3643,14 @@ listening.openapi(trendsRoute, async (c) => {
         count: sql<number>`count(*)`,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
       .where(whereClause)
       .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
       .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
@@ -3442,7 +3668,14 @@ listening.openapi(trendsRoute, async (c) => {
         count: sql<number>`count(distinct ${lastfmTracks.artistId})`,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
       .where(whereClause)
       .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
       .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
@@ -3457,10 +3690,17 @@ listening.openapi(trendsRoute, async (c) => {
     const data = await db
       .select({
         month: sql<string>`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`,
-        count: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+        count: sql<number>`count(distinct ${scrobbleAlbumId})`,
       })
       .from(lastfmScrobbles)
-      .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+      .innerJoin(
+        lastfmTracks,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId),
+          eq(lastfmScrobbles.userId, c.get('userId'))
+        )
+      )
       .where(whereClause)
       .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
       .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
@@ -3478,7 +3718,14 @@ listening.openapi(trendsRoute, async (c) => {
       count: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
     .where(whereClause)
     .groupBy(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`)
     .orderBy(asc(sql`strftime('%Y-%m', ${lastfmScrobbles.scrobbledAt})`));
@@ -3501,7 +3748,14 @@ listening.openapi(streaksRoute, async (c) => {
       count: sql<number>`count(*)`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
     .where(eq(lastfmTracks.isFiltered, 0))
     .groupBy(sql`date(${lastfmScrobbles.scrobbledAt})`)
     .orderBy(asc(sql`date(${lastfmScrobbles.scrobbledAt})`));
@@ -3683,12 +3937,25 @@ listening.openapi(yearRoute, async (c) => {
     .select({
       total: sql<number>`count(*)`,
       artists: sql<number>`count(distinct ${lastfmTracks.artistId})`,
-      albums: sql<number>`count(distinct ${lastfmTracks.albumId})`,
+      albums: sql<number>`count(distinct ${scrobbleAlbumId})`,
       tracks: sql<number>`count(distinct ${lastfmScrobbles.trackId})`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
     .where(filteredDateRange);
 
   const topArtistsPromise = db
@@ -3699,8 +3966,21 @@ listening.openapi(yearRoute, async (c) => {
       scrobbles: sql<number>`count(*)`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
     .where(filteredDateRange)
     .groupBy(lastfmArtists.id)
     .orderBy(desc(sql`count(*)`))
@@ -3715,9 +3995,28 @@ listening.openapi(yearRoute, async (c) => {
       scrobbles: sql<number>`count(*)`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .innerJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .innerJoin(
+      lastfmAlbums,
+      and(
+        eq(scrobbleAlbumId, lastfmAlbums.id),
+        eq(lastfmAlbums.userId, lastfmScrobbles.userId)
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
     .where(filteredDateRange)
     .groupBy(lastfmAlbums.id)
     .orderBy(desc(sql`count(*)`))
@@ -3733,8 +4032,21 @@ listening.openapi(yearRoute, async (c) => {
       scrobbles: sql<number>`count(*)`,
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, c.get('userId'))
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
     .where(filteredDateRange)
     .groupBy(lastfmTracks.id)
     .orderBy(desc(sql`count(*)`))
@@ -3818,14 +4130,27 @@ listening.openapi(yearRoute, async (c) => {
           db,
           numericArtistIds,
           sparklineWindow,
-          'artist'
+          'artist',
+          c.get('userId')
         )
       : Promise.resolve(undefined),
     sparklineWindow
-      ? buildSparklinesForWindow(db, numericAlbumIds, sparklineWindow, 'album')
+      ? buildSparklinesForWindow(
+          db,
+          numericAlbumIds,
+          sparklineWindow,
+          'album',
+          c.get('userId')
+        )
       : Promise.resolve(undefined),
     sparklineWindow
-      ? buildSparklinesForWindow(db, numericTrackIds, sparklineWindow, 'track')
+      ? buildSparklinesForWindow(
+          db,
+          numericTrackIds,
+          sparklineWindow,
+          'track',
+          c.get('userId')
+        )
       : Promise.resolve(undefined),
   ]);
 
@@ -3921,9 +4246,15 @@ listening.openapi(genresRoute, async (c) => {
       : null;
 
   const [data, compare] = await Promise.all([
-    aggregateGenres(db, dateFormat, dateCondition, genreLimit),
+    aggregateGenres(db, dateFormat, dateCondition, genreLimit, c.get('userId')),
     compareCondition
-      ? aggregateGenres(db, dateFormat, compareCondition, genreLimit)
+      ? aggregateGenres(
+          db,
+          dateFormat,
+          compareCondition,
+          genreLimit,
+          c.get('userId')
+        )
       : Promise.resolve(null),
   ]);
 
@@ -3972,7 +4303,8 @@ async function aggregateGenres(
   db: Database,
   dateFormat: string,
   dateCondition: ReturnType<typeof buildDateCondition>,
-  genreLimit: number
+  genreLimit: number,
+  userId = 1
 ): Promise<
   Array<{ period: string; genres: Record<string, number>; total: number }>
 > {
@@ -3989,8 +4321,21 @@ async function aggregateGenres(
       count: sql<number>`count(*)`.as('count'),
     })
     .from(lastfmScrobbles)
-    .innerJoin(lastfmTracks, eq(lastfmScrobbles.trackId, lastfmTracks.id))
-    .innerJoin(lastfmArtists, eq(lastfmTracks.artistId, lastfmArtists.id))
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmScrobbles.trackId, lastfmTracks.id),
+        eq(lastfmScrobbles.userId, lastfmTracks.userId),
+        eq(lastfmScrobbles.userId, userId)
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
     .where(and(...conditions))
     .groupBy(sql.raw(dateFormat), lastfmArtists.genre)
     .orderBy(sql.raw(dateFormat), desc(sql`count(*)`));

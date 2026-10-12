@@ -14,8 +14,7 @@
  *   GET https://api.music.apple.com/v1/catalog/us/albums/{id}
  *
  * Returns release date (ISO 8601), track count, genre names, and richer
- * fields. We persist released_year + total_tracks; the rest is logged
- * but not stored (yet).
+ * fields. We persist released_year + total_tracks after identity validation.
  *
  * Idempotent — safe to re-run; the apple_music_enriched_at column gates
  * a 90-day refresh so we don't hammer the catalog every cron tick.
@@ -23,7 +22,12 @@
 
 import { and, desc, eq, isNull, lt, or, sql, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
-import { lastfmAlbums } from '../../db/schema/lastfm.js';
+import { lastfmAlbums, lastfmArtists } from '../../db/schema/lastfm.js';
+
+import {
+  albumMatches,
+  artistIdentityMatches,
+} from '../images/sources/utils.js';
 
 const CATALOG_BASE = 'https://api.music.apple.com/v1/catalog/us/albums';
 const NINETY_DAYS_AGO_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days')";
@@ -45,18 +49,20 @@ interface CatalogAlbumResponse {
 }
 
 export interface AlbumMetadata {
+  status: 'matched' | 'no_match' | 'error';
   released_year: number | null;
   total_tracks: number | null;
 }
 
 /**
- * Fetch one album's catalog metadata. Returns nulls on any failure
- * (404, network timeout, malformed body) so callers can persist a
- * `apple_music_enriched_at` timestamp without leaving partial state.
+ * Fetch one album's catalog metadata. Validates ID, title and artist before returning metadata. Transient failures
+ * leave existing values and retry timestamps intact. Confirmed no-matches
+ * can be cooled down without replacing stored metadata.
  */
 export async function fetchAlbumMetadata(
   developerToken: string,
-  appleMusicId: number
+  appleMusicId: number,
+  expected: { name: string; artistName: string }
 ): Promise<AlbumMetadata> {
   const url = `${CATALOG_BASE}/${appleMusicId}`;
   let body: CatalogAlbumResponse;
@@ -71,28 +77,47 @@ export async function fetchAlbumMetadata(
       console.log(
         `[WARN] Apple Music /albums/${appleMusicId} returned ${resp.status}`
       );
-      return { released_year: null, total_tracks: null };
+      return {
+        status: resp.status === 404 ? 'no_match' : 'error',
+        released_year: null,
+        total_tracks: null,
+      };
     }
     body = (await resp.json()) as CatalogAlbumResponse;
   } catch (err) {
     console.log(
       `[WARN] Apple Music album fetch failed for ${appleMusicId}: ${err instanceof Error ? err.message : String(err)}`
     );
-    return { released_year: null, total_tracks: null };
+    return { status: 'error', released_year: null, total_tracks: null };
   }
 
-  const attrs = body.data?.[0]?.attributes;
-  if (!attrs) return { released_year: null, total_tracks: null };
+  const result = (Array.isArray(body?.data) ? body.data : []).find(
+    (album) => album?.id === String(appleMusicId) && album.type === 'albums'
+  );
+  const attrs = result?.attributes;
+  if (!attrs)
+    return { status: 'error', released_year: null, total_tracks: null };
+  if (
+    typeof attrs.name !== 'string' ||
+    !attrs.name ||
+    typeof attrs.artistName !== 'string' ||
+    !attrs.artistName ||
+    !albumMatches(expected.name, attrs.name, expected.artistName) ||
+    !artistIdentityMatches(expected.artistName, attrs.artistName)
+  ) {
+    return { status: 'no_match', released_year: null, total_tracks: null };
+  }
 
-  const released_year = attrs.releaseDate
-    ? parseYearFromIsoDate(attrs.releaseDate)
-    : null;
+  const released_year =
+    typeof attrs.releaseDate === 'string'
+      ? parseYearFromIsoDate(attrs.releaseDate)
+      : null;
   const total_tracks =
     typeof attrs.trackCount === 'number' && attrs.trackCount > 0
       ? attrs.trackCount
       : null;
 
-  return { released_year, total_tracks };
+  return { status: 'matched', released_year, total_tracks };
 }
 
 function parseYearFromIsoDate(s: string): number | null {
@@ -112,16 +137,32 @@ function parseYearFromIsoDate(s: string): number | null {
 export async function backfillAppleMusicAlbums(
   db: Database,
   developerToken: string,
-  batchSize = 200
+  batchSize = 200,
+  userId = 1
 ): Promise<{ filled: number; skipped: number }> {
   const candidates = await db
     .select({
       id: lastfmAlbums.id,
+      userId: lastfmAlbums.userId,
+      name: lastfmAlbums.name,
+      artistId: lastfmAlbums.artistId,
+      artistName: lastfmArtists.name,
       appleMusicId: lastfmAlbums.appleMusicId,
     })
     .from(lastfmAlbums)
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmAlbums.artistId, lastfmArtists.id),
+        eq(lastfmAlbums.userId, lastfmArtists.userId)
+      )
+    )
     .where(
       and(
+        eq(lastfmAlbums.userId, userId),
+        eq(lastfmAlbums.identityConflict, 0),
+        eq(lastfmArtists.isFiltered, 0),
+        eq(lastfmArtists.identityConflict, 0),
         eq(lastfmAlbums.isFiltered, 0),
         sql`${lastfmAlbums.appleMusicId} IS NOT NULL`,
         or(
@@ -140,18 +181,48 @@ export async function backfillAppleMusicAlbums(
       skipped++;
       continue;
     }
-    const meta = await fetchAlbumMetadata(developerToken, a.appleMusicId);
+    const meta = await fetchAlbumMetadata(developerToken, a.appleMusicId, {
+      name: a.name,
+      artistName: a.artistName,
+    });
+    if (meta.status === 'error') {
+      skipped++;
+      continue;
+    }
     const now = new Date().toISOString();
-    await db
+    const updated = await db
       .update(lastfmAlbums)
       .set({
-        releasedYear: meta.released_year,
-        totalTracks: meta.total_tracks,
+        ...(meta.status === 'matched'
+          ? {
+              ...(meta.released_year !== null
+                ? { releasedYear: meta.released_year }
+                : {}),
+              ...(meta.total_tracks !== null
+                ? { totalTracks: meta.total_tracks }
+                : {}),
+            }
+          : {}),
         appleMusicEnrichedAt: now,
         updatedAt: now,
       })
-      .where(eq(lastfmAlbums.id, a.id));
-    if (meta.released_year || meta.total_tracks) filled++;
+      .where(
+        and(
+          eq(lastfmAlbums.id, a.id),
+          eq(lastfmAlbums.userId, a.userId),
+          eq(lastfmAlbums.name, a.name),
+          eq(lastfmAlbums.artistId, a.artistId),
+          eq(lastfmAlbums.appleMusicId, a.appleMusicId),
+          eq(lastfmAlbums.identityConflict, 0)
+        )
+      )
+      .returning({ id: lastfmAlbums.id });
+    if (
+      updated.length &&
+      meta.status === 'matched' &&
+      (meta.released_year || meta.total_tracks)
+    )
+      filled++;
     else skipped++;
   }
 
@@ -171,17 +242,34 @@ export async function backfillAppleMusicAlbums(
 export async function lazyEnrichAppleMusicAlbums(
   db: Database,
   developerToken: string,
-  albumIds: number[]
+  albumIds: number[],
+  userId = 1
 ): Promise<{ enriched: number }> {
   if (albumIds.length === 0) return { enriched: 0 };
   const candidates = await db
     .select({
       id: lastfmAlbums.id,
+      userId: lastfmAlbums.userId,
+      name: lastfmAlbums.name,
+      artistId: lastfmAlbums.artistId,
+      artistName: lastfmArtists.name,
       appleMusicId: lastfmAlbums.appleMusicId,
     })
     .from(lastfmAlbums)
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmAlbums.artistId, lastfmArtists.id),
+        eq(lastfmAlbums.userId, lastfmArtists.userId)
+      )
+    )
     .where(
       and(
+        eq(lastfmAlbums.userId, userId),
+        eq(lastfmAlbums.identityConflict, 0),
+        eq(lastfmAlbums.isFiltered, 0),
+        eq(lastfmArtists.isFiltered, 0),
+        eq(lastfmArtists.identityConflict, 0),
         inArray(lastfmAlbums.id, albumIds),
         isNull(lastfmAlbums.appleMusicEnrichedAt),
         sql`${lastfmAlbums.appleMusicId} IS NOT NULL`
@@ -192,18 +280,40 @@ export async function lazyEnrichAppleMusicAlbums(
   let enriched = 0;
   for (const a of candidates) {
     if (a.appleMusicId == null) continue;
-    const meta = await fetchAlbumMetadata(developerToken, a.appleMusicId);
+    const meta = await fetchAlbumMetadata(developerToken, a.appleMusicId, {
+      name: a.name,
+      artistName: a.artistName,
+    });
+    if (meta.status === 'error') continue;
     const now = new Date().toISOString();
-    await db
+    const updated = await db
       .update(lastfmAlbums)
       .set({
-        releasedYear: meta.released_year,
-        totalTracks: meta.total_tracks,
+        ...(meta.status === 'matched'
+          ? {
+              ...(meta.released_year !== null
+                ? { releasedYear: meta.released_year }
+                : {}),
+              ...(meta.total_tracks !== null
+                ? { totalTracks: meta.total_tracks }
+                : {}),
+            }
+          : {}),
         appleMusicEnrichedAt: now,
         updatedAt: now,
       })
-      .where(eq(lastfmAlbums.id, a.id));
-    enriched++;
+      .where(
+        and(
+          eq(lastfmAlbums.id, a.id),
+          eq(lastfmAlbums.userId, a.userId),
+          eq(lastfmAlbums.name, a.name),
+          eq(lastfmAlbums.artistId, a.artistId),
+          eq(lastfmAlbums.appleMusicId, a.appleMusicId),
+          eq(lastfmAlbums.identityConflict, 0)
+        )
+      )
+      .returning({ id: lastfmAlbums.id });
+    if (updated.length && meta.status === 'matched') enriched++;
   }
   return { enriched };
 }

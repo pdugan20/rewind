@@ -16,7 +16,7 @@ import {
   lastfmArtists,
 } from '../../db/schema/lastfm.js';
 import {
-  artistMatches,
+  artistIdentityMatches,
   albumMatches,
   trackMatches,
   cleanArtistName,
@@ -117,7 +117,7 @@ async function searchItunes(
 
     if (
       !result.artistName ||
-      !artistMatches(artistName, result.artistName) ||
+      !artistIdentityMatches(artistName, result.artistName) ||
       !result.trackName ||
       !trackMatches(trackName, result.trackName)
     ) {
@@ -163,7 +163,10 @@ async function enrichTrack(
         .where(
           and(
             eq(lastfmTracks.id, track.id),
-            eq(lastfmTracks.userId, track.userId)
+            eq(lastfmTracks.userId, track.userId),
+            eq(lastfmTracks.name, track.name),
+            eq(lastfmTracks.artistId, track.artistId),
+            isNull(lastfmTracks.itunesEnrichedAt)
           )
         );
       return 'no_match';
@@ -172,7 +175,7 @@ async function enrichTrack(
     const { result } = searchResult;
     const now = new Date().toISOString();
 
-    await db
+    const updated = await db
       .update(lastfmTracks)
       .set({
         appleMusicId: result.trackId ?? null,
@@ -183,9 +186,14 @@ async function enrichTrack(
       .where(
         and(
           eq(lastfmTracks.id, track.id),
-          eq(lastfmTracks.userId, track.userId)
+          eq(lastfmTracks.userId, track.userId),
+          eq(lastfmTracks.name, track.name),
+          eq(lastfmTracks.artistId, track.artistId),
+          isNull(lastfmTracks.itunesEnrichedAt)
         )
-      );
+      )
+      .returning({ id: lastfmTracks.id });
+    if (!updated.length) return 'no_match';
 
     if (result.artistId && result.artistViewUrl) {
       await db
@@ -199,6 +207,8 @@ async function enrichTrack(
           and(
             eq(lastfmArtists.id, track.artistId),
             eq(lastfmArtists.userId, track.userId),
+            eq(lastfmArtists.name, track.artistName),
+            eq(lastfmArtists.identityConflict, 0),
             isNull(lastfmArtists.itunesEnrichedAt)
           )
         );
@@ -224,6 +234,9 @@ async function enrichTrack(
           and(
             eq(lastfmAlbums.id, track.albumId),
             eq(lastfmAlbums.userId, track.userId),
+            eq(lastfmAlbums.name, track.albumName),
+            eq(lastfmAlbums.artistId, track.artistId),
+            eq(lastfmAlbums.identityConflict, 0),
             isNull(lastfmAlbums.itunesEnrichedAt)
           )
         );
@@ -273,7 +286,11 @@ export async function enrichBatch(
       )
     )
     .where(
-      and(isNull(lastfmTracks.itunesEnrichedAt), eq(lastfmTracks.isFiltered, 0))
+      and(
+        isNull(lastfmTracks.itunesEnrichedAt),
+        eq(lastfmTracks.isFiltered, 0),
+        eq(lastfmArtists.identityConflict, 0)
+      )
     )
     .orderBy(desc(lastfmTracks.id))
     .limit(limit);
@@ -347,7 +364,10 @@ async function searchItunesArtist(
     if (!result.artistId) continue;
     const link = result.artistLinkUrl ?? result.artistViewUrl;
     if (!link) continue;
-    if (result.artistName && !artistMatches(artistName, result.artistName)) {
+    if (
+      !result.artistName ||
+      !artistIdentityMatches(artistName, result.artistName)
+    ) {
       continue;
     }
     return { status: 'found', result };
@@ -375,11 +395,14 @@ export async function enrichArtistsByName(
     .select({
       id: lastfmArtists.id,
       name: lastfmArtists.name,
+      userId: lastfmArtists.userId,
       enrichedAt: lastfmArtists.itunesEnrichedAt,
     })
     .from(lastfmArtists)
     .where(
       and(
+        eq(lastfmArtists.userId, 1),
+        eq(lastfmArtists.identityConflict, 0),
         isNull(lastfmArtists.appleMusicUrl),
         eq(lastfmArtists.isFiltered, 0),
         or(
@@ -430,7 +453,18 @@ export async function enrichArtistsByName(
       await db
         .update(lastfmArtists)
         .set({ itunesEnrichedAt: now })
-        .where(eq(lastfmArtists.id, artist.id));
+        .where(
+          and(
+            eq(lastfmArtists.id, artist.id),
+            eq(lastfmArtists.userId, artist.userId),
+            eq(lastfmArtists.name, artist.name),
+            eq(lastfmArtists.identityConflict, 0),
+            isNull(lastfmArtists.appleMusicUrl),
+            artist.enrichedAt
+              ? eq(lastfmArtists.itunesEnrichedAt, artist.enrichedAt)
+              : isNull(lastfmArtists.itunesEnrichedAt)
+          )
+        );
       skipped++;
       continue;
     }
@@ -444,7 +478,18 @@ export async function enrichArtistsByName(
         appleMusicUrl: link,
         itunesEnrichedAt: now,
       })
-      .where(eq(lastfmArtists.id, artist.id));
+      .where(
+        and(
+          eq(lastfmArtists.id, artist.id),
+          eq(lastfmArtists.userId, artist.userId),
+          eq(lastfmArtists.name, artist.name),
+          eq(lastfmArtists.identityConflict, 0),
+          isNull(lastfmArtists.appleMusicUrl),
+          artist.enrichedAt
+            ? eq(lastfmArtists.itunesEnrichedAt, artist.enrichedAt)
+            : isNull(lastfmArtists.itunesEnrichedAt)
+        )
+      );
     succeeded++;
   }
 

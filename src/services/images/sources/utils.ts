@@ -121,6 +121,16 @@ export function artistMatches(requested: string, returned: string): boolean {
   return false;
 }
 
+/** Provider catalog writes require equal artist identity, not a prefix match. */
+export function artistIdentityMatches(
+  requested: string,
+  returned: string
+): boolean {
+  const req = stripThe(normalize(cleanArtistName(requested)));
+  const ret = stripThe(normalize(cleanArtistName(returned)));
+  return !!req && req === ret;
+}
+
 /**
  * Compare song identity without accepting arbitrary title extensions or live versions.
  */
