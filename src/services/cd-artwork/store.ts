@@ -12,16 +12,20 @@ export const getJob = (env: ArtworkEnv, id: string, userId: number) =>
     .first<Job>();
 export async function ownedAlbum(env: ArtworkEnv, id: number, userId: number) {
   const album = await env.DB.prepare(
-    'SELECT a.name,a.mbid,r.name AS artist,r.mbid AS artist_mbid FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=? AND a.user_id=?'
+    'SELECT a.name,a.mbid,a.identity_conflict,r.name AS artist,r.mbid AS artist_mbid,r.identity_conflict AS artist_identity_conflict FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=? AND a.user_id=?'
   )
     .bind(id, userId)
     .first<{
       name: string;
       artist: string;
       mbid: string | null;
+      identity_conflict: number;
+      artist_identity_conflict: number;
       artist_mbid: string | null;
     }>();
   if (!album) throw new ArtworkError('album_not_found', 404);
+  if (album.identity_conflict || album.artist_identity_conflict)
+    throw new ArtworkError('catalog_identity_unresolved');
   return album;
 }
 export async function enqueue(
@@ -158,23 +162,26 @@ export async function dispatch(env: ArtworkEnv, job: Job) {
   }
 }
 export async function claimSubmission(env: ArtworkEnv, job: Job) {
-  const claimed = await env.DB.prepare(
-    "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=? WHERE id=? AND user_id=? AND state='queued' RETURNING id"
-  )
-    .bind(now(), now(), job.id, job.user_id)
-    .first();
-  if (!claimed) return false;
-  const day = now().slice(0, 10);
-  const budget = await env.DB.prepare(
-    'UPDATE cd_artwork_control SET budget_day=?,submitted_count=CASE WHEN budget_day=? THEN submitted_count+1 ELSE 1 END WHERE id=1 AND enabled=1 AND daily_limit>0 AND (budget_day<>? OR submitted_count<daily_limit) RETURNING id'
-  )
-    .bind(day, day, day)
-    .first();
-  if (!budget) {
+  const token = crypto.randomUUID();
+  const stamp = now();
+  const day = stamp.slice(0, 10);
+  // D1 batches are transactional. The unique token makes the budget statement
+  // depend on this attempt's successful claim, even for simultaneous retries.
+  // Sync cannot introduce a conflict between identity validation and reservation.
+  const [claimed, budget] = await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=?,submission_claim=? WHERE id=? AND user_id=? AND state='queued' AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_jobs.album_id AND a.user_id=cd_artwork_jobs.user_id AND a.identity_conflict=0 AND r.identity_conflict=0) RETURNING id"
+    ).bind(stamp, stamp, token, job.id, job.user_id),
+    env.DB.prepare(
+      "UPDATE cd_artwork_control SET budget_day=?,submitted_count=CASE WHEN budget_day=? THEN submitted_count+1 ELSE 1 END WHERE id=1 AND enabled=1 AND daily_limit>0 AND (budget_day<>? OR submitted_count<daily_limit) AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?) RETURNING id"
+    ).bind(day, day, day, job.id, job.user_id, token),
+  ]);
+  if (!claimed.results.length) return false;
+  if (!budget.results.length) {
     await env.DB.prepare(
-      "UPDATE cd_artwork_jobs SET state='queued',submitted_at=NULL,updated_at=? WHERE id=? AND user_id=? AND state='submitted'"
+      "UPDATE cd_artwork_jobs SET state='queued',submitted_at=NULL,submission_claim=NULL,updated_at=? WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?"
     )
-      .bind(now(), job.id, job.user_id)
+      .bind(now(), job.id, job.user_id, token)
       .run();
     return false;
   }
