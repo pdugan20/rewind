@@ -12,10 +12,15 @@ export const getJob = (env: ArtworkEnv, id: string, userId: number) =>
     .first<Job>();
 export async function ownedAlbum(env: ArtworkEnv, id: number, userId: number) {
   const album = await env.DB.prepare(
-    'SELECT a.name,r.name AS artist FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=? AND a.user_id=?'
+    'SELECT a.name,a.mbid,r.name AS artist,r.mbid AS artist_mbid FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=? AND a.user_id=?'
   )
     .bind(id, userId)
-    .first<{ name: string; artist: string }>();
+    .first<{
+      name: string;
+      artist: string;
+      mbid: string | null;
+      artist_mbid: string | null;
+    }>();
   if (!album) throw new ArtworkError('album_not_found', 404);
   return album;
 }
@@ -30,7 +35,9 @@ export async function enqueue(
   // can be explicitly rechecked; their content changes the final fingerprint.
   const { refresh_source, ...identityInput } = request;
   const requestKey = await sha256(
-    JSON.stringify(stable({ input: identityInput, prepared }))
+    JSON.stringify(
+      stable({ input: identityInput, prepared, catalogIdentity: album })
+    )
   );
   const existing = await env.DB.prepare(
     "SELECT * FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND json_extract(provenance,'$.requestKey')=? AND json_extract(provenance,'$.processorHash')=? ORDER BY created_at DESC LIMIT 1"

@@ -47,6 +47,37 @@ describe('listening routes', () => {
     expect(mod.default).toBeDefined();
   });
 
+  it('scopes album identity search and pagination to the authenticated owner and unfiltered artists', async () => {
+    const db = drizzle(env.DB);
+    const [own] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'Owner', userId: 1 })
+      .returning();
+    const [other] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'Other', userId: 2 })
+      .returning();
+    const [filtered] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'Filtered', userId: 1, isFiltered: 1 })
+      .returning();
+    await db.insert(lastfmAlbums).values([
+      { name: 'Exact Album', artistId: own.id, userId: 1 },
+      { name: 'Exact Album Foreign', artistId: other.id, userId: 2 },
+      { name: 'Exact Album Filtered', artistId: filtered.id, userId: 1 },
+      { name: 'Exact Album Broken Relation', artistId: other.id, userId: 1 },
+    ]);
+    const token = await createTestApiKey({ scope: 'read', userId: 1 });
+    const response = await SELF.fetch(
+      'https://api.rewind.rest/v1/listening/albums?search=Exact&limit=100',
+      { headers: { Authorization: 'Bearer ' + token } }
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as any;
+    expect(body.data.map((a: any) => a.name)).toEqual(['Exact Album']);
+    expect(body.pagination.total).toBe(1);
+  });
+
   describe('GET /v1/listening/top/artists?include_sparklines=true', () => {
     let token: string;
 

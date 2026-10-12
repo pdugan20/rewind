@@ -1,4 +1,5 @@
 import type { ArtworkEnv, JobRequest } from './types.js';
+import { albumMatches } from '../images/sources/utils.js';
 
 export class ArtworkError extends Error {
   constructor(
@@ -85,9 +86,49 @@ export async function downloadImage(
   throw new ArtworkError('source_redirect_limit');
 }
 interface Release {
+  id?: string;
   title: string;
+  'release-group'?: { id: string };
   media: Array<{ format: string; position: number }>;
-  'artist-credit': Array<{ name: string; artist?: { name: string } }>;
+  'artist-credit': Array<{
+    name: string;
+    artist?: { id?: string; name: string };
+  }>;
+}
+interface CatalogAlbum {
+  name: string;
+  artist: string;
+  mbid?: string | null;
+  artist_mbid?: string | null;
+}
+const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
+async function catalogGroup(env: ArtworkEnv, mbid?: string | null) {
+  if (!mbid || !uuid.test(mbid)) return null;
+  const release = await providerJson<Release>(
+    env,
+    `https://musicbrainz.org/ws/2/release/${mbid}?inc=release-groups&fmt=json`
+  );
+  if (release) {
+    if (!release['release-group']?.id)
+      throw new ArtworkError('catalog_identity_unresolved');
+    return release['release-group'].id;
+  }
+  const group = await providerJson<{ id: string }>(
+    env,
+    `https://musicbrainz.org/ws/2/release-group/${mbid}?fmt=json`
+  );
+  if (!group?.id) throw new ArtworkError('catalog_identity_unresolved');
+  return group.id;
+}
+function artistIdentityMatches(album: CatalogAlbum, release: Release) {
+  return release['artist-credit']?.some(
+    (credit) =>
+      normalize(credit.artist?.name ?? credit.name) ===
+        normalize(album.artist) &&
+      (!album.artist_mbid ||
+        !uuid.test(album.artist_mbid) ||
+        credit.artist?.id?.toLowerCase() === album.artist_mbid.toLowerCase())
+  );
 }
 interface ArchiveImage {
   id: string | number;
@@ -142,21 +183,28 @@ async function providerJson<T>(
 export async function resolveSource(
   env: ArtworkEnv,
   input: JobRequest,
-  album: { name: string; artist: string },
+  album: CatalogAlbum,
   discoveryOnly = false
 ) {
   const release = await providerJson<Release>(
     env,
-    `https://musicbrainz.org/ws/2/release/${input.release_id}?inc=artist-credits+media&fmt=json`
+    `https://musicbrainz.org/ws/2/release/${input.release_id}?inc=artist-credits+release-groups+media&fmt=json`
   );
   if (
     !release ||
-    normalize(release.title) !== normalize(album.name) ||
-    !release['artist-credit']?.some(
-      (a) => normalize(a.artist?.name ?? a.name) === normalize(album.artist)
-    )
+    !albumMatches(album.name, release.title) ||
+    !artistIdentityMatches(album, release)
   )
     throw new ArtworkError('edition_identity_mismatch');
+  if (
+    album.mbid &&
+    uuid.test(album.mbid) &&
+    album.mbid.toLowerCase() !== input.release_id.toLowerCase()
+  ) {
+    const group = await catalogGroup(env, album.mbid);
+    if (group !== release['release-group']?.id)
+      throw new ArtworkError('edition_identity_mismatch');
+  }
   const cds =
     release.media?.filter((m) => ['CD', 'HDCD'].includes(m.format)) ?? [];
   const archive = await providerJson<Archive>(
@@ -223,10 +271,15 @@ export async function resolveSource(
 /** Exact title/artist candidates; ambiguous editions require a recorded choice. */
 export async function resolveEditionCandidates(
   env: ArtworkEnv,
-  album: { name: string; artist: string }
+  album: CatalogAlbum
 ) {
   const escape = (s: string) => s.replace(/["\\]/g, ' ');
-  const query = `release:"${escape(album.name)}" AND artist:"${escape(album.artist)}"`;
+  const group = await catalogGroup(env, album.mbid);
+  const artist =
+    album.artist_mbid && uuid.test(album.artist_mbid)
+      ? `arid:${album.artist_mbid}`
+      : `artist:"${escape(album.artist)}"`;
+  const query = `release:"${escape(album.name)}" AND ${artist}${group ? ` AND rgid:${group}` : ''}`;
   const result = await providerJson<{
     releases: Array<
       Release & {
@@ -244,11 +297,10 @@ export async function resolveEditionCandidates(
   const candidates = (result?.releases ?? [])
     .filter(
       (r) =>
-        normalize(r.title) === normalize(album.name) &&
+        albumMatches(album.name, r.title) &&
         r.status === 'Official' &&
-        r['artist-credit']?.some(
-          (a) => normalize(a.artist?.name ?? a.name) === normalize(album.artist)
-        )
+        artistIdentityMatches(album, r) &&
+        (!group || r['release-group']?.id === group)
     )
     .map((r) => ({
       release_id: r.id,
