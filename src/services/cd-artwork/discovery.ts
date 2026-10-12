@@ -98,7 +98,9 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
         row.user_id,
         album,
         row.release_id,
-        row.medium_position
+        row.medium_position,
+        false,
+        active?.source_kind === 'cover'
       );
       if (active?.state === 'accepted' && selected.sourceKind === 'cover') {
         outcome = 'cover_reused';

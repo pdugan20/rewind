@@ -1044,3 +1044,116 @@ it('authenticated catalog redirects remain a private retryable hold', async () =
   ).rejects.toMatchObject({ code: 'discovery_provider_error', status: 503 });
   expect(spy).toHaveBeenCalledTimes(1);
 });
+
+it.each([false, true])(
+  'retail discovery filters CD editions and revisits a digital cover when needed %s',
+  async (revisit) => {
+    await play();
+    const group = '33333333-3333-4333-8333-333333333333';
+    const digital = '22222222-2222-4222-8222-222222222222';
+    const spy = providers({ retail: true }),
+      original = spy.getMockImplementation();
+    spy.mockImplementation(async (url, init) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      const u = String(url);
+      if (u.includes('/release/?')) {
+        const query = new URL(u).searchParams.get('query');
+        expect(query).toContain('format:(CD OR HDCD)');
+        if (revisit) expect(query).toContain('rgid:' + group);
+        return Response.json({
+          count: 1,
+          releases: [
+            {
+              id: RELEASE,
+              title: 'Synthetic album',
+              status: 'Official',
+              'release-group': { id: group },
+              'artist-credit': [{ name: 'Synthetic artist' }],
+            },
+          ],
+        });
+      }
+      if (u.includes('musicbrainz.org'))
+        return Response.json({
+          id: u.includes(digital) ? digital : RELEASE,
+          title: 'Synthetic album',
+          media: [
+            {
+              format: u.includes(digital) ? 'Digital Media' : 'CD',
+              position: 1,
+            },
+          ],
+          'release-group': { id: group },
+          'artist-credit': [{ name: 'Synthetic artist' }],
+        });
+      return original!(url, init);
+    });
+    const source = await selectAutomaticSource(
+      runtime,
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1),
+      revisit ? digital : '',
+      revisit ? 2 : 1,
+      false,
+      revisit
+    );
+    expect(source.sourceKind).toBe('retail');
+    expect(source.request).toMatchObject({
+      release_id: RELEASE,
+      medium_position: 1,
+    });
+  }
+);
+it('a reviewed cover edition never authorizes a different logical CD album', async () => {
+  await play();
+  const group = '33333333-3333-4333-8333-333333333333';
+  const other = '44444444-4444-4444-8444-444444444444';
+  const digital = '22222222-2222-4222-8222-222222222222';
+  const spy = providers({ retail: true }),
+    original = spy.getMockImplementation();
+  spy.mockImplementation(async (url, init) => {
+    await runtime.DB.exec(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+    );
+    const u = String(url);
+    if (u.includes('/release/?'))
+      return Response.json({
+        count: 1,
+        releases: [
+          {
+            id: RELEASE,
+            title: 'Synthetic album',
+            status: 'Official',
+            'release-group': { id: other },
+            'artist-credit': [{ name: 'Synthetic artist' }],
+          },
+        ],
+      });
+    if (u.includes('musicbrainz.org'))
+      return Response.json({
+        id: digital,
+        title: 'Synthetic album',
+        media: [{ format: 'Digital Media', position: 1 }],
+        'release-group': { id: group },
+        'artist-credit': [{ name: 'Synthetic artist' }],
+      });
+    return original!(url, init);
+  });
+  const source = await selectAutomaticSource(
+    runtime,
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1),
+    digital,
+    1,
+    false,
+    true
+  );
+  expect(source.sourceKind).toBe('cover');
+  expect(
+    spy.mock.calls.some(([url]) => String(url).includes('/release/' + RELEASE))
+  ).toBe(false);
+});
