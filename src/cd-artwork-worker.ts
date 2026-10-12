@@ -1,6 +1,11 @@
+import {
+  galleryApp,
+  registerGalleryData,
+} from './services/cd-artwork/gallery.js';
 import { selectAutomaticSource } from './services/cd-artwork/selection.js';
 import { publishAutomatic } from './services/cd-artwork/automatic.js';
 import { Hono } from 'hono';
+import { createMiddleware } from 'hono/factory';
 import { z } from 'zod';
 import {
   WorkflowEntrypoint,
@@ -24,7 +29,7 @@ import {
   getJob,
   ownedAlbum,
   publicJob,
-  approvedArtwork,
+  artworkSnapshot,
   materialRevision,
 } from './services/cd-artwork/store.js';
 import { generateOnce, processRaw } from './services/cd-artwork/generation.js';
@@ -79,7 +84,17 @@ app.notFound((c) => c.json({ error: 'Not found', status: 404 }, 404));
 const read = '/v1/listening/cd-artwork',
   admin = '/v1/admin/cd-artwork';
 app.use('*', async (c, next) => cors(c.env)(c, next));
-app.use(`${admin}/*`, requireAuth('admin'));
+app.use(
+  `${admin}/*`,
+  createMiddleware<{ Bindings: Env }>(async (c, next) => {
+    const path = c.req.path;
+    if (path === `${admin}/gallery` || path.startsWith(`${admin}/gallery/`))
+      return next();
+    return requireAuth('admin')(c, next);
+  })
+);
+app.route(`${admin}/gallery`, galleryApp);
+registerGalleryData(app, `${admin}/reviews`);
 app.use(`${read}/albums`, requireAuth('read'));
 app.use(`${read}/albums/*`, requireAuth('read'));
 app.onError((error, c) => {
@@ -106,17 +121,20 @@ app.get(`${read}/albums`, async (c) => {
     .array(z.coerce.number().int().positive())
     .max(20)
     .parse((c.req.query('ids') ?? '').split(',').filter(Boolean));
-  return c.json(
-    { data: await approvedArtwork(c.env, ids, c.get('userId')) },
-    { headers: { 'Cache-Control': 'private, max-age=60' } }
-  );
+  return c.json(await artworkSnapshot(c.env, ids, c.get('userId')), {
+    headers: { 'Cache-Control': 'private, max-age=60' },
+  });
 });
 app.get(`${read}/albums/:id`, async (c) => {
   const id = z.coerce.number().int().positive().parse(c.req.param('id'));
   await ownedAlbum(c.env, id, c.get('userId'));
-  const data = await approvedArtwork(c.env, [id], c.get('userId'));
+  const snapshot = await artworkSnapshot(c.env, [id], c.get('userId'));
   return c.json(
-    { album_id: id, artwork: data[0] ?? null },
+    {
+      album_id: id,
+      artwork: snapshot.data[0] ?? null,
+      withdrawal: snapshot.withdrawals[0] ?? null,
+    },
     { headers: { 'Cache-Control': 'private, max-age=60' } }
   );
 });
@@ -201,7 +219,7 @@ app.post(`${admin}/albums/:id/automatic`, async (c) => {
     .first();
   if (!filtered) throw new ArtworkError('album_not_eligible');
   const active = await c.env.DB.prepare(
-    "SELECT c.release_id,c.medium_position,c.active_job,c.pinned,json_extract(j.input,'$.source_kind') AS source_kind,j.state FROM cd_artwork_albums c LEFT JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE c.user_id=? AND c.album_id=?"
+    "SELECT c.release_id,c.medium_position,c.active_job,c.pinned,c.review_hold,json_extract(j.input,'$.source_kind') AS source_kind,j.state FROM cd_artwork_albums c LEFT JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE c.user_id=? AND c.album_id=?"
   )
     .bind(userId, id)
     .first<{
@@ -209,11 +227,13 @@ app.post(`${admin}/albums/:id/automatic`, async (c) => {
       medium_position: number;
       active_job: string | null;
       pinned: number;
+      review_hold: number;
       source_kind: string | null;
       state: string | null;
     }>();
   if (
     active?.pinned ||
+    active?.review_hold ||
     (active?.state === 'accepted' && active.source_kind === 'retail')
   )
     throw new ArtworkError('active_artwork_preserved', 409);

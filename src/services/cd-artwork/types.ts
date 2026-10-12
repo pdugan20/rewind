@@ -35,6 +35,7 @@ export interface Job {
   candidate_key: string | null;
   provenance: string;
   error_code: string | null;
+  review_claim?: string | null;
   submitted_at: string | null;
   automatic: number;
   expected_active_job: string | null;
@@ -43,6 +44,7 @@ export interface Job {
   created_at: string;
 }
 export interface ArtworkEnv {
+  CD_GALLERY_ACCESS?: string;
   DB: D1Database;
   ARTWORK: R2Bucket;
   IMAGES: R2Bucket;

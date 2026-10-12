@@ -58,7 +58,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     .first<DiscoveryCheck>();
   if (!row) return { outcome: 'cancelled', retryAfter: 0 };
   const eligible = await env.DB.prepare(
-    "SELECT c.album_id FROM cd_artwork_albums c JOIN lastfm_albums a ON a.id=c.album_id AND a.user_id=c.user_id JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id LEFT JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE c.user_id=? AND c.album_id=? AND c.release_id=? AND c.medium_position=? AND a.is_filtered=0 AND r.is_filtered=0 AND (SELECT enabled FROM cd_artwork_control WHERE id=1)=1 AND NOT (COALESCE(j.state,'')='accepted' AND COALESCE(json_extract(j.input,'$.source_kind'),'')='retail')"
+    "SELECT c.album_id FROM cd_artwork_albums c JOIN lastfm_albums a ON a.id=c.album_id AND a.user_id=c.user_id JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id LEFT JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE c.user_id=? AND c.album_id=? AND c.release_id=? AND c.medium_position=? AND c.pinned=0 AND c.review_hold=0 AND a.is_filtered=0 AND r.is_filtered=0 AND (SELECT enabled FROM cd_artwork_control WHERE id=1)=1 AND NOT (COALESCE(j.state,'')='accepted' AND COALESCE(json_extract(j.input,'$.source_kind'),'')='retail')"
   )
     .bind(row.user_id, row.album_id, row.release_id, row.medium_position)
     .first();

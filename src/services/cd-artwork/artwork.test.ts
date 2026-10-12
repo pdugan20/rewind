@@ -892,6 +892,7 @@ describe('reviewed master coverage without generation', () => {
     expect((await approvedArtwork(runtime, [1], 1))[0].asset_id).toBe(
       previous.id
     );
+    expect((await getJob(runtime, job.id, 1))?.state).toBe('pending');
   });
   it('retries overlapping import persistence into one pending job', async () => {
     const sample = await upload(adminKey);
