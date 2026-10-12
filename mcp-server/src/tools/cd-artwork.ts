@@ -7,8 +7,11 @@ export const cdArtworkSchema = z
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
     image_url: z.string().url(),
     source_kind: z.enum(['retail', 'cover']),
-    release_id: z.string().uuid(),
-    medium_position: z.number().int().positive(),
+    release_id: z.string().uuid().nullable(),
+    medium_position: z.number().int().positive().nullable(),
+    identity_type: z
+      .enum(['representative_release', 'reviewed_source'])
+      .optional(),
     source: z.string().url(),
     geometry: z
       .object({

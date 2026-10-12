@@ -185,7 +185,8 @@ export function publicJob(job: Job) {
     error_code: job.error_code,
     submitted_at: job.submitted_at,
     updated_at: job.updated_at,
-    model: MODEL,
+    model:
+      (provenance.settings as { model?: string } | undefined)?.model ?? null,
     usage: provenance.usage ?? null,
     calculated_usd: provenance.calculatedUsd ?? null,
     verification: provenance.verification ?? null,
@@ -203,13 +204,19 @@ export async function approvedArtwork(
     .bind(userId, ...albumIds)
     .all<Job>();
   return rows.results.map((j) => {
-    const i = JSON.parse(j.input) as JobInput;
+    const i = JSON.parse(j.input) as {
+      source_kind: JobInput['source_kind'];
+      release_id: string | null;
+      medium_position: number | null;
+    };
     return {
       album_id: j.album_id,
       asset_id: j.id,
       sha256: j.candidate_hash,
       image_url: `https://api.rewind.rest/v1/listening/cd-artwork/assets/${j.candidate_hash}.png`,
       source_kind: i.source_kind,
+      identity_type:
+        JSON.parse(j.provenance).identityType ?? 'representative_release',
       release_id: i.release_id,
       medium_position: i.medium_position,
       source: JSON.parse(j.provenance).sourceUrl,

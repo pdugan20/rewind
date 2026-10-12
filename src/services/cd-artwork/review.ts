@@ -72,7 +72,7 @@ export async function reviewJob(
     if (activate)
       statements.push(
         env.DB.prepare(
-          "UPDATE cd_artwork_albums SET active_job=?,release_id=(SELECT json_extract(input,'$.release_id') FROM cd_artwork_jobs WHERE id=?),medium_position=(SELECT json_extract(input,'$.medium_position') FROM cd_artwork_jobs WHERE id=?) WHERE user_id=? AND album_id=? AND pinned=0 AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='accepted')"
+          "UPDATE cd_artwork_albums SET active_job=?,release_id=COALESCE((SELECT json_extract(input,'$.release_id') FROM cd_artwork_jobs WHERE id=?),release_id),medium_position=COALESCE((SELECT json_extract(input,'$.medium_position') FROM cd_artwork_jobs WHERE id=?),medium_position) WHERE user_id=? AND album_id=? AND pinned=0 AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='accepted')"
         ).bind(id, id, id, userId, job.album_id, id, userId)
       );
     statements.push(
@@ -92,6 +92,15 @@ export async function reviewJob(
   const result = await getJob(env, id, userId);
   if (result?.state !== decision)
     throw new ArtworkError('review_conflict', 409);
+  if (activate) {
+    const active = await env.DB.prepare(
+      'SELECT active_job FROM cd_artwork_albums WHERE user_id=? AND album_id=?'
+    )
+      .bind(userId, job.album_id)
+      .first<{ active_job: string | null }>();
+    if (active?.active_job !== id)
+      throw new ArtworkError('activation_conflict', 409);
+  }
   return result;
 }
 export async function importCandidate(

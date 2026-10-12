@@ -26,6 +26,12 @@ import {
 } from './services/cd-artwork/store.js';
 import { generateOnce, processRaw } from './services/cd-artwork/generation.js';
 import { reviewJob, importCandidate } from './services/cd-artwork/review.js';
+import {
+  reviewedMasterSchema,
+  prepareReviewedMaster,
+  persistReviewedMaster,
+  type MasterFiles,
+} from './services/cd-artwork/reviewed-master.js';
 import { scheduledArtwork } from './services/cd-artwork/scheduler.js';
 
 const materialSchema = z
@@ -123,7 +129,7 @@ app.get(`${read}/assets/:file`, async (c) => {
 });
 app.get(`${admin}/identities`, async (c) => {
   const rows = await c.env.DB.prepare(
-    'SELECT album_id,release_id,medium_position,discovery_outcome,next_check,active_job,pinned FROM cd_artwork_albums WHERE user_id=? ORDER BY album_id DESC LIMIT 25'
+    "SELECT album_id,NULLIF(release_id,'') AS release_id,CASE WHEN release_id='' THEN NULL ELSE medium_position END AS medium_position,discovery_outcome,next_check,active_job,pinned FROM cd_artwork_albums WHERE user_id=? ORDER BY album_id DESC LIMIT 25"
   )
     .bind(c.get('userId'))
     .all();
@@ -276,6 +282,65 @@ app.post(`${admin}/jobs/:id/material`, async (c) => {
     });
   await dispatch(c.env, revision);
   return c.json({ ...publicJob(revision), replaces: job.id }, 202);
+});
+app.post(`${admin}/import-reviewed`, async (c) => {
+  const multipart = await boundedBytes(
+    new Response(c.req.raw.body),
+    48 * 1024 * 1024
+  );
+  const form = await new Response(new Uint8Array(multipart), {
+    headers: { 'Content-Type': c.req.header('Content-Type') ?? '' },
+  }).formData();
+  if (typeof form.get('input') !== 'string')
+    throw new ArtworkError('invalid_import', 400);
+  const input = reviewedMasterSchema.parse(
+    JSON.parse(form.get('input') as string)
+  );
+  const files: Partial<MasterFiles> = {};
+  for (const name of [
+    'source',
+    'candidate',
+    'raw',
+    'patch',
+    'template',
+    'master',
+  ] as const) {
+    const file = form.get(name);
+    if (file !== null) {
+      if (!(file instanceof File) || file.size > 12 * 1024 * 1024)
+        throw new ArtworkError('invalid_import', 400);
+      files[name] = new Uint8Array(await file.arrayBuffer());
+    }
+  }
+  if (!files.source || !files.candidate)
+    throw new ArtworkError('invalid_import', 400);
+  const prepared = await prepareReviewedMaster(
+    c.env,
+    input,
+    files as MasterFiles,
+    c.get('userId')
+  );
+  if (c.req.query('apply') !== 'true')
+    return c.json({
+      validated: true,
+      id: prepared.id,
+      candidate_hash: input.candidate_sha256,
+      reused: !!prepared.existing,
+      existing_state: prepared.existing?.state ?? null,
+      active_candidate_hash: prepared.active?.candidate_hash ?? null,
+      activation_allowed: !prepared.active?.pinned,
+    });
+  const result = await persistReviewedMaster(
+    c.env,
+    input,
+    files as MasterFiles,
+    c.get('userId'),
+    prepared
+  );
+  return c.json(
+    { ...publicJob(result.job), reused: result.reused },
+    result.reused ? 200 : 202
+  );
 });
 app.post(`${admin}/import`, async (c) => {
   const multipart = await boundedBytes(

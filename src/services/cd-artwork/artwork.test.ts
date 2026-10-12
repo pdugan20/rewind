@@ -17,12 +17,18 @@ import { MODEL, now, sha256 } from './types.js';
 import {
   claimSubmission,
   approvedArtwork,
+  getJob,
   enqueue,
   materialRevision,
 } from './store.js';
 import { generateOnce, processRaw } from './generation.js';
 import { prepareCandidate } from './registration.js';
 import { reviewJob } from './review.js';
+import {
+  prepareReviewedMaster,
+  persistReviewedMaster,
+  reviewedMasterSchema,
+} from './reviewed-master.js';
 import { scheduledArtwork } from './scheduler.js';
 import { clearAuthCache } from '../../lib/auth.js';
 
@@ -609,5 +615,263 @@ describe('discovery-only recheck', () => {
         ).first<{ discovery_outcome: string }>()
       )?.discovery_outcome
     ).toBe('found');
+  });
+});
+
+describe('reviewed master coverage without generation', () => {
+  async function upload(
+    key: string,
+    apply = false,
+    override: Record<string, unknown> = {}
+  ) {
+    const original = rawDisc();
+    const bytes = prepareCandidate(original, input).bytes;
+    const data = {
+      album_id: 1,
+      expected_album: { artist: 'Synthetic artist', title: 'Synthetic album' },
+      source_kind: 'cover',
+      source_url: 'https://cdn.rewind.rest/listening/albums/1/original.jpg',
+      source_sha256: await sha256(original),
+      candidate_sha256: await sha256(bytes),
+      material: {
+        inner: 62,
+        outer: 88,
+        evidence: 'Reviewed material boundary, existing accepted master',
+      },
+      review_evidence: 'Owner approved this exact master; synthetic fixture',
+      processing: {
+        method: 'prepared-composition',
+        evidence: 'Source and finished material master independently reviewed',
+      },
+      ...override,
+    };
+    const form = new FormData();
+    form.set('input', JSON.stringify(data));
+    form.set('source', new File([new Uint8Array(original)], 'source.png'));
+    form.set('candidate', new File([new Uint8Array(bytes)], 'candidate.png'));
+    const ctx = createExecutionContext();
+    const response = await artworkApp.request(
+      'https://api.rewind.rest' +
+        admin +
+        '/import-reviewed' +
+        (apply ? '?apply=true' : ''),
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + key },
+        body: form,
+      },
+      runtime,
+      ctx
+    );
+    await waitOnExecutionContext(ctx);
+    return { response, bytes, original, data };
+  }
+  it('validates without writes and rejects read keys, other users, stale identity and wrong hashes', async () => {
+    expect((await upload(readKey)).response.status).toBe(403);
+    expect((await upload(otherKey)).response.status).toBe(404);
+    expect(
+      (
+        await upload(adminKey, false, {
+          expected_album: { artist: 'Other artist', title: 'Synthetic album' },
+        })
+      ).response.status
+    ).toBe(409);
+    expect(
+      (await upload(adminKey, false, { candidate_sha256: '0'.repeat(64) }))
+        .response.status
+    ).toBe(422);
+    expect(
+      (
+        await upload(adminKey, false, {
+          source_url: 'https://cdn.rewind.rest/listening/albums/2/original.jpg',
+        })
+      ).response.status
+    ).toBe(422);
+    const beforeObjects = (await runtime.ARTWORK.list()).objects.map(
+      (o) => o.key
+    );
+    const beforeAlbums = await runtime.DB.prepare(
+      'SELECT * FROM cd_artwork_albums'
+    ).all();
+    const valid = await upload(adminKey);
+    expect(valid.response.status).toBe(200);
+    expect((await runtime.ARTWORK.list()).objects.map((o) => o.key)).toEqual(
+      beforeObjects
+    );
+    expect(
+      await runtime.DB.prepare('SELECT * FROM cd_artwork_albums').all()
+    ).toEqual(beforeAlbums);
+    expect(
+      await runtime.DB.prepare(
+        'SELECT COUNT(*) AS n FROM cd_artwork_jobs'
+      ).first('n')
+    ).toBe(0);
+  });
+  it('imports exact immutable bytes without a release claim or provider request, then explicitly publishes', async () => {
+    const fetcher = vi.spyOn(globalThis, 'fetch');
+    const first = await upload(adminKey, true);
+    expect(first.response.status).toBe(202);
+    const job = await first.response.json<{
+      id: string;
+      candidate_hash: string;
+      state: string;
+      submitted_at: string | null;
+    }>();
+    expect(job.state).toBe('pending');
+    expect(job.submitted_at).toBeNull();
+    expect(job.candidate_hash).toBe(await sha256(first.bytes));
+    expect(
+      (await request(read + '/assets/' + job.candidate_hash + '.png')).status
+    ).toBe(404);
+    const repeat = await upload(adminKey, true);
+    expect(repeat.response.status).toBe(200);
+    expect((await repeat.response.json<{ id: string }>()).id).toBe(job.id);
+    await scheduledArtwork(runtime);
+    expect(fetcher).not.toHaveBeenCalled();
+    await reviewJob(
+      runtime,
+      job.id,
+      1,
+      'accepted',
+      true,
+      'owner approved original master'
+    );
+    const art = (await approvedArtwork(runtime, [1], 1))[0];
+    expect(art.release_id).toBeNull();
+    expect(art.medium_position).toBeNull();
+    expect(art.identity_type).toBe('reviewed_source');
+    const image = await request(
+      read + '/assets/' + job.candidate_hash + '.png'
+    );
+    expect(await sha256(new Uint8Array(await image.arrayBuffer()))).toBe(
+      job.candidate_hash
+    );
+    expect(
+      await runtime.DB.prepare(
+        'SELECT submitted_count FROM cd_artwork_control WHERE id=1'
+      ).first('submitted_count')
+    ).toBe(0);
+  });
+  it('keeps active pinned artwork and rejects missing processing evidence', async () => {
+    const active = await candidate('previous');
+    await reviewJob(runtime, active.id, 1, 'accepted', true, 'existing review');
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_albums SET pinned=1 WHERE user_id=1 AND album_id=1'
+    ).run();
+    const imported = await upload(adminKey, true);
+    const job = await imported.response.json<{ id: string }>();
+    await expect(
+      reviewJob(runtime, job.id, 1, 'accepted', true, 'new review')
+    ).rejects.toThrow('activation_not_allowed');
+    expect((await approvedArtwork(runtime, [1], 1))[0].asset_id).toBe(
+      active.id
+    );
+    const data = reviewedMasterSchema.parse((await upload(adminKey)).data);
+    data.processing.evidence_hashes.raw = '0'.repeat(64);
+    await expect(
+      prepareReviewedMaster(
+        runtime,
+        data,
+        {
+          source: rawDisc(),
+          candidate: prepareCandidate(rawDisc(), input).bytes,
+        },
+        1
+      )
+    ).rejects.toThrow('import_evidence_mismatch');
+  });
+
+  it('preserves verified discovery identity when activating source-only artwork', async () => {
+    const active = await candidate('previous');
+    await reviewJob(runtime, active.id, 1, 'accepted', true, 'existing review');
+    const before = await runtime.DB.prepare(
+      'SELECT release_id,medium_position FROM cd_artwork_albums WHERE user_id=1 AND album_id=1'
+    ).first();
+    const imported = await upload(adminKey, true);
+    const job = await imported.response.json<{ id: string }>();
+    await reviewJob(
+      runtime,
+      job.id,
+      1,
+      'accepted',
+      true,
+      'new reviewed source'
+    );
+    expect(
+      await runtime.DB.prepare(
+        'SELECT release_id,medium_position FROM cd_artwork_albums WHERE user_id=1 AND album_id=1'
+      ).first()
+    ).toEqual(before);
+    expect((await approvedArtwork(runtime, [1], 1))[0].identity_type).toBe(
+      'reviewed_source'
+    );
+  });
+  it('recovers safely after object storage and transactional database failures', async () => {
+    const store = vi
+      .spyOn(runtime.ARTWORK, 'put')
+      .mockRejectedValueOnce(Error('storage unavailable'));
+    expect((await upload(adminKey, true)).response.status).toBe(503);
+    store.mockRestore();
+    const batch = vi
+      .spyOn(runtime.DB, 'batch')
+      .mockRejectedValueOnce(Error('database unavailable'));
+    expect((await upload(adminKey, true)).response.status).toBe(503);
+    batch.mockRestore();
+    const sample = await upload(adminKey, true);
+    expect(sample.response.status).toBe(202);
+    const job = await sample.response.json<{ id: string }>();
+    const stored = await getJob(runtime, job.id, 1);
+    expect(stored).not.toBeNull();
+    const original = await runtime.ARTWORK.get(stored!.source_key);
+    expect(await sha256(new Uint8Array(await original!.arrayBuffer()))).toBe(
+      sample.data.source_sha256
+    );
+    const candidate = await runtime.ARTWORK.get(stored!.candidate_key!);
+    expect(await sha256(new Uint8Array(await candidate!.arrayBuffer()))).toBe(
+      sample.data.candidate_sha256
+    );
+    expect((await upload(adminKey, true)).response.status).toBe(200);
+  });
+  it('does not report activation when an album becomes pinned during review', async () => {
+    const previous = await candidate('previous');
+    await reviewJob(
+      runtime,
+      previous.id,
+      1,
+      'accepted',
+      true,
+      'existing review'
+    );
+    const next = await upload(adminKey, true);
+    const job = await next.response.json<{ id: string }>();
+    const batch = runtime.DB.batch.bind(runtime.DB);
+    vi.spyOn(runtime.DB, 'batch').mockImplementationOnce(async (statements) => {
+      await runtime.DB.prepare(
+        'UPDATE cd_artwork_albums SET pinned=1 WHERE user_id=1 AND album_id=1'
+      ).run();
+      return batch(statements);
+    });
+    await expect(
+      reviewJob(runtime, job.id, 1, 'accepted', true, 'new review')
+    ).rejects.toThrow('activation_conflict');
+    expect((await approvedArtwork(runtime, [1], 1))[0].asset_id).toBe(
+      previous.id
+    );
+  });
+  it('retries overlapping import persistence into one pending job', async () => {
+    const sample = await upload(adminKey);
+    const data = reviewedMasterSchema.parse(sample.data);
+    const files = { source: sample.original, candidate: sample.bytes };
+    const prepared = await prepareReviewedMaster(runtime, data, files, 1);
+    const results = await Promise.all([
+      persistReviewedMaster(runtime, data, files, 1, prepared),
+      persistReviewedMaster(runtime, data, files, 1, prepared),
+    ]);
+    expect(results[0].job.id).toBe(results[1].job.id);
+    expect(
+      await runtime.DB.prepare(
+        'SELECT COUNT(*) AS n FROM cd_artwork_jobs'
+      ).first('n')
+    ).toBe(1);
   });
 });
