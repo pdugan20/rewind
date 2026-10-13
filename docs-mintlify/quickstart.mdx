@@ -4,12 +4,11 @@ icon: rocket
 description: Make your first authenticated API call in a few minutes.
 ---
 
-Rewind is a hosted API, so there is nothing to install or run. With an API key you can make your first call in a couple of minutes.
+Rewind is a hosted API, so there is nothing to install or run. With an API key you can make your first call in a couple of minutes. The response examples below are abbreviated.
 
 <Note>
-  You need a Rewind API key (`rw_live_...`). See
-  [Authentication](/authentication) to create one and for the read-versus-admin
-  key types.
+  You need a Rewind API key (`rw_...`). See [Authentication](/authentication) to
+  request one and for the read-versus-admin key types.
 </Note>
 
 <Steps titleSize="h3">
@@ -28,11 +27,11 @@ Rewind is a hosted API, so there is nothing to install or run. With an API key y
   </Step>
 
   <Step title="Make your first authenticated call">
-    Every other endpoint takes your key as a Bearer token in the `Authorization`
+    Data endpoints take your key as a Bearer token in the `Authorization`
     header. Fetch your most recent scrobbles:
 
     ```bash
-    curl -H "Authorization: Bearer rw_live_..." \
+    curl -H "Authorization: Bearer rw_..." \
       "https://api.rewind.rest/v1/listening/recent?limit=5"
     ```
 
@@ -56,7 +55,7 @@ Rewind is a hosted API, so there is nothing to install or run. With an API key y
     running stats:
 
     ```bash
-    curl -H "Authorization: Bearer rw_live_..." \
+    curl -H "Authorization: Bearer rw_..." \
       https://api.rewind.rest/v1/running/stats
     ```
 
@@ -79,7 +78,7 @@ Rewind is a hosted API, so there is nothing to install or run. With an API key y
     filters.
 
     ```bash
-    curl -H "Authorization: Bearer rw_live_..." \
+    curl -H "Authorization: Bearer rw_..." \
       "https://api.rewind.rest/v1/listening/recent?from=2026-01-01&limit=10"
     ```
 

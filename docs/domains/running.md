@@ -1,5 +1,7 @@
 # Running Domain
 
+For current endpoints and response fields, use the [public running guide](../../docs-mintlify/domains/running.mdx) and generated API reference. These notes retain integration decisions and historical operational context; source files remain authoritative.
+
 14+ years of Strava running data since 2011. Activities with GPS routes, pace, heart rate, elevation, splits, gear tracking, and personal records. OAuth 2.0 with refresh token rotation.
 
 ## Data Source
@@ -214,92 +216,6 @@ Handler logic:
 - **Gear sync**: daily, fetch `GET /gear/{id}` for each gear_id in activities
 - **Stats recomputation**: after each sync -- rebuild year summaries, lifetime stats, personal records, streaks, Eddington number
 
-## Endpoints
-
-All endpoints require `Authorization: Bearer rw_...` header.
-
-| Method | Path                              | Description                   | Cache  | Query Params                                                          |
-| ------ | --------------------------------- | ----------------------------- | ------ | --------------------------------------------------------------------- |
-| GET    | /v1/running/stats                 | Lifetime running statistics   | 3600s  | none                                                                  |
-| GET    | /v1/running/stats/years           | All year summaries            | 3600s  | none                                                                  |
-| GET    | /v1/running/stats/years/:year     | Single year detail            | 3600s  | none                                                                  |
-| GET    | /v1/running/prs                   | Personal records per distance | 86400s | none                                                                  |
-| GET    | /v1/running/recent                | Last N activities             | 60s    | limit, date, from, to                                                 |
-| GET    | /v1/running/activities            | Paginated activity list       | 3600s  | page, limit, year, date, from, to, type, city, min/max_distance, sort |
-| GET    | /v1/running/activities/:id        | Single activity detail        | 86400s | none                                                                  |
-| GET    | /v1/running/activities/:id/splits | Per-mile splits               | 86400s | none                                                                  |
-| GET    | /v1/running/gear                  | Gear/shoe data                | 86400s | none                                                                  |
-| GET    | /v1/running/calendar              | Daily activity heatmap        | 3600s  | year                                                                  |
-| GET    | /v1/running/charts/cumulative     | Year-over-year distance       | 3600s  | years, unit (mi/km)                                                   |
-| GET    | /v1/running/charts/pace-trend     | Pace over time                | 3600s  | window (7/30/90), from, to                                            |
-| GET    | /v1/running/charts/time-of-day    | Run frequency by hour         | 86400s | year                                                                  |
-| GET    | /v1/running/charts/elevation      | Elevation data                | 86400s | year                                                                  |
-| GET    | /v1/running/cities                | Cities where runs occurred    | 86400s | none                                                                  |
-| GET    | /v1/running/streaks               | Current/longest streaks       | 3600s  | none                                                                  |
-| GET    | /v1/running/races                 | Race activities               | 86400s | distance                                                              |
-| GET    | /v1/running/eddington             | Eddington number              | 86400s | none                                                                  |
-
-All tables include `user_id` for multi-user support (default 1).
-
-## Response Types
-
-```typescript
-interface RunningStats {
-  total_runs: number;
-  total_distance_mi: number;
-  total_elevation_ft: number;
-  total_duration: string; // "1423:45:30"
-  avg_pace: string; // "8:22/mi"
-  years_active: number;
-  first_run: string;
-  eddington_number: number;
-}
-
-interface YearSummary {
-  year: number;
-  total_runs: number;
-  total_distance_mi: number;
-  total_elevation_ft: number;
-  total_duration_s: number;
-  avg_pace: string;
-  longest_run_mi: number;
-  race_count: number;
-}
-
-interface PersonalRecord {
-  distance: string; // "mile", "5k", "10k", "half_marathon", "marathon"
-  distance_label: string; // "Mile", "5K", etc.
-  time: string; // "22:15"
-  time_s: number;
-  pace: string; // "7:10/mi"
-  date: string;
-  activity_id: number;
-  activity_name: string;
-}
-
-interface Activity {
-  id: number;
-  strava_id: number;
-  name: string;
-  date: string;
-  distance_mi: number;
-  duration: string; // "42:30"
-  pace: string; // "8:10/mi"
-  elevation_ft: number;
-  heartrate_avg: number | null;
-  city: string | null;
-  polyline: string | null;
-  is_race: boolean;
-  workout_type: string;
-}
-
-interface EddingtonResponse {
-  number: number;
-  explanation: string;
-  progress: { target: number; days_completed: number; runs_needed: number };
-}
-```
-
 ## Conversion Reference
 
 | From    | To       | Formula                                                    |
@@ -317,15 +233,6 @@ interface EddingtonResponse {
 - Cannot use "Strava" in app name
 - Cannot replicate Strava's core features
 - API response includes `strava_url` field for linking
-
-## Environment Variables
-
-| Variable                    | Description                                              |
-| --------------------------- | -------------------------------------------------------- |
-| STRAVA_CLIENT_ID            | OAuth app client ID                                      |
-| STRAVA_CLIENT_SECRET        | OAuth app client secret                                  |
-| STRAVA_REFRESH_TOKEN        | Initial refresh token (rotates at runtime, stored in D1) |
-| STRAVA_WEBHOOK_VERIFY_TOKEN | Webhook validation token                                 |
 
 ## Known Issues
 

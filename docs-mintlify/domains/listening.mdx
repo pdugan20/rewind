@@ -11,7 +11,11 @@ The Listening domain tracks your music history from Last.fm, enriched with Apple
 - **Last.fm:** scrobble history, top artists, albums, and tracks, and listening streaks.
 - **Apple Music:** artwork, preview URLs, and Apple Music links layered onto matched records.
 
-Scrobbles sync every few minutes. Browse every endpoint in the [API reference](/api-reference/listening/now-playing).
+Scrobbles sync every 15 minutes. Browse every endpoint in the [API reference](/api-reference/listening/now-playing).
+
+## Recently played albums
+
+Use [recent albums](/api-reference/listening/recently-played-albums) for unique albums ordered by their newest scrobble, with artist metadata and artwork. Use [all year summaries](/api-reference/listening/all-year-summaries) to browse listening totals by year.
 
 ## Time periods
 
@@ -28,16 +32,17 @@ Top list endpoints accept a `period` parameter:
 
 ## Sparklines
 
-[GET /listening/top/artists](/api-reference/listening/top-artists) accepts `?include_sparklines=true` to attach a per-artist play-count time series, suitable for rendering an inline sparkline next to each item.
+The [top artists](/api-reference/listening/top-artists), [top albums](/api-reference/listening/top-albums), and [top tracks](/api-reference/listening/top-tracks) endpoints accept `?include_sparklines=true` to attach a per-artist play-count time series, suitable for rendering an inline sparkline next to each item.
 
 | Period    | Granularity | Points |
 | --------- | ----------- | ------ |
+| `7day`    | day         | 7      |
 | `1month`  | day         | 28     |
 | `3month`  | week        | 13     |
 | `6month`  | week        | 26     |
 | `12month` | week        | 52     |
 
-`points` is ordered oldest to newest and zero-filled. The most recent bucket is partial (current week or current day in progress). Weekly buckets anchor on the Monday of the week. `7day` and `overall` omit the field; treat its absence as "no sparkline".
+`points` is ordered oldest to newest and zero-filled. The most recent bucket is partial (current week or current day in progress). Weekly buckets anchor on the Monday of the week. `overall` uses yearly buckets spanning the listening history. If there is no history to anchor a window, the sparkline may be absent.
 
 ## Filtering
 

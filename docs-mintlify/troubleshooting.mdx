@@ -14,7 +14,7 @@ Two calls answer most questions. Run them before anything below:
 ```bash
 curl https://api.rewind.rest/v1/health
 
-curl -H "Authorization: Bearer rw_live_..." \
+curl -H "Authorization: Bearer rw_..." \
   https://api.rewind.rest/v1/health/sync
 ```
 
@@ -30,17 +30,17 @@ curl -H "Authorization: Bearer rw_live_..." \
     - **Unknown or revoked key.** The prefix is correct but no active key matches it. A revoked key falls into this bucket once its cache entry expires.
     - **Expired key.** The key exists and is active, but its expiry has passed. This one returns `{"error":"Token expired","status":401}` so you can tell it apart from the other two.
 
-    Auth lookups are cached in memory for about 60 seconds per Worker isolate, so a newly created or just-revoked key can take up to a minute to take effect. If a brand-new key returns `401`, wait a moment and retry before assuming it is wrong.
+    Successful auth lookups are cached in memory for about 60 seconds per Worker isolate, so a revoked key can remain usable on another isolate until its cached entry expires. Unknown keys are not cached; check the exact token and configured API URL if a newly created key returns `401`.
 
-    On a remote MCP connection, a `401` means the request reached the server without a valid grant: re-run the [GitHub consent flow](/mcp/connect-remote), or re-check your Bearer token for token-based clients.
+    On a remote MCP connection, a `401` means the request reached the server without a valid grant: re-run the [GitHub consent flow](/mcp/connect-remote). A REST API key is not a hosted MCP OAuth access token.
 
   </Accordion>
 
 <Accordion title="I get 403 Forbidden on the REST API">
   The request authenticated successfully, but the key does not have the scope
-  the endpoint requires. The common case is using a read key (`rw_live_...`) on
-  an admin-only endpoint such as a sync trigger or key management. The fix is an
-  admin key (`rw_admin_...`), not a new read key. See
+  the endpoint requires. The common case is using a read key (`rw_...`) on an
+  admin-only endpoint such as a sync trigger or key management. The fix is an
+  admin key (`rw_...`), not a new read key. See
   [Authentication](/authentication) for the scope each key type grants.
 </Accordion>
 
@@ -92,7 +92,7 @@ curl -H "Authorization: Bearer rw_live_..." \
   <Accordion title="Remote access returns 403 not authorized">
     A `403` from `https://mcp.rewind.rest/mcp` means your GitHub account authenticated successfully but is not on the access allowlist. The remote server maps each allowed GitHub user to a Rewind account, and any login outside that map is rejected after the consent step.
 
-    Request access from the Rewind admin so your GitHub account can be added, then run the [GitHub consent flow](/mcp/connect-remote) again. A `401` here is different: it means there was no valid grant at all, so re-run the OAuth flow or re-check your Bearer token.
+    Request access from the Rewind admin so your GitHub account can be added, then run the [GitHub consent flow](/mcp/connect-remote) again. A `401` here is different: it means there was no valid grant at all, so re-run the OAuth flow.
 
   </Accordion>
 
@@ -120,7 +120,7 @@ curl -H "Authorization: Bearer rw_live_..." \
     Key handling depends on the connection mode:
 
     - **Local stdio.** Your `REWIND_API_KEY` stays on your machine in the client config. The server runs as a child process and talks to your client over stdin and stdout.
-    - **Remote.** You authenticate through GitHub OAuth (or a Bearer token, for clients that take one), and the hosted Cloudflare Worker uses a server-side Rewind key on your behalf after your GitHub identity is matched to your account.
+    - **Remote.** You authenticate through GitHub OAuth, and the hosted Cloudflare Worker uses a server-side Rewind key on your behalf after your GitHub identity is matched to your account.
 
     In both modes the server has read-only access. No write or admin operations are exposed.
 
@@ -135,9 +135,9 @@ curl -H "Authorization: Bearer rw_live_..." \
   </Accordion>
 
 <Accordion title="A resize or format transform looks ignored">
-  Resize and format transforms are applied through query parameters on the
-  `cdn.rewind.rest` URL. If a transform looks ignored, confirm you are hitting
-  the CDN host and that the parameters are on the CDN URL, not the API URL.
+  Resize and format transforms use the `/cdn-cgi/image/<options>/<R2 key>`
+  path on `cdn.rewind.rest`. The `v` query parameter only busts the cache. See
+  [Image transforms](/domains/images#image-transforms) for the URL format.
 </Accordion>
 
   <Accordion title="The placeholder stays blurry">

@@ -73,3 +73,9 @@ These are useful for dynamic UI theming (e.g., tinting a background based on alb
 | Watching (shows)    | TMDB             | Fanart.tv, Plex   |
 | Collecting (vinyl)  | Discogs          | None              |
 | Collecting (media)  | TMDB             | None              |
+
+## CD artwork
+
+Listening can also return accepted disc artwork separately from square album covers. The artwork service exposes `GET /v1/listening/cd-artwork/albums/{id}` with a read key. A missing accepted asset returns `artwork: null`; clients should keep their existing cover fallback.
+
+The accepted PNG is the canonical asset. When available, the `variants` array supplies an optional smaller, lossless WebP verified against that PNG. Use the advertised URL and retain the PNG fallback. Disc assets preserve transparency and use their own hash-addressed URLs rather than the square-cover transform path.

@@ -4,7 +4,7 @@ icon: 'code'
 description: 'Machine-readable schema for every Rewind endpoint'
 ---
 
-The full Rewind API is published as an [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0) document -- the same schema that powers this site's [API Reference](/api-reference) tab, with every path, parameter, response, and example.
+The full Rewind API is published as an [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0) document -- the same schema that powers this site's [API Reference](/api-reference/system/health-check) tab, with every path, parameter, response, and example.
 
 ## Fetch the spec
 
@@ -14,7 +14,7 @@ No auth required:
 curl https://api.rewind.rest/v1/openapi.json
 ```
 
-The shorter `https://api.rewind.rest/openapi.json` 301-redirects to the canonical `/v1/openapi.json` for tools that don't follow redirects.
+The shorter `https://api.rewind.rest/openapi.json` 301-redirects to the canonical `/v1/openapi.json`; use the canonical URL with tools that do not follow redirects.
 
 ## What it's for
 

@@ -4,6 +4,24 @@ icon: clock-rotate-left
 description: API updates and new features.
 ---
 
+<Update label="October 12, 2026" tags={["New features", "Improvements"]}>
+
+## Listening: disc artwork and album identity
+
+- Listening tools can attach accepted [CD artwork](/domains/images#cd-artwork) alongside album results, with the existing cover fallback when disc artwork is unavailable.
+- Accepted disc artwork can include an optional lossless WebP variant while preserving the canonical PNG and its transparency.
+- Listening history preserves the album associated with each play, so later metadata enrichment does not move that play to another album.
+
+</Update>
+
+<Update label="October 2, 2026" tags={["New features"]}>
+
+## Prepared latest music and movie
+
+Use [`GET /v1/lately`](/api-reference/feed/lately) to fetch a prepared pair of the latest completed listen and movie watch without waiting for live provider requests. Keep the response fixed for the page visit; the endpoint returns `503` until its first background publication.
+
+</Update>
+
 <Update label="May 15, 2026" tags={["Improvements"]}>
 
 ## MCP server: tool titles and output schemas

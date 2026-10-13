@@ -21,16 +21,16 @@ Personal data aggregation API. Syncs data from multiple services on a schedule, 
 
 ## Live endpoints
 
-| Service    | URL                                                                |
-| ---------- | ------------------------------------------------------------------ |
-| API        | [api.rewind.rest](https://api.rewind.rest/v1/health)               |
-| API Docs   | [docs.rewind.rest](https://docs.rewind.rest)                       |
-| MCP Server | [docs.rewind.rest/mcp-server](https://docs.rewind.rest/mcp-server) |
-| Image CDN  | [cdn.rewind.rest](https://cdn.rewind.rest)                         |
+| Service    | URL                                                                  |
+| ---------- | -------------------------------------------------------------------- |
+| API        | [api.rewind.rest](https://api.rewind.rest/v1/health)                 |
+| API Docs   | [docs.rewind.rest](https://docs.rewind.rest)                         |
+| MCP Server | [docs.rewind.rest/mcp-server](https://docs.rewind.rest/mcp/overview) |
+| Image CDN  | [cdn.rewind.rest](https://cdn.rewind.rest)                           |
 
 ## Built with
 
-Hono on Cloudflare Workers. D1 (SQLite) for storage, R2 for images, Drizzle ORM for type-safe queries. End-to-end type inference via Hono RPC -- consuming apps get a fully typed client with zero codegen. Full OpenAPI 3.1 spec with interactive docs via Scalar.
+Hono on Cloudflare Workers. D1 (SQLite) for storage, R2 for images, Drizzle ORM for type-safe queries. End-to-end type inference via Hono RPC -- consuming apps get a fully typed client with zero codegen. Full OpenAPI 3.1 spec with interactive docs via Mintlify.
 
 ## Development
 

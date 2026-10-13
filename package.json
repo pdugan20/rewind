@@ -45,11 +45,13 @@
     "www:deploy": "cd docs-site && npx astro build && npx wrangler pages deploy dist --project-name rewind-www --commit-dirty=true",
     "docs:dev": "cd docs-mintlify && mint dev",
     "docs:validate": "cd docs-mintlify && mint validate",
-    "docs:links": "cd docs-mintlify && mint broken-links",
+    "docs:links": "cd docs-mintlify && mint broken-links --check-anchors --check-redirects",
     "docs:gen-mcp": "tsx scripts/gen-mcp-reference.ts",
     "prepare": "husky",
     "test:cd-artwork": "vitest run -c vitest.cd-artwork.config.ts && node --test scripts/cd-artwork/pipeline.test.mjs",
-    "build:cd-artwork": "wrangler deploy -c wrangler.cd-artwork.jsonc --dry-run"
+    "build:cd-artwork": "wrangler deploy -c wrangler.cd-artwork.jsonc --dry-run",
+    "docs:check": "node scripts/check-docs.mjs && tsx scripts/gen-mcp-reference.ts --check",
+    "test:docs": "node --test scripts/check-docs.test.mjs"
   },
   "lint-staged": {
     "*.{js,ts,tsx}": [

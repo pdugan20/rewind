@@ -1,5 +1,7 @@
 # Collecting Domain
 
+For current endpoints and response fields, use the [public collecting guide](../../docs-mintlify/domains/collecting.mdx) and generated API reference. These notes retain integration decisions and historical operational context; source files remain authoritative.
+
 Physical vinyl, CD, and movie collection. Music from Discogs with wantlist tracking and cross-reference to Last.fm listening data. Movies from Trakt with cross-reference to Plex watch history. Admin endpoints allow adding items to both collections directly.
 
 ## Data Source
@@ -78,95 +80,6 @@ Physical vinyl, CD, and movie collection. Music from Discogs with wantlist track
 - "Records you own but never listen to" -- collection items with play_count = 0 or no match
 - "Records you listen to but don't own" -- top Last.fm albums not in collection
 - Collection listen rate: percentage of collection that has been played
-
-## Endpoints
-
-All endpoints require `Authorization: Bearer rw_...` header.
-
-| Method | Path                                  | Description                          | Cache  | Query Params                                                       |
-| ------ | ------------------------------------- | ------------------------------------ | ------ | ------------------------------------------------------------------ |
-| GET    | /v1/collection                        | Full collection                      | 86400s | page, limit, format, genre, artist, sort, order, q, date, from, to |
-| GET    | /v1/collection/stats                  | Collection statistics                | 86400s | date, from, to                                                     |
-| GET    | /v1/collection/recent                 | Recently added items                 | 3600s  | limit, date, from, to                                              |
-| GET    | /v1/collection/:id                    | Single release detail                | 86400s | none                                                               |
-| GET    | /v1/collection/wantlist               | Wantlist items                       | 86400s | page, limit, sort, order                                           |
-| GET    | /v1/collection/formats                | Format breakdown                     | 86400s | none                                                               |
-| GET    | /v1/collection/genres                 | Genre breakdown                      | 86400s | none                                                               |
-| GET    | /v1/collection/artists                | Top artists in collection            | 86400s | limit (default 20)                                                 |
-| GET    | /v1/collection/cross-reference        | Collection matched to listening data | 86400s | sort (plays/added), filter (listened/unlistened/all)               |
-| GET    | /v1/collecting/calendar               | Daily addition counts (vinyl+media)  | 3600s  | year (default current)                                             |
-| GET    | /v1/collecting/media                  | Physical media collection            | 86400s | page, limit, format, genre, sort, order, q, date, from, to         |
-| GET    | /v1/collecting/media/recent           | Recently added media                 | 3600s  | limit, date, from, to                                              |
-| POST   | /v1/admin/collecting/vinyl            | Add music release to collection      | --     | discogs_id or title/artist/year                                    |
-| POST   | /v1/admin/collecting/media            | Add movie to physical media          | --     | tmdb_id/imdb_id/title, media_type                                  |
-| POST   | /v1/admin/collecting/media/:id/remove | Remove movie from physical media     | --     | none                                                               |
-
-All tables include `user_id` for multi-user support (default 1).
-
-## Response Types
-
-```typescript
-interface CollectionItem {
-  id: number;
-  discogs_id: number;
-  title: string;
-  artists: string[];
-  year: number;
-  format: string;
-  format_detail: string;
-  label: string;
-  genres: string[];
-  styles: string[];
-  cover_url: string | null;
-  thumbhash: string | null;
-  dominant_color: string | null;
-  accent_color: string | null;
-  date_added: string;
-  rating: number | null;
-  discogs_url: string;
-}
-
-interface CollectionStats {
-  total_items: number;
-  by_format: { vinyl: number; cd: number; cassette: number; other: number };
-  wantlist_count: number;
-  unique_artists: number;
-  estimated_value: number | null;
-  top_genre: string;
-  oldest_release_year: number;
-  newest_release_year: number;
-  most_collected_artist: { name: string; count: number };
-  added_this_year: number;
-}
-
-interface CrossReferenceItem {
-  collection: CollectionItem;
-  listening: {
-    album_id: number | null;
-    play_count: number;
-    last_played: string | null;
-    match_type: string;
-    match_confidence: number;
-  };
-}
-
-interface CrossReferenceResponse {
-  data: CrossReferenceItem[];
-  summary: {
-    total_matches: number;
-    listen_rate: number;
-    unlistened_count: number;
-  };
-  pagination: Pagination;
-}
-```
-
-## Environment Variables
-
-| Variable               | Description                   |
-| ---------------------- | ----------------------------- |
-| DISCOGS_PERSONAL_TOKEN | Discogs personal access token |
-| DISCOGS_USERNAME       | Discogs username (patdugan)   |
 
 ## Physical Media (Trakt)
 

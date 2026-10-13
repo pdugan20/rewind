@@ -91,7 +91,9 @@
               "api-reference/listening/listening-trends",
               "api-reference/listening/listening-streaks",
               "api-reference/listening/year-in-review",
-              "api-reference/listening/genre-breakdown"
+              "api-reference/listening/genre-breakdown",
+              "api-reference/listening/recently-played-albums",
+              "api-reference/listening/all-year-summaries"
             ]
           },
           {
@@ -153,7 +155,9 @@
               "api-reference/reading/reading-streaks",
               "api-reference/reading/tag-breakdown",
               "api-reference/reading/top-domains",
-              "api-reference/reading/year-in-review"
+              "api-reference/reading/year-in-review",
+              "api-reference/reading/related-articles",
+              "api-reference/reading/highlight-detail"
             ]
           },
           {
@@ -187,7 +191,8 @@
               "api-reference/attending/get-attending-stats",
               "api-reference/attending/list-attended-players",
               "api-reference/attending/get-attended-player",
-              "api-reference/attending/year-in-review"
+              "api-reference/attending/year-in-review",
+              "api-reference/attending/attended-player-stats"
             ]
           },
           {
@@ -195,7 +200,8 @@
             "pages": [
               "api-reference/feed/cross-domain-activity-feed",
               "api-reference/feed/single-domain-activity-feed",
-              "api-reference/feed/on-this-day"
+              "api-reference/feed/on-this-day",
+              "api-reference/feed/lately"
             ]
           },
           {
@@ -267,5 +273,10 @@
   "search": {
     "prompt": "Search docs..."
   },
-  "redirects": [{ "source": "/mcp-server", "destination": "/mcp/overview" }]
+  "redirects": [
+    {
+      "source": "/mcp-server",
+      "destination": "/mcp/overview"
+    }
+  ]
 }

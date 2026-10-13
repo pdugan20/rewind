@@ -13,8 +13,8 @@ This is the right choice for desktop clients you control: [Claude Desktop](#clau
 
 You need two things before you connect:
 
-- **Node.js**: the server is published to npm as `rewind-mcp-server` and runs with `npx`, so most clients invoke `npx -y rewind-mcp-server` to download and run the latest version on demand.
-- **A [Rewind API key](/authentication)**: a read key (prefixed `rw_live_`) is enough, since the server only ever makes GET requests.
+- **Node.js 22 or newer**: the server is published to npm as `rewind-mcp-server` and runs with `npx`, so most clients invoke `npx -y rewind-mcp-server` to download and run the latest version on demand.
+- **A [Rewind API key](/authentication)**: a read key (prefixed `rw_`) is enough, since the server only ever makes GET requests.
 
 ## Claude Desktop
 
@@ -27,7 +27,7 @@ Add Rewind to your `mcpServers` config. Use a real key in place of the placehold
       "command": "npx",
       "args": ["-y", "rewind-mcp-server"],
       "env": {
-        "REWIND_API_KEY": "rw_live_..."
+        "REWIND_API_KEY": "rw_..."
       }
     }
   }
@@ -47,7 +47,7 @@ claude mcp add rewind -- npx -y rewind-mcp-server
 Set your key as an environment variable so the spawned process inherits it, or pass it inline with the `--env` flag:
 
 ```bash
-claude mcp add rewind --env REWIND_API_KEY=rw_live_... -- npx -y rewind-mcp-server
+claude mcp add rewind --env REWIND_API_KEY=rw_... -- npx -y rewind-mcp-server
 ```
 
 ### Project config with .mcp.json
@@ -61,7 +61,7 @@ To share the connection with everyone who works in a repository, commit a `.mcp.
       "command": "npx",
       "args": ["-y", "rewind-mcp-server"],
       "env": {
-        "REWIND_API_KEY": "rw_live_..."
+        "REWIND_API_KEY": "rw_..."
       }
     }
   }

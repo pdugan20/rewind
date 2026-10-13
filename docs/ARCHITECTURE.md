@@ -9,9 +9,11 @@ graph TD
         LB[Letterboxd]
         DC[Discogs]
         TR[Trakt]
+        IP[Instapaper]
+        GC[Google Calendar and Gmail]
     end
 
-    LF & ST & PX & LB & DC & TR -->|Cron Triggers| SW[Sync Workers]
+    LF & ST & PX & LB & DC & TR & IP & GC -->|Cron Triggers| SW[Sync Workers]
     SW --> D1[(D1 / SQLite)]
     SW --> R2[(R2 Images)]
     R2 -->|ThumbHash + color extraction| CDN[cdn.rewind.rest]
@@ -22,20 +24,13 @@ graph TD
 
 ## Authentication
 
-GET endpoints require a read key (`rw_live_...`). Write endpoints (admin, sync, webhooks) require an admin key (`rw_admin_...`). Keys are SHA-256 hashed and looked up in the `api_keys` table. Auth lookups are cached in-memory with a 60-second TTL per isolate. Rate limiting is per-key sliding window, default 60 RPM.
+Data endpoints require a Bearer API key beginning with `rw_`. Scope is stored on the key record, not encoded in its prefix. `/v1/admin/` routes require admin scope; `/v1/health`, `/v1/health/sync`, and `/v1/openapi.json` are public. Webhooks use provider-specific verification. Keys are SHA-256 hashed and looked up in `api_keys`. Successful auth lookups are cached for 60 seconds per isolate. Rate limiting uses each key’s configured limit in a sliding 60-second window. See the [public authentication guide](../docs-mintlify/authentication.mdx).
 
-## Sync Schedule
+## Sync and refresh
 
-| Domain     | Trigger        | Schedule                             | Strategy                                          |
-| ---------- | -------------- | ------------------------------------ | ------------------------------------------------- |
-| Last.fm    | Cron           | Every 15 min (scrobbles), 3 AM daily | Incremental from last scrobble timestamp          |
-| Strava     | Cron + Webhook | 3:15 AM daily + real-time webhook    | Incremental since last synced activity            |
-| Plex       | Webhook + Cron | Real-time webhook + 3:30 AM daily    | Webhook for watch events, cron for library scan   |
-| Letterboxd | Cron           | Every 6 hours                        | RSS feed parse, deduplicate against existing data |
-| Discogs    | Cron           | Sunday 3:45 AM                       | Full collection replace                           |
-| Trakt      | Cron           | Sunday 3:45 AM                       | Full collection sync with write-through           |
+Cron definitions live in [`wrangler.toml`](../wrangler.toml) and dispatch through the scheduled handler in [`src/index.ts`](../src/index.ts). Cron times are UTC. Strava and Plex also accept verified webhooks. Each provider service owns its incremental sync and retry behavior; sync outcomes are recorded in `sync_runs`.
 
-Sync runs are recorded in `sync_runs` with status, item count, duration, and errors. Consecutive failures (max 2) degrade the domain; a success resets the counter.
+The [prepared Lately snapshot](projects/lately/README.md) refreshes independently of full provider sync. The [CD artwork Worker](projects/cd-artwork/PRODUCTION-RUNBOOK.md) has a separate configuration and workflow lifecycle.
 
 ### Post-Sync Pipeline
 
@@ -47,62 +42,21 @@ Every sync calls `afterSync()` which drives three things:
 
 Each step is independent -- a failure in one doesn't block the others.
 
-## Image Pipeline
+## Images
 
-```text
-Entity needs image
-  -> Check images table
-  -> [miss] Run source waterfall:
-       Albums:   Apple Music -> Deezer -> iTunes
-       Artists:  Deezer -> Apple Music -> Fanart.tv
-       Movies:   TMDB (poster + backdrop)
-       Releases: Discogs images
-  -> Fetch from source
-  -> Upload to R2
-  -> Generate ThumbHash placeholder
-  -> Extract dominant + accent colors
-  -> Store metadata in images table
-```
+The [image pipeline](../src/services/images/pipeline.ts) resolves source candidates, stores originals in R2, and records placeholders and colors. Source ordering belongs to that implementation. [Image presets](../src/services/images/presets.ts) define URL construction, sizes, and cache headers; the [public Images guide](../docs-mintlify/domains/images.mdx) explains client usage.
 
-### Apple Music Enrichment
+Accepted disc artwork has a separate review and delivery lifecycle from square covers. See the [artwork runbook](projects/cd-artwork/PRODUCTION-RUNBOOK.md) and [WebP variant contract](projects/cd-artwork/WEBP-VARIANTS.md).
 
-Listening entities (artists, albums, tracks) are enriched with Apple Music metadata via the iTunes Search/Lookup API. Enriched fields: `apple_music_id`, `apple_music_url`, `preview_url` (tracks only), `duration_ms` (tracks only), `itunes_enriched_at`. New tracks discovered during sync are enriched inline. Bulk enrichment is handled by `scripts/backfill-apple-music.sh`. The Apple Music historical import (`scripts/import-apple-music.ts`) uses batch ID lookups for deterministic enrichment on insert.
+## Caching and request contracts
 
-R2 keys follow `{domain}/{entity_type}/{entity_id}/original.{ext}`. CDN URL: `cdn.rewind.rest/{r2_key}`.
+[`src/lib/cache.ts`](../src/lib/cache.ts) defines cache presets. Each route selects its own preset or supplies explicit headers, so read the handler for exceptions such as Lately. Do not infer cache behavior from a route name.
 
-Images can be manually overridden via admin endpoints. Overrides persist through future syncs and can be reverted to re-run the automatic pipeline.
-
-## Caching
-
-| Pattern             | Cache-Control                         | Why                                 |
-| ------------------- | ------------------------------------- | ----------------------------------- |
-| `now-playing`       | `no-store`                            | Real-time                           |
-| `recent/*`          | `public, max-age=60`                  | Updates frequently                  |
-| `stats/*`, `top/*`  | `public, max-age=3600`                | Computed aggregates, hourly is fine |
-| Past year calendars | `public, max-age=86400, immutable`    | Historical data doesn't change      |
-| `collecting/*`      | `public, max-age=86400`               | Weekly sync only                    |
-| `images/*`          | `public, max-age=31536000, immutable` | Content-addressed in R2             |
-| `feed`              | `public, max-age=300`                 | 5-minute freshness                  |
-| `health`, `admin`   | `no-store`                            | Diagnostic / mutations              |
-
-## Date Filtering
-
-Most list, recent, stats, trends, and feed endpoints support optional date filtering:
-
-| Param  | Type         | Description                                  |
-| ------ | ------------ | -------------------------------------------- |
-| `date` | `YYYY-MM-DD` | Single day shorthand. Overrides `from`/`to`. |
-| `from` | ISO 8601     | Range start (inclusive).                     |
-| `to`   | ISO 8601     | Range end (inclusive).                       |
-
-When `date` is provided, `from` and `to` are ignored. When no date params are provided, behavior is unchanged. On endpoints with an existing `year` param (running activities, calendars), `from`/`to` takes precedence over `year`.
-
-The `/feed/on-this-day` endpoint uses `month` and `day` params to return cross-domain activity for a calendar date across all years.
+[`src/lib/date-filters.ts`](../src/lib/date-filters.ts) owns shared date-filter semantics. The generated [API reference](../docs-mintlify/openapi-spec.mdx) owns endpoint parameters and response schemas. Internal domain notes describe integration decisions, not a second copy of the public contract.
 
 ## Known Gotchas
 
 - **D1 is SQLite** -- no PostGIS, no `generate_series`. Polylines are stored encoded, decoded client-side. Calendar/streak queries use recursive CTEs.
-- **Workers subrequest limit** -- 1000 per invocation. Sync batches items (150 per domain) to stay within this.
 - **Strava token rotation** -- refresh token rotates on every exchange, must be persisted immediately.
 - **Plex webhooks need Plex Pass** -- without it, falls back to cron-only polling.
 - **No native image decoding in Workers** -- ThumbHash requires decoding via `jpeg-js`/`fast-png` (pure JS decoders) since `sharp`/`canvas` aren't available.

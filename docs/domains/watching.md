@@ -1,5 +1,7 @@
 # Watching Domain
 
+For current endpoints and response fields, use the [public watching guide](../../docs-mintlify/domains/watching.mdx) and generated API reference. These notes retain integration decisions and historical operational context; source files remain authoritative.
+
 Movie and TV show watch history from three sources: Plex webhooks (real-time), Letterboxd RSS feed (periodic sync), and manual entry (admin endpoint). All movies are enriched with TMDB metadata for genres, directors, posters, and ratings.
 
 ## Data Sources
@@ -235,110 +237,6 @@ Watching the same movie on different dates always creates separate watch events.
 - **TMDB enrichment**: on first encounter of a movie from any source, fetch TMDB details + credits + images. Store in `movies` table with genres/directors in join tables.
 - **Dedup check**: before inserting any watch event, check for existing entry with same movie_id + same calendar date
 
-## Endpoints
-
-All endpoints require `Authorization: Bearer rw_...` header.
-
-| Method | Path                                   | Description                       | Cache  | Query Params                                            |
-| ------ | -------------------------------------- | --------------------------------- | ------ | ------------------------------------------------------- |
-| GET    | /v1/watching/recent                    | Recently watched movies           | 60s    | limit, date, from, to                                   |
-| GET    | /v1/watching/movies                    | All watched movies                | 3600s  | page, limit, genre, decade, director, year, sort, order |
-| GET    | /v1/watching/movies/:id                | Single movie detail               | 86400s | none (includes first_watched_at)                        |
-| GET    | /v1/watching/stats                     | Overall watch statistics          | 3600s  | date, from, to                                          |
-| GET    | /v1/watching/stats/genres              | Genre breakdown                   | 3600s  | none                                                    |
-| GET    | /v1/watching/stats/decades             | Movies by decade                  | 3600s  | none                                                    |
-| GET    | /v1/watching/stats/directors           | Top directors                     | 3600s  | none                                                    |
-| GET    | /v1/watching/calendar                  | Watch activity heatmap            | 3600s  | year                                                    |
-| GET    | /v1/watching/trends                    | Watching trends over time         | 86400s | period, date, from, to                                  |
-| GET    | /v1/watching/shows                     | All watched shows                 | 3600s  | page, limit, sort, order                                |
-| GET    | /v1/watching/shows/:id                 | Show detail with seasons          | 86400s | none (includes first_watched_at)                        |
-| GET    | /v1/watching/shows/:id/seasons/:season | Season episodes with watch status | 3600s  | none                                                    |
-| POST   | /v1/admin/watching/movies              | Log a movie watch event (admin)   | --     | tmdb_id or title+year, watched_at, rating               |
-| PUT    | /v1/admin/watching/movies/:id          | Edit a watch event (admin)        | --     | watched_at, rating                                      |
-| DELETE | /v1/admin/watching/movies/:id          | Remove a watch event (admin)      | --     | none                                                    |
-| POST   | /v1/admin/watching/backfill-images     | Backfill R2 images for entities   | --     | type (movies/shows/all), limit                          |
-
-All tables include `user_id` for multi-user support (default 1).
-
-## Response Types
-
-```typescript
-interface Movie {
-  id: number;
-  title: string;
-  year: number;
-  director: string;
-  directors: string[];
-  genres: string[];
-  duration_min: number;
-  rating: string;
-  poster_url: string | null;
-  backdrop_url: string | null;
-  thumbhash: string | null;
-  dominant_color: string | null;
-  accent_color: string | null;
-  imdb_id: string | null;
-  tmdb_id: number | null;
-  tmdb_rating: number | null;
-  tagline: string | null;
-  summary: string | null;
-}
-
-interface WatchEvent {
-  movie: Movie;
-  watched_at: string;
-  source: 'plex' | 'letterboxd' | 'manual';
-  user_rating: number | null;
-  percent_complete: number | null;
-  rewatch: boolean;
-  review: string | null;
-}
-
-interface WatchingStats {
-  total_movies: number;
-  total_watch_time_hours: number;
-  movies_this_year: number;
-  avg_per_month: number;
-  top_genre: string;
-  top_decade: number;
-  top_director: string;
-  total_shows: number;
-  total_episodes_watched: number;
-  episodes_this_year: number;
-}
-
-interface GenreBreakdown {
-  name: string;
-  count: number;
-  percentage: number;
-}
-
-interface Show {
-  id: number;
-  title: string;
-  year: number;
-  tmdb_id: number | null;
-  tmdb_rating: number | null;
-  content_rating: string | null;
-  summary: string | null;
-  poster_url: string | null;
-  backdrop_url: string | null;
-  thumbhash: string | null;
-  dominant_color: string | null;
-  accent_color: string | null;
-  total_seasons: number;
-  total_episodes: number;
-  episodes_watched: number;
-}
-
-interface EpisodeWatched {
-  season: number;
-  episode: number;
-  title: string | null;
-  watched_at: string;
-}
-```
-
 ## TMDB Attribution
 
 Required attribution for any project using the TMDB API:
@@ -346,16 +244,6 @@ Required attribution for any project using the TMDB API:
 - "This product uses the TMDB API but is not endorsed or certified by TMDB"
 - Display TMDB logo in About/Credits section
 - Can cache data and images for up to 6 months
-
-## Environment Variables
-
-| Variable            | Description                                      |
-| ------------------- | ------------------------------------------------ |
-| PLEX_URL            | Plex server URL (e.g., https://plex.example.com) |
-| PLEX_TOKEN          | Plex authentication token                        |
-| PLEX_WEBHOOK_SECRET | Shared secret for webhook verification           |
-| TMDB_API_KEY        | TMDB v4 read access token                        |
-| LETTERBOXD_USERNAME | Letterboxd username for RSS feed URL             |
 
 ## Image Pipeline Integration
 

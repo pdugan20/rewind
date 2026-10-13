@@ -98,12 +98,28 @@ jobs:
 
       - run: npm ci
 
+      - name: Test documentation checks
+        run: npm run test:docs
+
+      - name: Check documentation coverage and index
+        run: node scripts/check-docs.mjs
+
       - name: Check MCP tool reference is up to date
         run: npm exec -- tsx scripts/gen-mcp-reference.ts --check
 
-      - name: Check broken links
-        run: npm exec -- mint broken-links
+      - name: Validate Mintlify content and configuration
+        run: npm exec -- mint validate
         working-directory: docs-mintlify
+
+      - name: Check broken links
+        run: npm exec -- mint broken-links --check-anchors --check-redirects
+        working-directory: docs-mintlify
+
+      - name: Install landing site dependencies
+        run: npm ci --prefix docs-site --ignore-scripts
+
+      - name: Build landing site
+        run: npm run www:build
 
   build:
     name: Build

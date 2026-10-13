@@ -2917,11 +2917,11 @@
                 "boolean",
                 "null"
               ],
-              "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {1month, 3month, 6month, 12month, overall}. `overall` returns yearly buckets covering the artist/album/track lifetime; `7day` is unsupported and the field is omitted.",
+              "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {7day, 1month, 3month, 6month, 12month, overall}. `7day` returns seven daily buckets. `overall` returns yearly buckets spanning the listening history.",
               "example": false
             },
             "required": false,
-            "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {1month, 3month, 6month, 12month, overall}. `overall` returns yearly buckets covering the artist/album/track lifetime; `7day` is unsupported and the field is omitted.",
+            "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {7day, 1month, 3month, 6month, 12month, overall}. `7day` returns seven daily buckets. `overall` returns yearly buckets spanning the listening history.",
             "name": "include_sparklines",
             "in": "query"
           }
@@ -3158,7 +3158,7 @@
           "Listening"
         ],
         "summary": "Top albums",
-        "description": "Returns top albums for a given time period. Pass `include_sparklines=true` to attach a play-count time series per album (1month/3month/6month/12month/overall).",
+        "description": "Returns top albums for a given time period. Pass `include_sparklines=true` to attach a play-count time series per album (7day/1month/3month/6month/12month/overall).",
         "parameters": [
           {
             "schema": {
@@ -3241,11 +3241,11 @@
                 "boolean",
                 "null"
               ],
-              "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {1month, 3month, 6month, 12month, overall}. `overall` returns yearly buckets covering the artist/album/track lifetime; `7day` is unsupported and the field is omitted.",
+              "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {7day, 1month, 3month, 6month, 12month, overall}. `7day` returns seven daily buckets. `overall` returns yearly buckets spanning the listening history.",
               "example": false
             },
             "required": false,
-            "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {1month, 3month, 6month, 12month, overall}. `overall` returns yearly buckets covering the artist/album/track lifetime; `7day` is unsupported and the field is omitted.",
+            "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {7day, 1month, 3month, 6month, 12month, overall}. `7day` returns seven daily buckets. `overall` returns yearly buckets spanning the listening history.",
             "name": "include_sparklines",
             "in": "query"
           }
@@ -3505,11 +3505,11 @@
                 "boolean",
                 "null"
               ],
-              "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {1month, 3month, 6month, 12month, overall}. `overall` returns yearly buckets covering the artist/album/track lifetime; `7day` is unsupported and the field is omitted.",
+              "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {7day, 1month, 3month, 6month, 12month, overall}. `7day` returns seven daily buckets. `overall` returns yearly buckets spanning the listening history.",
               "example": false
             },
             "required": false,
-            "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {1month, 3month, 6month, 12month, overall}. `overall` returns yearly buckets covering the artist/album/track lifetime; `7day` is unsupported and the field is omitted.",
+            "description": "When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {7day, 1month, 3month, 6month, 12month, overall}. `7day` returns seven daily buckets. `overall` returns yearly buckets spanning the listening history.",
             "name": "include_sparklines",
             "in": "query"
           },

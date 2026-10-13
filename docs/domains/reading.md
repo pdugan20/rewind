@@ -1,5 +1,7 @@
 # Reading Domain
 
+For current endpoints and response fields, use the [public reading guide](../../docs-mintlify/domains/reading.mdx) and generated API reference. These notes retain integration decisions and historical operational context; source files remain authoritative.
+
 Instapaper articles, reading progress, highlights, and enrichment metadata.
 
 ## Data Sources
@@ -30,29 +32,6 @@ Instapaper articles, reading progress, highlights, and enrichment metadata.
 | progress == 0, folder archive           | `skipped`     |
 | progress > 0 and < 0.75, folder archive | `abandoned`   |
 
-## Endpoints
-
-### Public (13)
-
-- `GET /reading/recent` — recently saved or finished
-- `GET /reading/currently-reading` — articles in progress
-- `GET /reading/articles` — browse with filters (status, domain, tag, starred)
-- `GET /reading/articles/{id}` — detail with embedded highlights
-- `GET /reading/archive` — finished articles
-- `GET /reading/highlights` — all highlights with article context
-- `GET /reading/highlights/random` — random highlight
-- `GET /reading/stats` — aggregate statistics
-- `GET /reading/calendar` — daily reading activity
-- `GET /reading/streaks` — current and longest reading streaks
-- `GET /reading/tags` — tag breakdown
-- `GET /reading/domains` — top source domains
-- `GET /reading/year/{year}` — year in review
-
-### Admin (hidden)
-
-- `POST /admin/sync/reading` — trigger Instapaper sync
-- `POST /reading/admin/backfill-images` — process missing article thumbnails
-
 ## Enrichment
 
 Each article is enriched with metadata from two sources:
@@ -68,7 +47,7 @@ Each article is enriched with metadata from two sources:
 
 **Instapaper get_text** (processed article HTML):
 
-- Full HTML → `content` (for future full-text search)
+- Full HTML → `content` (used for full-text retrieval)
 - Word count → `word_count`
 - Estimated read time → `estimated_read_min` (238 WPM)
 

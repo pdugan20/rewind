@@ -1,5 +1,7 @@
 # Docs Site Improvements -- Task Tracker
 
+Historical migration record. See [README](README.md) for the current scope and [maintenance guide](../../MAINTENANCE.md) for current commands. Old unchecked proposals are not instructions to execute them.
+
 ## Phase 1: OpenAPI Quality -- COMPLETE
 
 - [x] **1.1** Spec infrastructure (servers block, tag ordering, info.description -- all already in place)
