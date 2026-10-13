@@ -112,17 +112,40 @@ function isTestLike(path) {
   );
 }
 
-function isRootRuntime(path) {
-  if (
+function isArtworkOnly(path) {
+  return (
+    path === 'src/cd-artwork-worker.ts' ||
     path === 'wrangler.cd-artwork.jsonc' ||
-    path === 'wrangler.toml' ||
-    path === 'wrangler.json' ||
-    path === 'wrangler.jsonc'
+    path.startsWith('src/services/cd-artwork/') ||
+    path.startsWith('scripts/cd-artwork/')
+  );
+}
+
+export function isArtworkRuntime(path) {
+  if (isTestLike(path)) return false;
+  // Shared code is deliberately conservative. The import-closure contract test
+  // rejects a new artwork dependency outside these directories.
+  return (
+    isArtworkOnly(path) ||
+    path === 'tsconfig.json' ||
+    ['src/lib/', 'src/db/', 'src/types/', 'src/services/images/'].some(
+      (prefix) => path.startsWith(prefix)
+    )
+  );
+}
+
+function isRootRuntime(path) {
+  if (isArtworkOnly(path)) return false;
+  if (
+    [
+      'wrangler.toml',
+      'wrangler.json',
+      'wrangler.jsonc',
+      'tsconfig.json',
+    ].includes(path)
   ) {
     return true;
   }
-  if (path === 'tsconfig.json') return true;
-  if (path.startsWith('scripts/cd-artwork/')) return !isTestLike(path);
   return path.startsWith('src/') && !isTestLike(path);
 }
 
@@ -157,16 +180,20 @@ export function classifyChangedFiles(
   const migrationFiles = files.filter((path) => path.startsWith('migrations/'));
   const rootRuntimeFiles = files.filter(isRootRuntime);
   const mcpRuntimeFiles = files.filter(isMcpRuntime);
+  const artworkRuntimeFiles = files.filter(isArtworkRuntime);
 
   const d1Migrations = migrationFiles.length > 0;
   const rootWorker =
     rootRuntimeFiles.length > 0 || rootGraphChanged || rootManifestChanged;
+  const artworkWorker =
+    artworkRuntimeFiles.length > 0 || rootGraphChanged || rootManifestChanged;
   const mcpWorker =
     mcpRuntimeFiles.length > 0 || mcpGraphChanged || mcpManifestChanged;
 
   return {
     d1Migrations,
     rootWorker,
+    artworkWorker,
     mcpWorker,
     rootGraphChanged,
     mcpGraphChanged,
@@ -174,6 +201,11 @@ export function classifyChangedFiles(
       d1: migrationFiles,
       root: [
         ...rootRuntimeFiles,
+        ...(rootGraphChanged ? ['root production dependency graph'] : []),
+        ...(rootManifestChanged ? ['root runtime manifest'] : []),
+      ],
+      artwork: [
+        ...artworkRuntimeFiles,
         ...(rootGraphChanged ? ['root production dependency graph'] : []),
         ...(rootManifestChanged ? ['root runtime manifest'] : []),
       ],
@@ -317,6 +349,7 @@ function githubOutputs(classification, { base, head, forceAll }) {
     manual: String(forceAll === 'manual dispatch'),
     d1_migrations: String(Boolean(forceAll) || classification.d1Migrations),
     root_worker: String(Boolean(forceAll) || classification.rootWorker),
+    artwork_worker: String(Boolean(forceAll) || classification.artworkWorker),
     mcp_worker: String(Boolean(forceAll) || classification.mcpWorker),
     root_graph_changed: String(classification.rootGraphChanged),
     mcp_graph_changed: String(classification.mcpGraphChanged),

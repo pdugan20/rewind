@@ -72,3 +72,7 @@ Local validation does not publish either site. Deployments, pushes, and PRs stil
 The public apex is served by `apex-worker`, which owns the small homepage and transparent icons. Public policy content is built from `docs-site` and deployed to the `rewind-www` Cloudflare Pages project on its production `main` branch. The apex proxies only `/privacy/`, `/terms/`, and `/dpa/` to that Pages origin; other deep links still redirect to Mintlify. Do not assume publishing Pages changes the apex routing code.
 
 After an authorized publication, verify all three policy paths on `rewind.rest` in a browser, including their headings and dates. Publish the Pages content before deploying a routing change that depends on it. The built-policy check also rejects new root-relative stylesheet/script assets until the apex has a route for them.
+
+## Deployment source drift
+
+Documentation contract checks cannot establish which runtime source is deployed. Use `npm run deployment:check` from a clean checkout on committed main to inspect API/artwork version lineage. The guarded `deploy:worker` and `deploy:artwork` commands verify source before uploading and attach a Git commit tag. API-only edits do not redeploy artwork; shared runtime inputs conservatively affect both. See the [October 13 closeout](maintenance/2026-10-13-closeout.md) for the bootstrap versions, scope, and recovery procedure. Unknown live versions require source reconciliation, not an automatic overwrite. Production operations still need their existing authorization.

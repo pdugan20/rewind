@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
+import ts from 'typescript';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  isArtworkRuntime,
   classifyChangedFiles,
   classifyGitRange,
   productionGraphChanged,
@@ -186,12 +195,14 @@ test('production graph flags feed the matching Worker only', () => {
     {
       d1Migrations: false,
       rootWorker: true,
+      artworkWorker: true,
       mcpWorker: false,
       rootGraphChanged: true,
       mcpGraphChanged: false,
       reasons: {
         d1: [],
         root: ['root production dependency graph'],
+        artwork: ['root production dependency graph'],
         mcp: [],
       },
       changedFiles: ['package-lock.json'],
@@ -307,18 +318,108 @@ test('divergent PR history compares from the merge base', () => {
   });
 });
 
-test('artwork processing inputs trigger the CI-gated root deployment batch', () => {
+test('artwork processing inputs trigger only the artwork deployment', () => {
   for (const path of [
     'wrangler.cd-artwork.jsonc',
     'scripts/cd-artwork/pixels.mjs',
     'src/services/cd-artwork/assets/cover-template.png',
   ]) {
     const impact = classifyChangedFiles([path]);
-    assert.equal(impact.rootWorker, true, path);
+    assert.equal(impact.rootWorker, false, path);
+    assert.equal(impact.artworkWorker, true, path);
     assert.equal(impact.mcpWorker, false, path);
   }
   assert.equal(
     classifyChangedFiles(['scripts/cd-artwork/pipeline.test.mjs']).rootWorker,
     false
   );
+});
+
+test('API descriptions do not replace the independent artwork Worker', () => {
+  const impact = classifyChangedFiles(['src/routes/listening.ts']);
+  assert.equal(impact.rootWorker, true);
+  assert.equal(impact.artworkWorker, false);
+});
+
+test('shared auth, storage, image helpers and runtime dependencies affect both Workers', () => {
+  for (const path of [
+    'src/lib/auth.ts',
+    'src/db/client.ts',
+    'src/types/env.ts',
+    'src/services/images/colors.ts',
+  ]) {
+    const impact = classifyChangedFiles([path]);
+    assert.equal(impact.rootWorker, true, path);
+    assert.equal(impact.artworkWorker, true, path);
+  }
+});
+
+test('every local runtime import of the artwork Worker remains in its impact boundary', () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const seen = new Set();
+  function visit(path) {
+    if (seen.has(path)) return;
+    seen.add(path);
+    assert.ok(
+      isArtworkRuntime(relative(root, path)),
+      `Unclassified artwork dependency: ${relative(root, path)}`
+    );
+    if (!/\.(ts|js|mjs)$/.test(path)) return;
+    const source = ts.createSourceFile(
+      path,
+      readFileSync(path, 'utf8'),
+      ts.ScriptTarget.Latest,
+      true
+    );
+    function walk(node) {
+      let specifier;
+      if (
+        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        !node.isTypeOnly &&
+        !node.importClause?.isTypeOnly
+      )
+        specifier = node.moduleSpecifier;
+      if (
+        ts.isCallExpression(node) &&
+        (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+          (ts.isIdentifier(node.expression) &&
+            node.expression.text === 'require'))
+      )
+        specifier = node.arguments[0];
+      if (
+        specifier &&
+        ts.isStringLiteral(specifier) &&
+        specifier.text.startsWith('.')
+      ) {
+        const target = resolve(dirname(path), specifier.text);
+        const resolved = [
+          target,
+          target.replace(/\.js$/, '.ts'),
+          `${target}.ts`,
+          `${target}.js`,
+        ].find(existsSync);
+        assert.ok(
+          resolved,
+          `Unresolved runtime import ${specifier.text} in ${path}`
+        );
+        visit(resolved);
+      }
+      ts.forEachChild(node, walk);
+    }
+    walk(source);
+  }
+  visit(join(root, 'src/cd-artwork-worker.ts'));
+  visit(join(root, 'scripts/cd-artwork/build.mjs'));
+});
+
+test('manual dispatch explicitly selects both Worker deployments', () => {
+  const cli = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [IMPACT_SCRIPT, '--manual', '--head', 'a'.repeat(40)],
+      { encoding: 'utf8' }
+    )
+  );
+  assert.equal(cli.outputs.root_worker, 'true');
+  assert.equal(cli.outputs.artwork_worker, 'true');
 });
