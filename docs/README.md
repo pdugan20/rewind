@@ -38,27 +38,27 @@ This inventory includes shipped work with open verification or follow-up items. 
 | [Attending deep stats](projects/attending-deep-stats/README.md)         | Filters and MLB player aggregates shipped; Phase 4 real-client checkpoint precedes expansion.                     |
 | [Sports box-score parity](projects/sports-boxscore-parity/README.md)    | Proposed non-MLB player stats; gated on the attending checkpoint.                                                 |
 | [Attending domain](projects/attending-domain/README.md)                 | Implemented domain with historical ingestion, verification, and follow-up checklists.                             |
-| [Apple Music enrichment](projects/apple-music-enrichment/README.md)     | Shipped enrichment and backfill work; reconcile remaining observation notes before archiving.                     |
-| [MCP Apps](projects/mcp-apps/README.md)                                 | Poster-grid implementation and client verification history.                                                       |
-| [MCP richness](projects/mcp-richness/README.md)                         | Shipped rich responses and remaining client verification or deferred capabilities.                                |
-| [Reading and music cards](projects/reading-music-cards/README.md)       | Implemented article and music cards; retain client verification evidence.                                         |
-| [Reading search](projects/reading-search/README.md)                     | Implemented keyword and semantic search; historical phase headings need reconciliation.                           |
 | [Reading search recall](projects/reading-search-recall/README.md)       | Full-body and chunked retrieval work with its own validation checklist.                                           |
 | [Single-entity cards](projects/single-entity-cards/README.md)           | Article, artist, athlete, and track views; selection and smoke-test close-out remain in the tracker.              |
 | [MCP server follow-ups](projects/mcp-server/DEFERRED.md)                | Output-schema decisions, title audit, and deferred work supplement the archived launch project.                   |
 
 ## Archived projects
 
-| Project                                                                          | Record                                  |
-| -------------------------------------------------------------------------------- | --------------------------------------- |
-| [apple-music-enrichment](projects/archived/apple-music-enrichment/README.md)     | Historical implementation and decisions |
-| [artist-genres](projects/archived/artist-genres/README.md)                       | Historical implementation and decisions |
-| [compilation-albums](projects/archived/compilation-albums/README.md)             | Historical implementation and decisions |
-| [date-filtering](projects/archived/date-filtering/README.md)                     | Historical implementation and decisions |
-| [mcp-server](projects/archived/mcp-server/README.md)                             | Historical implementation and decisions |
-| [public-api-docs](projects/archived/public-api-docs/README.md)                   | Historical implementation and decisions |
-| [reading-domain](projects/archived/reading-domain/README.md)                     | Historical implementation and decisions |
-| [reliability-improvements](projects/archived/reliability-improvements/README.md) | Historical implementation and decisions |
+| Project                                                                               | Record                                                                             |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [apple-music-enrichment](projects/archived/apple-music-enrichment/README.md)          | Historical implementation and decisions                                            |
+| [artist-genres](projects/archived/artist-genres/README.md)                            | Historical implementation and decisions                                            |
+| [compilation-albums](projects/archived/compilation-albums/README.md)                  | Historical implementation and decisions                                            |
+| [date-filtering](projects/archived/date-filtering/README.md)                          | Historical implementation and decisions                                            |
+| [mcp-server](projects/archived/mcp-server/README.md)                                  | Historical implementation and decisions                                            |
+| [public-api-docs](projects/archived/public-api-docs/README.md)                        | Historical implementation and decisions                                            |
+| [reading-domain](projects/archived/reading-domain/README.md)                          | Historical implementation and decisions                                            |
+| [reliability-improvements](projects/archived/reliability-improvements/README.md)      | Historical implementation and decisions                                            |
+| [Apple Music enrichment](projects/archived/apple-music-enrichment-recovery/README.md) | Recovery and backfill shipped; two historical cron observations remain unverified. |
+| [MCP Apps](projects/archived/mcp-apps/README.md)                                      | Poster-grid implementation and client verification history.                        |
+| [MCP richness](projects/archived/mcp-richness/README.md)                              | Shipped rich responses and remaining client verification or deferred capabilities. |
+| [Reading and music cards](projects/archived/reading-music-cards/README.md)            | Implemented article and music cards; retain client verification evidence.          |
+| [Reading search](projects/archived/reading-search/README.md)                          | Shipped search foundation; later work lives in reading-search-recall.              |
 
 ## Maintenance review
 

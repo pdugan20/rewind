@@ -1,5 +1,8 @@
 # Project: Sports Box-Score Parity
 
+> **Status — 2026-08-11:** planning reference. GitHub #67 is the canonical
+> implementation issue.
+
 Bring per-player box-score parsing for NFL, NBA, WNBA, MLS, NCAAF, and NCAAB up to the same parity that MLB has today, so the **attending-deep-stats** project's Tier 2 endpoints (`/players/:id/stats`, `/teams/:team_id/stats`) work for every league we attend games in.
 
 This project is **scoped now but execution is gated** on the Phase 4 checkpoint of [attending-deep-stats](../attending-deep-stats/). Build it now if Phase 4 reveals the user keeps asking about non-MLB games and the MLB-only restriction is the limiting factor; defer if Phase 4 shows queries are MLB-dominant or the per-player stats aren't actually getting reached for in real conversation.

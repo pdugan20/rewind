@@ -1,5 +1,7 @@
 # Project: MCP Richness
 
+> **Archived October 13, 2026.** Rich responses and the Desktop smoke test shipped in v0.2.0, as recorded in the tracker. Output schemas subsequently merged in [PR #109](https://github.com/pdugan20/rewind/pull/109), with the live conformance audit and fixes in [PR #112](https://github.com/pdugan20/rewind/pull/112). Earlier claims that no highlight-detail endpoint exists are obsolete. Unchecked early-client observations and deferred resource ideas remain historical; this cleanup does not claim a new client test.
+
 Upgrade the Rewind MCP server from text-only responses to the full MCP 2025-06-18 content surface: images, resource links, structured content, richer resources, and elicitation where it helps.
 
 ## Target client

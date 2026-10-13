@@ -1,5 +1,7 @@
 # reading-music-cards
 
+> **Archived October 13, 2026.** Implementation and client validation are recorded in this tracker’s Shipped section: reading and music cards, inline links, and v0.5.0 publication. The project explicitly wound down. Optional card ideas remain deferred. The historical shared-provider-key rotation item has no completion evidence here and remains an operator follow-up; archival does not mark it complete.
+
 MCP Apps interactive card UIs for reading (`get_recent_reads`) and music (`get_top_albums`, `get_top_artists`), plus a universal prose-link fallback for clients without MCP Apps support (Claude iOS).
 
 ## Problem
@@ -33,8 +35,8 @@ Rewind tools emit URLs as `resource_link` content blocks and images as `image` c
 
 - MCP Apps spec: https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/
 - Existing reference implementation: `mcp-server/web/recent-watches.tsx` + `mcp-server/web/components/PosterCard.tsx`
-- Prior project docs: `docs/projects/mcp-apps/`, `docs/projects/mcp-richness/`
-- Related: `docs/projects/reading-search/` (shipped v0.4.3, supplied the data backing this UI)
+- Prior project docs: `docs/projects/archived/mcp-apps/`, `docs/projects/archived/mcp-richness/`
+- Related: `docs/projects/archived/reading-search/` (shipped v0.4.3, supplied the data backing this UI)
 
 ## Iteration protocol
 

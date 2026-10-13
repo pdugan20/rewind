@@ -1,5 +1,7 @@
 # Reading Search -- Task Tracker
 
+> **Archived October 13, 2026.** Original search implementation shipped in MCP v0.4.0 and was extended by [reading-search-recall](../../reading-search-recall/README.md). Current code includes normalized keyword search, semantic search, and related articles. The old deployment and reindex boxes are historical, not an executable backlog. Retrieval follow-ups remain in the recall project; no live reindex was run during this cleanup.
+
 Legend: [ ] pending, [x] done, [~] in progress.
 
 ## Phase 1: Tier 1 -- normalized FTS + excerpt surfacing -- CODE COMPLETE, AWAITING DEPLOY

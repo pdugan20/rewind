@@ -144,3 +144,38 @@ The owner authorized further fixes and removal of obsolete portions. This batch:
 - Corrected technical data-handling claims in the privacy and DPA pages while preserving existing operator commitments.
 
 Verification: ten docs-check tests and 81 automation/deployment-policy tests passed. `npm run docs:check` passed, including generated MCP freshness. A single tooling reviewer independently reran the targeted checks and reported no actionable findings. Final Mintlify validation, link checks, landing build, agent-instruction lint, and changed-file formatting also passed. No branch deletion, commit, push, PR, or publication was performed.
+
+## Authorized shipping and reconciliation
+
+The owner approved the recommended maintenance batch after the local audit. The original no-publication statements above describe the earlier passes.
+
+- [PR #318](https://github.com/pdugan20/rewind/pull/318) merged as `3779290`, with the required CI Gate and MCP Node 22/24 checks passing. The new Lately reference is reachable on the hosted docs site.
+- The Pages policy content was deployed to `rewind-www` production. Browser verification then exposed two existing delivery defects: the apex Worker redirected policy URLs to nonexistent Mintlify pages, and the Astro legal layout did not read its MDX frontmatter. The follow-up fixes those paths and adds route and rendered-metadata regressions to the required docs checks. The apex keeps its transparent favicon and homepage behavior.
+- Deleted exactly the 29 original cleanup candidates after fresh tip, merged-PR, and worktree checks. A verified private Git bundle preserves every tip. Both dirty worktrees and all eight investigation branches remain intact.
+- Archived five shipped project histories: reading-search, reading-music-cards, mcp-richness, mcp-apps, and the later Apple Music recovery phase. Each archive states its evidence and unresolved observations. The earlier Apple Music archive remains separate. Recovered unpublished status notes for attending, attending-deep-stats, sports parity, and reading-search-recall from the primary checkout.
+- Closed stale GitHub issues #105, #40, and #205. Output schemas and their live audit merged in #109/#112; all 47 current manifest tools declare schemas and MCP CI passes. The Vitest 4 migration merged in #174 and the full root suite now passes on that line. Subsequent Hono upgrades include #271; a fresh root production-dependency audit reports zero findings. The full root development audit still reports 31 findings across documentation and developer tooling, outside those completed migrations; the existing dependency dashboard and security PRs remain open.
+
+### Branches retained after investigation
+
+| Branch                                   | Evidence and next disposition                                                                                                      |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `ci/group-security-updates`              | Its unique non-merge patch is equivalent to main; retained because its tip differs from the original merged head.                  |
+| `fix/apex-security-updates`              | Patch-equivalent to main; retained outside the original 29-branch deletion batch.                                                  |
+| `fix/mcp-security-updates`               | Patch-equivalent to main; retained outside the original deletion batch.                                                            |
+| `codex/refresh-rewind-119`               | Patch-equivalent to main; dependency update merged as #119.                                                                        |
+| `codex/rewind-toolchain-security-bridge` | Toolchain work merged in #174, but the local patch is not identical; keep until its residual is explicitly reconciled.             |
+| `codex/normalize-release-deployments`    | Related naming work shipped in #233, but workflow and policy-test differences remain; do not replay the old release configuration. |
+| `codex/listening-track-artwork`          | Unmerged year-track image changes remain. Evaluate alongside current album-identity behavior before porting.                       |
+| `agent/codex-review-automation-20260812` | Unique agent-policy edits and a threat-model document remain; preserve without adopting older workflow rules.                      |
+
+### Primary checkout recovery boundary
+
+The primary checkout was not reset, cleaned, or rebased. Its tracked edits and non-ignored untracked files were privately snapshotted, with an inventory and three-way comparison against main. Of 160 changed paths, 42 already match main or merge to it without residual changes, 79 have mechanically clean residual changes, 32 require conflict/add-add review, and seven belong to the skill-symlink migration. A clean textual merge is not evidence that a change is still desirable.
+
+Useful documentation status notes were recovered in this batch. Unpublished HTTP transport, UI workbench variants, year-track artwork, and overlapping CD artwork/Lately edits remain preserved for an owner-selected recovery batch. Do not apply the combined residual patch wholesale: it crosses product boundaries and contains stale alternatives to shipped code. Recovery files are in the owner's private local maintenance directory, not in this repository.
+
+### Next product decision
+
+Finish the existing CD artwork work with an explicit review of its overlap with the primary checkout, or take attending-deep-stats through its real-client checkpoint. Sports parity stays gated on that checkpoint. No new product implementation, live data repair, migration, or key rotation was started during this cleanup.
+
+Follow-up verification: 12 documentation/routing tests passed; the four-route Astro build and three policy metadata assertions passed; the apex Worker dry-run bundled successfully. A fresh `gpt-6-luna` reviewer at medium effort found the initial heading assertion was too strict about Astro attributes; the corrected DOM-based check passed re-review with no residual findings. No other agents were used for this follow-up. Dollar cost was not available.

@@ -1,5 +1,8 @@
 # Project: Reading Search Recall
 
+> **Status — 2026-08-11:** completed/historical ledger. Promote any residual
+> idea into a current issue before treating it as active work.
+
 Follow-up to `reading-search` (Tier 2/4 shipped April 2026). The
 motivating ESPN-on-Ichiro article — full body in `reading_items.content`,
 4,647 words — was being missed by `semantic_search("Ichiro work ethic

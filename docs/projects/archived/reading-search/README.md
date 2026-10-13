@@ -1,5 +1,7 @@
 # Project: Reading Search
 
+> **Archived October 13, 2026.** Original search implementation shipped in MCP v0.4.0 and was extended by [reading-search-recall](../../reading-search-recall/README.md). Current code includes normalized keyword search, semantic search, and related articles. The old deployment and reindex boxes are historical, not an executable backlog. Retrieval follow-ups remain in the recall project; no live reindex was run during this cleanup.
+
 Make "I remember reading an article about a former SNL writer -- what was his name and where is it?" actually work. Today the MCP `search` tool only hits article titles + Instapaper's short description, and even when it does match, the model doesn't get the excerpt back to answer the "what was it about" half of the question. This project closes the gap across four tiers, culminating in vector-embedding-based semantic search and a "related articles" capability.
 
 ## Motivation

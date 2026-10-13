@@ -1,5 +1,7 @@
 # MCP Apps -- Task Tracker
 
+> **Archived October 13, 2026.** The poster-grid pilot and Desktop validation shipped, and subsequent reading/music cards extended the same UI pipeline. Tracker 4.1.2 records light/dark, hover, and thumbhash validation; later package releases supersede the old v0.3.0 publish task. Preserve the original client limitations as observations from that release, not statements about current clients. Additional visual polish needs a fresh scoped decision.
+
 Legend: [ ] pending, [x] done, [~] in progress.
 
 ## Phase 0: Foundation -- COMPLETE

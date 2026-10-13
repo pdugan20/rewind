@@ -1,5 +1,8 @@
 # Project: Attending Domain
 
+> **Status — 2026-08-11:** core domain complete. Current survivors are GitHub
+> #67–#69; this document is implementation history and operating context.
+
 Live events you bought tickets for — Mariners games, Seahawks games, Storm games, **UW Huskies football** (and basketball), concerts, theater. Today this data is scattered across Google Calendar entries, ticket-vendor email confirmations, college-era memory, and the back of receipt boxes. This project pulls it into Rewind as a first-class domain so the portfolio site can render a season grid (Mariners 2024, UW 2008, etc.) with attended-or-not overlay, and so the daily cron keeps it fresh going forward.
 
 ## Motivation

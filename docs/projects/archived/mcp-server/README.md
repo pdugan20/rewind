@@ -184,12 +184,12 @@ Published as `rewind-mcp-server` on npm. Users install via `npx` (zero pre-insta
 
 ## Documents
 
-| File                               | Purpose                                                       |
-| ---------------------------------- | ------------------------------------------------------------- |
-| [TRACKER.md](TRACKER.md)           | Task tracker with phases and discrete tasks                   |
-| [TOOLS.md](TOOLS.md)               | Tool definitions, input schemas, response formatting          |
-| [INSTALLATION.md](INSTALLATION.md) | Detailed setup instructions for all platforms                 |
-| [DEFERRED.md](DEFERRED.md)         | Items deferred during implementation -- revisit after Phase 5 |
+| File                                        | Purpose                                                       |
+| ------------------------------------------- | ------------------------------------------------------------- |
+| [TRACKER.md](TRACKER.md)                    | Task tracker with phases and discrete tasks                   |
+| [TOOLS.md](TOOLS.md)                        | Tool definitions, input schemas, response formatting          |
+| [INSTALLATION.md](INSTALLATION.md)          | Detailed setup instructions for all platforms                 |
+| [DEFERRED.md](../../mcp-server/DEFERRED.md) | Items deferred during implementation -- revisit after Phase 5 |
 
 ## Phase Summary
 
