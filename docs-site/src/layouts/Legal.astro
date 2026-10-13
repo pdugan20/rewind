@@ -2,11 +2,13 @@
 import Base from './Base.astro';
 
 interface Props {
-  title: string;
-  lastUpdated: string;
+  frontmatter: {
+    title: string;
+    lastUpdated: string;
+  };
 }
 
-const { title, lastUpdated } = Astro.props;
+const { title, lastUpdated } = Astro.props.frontmatter;
 ---
 
 <Base title={`${title} - Rewind`}>

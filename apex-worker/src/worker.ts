@@ -12,6 +12,8 @@ const PNG_512_BYTES = b64ToBytes(FAVICON_PNG_512_B64);
 
 const ICON_CACHE = 'public, max-age=86400, s-maxage=604800, immutable';
 const DOCS_ORIGIN = 'https://docs.rewind.rest';
+const POLICY_ORIGIN = 'https://rewind-www.pages.dev';
+const POLICY_PATHS = new Set(['/privacy', '/terms', '/dpa']);
 
 // Self-contained landing page for the apex. Crucially, it advertises ONLY the
 // transparent favicon and NO apple-touch. The apex used to 302 to the Mintlify
@@ -30,11 +32,27 @@ const LANDING_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"
 <h1>Rewind</h1>
 <p>Personal data aggregation API. Syncs and serves data from the services that track your life.</p>
 <p><a href="${DOCS_ORIGIN}/">Read the docs &rarr;</a></p>
+<p><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <a href="/dpa/">Data processing</a></p>
 </body></html>`;
 
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+
+    const policyPath = url.pathname.replace(/\/$/, '');
+    if (POLICY_PATHS.has(policyPath)) {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return new Response(null, {
+          status: 405,
+          headers: { Allow: 'GET, HEAD' },
+        });
+      }
+      // Fetch only public static policy pages. Never forward client credentials,
+      // cookies, query parameters, or bodies to the Pages origin.
+      return fetch(`${POLICY_ORIGIN}${policyPath}/`, {
+        method: request.method,
+      });
+    }
 
     switch (url.pathname) {
       case '/':

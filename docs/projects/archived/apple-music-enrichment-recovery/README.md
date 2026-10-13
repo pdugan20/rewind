@@ -1,5 +1,7 @@
 # apple-music-enrichment
 
+> **Archived October 13, 2026.** Artist fallback, direct catalog refresh, scheduled enrichment, backfill, and health counters shipped; commit and deployment evidence is retained in the tracker’s Shipped section. The two next-day cron observations were never recorded as complete and remain unverified historical follow-ups. This recovery phase is distinct from the earlier archived apple-music-enrichment project; neither history replaces the other.
+
 Make the Apple Music URL / image pipeline for listening artists (and albums)
 self-healing instead of one-shot. Backfill the existing gap and keep it
 closed going forward.

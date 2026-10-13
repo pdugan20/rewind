@@ -32,7 +32,7 @@ npm run www:build
 
 `docs:check` is read-only. It checks matching OpenAPI snapshots, public-operation coverage, stale/hidden/duplicate bindings, navigation targets, MCP tool coverage, and project-index completeness. It then checks generated MCP page freshness. Missing or malformed required inputs fail the command.
 
-The Docs Links CI job runs these checks on every PR and main push, including the landing build. It remains part of the required CI Gate. Automation-policy tests reject removal or conditional/continue-on-error bypass of the new docs steps. Existing product tests independently compare the runtime OpenAPI spec and MCP manifest with their snapshots.
+The Docs Links CI job runs these checks on every PR and main push, including the landing build and assertions that all policy pages render their title, heading, and update date. Policy-route regressions verify that the apex serves those pages without forwarding client credentials. It remains part of the required CI Gate. Automation-policy tests reject removal or conditional/continue-on-error bypass of the new docs steps. Existing product tests independently compare the runtime OpenAPI spec and MCP manifest with their snapshots.
 
 ## When an API changes
 
@@ -66,3 +66,9 @@ Automation catches missing pages, stale generated content, invalid builds, and b
 For a behavior change, review the affected guide in the same PR and state which page changed or why no documentation change is needed. Authentication, providers, storage, logging, retention, export, and data-sharing changes also require a policy review. Avoid precise limits or security guarantees unless there is a maintained source and evidence for them.
 
 Local validation does not publish either site. Deployments, pushes, and PRs still follow the repository's authorization rules. Hosted drift requires comparing the deployed site/version after an authorized release; this pass adds no scheduler or background automation.
+
+## Policy publication
+
+The public apex is served by `apex-worker`, which owns the small homepage and transparent icons. Public policy content is built from `docs-site` and deployed to the `rewind-www` Cloudflare Pages project on its production `main` branch. The apex proxies only `/privacy/`, `/terms/`, and `/dpa/` to that Pages origin; other deep links still redirect to Mintlify. Do not assume publishing Pages changes the apex routing code.
+
+After an authorized publication, verify all three policy paths on `rewind.rest` in a browser, including their headings and dates. Publish the Pages content before deploying a routing change that depends on it. The built-policy check also rejects new root-relative stylesheet/script assets until the apex has a route for them.

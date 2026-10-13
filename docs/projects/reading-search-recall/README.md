@@ -1,15 +1,17 @@
 # Project: Reading Search Recall
 
-Follow-up to `reading-search` (Tier 2/4 shipped April 2026). The
-motivating ESPN-on-Ichiro article — full body in `reading_items.content`,
-4,647 words — was being missed by `semantic_search("Ichiro work ethic
+> **Status — 2026-08-11:** completed/historical ledger. Promote any residual
+> idea into a current issue before treating it as active work.
+> Follow-up to `reading-search` (Tier 2/4 shipped April 2026). The
+> motivating ESPN-on-Ichiro article — full body in `reading_items.content`,
+> 4,647 words — was being missed by `semantic_search("Ichiro work ethic
 batting cages Japan training")` despite the searched-for phrases being
-present verbatim in the article body. Diagnosis traced the regression
-to a single structural cause: the search-side representation of an
-article (`body_excerpt`) is capped at 3,000 characters, and both the
-FTS5 body column and the Voyage embedding input feed off it. For any
-article where the memorable content sits past char 3,000 — common in
-long-form features — neither index can find it.
+> present verbatim in the article body. Diagnosis traced the regression
+> to a single structural cause: the search-side representation of an
+> article (`body_excerpt`) is capped at 3,000 characters, and both the
+> FTS5 body column and the Voyage embedding input feed off it. For any
+> article where the memorable content sits past char 3,000 — common in
+> long-form features — neither index can find it.
 
 This project lifts that ceiling.
 

@@ -8,7 +8,7 @@ The three existing card components (`recent-watches`, `recent-reads`, `top-album
 
 **Primary:** Claude Desktop (macOS, ~720px max width per the desktop width cap memory) and Claude iOS (renders MCP Apps as of April 2026). The deployed Worker at `mcp.rewind.rest` and the `rewind-mcp-server` npm package both ship the bundles.
 
-**Secondary / dev-only:** Claude Code CLI doesn't render `ui://` resources; we validate iteratively against `rewind-local` MCP Inspector + Claude Desktop using the dev workflow established by [reading-music-cards](../reading-music-cards/README.md).
+**Secondary / dev-only:** Claude Code CLI doesn't render `ui://` resources; we validate iteratively against `rewind-local` MCP Inspector + Claude Desktop using the dev workflow established by [reading-music-cards](../archived/reading-music-cards/README.md).
 
 ## Motivation
 
@@ -222,7 +222,7 @@ These are real unknowns that will shape later phases:
 
 ## Iteration protocol
 
-Matches the [reading-music-cards](../reading-music-cards/README.md) protocol:
+Matches the [reading-music-cards](../archived/reading-music-cards/README.md) protocol:
 
 - UI design done live: user sends screenshots + verbal feedback; assistant edits TSX, rebuilds, user reloads Claude Desktop (local entry).
 - Default to `rewind-local` MCP entry during iteration; do not publish to npm mid-phase.

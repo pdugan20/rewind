@@ -1,5 +1,7 @@
 # Tracker
 
+> **Archived October 13, 2026.** Implementation and client validation are recorded in this tracker’s Shipped section: reading and music cards, inline links, and v0.5.0 publication. The project explicitly wound down. Optional card ideas remain deferred. The historical shared-provider-key rotation item has no completion evidence here and remains an operator follow-up; archival does not mark it complete.
+
 ## Phase 0 — `description` field mapping fix ✅ shipped
 
 - [x] Add `description ?? ogDescription` coalesce to `formatArticle` helper

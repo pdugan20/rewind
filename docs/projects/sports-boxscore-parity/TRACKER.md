@@ -1,6 +1,9 @@
 # Sports Box-Score Parity — Task Tracker
 
-Legend: [ ] pending, [x] done, [~] in progress.
+> **Reconciled 2026-08-11:** planning reference only. GitHub #67 is the
+> canonical implementation issue; keep progress and scope changes there rather
+> than maintaining a second active checklist here.
+> Legend: [ ] pending, [x] done, [~] in progress.
 
 **This project is gated** on the Phase 4 checkpoint of [attending-deep-stats](../attending-deep-stats/). Do not begin until that checkpoint says go.
 

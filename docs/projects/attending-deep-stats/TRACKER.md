@@ -1,6 +1,9 @@
 # Attending Deep Stats — Task Tracker
 
-Legend: [ ] pending, [x] done, [~] in progress.
+> **Reconciled 2026-08-11:** core shipped work is preserved here. Current
+> expansion work is tracked in GitHub #67–#69; gated Phase 5/6 ideas below are
+> not independently active unless re-scoped into a current issue.
+> Legend: [ ] pending, [x] done, [~] in progress.
 
 Phases ship independently — each delivers verifiable value (a passing test, an admin endpoint returning real data, an inline card in Claude Desktop). Earlier phases gate later ones; within a phase, sub-tasks usually parallelize.
 

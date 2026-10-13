@@ -1,5 +1,7 @@
 # Project: MCP Apps -- Poster Grid
 
+> **Archived October 13, 2026.** The poster-grid pilot and Desktop validation shipped, and subsequent reading/music cards extended the same UI pipeline. Tracker 4.1.2 records light/dark, hover, and thumbhash validation; later package releases supersede the old v0.3.0 publish task. Preserve the original client limitations as observations from that release, not statements about current clients. Additional visual polish needs a fresh scoped decision.
+
 Add an interactive UI app to the Rewind MCP server that renders a poster grid when users ask about their recent watches. Claude Desktop currently displays MCP `image` content blocks inside the collapsed tool-use accordion; MCP Apps (Anthropic's Jan 2026 extension) render inline in the chat body as a sandboxed iframe. This is Tier 3 from the mcp-richness project, previously parked while we validated the target client.
 
 ## Motivation
