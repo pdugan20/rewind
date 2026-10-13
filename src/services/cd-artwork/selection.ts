@@ -1,5 +1,7 @@
 import { readPixels } from '../../../scripts/cd-artwork/pixels.mjs';
 import type { ArtworkEnv, JobRequest } from './types.js';
+import { sha256 } from './types.js';
+import { PROCESSOR_HASH } from './processor-version.js';
 import {
   ArtworkError,
   providerJson,
@@ -8,6 +10,7 @@ import {
   resolveSource,
   type CatalogAlbum,
 } from './sources.js';
+import { prepareAudioDbArtwork } from './audiodb.js';
 import {
   albumMatches,
   artistIdentityMatches,
@@ -21,6 +24,7 @@ export interface SelectedSource {
   preparedMime?: string;
   retailRetryAfter?: number;
   sourceKind: 'retail' | 'cover';
+  renderRetry?: { attempt: 1; reason: 'geometry' | 'quality' };
   identityType: 'representative_release' | 'reviewed_source';
   selectedImageId: string | null;
   discovery: { outcome: string; [key: string]: unknown };
@@ -224,6 +228,57 @@ export async function selectAutomaticSource(
   allowLegacy = false,
   revisitEdition = false
 ): Promise<SelectedSource> {
+  // A failed render does not invalidate its source. Permit one controlled
+  // regeneration before moving on; count unique generations, not reprocessing
+  // jobs. Provider outages never consume this render retry.
+  const failed = await env.DB.prepare(
+    "SELECT source_hash,COUNT(DISTINCT COALESCE(json_extract(provenance,'$.generationKey'),id)) AS attempts,MAX(COALESCE(json_extract(provenance,'$.renderRetry.attempt'),0)) AS retried,MAX(error_code) AS reason FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND automatic=1 AND validation_state='held' AND error_code IN ('automatic_geometry_hold','automatic_quality_hold') AND json_extract(provenance,'$.processorHash')=? GROUP BY source_hash"
+  )
+    .bind(userId, albumId, PROCESSOR_HASH)
+    .all<{
+      source_hash: string;
+      attempts: number;
+      retried: number;
+      reason: string;
+    }>();
+  const failures = new Map(failed.results.map((row) => [row.source_hash, row]));
+  const usable = async (bytes: Uint8Array) => {
+    const failure = failures.get(await sha256(bytes));
+    return !failure || (failure.attempts < 2 && failure.retried === 0);
+  };
+  const renderRetry = async (
+    bytes: Uint8Array
+  ): Promise<SelectedSource['renderRetry']> => {
+    const failure = failures.get(await sha256(bytes));
+    return failure
+      ? {
+          attempt: 1,
+          reason:
+            failure.reason === 'automatic_geometry_hold'
+              ? 'geometry'
+              : 'quality',
+        }
+      : undefined;
+  };
+  const fallbackCover = async () => {
+    const candidate =
+      cover ??
+      verified ??
+      (await verifiedCover(env, albumId, userId, album, allowLegacy));
+    const image =
+      candidate.preparedBytes && candidate.preparedMime
+        ? { bytes: candidate.preparedBytes, mime: candidate.preparedMime }
+        : await downloadImage(candidate.sourceUrl);
+    if (!(await usable(image.bytes)))
+      throw new ArtworkError('artwork_sources_exhausted', 422);
+    return {
+      ...candidate,
+      preparedBytes: image.bytes,
+      preparedMime: image.mime,
+      renderRetry: await renderRetry(image.bytes),
+    };
+  };
+  const audioDbGroups = new Set<string>();
   // A stored Apple binding is independent identity evidence, not permission
   // to ignore contradictory metadata when a retail scan happens to exist.
   const verified = album.apple_music_id
@@ -268,10 +323,11 @@ export async function selectAutomaticSource(
       if (found.discovery.outcome === 'found' && images.length === 1) {
         request.image_id = images[0].id;
         const downloaded = await usableSource(images[0].url);
-        if (downloaded)
+        if (downloaded && (await usable(downloaded.bytes)))
           return {
             preparedBytes: downloaded.bytes,
             preparedMime: downloaded.mime,
+            renderRetry: await renderRetry(downloaded.bytes),
             ...found,
             sourceUrl: images[0].url,
             sourceKind: 'retail',
@@ -280,11 +336,59 @@ export async function selectAutomaticSource(
             request,
           };
       }
+      const groupId = found.discovery.release_group_id;
+      if (
+        found.discovery.medium_verified === true &&
+        typeof groupId === 'string' &&
+        /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(groupId) &&
+        !audioDbGroups.has(groupId)
+      ) {
+        audioDbGroups.add(groupId);
+        let candidate;
+        try {
+          candidate = await prepareAudioDbArtwork(env, album, groupId);
+        } catch (error) {
+          if (!(error instanceof ArtworkError) || error.status !== 422)
+            throw error;
+          // Unusable/provider-mismatched artwork is a miss for this source,
+          // not a demand for a human to approve an album.
+          candidate = null;
+        }
+        if (candidate && (await usable(candidate.bytes))) {
+          const request: JobRequest = {
+            album_id: albumId,
+            release_id: release,
+            medium_position: release === releaseId ? mediumPosition : 1,
+            source_kind: 'retail',
+          };
+          return {
+            request,
+            sourceUrl: candidate.sourceUrl,
+            preparedBytes: candidate.bytes,
+            preparedMime: 'image/png',
+            renderRetry: await renderRetry(candidate.bytes),
+            sourceKind: 'retail',
+            identityType: 'representative_release',
+            selectedImageId: null,
+            discovery: {
+              ...found.discovery,
+              audiodb: {
+                outcome: 'identity_matched_candidate',
+                release_group_id: groupId,
+                provider_album_id: candidate.providerAlbumId,
+                source_url: candidate.sourceUrl,
+                source_sha256: candidate.sourceSha256,
+                requires_automatic_visual_verification: true,
+              },
+            },
+          };
+        }
+      }
       if (found.discovery.covers.length === 1) {
         // Keep one verified cover while checking the remaining bounded retail candidates.
         const front = found.discovery.covers[0];
         const downloaded = await usableSource(front.url);
-        if (downloaded)
+        if (downloaded && (await usable(downloaded.bytes)))
           cover ??= {
             preparedBytes: downloaded.bytes,
             preparedMime: downloaded.mime,
@@ -297,20 +401,13 @@ export async function selectAutomaticSource(
           };
       }
     }
-    return (
-      cover ??
-      verified ??
-      (await verifiedCover(env, albumId, userId, album, allowLegacy))
-    );
+    return await fallbackCover();
   } catch (error) {
     if (!(error instanceof ArtworkError) || ![429, 503].includes(error.status))
       throw error;
     // Available cover evidence can produce a design while retail discovery is
     // pending. Retain the outage and retry; never record retail art as absent.
-    const fallback =
-      verified ??
-      cover ??
-      (await verifiedCover(env, albumId, userId, album, allowLegacy));
+    const fallback = await fallbackCover();
     return {
       ...fallback,
       retailRetryAfter: error.retryAfter,
@@ -318,6 +415,9 @@ export async function selectAutomaticSource(
         ...fallback.discovery,
         outcome: 'retail_provider_pending',
         retail_retry_after: error.retryAfter,
+        ...(error.code.startsWith('audiodb_')
+          ? { audiodb: { outcome: 'provider_pending', code: error.code } }
+          : {}),
       },
     };
   }

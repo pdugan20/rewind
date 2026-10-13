@@ -6,6 +6,7 @@ import { readPixels } from '../../../scripts/cd-artwork/pixels.mjs';
 import template from './assets/cover-template.png';
 import guide from './assets/geometry-reference.png';
 import { PROCESSOR_HASH } from './processor-version.js';
+import { RENDER_STRATEGY } from './rendering.js';
 
 export const getJob = (env: ArtworkEnv, id: string, userId: number) =>
   env.DB.prepare('SELECT * FROM cd_artwork_jobs WHERE id=? AND user_id=?')
@@ -65,8 +66,12 @@ export async function enqueue(
       stable({
         input: identityInput,
         prepared,
+        renderRetry: automatic?.source.renderRetry ?? null,
         catalogIdentity: album,
         automatic: !!automatic,
+        ...(automatic?.source.preparedBytes
+          ? { selectedSourceHash: await sha256(automatic.source.preparedBytes) }
+          : {}),
         expectedActiveJob: automatic?.expectedActiveJob ?? null,
       })
     )
@@ -108,21 +113,36 @@ export async function enqueue(
   const sourceHash = await sha256(bytes),
     templateHash = await sha256(new Uint8Array(template)),
     guideHash = await sha256(new Uint8Array(guide));
-  const prompt = `Image 1 is the edit target: ${album.artist} — ${album.name}. It is the authority for artwork, lettering, color and layout.\nImage 2 is a flat geometry guide only, not a material or style reference. Output a square front-on orthographic disc centered at (512,512) on a 1024x1024 canvas, outer diameter 960 pixels and concentric spindle hole diameter 120 pixels. Leave 32 pixels of margin. A real CD is 120 mm across with a 15 mm hole. Do not confuse the larger hub ring with the hole.\n${input.source_kind === 'retail' ? 'Restore this existing CD scan to a complete front-facing disc. Correct slight perspective, reconstruct only missing rim and immediately adjacent cropped artwork, and remove the surrounding scan background. Keep the original printed face and material. Do not redesign the disc or replace its authentic face with the album cover.' : 'Make an explicitly cover-based CD design, not an imitation of an unknown retail disc. Apply the album cover to the printable face. Preserve recognizable artwork and existing lettering; reposition/scale the cover as one unit if needed to keep important content away from the hole and rim. Extend only the existing background into unused space. Add no text.'}\nPreserve all existing lettering, logos, fine linework, relative placement and orientation. Do not invent track names, labels, catalog numbers or new branding. Do not redraw recognizable artwork into a different design.\nProduce a finished realistic CD asset with subtle believable material and a clean continuous outer rim. Use an otherwise perfectly plain white background including through the hole; no cast shadow, checkerboard, annotations, dimension labels, hands or perspective tilt.`;
+  const renderRetry = automatic?.source.renderRetry;
+  const materialInstructions = automatic
+    ? `Return a PNG with genuine alpha outside the physical disc and through the spindle hole. Keep printed ink and opaque metal opaque, including white/silver printing. Preserve existing source alpha and physical detail without invented material effects. ${input.source_kind === 'cover' ? 'The reserved hub from radius60 to88 must be unprinted and neutral gray, not white or transparent: use a plain opaque gray placeholder so its spindle boundary remains measurable. The renderer replaces that placeholder with clear plastic; do not draw rings or hub decoration.' : 'Preserve photographed hub tones and boundaries, including any existing source transparency. Do not guess a translucent region, erase printing or metal, or enlarge the hole. Material identification and clear-plastic alpha are handled separately by the renderer.'} Do not bake a white matte, checkerboard, shadow, scene or reflection into the disc.`
+    : 'For cover-based designs render the printed artwork without painting a physical rim; hub material is supplied separately by the processing template. Use an otherwise perfectly plain white background including through the hole; no cast shadow, checkerboard, annotations, dimension labels, hands or perspective tilt.';
+  const prompt = `Image 1 is the edit target: ${album.artist} — ${album.name}. It is the authority for artwork, lettering, color and layout.\nImage 2 is a flat geometry guide only, not a material or style reference. Output a square front-on orthographic disc centered at (512,512) on a 1024x1024 canvas, outer diameter 960 pixels and concentric spindle hole diameter 120 pixels. Leave 32 pixels of margin. A real CD is 120 mm across with a 15 mm hole. Do not confuse the larger hub ring with the hole.\n${input.source_kind === 'retail' ? 'Restore this existing CD scan to a complete front-facing disc. Correct slight perspective, reconstruct only missing rim and immediately adjacent cropped artwork, and remove the surrounding scan background. Keep the original printed face and material. Do not redesign the disc or replace its authentic face with the album cover.' : 'Make an explicitly cover-based CD design, not an imitation of an unknown retail disc. Apply the album cover to the printable face. Preserve recognizable artwork and existing lettering; reposition/scale the cover as one unit if needed to keep important content away from the hole and rim. Extend only the existing background into unused space. Reserve the center from radius60 to88 for an unprinted clear-plastic hub: the finishing renderer supplies its material. Keep important artwork and lettering outside this reserved hub and inside radius470. Add no text.'}\nPreserve all existing lettering, logos, fine linework, relative placement and orientation. Do not invent track names, labels, catalog numbers or new branding. Do not redraw recognizable artwork into a different design.\nPreserve the source appearance without adding decorative materials. Do not invent iridescent/rainbow/chrome rims, colored reflections, metallic borders, glow or specular glints. For retail scans retain only physical rim and material details actually visible in image 1. For cover-based designs render the printed artwork without an invented decorative rim. ${materialInstructions} ${automatic ? 'The shared renderer supplies the final outer edge: it replaces only the outermost 10 pixels with plain silver-gray disc material after centering. Do not draw or invent an outer border for it. Preserve the source artwork through that area; let the renderer create the consistent finish. This rule applies to both retail restorations and cover-based designs.' : ''} No annotations, dimension labels, hands or perspective tilt.${renderRetry ? `\nThis is the single controlled regeneration after a ${renderRetry.reason} failure. ${renderRetry.reason === 'geometry' ? 'Prioritize one physically coherent front-on disc: rim, spindle and all printed hub rings share one center and are circular. Do not repair only the silhouette while leaving eccentric printed rings.' : 'Prioritize fidelity to image 1. Preserve its existing lettering and recognizable details without interpretation; avoid synthesized text, smears and duplicate elements.'} Work from the authoritative source again; do not carry defects from the failed render forward.` : ''}`;
   const settings = {
     model: MODEL,
     quality: 'high',
     size: '1024x1024',
-    background: 'opaque',
+    background: automatic ? 'transparent' : 'opaque',
     output_format: 'png',
     n: 1,
   };
   const generationKey = await sha256(
-    JSON.stringify(stable({ sourceHash, prompt, settings, guideHash }))
+    JSON.stringify(
+      stable({
+        sourceHash,
+        prompt,
+        settings,
+        guideHash,
+        ...(automatic
+          ? { renderStrategy: RENDER_STRATEGY, rendererHash: PROCESSOR_HASH }
+          : {}),
+      })
+    )
   );
   const provenance = {
     generationKey,
     requestKey,
+    renderRetry: renderRetry ?? null,
     catalogIdentity: album,
     automatic: !!automatic,
     expectedActiveJob: automatic?.expectedActiveJob ?? null,
@@ -238,19 +258,20 @@ export async function claimSubmission(env: ArtworkEnv, job: Job) {
   const token = crypto.randomUUID();
   const stamp = now();
   const day = stamp.slice(0, 10);
-  // D1 batches are transactional. The unique token makes the budget statement
+  // D1 batches are transactional. The unique token makes the usage statement
   // depend on this attempt's successful claim, even for simultaneous retries.
+  // Usage is accounting only: there is no daily generation allowance.
   // Sync cannot introduce a conflict between identity validation and reservation.
-  const [claimed, budget] = await env.DB.batch([
+  const [claimed, usage] = await env.DB.batch([
     env.DB.prepare(
       "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=?,submission_claim=? WHERE id=? AND user_id=? AND state='queued' AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_jobs.album_id AND a.user_id=cd_artwork_jobs.user_id AND a.identity_conflict=0 AND r.identity_conflict=0 AND (automatic=0 OR (a.is_filtered=0 AND r.is_filtered=0 AND a.name=json_extract(provenance,'$.catalogIdentity.name') AND r.name=json_extract(provenance,'$.catalogIdentity.artist') AND a.mbid IS json_extract(provenance,'$.catalogIdentity.mbid') AND r.mbid IS json_extract(provenance,'$.catalogIdentity.artist_mbid') AND a.apple_music_id IS json_extract(provenance,'$.catalogIdentity.apple_music_id') AND EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.pinned=0 AND c.review_hold=0 AND c.active_job IS cd_artwork_jobs.expected_active_job AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs prior WHERE prior.id=c.active_job AND prior.user_id=c.user_id AND prior.album_id=c.album_id AND prior.state='accepted' AND json_extract(prior.input,'$.source_kind')='retail')) AND (SELECT automatic_enabled FROM cd_artwork_control WHERE id=1)=1))) RETURNING id"
     ).bind(stamp, stamp, token, job.id, job.user_id),
     env.DB.prepare(
-      "UPDATE cd_artwork_control SET budget_day=?,submitted_count=CASE WHEN budget_day=? THEN submitted_count+1 ELSE 1 END WHERE id=1 AND enabled=1 AND daily_limit>0 AND (budget_day<>? OR submitted_count<daily_limit) AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?) RETURNING id"
-    ).bind(day, day, day, job.id, job.user_id, token),
+      "UPDATE cd_artwork_control SET budget_day=?,submitted_count=CASE WHEN budget_day=? THEN submitted_count+1 ELSE 1 END WHERE id=1 AND enabled=1 AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?) RETURNING id"
+    ).bind(day, day, job.id, job.user_id, token),
   ]);
   if (!claimed.results.length) return false;
-  if (!budget.results.length) {
+  if (!usage.results.length) {
     await env.DB.prepare(
       "UPDATE cd_artwork_jobs SET state='queued',submitted_at=NULL,submission_claim=NULL,updated_at=? WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?"
     )
