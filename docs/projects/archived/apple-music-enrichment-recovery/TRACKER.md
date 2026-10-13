@@ -126,10 +126,8 @@
 - [x] **Fixed**: promoted working token from `chat-app-prototype/.env`
       (same team id, 163d remaining) to rewind prod via
       `wrangler secret put APPLE_MUSIC_DEVELOPER_TOKEN` and updated
-      local `.dev.vars`. Token is ES256-signed by AuthKey_99C4QGLP3J
-      (p8 at `/Users/patrickdugan/Documents/Github/chat-app-prototype/
-  assets/keys/AuthKey_99C4QGLP3J.p8`; regen via chat-app-prototype's
-      `npm run generate-apple-token`).
+      local `.dev.vars`. Historical machine-specific signing-key details are
+      omitted; use private account notes for current credential procedures.
 - [x] Post-rotation smoke: `POST /v1/listening/admin/refresh-artist-images?limit=3`
       → `{"succeeded":3,"failed":0,"skipped":0}`
 
@@ -170,8 +168,7 @@ Goal: drive all four baseline counts to target.
       ("Henrik Lindstrand & Kasper Bjørke", "Elskavon & John Hayes", etc.)
       — iTunes indexes collaborators separately, so the conjunction won't
       match as an artist entity. Expected failure mode, not a pipeline bug.
-- [x] Added `enrichment.{artists_missing_apple_music_url_with_plays,
-  artists_missing_apple_music_url, tracks_missing_itunes_enrichment}`
+- [x] Added enrichment counters for missing artist URLs and unenriched tracks
       to `GET /v1/health/sync`. Verified live: 5 / 258 / 0. (baseline: 39 / 877 / 564)
 - [x] Test coverage: `src/routes/health.test.ts` asserts the enrichment
       field shape; 618 tests pass (was 617).
