@@ -34,72 +34,23 @@ npm test             # Vitest
 
 ## Architecture Overview
 
-Hono on Cloudflare Workers with D1 (SQLite) for structured data, R2 for image storage, and Cloudflare Images for on-the-fly transforms. Drizzle ORM for type-safe database access. Hono RPC for end-to-end type inference with consuming clients. All routes prefixed with `/v1/`. API key authentication on all endpoints (Bearer token). Multi-user ready (`user_id` on all tables).
+Hono on Cloudflare Workers with D1 (SQLite) for structured data, R2 for image storage, and Cloudflare Images for on-the-fly transforms. Drizzle ORM for type-safe database access. Hono RPC for end-to-end type inference with consuming clients. All routes prefixed with `/v1/`. Data routes use Bearer API keys; see the exceptions below. User IDs are part of the schema, but do not imply complete multi-tenant isolation.
 
-Five data domains: listening (Last.fm + Apple Music), running (Strava), watching (Plex + Letterboxd + manual), collecting (Discogs + Trakt), reading (Instapaper). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
+Six data domains: listening (Last.fm + Apple Music), running (Strava), watching (Plex + Letterboxd + manual), collecting (Discogs + Trakt), reading (Instapaper), attending (Google Calendar + Gmail). Each domain has its own sync worker (cron-triggered), database tables, and route handlers.
 
-## Project Structure
+## Source map
 
-```text
-src/
-  index.ts                 -- Hono app entry, route registration, cron handler
-  routes/
-    system.ts              -- GET /v1/health, GET /v1/health/sync, POST /v1/admin/sync, key management
-    listening.ts           -- Listening endpoints (streaks, browse, year-in-review, top lists)
-    running.ts             -- Running endpoints (activities, stats, charts, year-in-review)
-    watching.ts            -- Watching endpoints (movies, TV shows, manual entry, ratings/reviews, year-in-review)
-    collecting.ts          -- Collection endpoints (vinyl, media, calendar, cross-reference)
-    reading.ts             -- Reading endpoints (articles, highlights, stats, streaks, domains)
-    feed.ts                -- Cross-domain feed endpoints (feed, on-this-day)
-    images.ts              -- Image endpoints (proxy + admin overrides)
-    webhooks.ts            -- Strava + Plex webhook receivers
-    search.ts              -- Cross-domain search endpoint
-  db/
-    client.ts              -- Drizzle D1 client setup
-    schema/
-      system.ts            -- sync_runs, activity_feed, images, api_keys, webhook_events, revalidation_hooks
-      lastfm.ts            -- Last.fm domain tables
-      strava.ts            -- Strava domain tables + strava_tokens
-      watching.ts           -- Watching domain tables (movies, watch_history, shows, episodes)
-      discogs.ts           -- Discogs domain tables
-      reading.ts           -- Reading domain tables (reading_items, reading_highlights)
-  services/
-    lastfm/                -- Last.fm API client, transforms, filters, sync
-    strava/                -- Strava OAuth, API client, transforms, sync
-    plex/                  -- Plex webhook handler, library scanner, sync
-    letterboxd/            -- Letterboxd RSS feed parser, sync
-    watching/              -- Shared TMDB client for all watching sources
-    discogs/               -- Discogs API client, transforms, cross-ref, sync
-    trakt/                 -- Trakt OAuth, API client, sync
-    instapaper/            -- Instapaper OAuth 1.0a client, transforms, sync
-    images/                -- Image pipeline (sources, storage, thumbhash, color extraction)
-  lib/
-    auth.ts                -- API key authentication middleware (Bearer token, in-memory cache, rate limiting)
-    cors.ts                -- CORS middleware (configurable origins)
-    errors.ts              -- Error response helpers
-    cache.ts               -- Cache-Control header helpers
-    rate-limit.ts          -- Sliding window rate limiter (per-key, 60s window)
-    sync-retry.ts          -- Sync retry logic (max 2 retries on consecutive failures)
-    date-filters.ts        -- Shared DateFilterQuery schema and buildDateCondition() helper
-  types/
-    env.ts                 -- Cloudflare bindings (Env interface)
-migrations/                -- D1 SQL migration files
-mcp-server/                -- MCP server (npm: rewind-mcp-server), separate package
-  src/
-    tools/                 -- Tool definitions per domain
-      schemas/             -- Zod outputSchema per domain (z.infer drives the TS types)
-    server.ts              -- MCP server setup, tool/resource/prompt registration
-    client.ts              -- HTTP client for api.rewind.rest
-    worker.ts              -- Cloudflare Worker entry (remote transport)
-    index.ts               -- CLI entry (stdio transport)
-docs/                      -- Project documentation
-```
+- [Architecture](docs/ARCHITECTURE.md) explains the system and links to implementation entry points.
+- [Documentation index](docs/README.md) lists current guides and project history.
+- [Documentation maintenance](docs/MAINTENANCE.md) defines sources of truth, regeneration, and required checks.
+- Routes and response schemas live in `src/routes/`; database schemas live in `src/db/schema/`.
+- The separate artwork Worker lives in `src/cd-artwork-worker.ts`; MCP registrations live in `mcp-server/src/`.
 
 ## Key Conventions
 
 - All route handlers return JSON with consistent shapes
-- All endpoints require `Authorization: Bearer rw_...` header. Read keys access GET endpoints. Admin keys access all endpoints.
-- All domain tables include `user_id` (default 1) for multi-user readiness
+- Data endpoints require `Authorization: Bearer rw_...`. `/v1/health`, `/v1/health/sync`, and `/v1/openapi.json` are public; webhooks use provider-specific verification. Read keys access read routes; admin routes require admin keys.
+- Scope owner-bearing queries to the authenticated user; a default `user_id` does not establish isolation.
 - Error responses: `{ "error": "message", "status": 404 }`
 - Cache-Control headers set per endpoint group (see docs/ARCHITECTURE.md)
 - Image responses include `dominant_color` and `accent_color` hex values alongside `thumbhash`
@@ -108,37 +59,17 @@ docs/                      -- Project documentation
 - Pagination: `{ data: [...], pagination: { page, limit, total, total_pages } }`
 - Date filtering: most list/recent/stats/feed endpoints accept optional `date` (YYYY-MM-DD), `from`, `to` (ISO 8601) query params via shared `DateFilterQuery` schema
 
+## Documentation maintenance
+
+For changes to API or MCP contracts, update source descriptions and regenerate snapshots/reference pages in the same change. Run `npm run docs:check` and the checks in [docs/MAINTENANCE.md](docs/MAINTENANCE.md). Keep endpoint inventories, response types, schedules, and configuration values in their authoritative sources; link to them from prose. Add new project directories to `docs/README.md`.
+
 ## Documentation style
 
 - **No parentheticals in user-facing headings.** Reader-facing pages (`README.md`, `docs-mintlify/**`, `docs-site/src/pages/**`, public changelog entries) keep headings clean — never `## Foo (Bar)`. If you need to qualify, use an em-dash (`## Foo — Bar`), a colon (`## Foo: Bar`), or rewrite as a subhead. Internal `docs/` design notes are exempt — they're allowed to use parens for project-tracking shorthand like `## Phase 7 (deferred)`.
 
-## Environment Variables
+## Configuration
 
-| Variable                         | Domain     | Description                                                                 |
-| -------------------------------- | ---------- | --------------------------------------------------------------------------- |
-| `ALLOWED_ORIGINS`                | System     | CORS allowed origins (comma-separated, default: patdugan.me,localhost:3000) |
-| `LASTFM_API_KEY`                 | Listening  | Last.fm API key                                                             |
-| `LASTFM_USERNAME`                | Listening  | Last.fm username (pdugan20)                                                 |
-| `STRAVA_CLIENT_ID`               | Running    | Strava OAuth app client ID                                                  |
-| `STRAVA_CLIENT_SECRET`           | Running    | Strava OAuth app client secret                                              |
-| `STRAVA_WEBHOOK_VERIFY_TOKEN`    | Running    | Strava webhook validation token                                             |
-| `PLEX_URL`                       | Watching   | Plex server URL                                                             |
-| `PLEX_TOKEN`                     | Watching   | Plex authentication token                                                   |
-| `PLEX_WEBHOOK_SECRET`            | Watching   | Webhook source verification                                                 |
-| `TMDB_API_KEY`                   | Watching   | TMDB API read access token                                                  |
-| `LETTERBOXD_USERNAME`            | Watching   | Letterboxd username for RSS feed sync                                       |
-| `DISCOGS_PERSONAL_TOKEN`         | Collecting | Discogs personal access token                                               |
-| `DISCOGS_USERNAME`               | Collecting | Discogs username (patdugan)                                                 |
-| `TRAKT_CLIENT_ID`                | Collecting | Trakt OAuth app client ID                                                   |
-| `TRAKT_CLIENT_SECRET`            | Collecting | Trakt OAuth app client secret                                               |
-| `INSTAPAPER_CONSUMER_KEY`        | Reading    | Instapaper OAuth consumer key                                               |
-| `INSTAPAPER_CONSUMER_SECRET`     | Reading    | Instapaper OAuth consumer secret                                            |
-| `INSTAPAPER_ACCESS_TOKEN`        | Reading    | Instapaper OAuth access token (from xAuth)                                  |
-| `INSTAPAPER_ACCESS_TOKEN_SECRET` | Reading    | Instapaper OAuth token secret                                               |
-| `APPLE_MUSIC_DEVELOPER_TOKEN`    | Images     | Apple Music JWT                                                             |
-| `FANART_TV_API_KEY`              | Images     | Fanart.tv project API key                                                   |
-
-Cloudflare bindings (D1, R2) are configured in `wrangler.toml`, not as env vars.
+Use `src/types/env.ts` for Worker bindings and configuration types, `.dev.vars.example` as the local starter file, and `wrangler.toml` / `wrangler.cd-artwork.jsonc` for Worker configuration. The starter file is not an exhaustive inventory. Never copy actual secrets into documentation.
 
 ## Database
 

@@ -29,7 +29,11 @@ Sports events are enriched with team and score data: MLB from the MLB Stats API,
 
 The full team object, with name, brand colors, and light and dark logo variants, is denormalized onto every event, player, and appearance, so you never need a second call to render a logo or tint. For MLB, box scores also resolve into per-player appearance lines on the players endpoints.
 
-W/L on the [seasons endpoint](/api-reference/attending/get-attended-season) counts only games you attended (`attended=1`), so a 6-game home season with one no-show reports 5-1, not the team's full 5-2. The exact `event_data` and team field shapes are in the [API reference](/api-reference/attending/get-attended-event).
+W/L on the [seasons endpoint](/api-reference/attending/get-attended-season) counts only games you attended (`attended=1`), so a seven-game set with a 5–1 attended record and one no-show reports 5–1. The exact `event_data` and team field shapes are in the [API reference](/api-reference/attending/get-attended-event).
+
+## Player statistics
+
+Use [attended-player stats](/api-reference/attending/attended-player-stats) to aggregate a player’s performance across games you attended. The response includes sample-size and coverage information; MLB is supported, while other leagues report `supported: false`.
 
 ## Filtering
 
@@ -39,6 +43,7 @@ The events endpoint supports filtering by:
 - `event_type`: specific event type (e.g., `mlb_game`, `concert`).
 - `season` / `year`: sports season or calendar year.
 - `venue_id`: filter to a single venue.
+- `team` / `team_id`: filter sports events by team name or ID.
 - `attended`: `1` for confirmed attendance, `0` for tickets bought but not used, omit for both.
 
 ## Year in review

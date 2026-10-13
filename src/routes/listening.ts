@@ -154,7 +154,7 @@ const TopTrackItemSchema = TopItemSchema.extend({
 
 const includeSparklinesField = z.coerce.boolean().optional().openapi({
   description:
-    'When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {1month, 3month, 6month, 12month, overall}. `overall` returns yearly buckets covering the artist/album/track lifetime; `7day` is unsupported and the field is omitted.',
+    'When true, attach a `sparkline` object (granularity + zero-filled points) to each item. On rolling-period endpoints, supported for period in {7day, 1month, 3month, 6month, 12month, overall}. `7day` returns seven daily buckets. `overall` returns yearly buckets spanning the listening history.',
   example: false,
 });
 
@@ -695,7 +695,7 @@ const topAlbumsRoute = createRoute({
   tags: ['Listening'],
   summary: 'Top albums',
   description:
-    'Returns top albums for a given time period. Pass `include_sparklines=true` to attach a play-count time series per album (1month/3month/6month/12month/overall).',
+    'Returns top albums for a given time period. Pass `include_sparklines=true` to attach a play-count time series per album (7day/1month/3month/6month/12month/overall).',
   request: { query: TopAlbumsQuery },
   responses: {
     200: {
@@ -2123,7 +2123,7 @@ listening.openapi(recentAlbumsRoute, async (c) => {
 });
 
 // Resolve which sparkline window to use for a top-* endpoint based on the
-// period string. Returns null when sparklines are unsupported (e.g. `7day`)
+// period string. Returns null when the period is unsupported
 // or there's no data to anchor an `overall` window against.
 async function resolveTopListSparklineWindow(
   db: Database,

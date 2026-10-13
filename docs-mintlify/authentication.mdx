@@ -1,30 +1,34 @@
 ---
 title: Authentication
 icon: key
-description: API keys and authorization
+description: Authenticate API requests, choose a key scope, and handle per-key rate limits.
 ---
 
 ## API keys
 
-All endpoints (except `/v1/health` and webhooks) require a Bearer token.
+Data endpoints require a Bearer token. `/v1/health`, `/v1/health/sync`, and `/v1/openapi.json` are public. Webhooks use their provider-specific verification.
 
 ```bash
-curl -H "Authorization: Bearer rw_live_..." \
+curl -H "Authorization: Bearer rw_..." \
   https://api.rewind.rest/v1/listening/recent
 ```
 
 ## Key types
 
-| Key type  | Prefix         | Access                                                                     |
-| --------- | -------------- | -------------------------------------------------------------------------- |
-| **Read**  | `rw_live_...`  | All GET endpoints                                                          |
-| **Admin** | `rw_admin_...` | All endpoints including sync triggers, data management, and key management |
+| Key scope | Access                                                              |
+| --------- | ------------------------------------------------------------------- |
+| **Read**  | Authenticated read endpoints outside `/v1/admin/`                   |
+| **Admin** | Read endpoints plus admin sync, data management, and key management |
 
-Read keys are safe to use in client-side applications. Admin keys should only be used server-side.
+New keys use `rw_` followed by a random token. The key record stores its scope; the token prefix does not distinguish read access from admin access.
+
+A read key grants access to the archive associated with that key. Keep it server-side unless you intend to expose that data to everyone who can inspect the client. Keep admin keys server-side.
+
+Request a key from the Rewind administrator. Key creation and revocation require an existing admin key; there is no public self-service signup.
 
 ## Rate limiting
 
-Each API key gets 100 requests per 60-second sliding window. Every response carries the current state in headers, and exceeding the limit returns `429 Too Many Requests`.
+Each API key has a configurable request limit per 60-second sliding window. Authenticated responses that reach the rate limiter carry the current state in headers; exceeding the limit returns `429 Too Many Requests`. Use `X-RateLimit-Limit` to read your key’s limit.
 
 | Header                  | Meaning                                           |
 | ----------------------- | ------------------------------------------------- |

@@ -1,32 +1,17 @@
 ---
 title: Connect via the hosted server
 sidebarTitle: Connect remotely
-description: Connect a mobile or web MCP client to the hosted Rewind server at mcp.rewind.rest, using either a Bearer token or the GitHub sign-in flow.
+description: Connect a mobile or web MCP client to the hosted Rewind server at mcp.rewind.rest, using the GitHub sign-in flow.
 icon: cloud
 ---
 
 The hosted Rewind MCP server runs as a Cloudflare Worker at `https://mcp.rewind.rest/mcp`. Use it when your client cannot launch a local process: Claude on iOS, claude.ai, ChatGPT, and other clients that connect to a remote URL. If you are on a desktop that can run a child process, [connect over local stdio](/mcp/connect-local) instead.
 
-The MCP endpoint is always `https://mcp.rewind.rest/mcp`. How you authenticate depends on your client. Some clients let you paste a static Bearer token. Others speak full OAuth and walk you through a GitHub sign-in. Both paths reach the same server.
-
-## Connect with a Bearer token
-
-If your client lets you add a remote MCP server with a custom authorization header, point it at the endpoint and pass your [Rewind API key](/authentication) as a Bearer token.
-
-```json title="remote-mcp-config.json"
-{
-  "url": "https://mcp.rewind.rest/mcp",
-  "headers": {
-    "Authorization": "Bearer rw_live_..."
-  }
-}
-```
-
-Use a read key. The server only exposes read tools, so an admin key buys you nothing here. See [authentication](/authentication) for how to mint a key.
+The MCP endpoint is `https://mcp.rewind.rest/mcp`. Connect with an OAuth-capable client and complete GitHub sign-in. A Rewind REST API key (`rw_...`) cannot authenticate directly to this endpoint; use it with the [local stdio server](/mcp/connect-local) instead.
 
 ## Connect with GitHub sign-in
 
-Clients that implement the full OAuth 2.1 handshake (claude.ai and Claude on iOS, for example) do not ask you for an API key. You add the server by URL, and the client redirects you through a consent flow. The Worker uses GitHub as the upstream identity provider and maps your GitHub account to a Rewind user behind the scenes.
+Clients that implement the full OAuth 2.1 handshake (claude.ai and Claude on iOS, for example) do not ask you for an API key. You add the server by URL, and the client redirects you through a consent flow. The Worker uses GitHub as the upstream identity provider and checks your GitHub account against its access allowlist. The hosted Worker reads the archive configured by its server-side Rewind API key.
 
 <Steps titleSize="h3">
   <Step title="Add the server by URL">
@@ -53,7 +38,7 @@ Clients that implement the full OAuth 2.1 handshake (claude.ai and Claude on iOS
 
 ### The allowlist
 
-Rewind is a single-user personal archive, so the hosted server does not grant access to anyone with a GitHub account. The Worker keeps an allowlist that maps specific GitHub user IDs to Rewind users. If your GitHub account is not on it, the callback fails with a `403` and a message naming your GitHub login and ID, telling you to contact the Rewind admin to request access. To get added, send the admin the GitHub login and numeric user ID shown in that error.
+Rewind is a single-user personal archive, so the hosted server does not grant access to anyone with a GitHub account. The Worker keeps an allowlist that associates allowed GitHub user IDs with Rewind user IDs. If your GitHub account is not on it, the callback fails with a `403` and a message naming your GitHub login and ID, telling you to contact the Rewind admin to request access. To get added, send the admin the GitHub login and numeric user ID shown in that error.
 
 <Note>
   See [troubleshooting](/troubleshooting#claude-and-mcp) for how to resolve a
@@ -62,9 +47,9 @@ Rewind is a single-user personal archive, so the hosted server does not grant ac
 
 ### Scopes
 
-The authorize request can ask for a broad `read` scope or for individual per-domain read scopes. The server advertises the full set:
+The server advertises the following read scopes. These names do not provide per-domain tool isolation in the current implementation; an authorized connection exposes the read-only tool set for the configured archive:
 
-| Scope             | Grants read access to |
+| Scope             | Advertised domain     |
 | ----------------- | --------------------- |
 | `read`            | Every domain          |
 | `read:listening`  | Listening data        |

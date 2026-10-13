@@ -1,7 +1,7 @@
 ---
 layout: ../layouts/Legal.astro
 title: Data Processing Agreement
-lastUpdated: May 3, 2026
+lastUpdated: October 13, 2026
 ---
 
 ## 1. Introduction
@@ -22,6 +22,8 @@ Rewind processes Personal Data solely to provide the Rewind API service, which i
 - Storing synced data in Cloudflare D1 databases and R2 object storage
 - Serving data via the Rewind REST API
 - Providing data access via the MCP connector for Claude (Anthropic)
+- Generating search embeddings from article text and queries using Voyage AI
+- Generating CD artwork from source images and prompts using OpenAI
 
 ## 4. Data Categories
 
@@ -37,29 +39,30 @@ Rewind processes Personal Data solely to provide the Rewind API service, which i
 
 ## 5. Sub-processors
 
-| Sub-processor | Purpose                                           | Data location              |
-| ------------- | ------------------------------------------------- | -------------------------- |
-| Cloudflare    | Infrastructure (Workers, D1, R2, KV)              | Global edge network        |
-| Anthropic     | AI assistant (when MCP connector is used)         | Anthropic's infrastructure |
-| GitHub        | OAuth authentication (when MCP connector is used) | GitHub's infrastructure    |
+| Sub-processor | Purpose                                           | Data location                   |
+| ------------- | ------------------------------------------------- | ------------------------------- |
+| Cloudflare    | Infrastructure (Workers, D1, R2, KV, Vectorize)   | Global edge network             |
+| Anthropic     | AI assistant (when MCP connector is used)         | Anthropic's infrastructure      |
+| GitHub        | OAuth authentication (when MCP connector is used) | GitHub's infrastructure         |
+| Voyage AI     | Search embeddings                                 | Provider-managed infrastructure |
+| OpenAI        | CD artwork generation                             | Provider-managed infrastructure |
 
 ## 6. Security Measures
 
-- All data is transmitted over HTTPS/TLS
-- API keys are hashed (SHA-256) before storage
-- OAuth tokens are stored encrypted in Cloudflare KV
-- Access is authenticated on every request (API key or OAuth token)
-- Rate limiting is enforced per key and per IP
-- No plaintext credentials are stored at rest
+- Hosted endpoints use HTTPS/TLS.
+- API keys are hashed with SHA-256 before storage in the key registry.
+- The hosted MCP connector uses a GitHub access allowlist and stores OAuth state in Cloudflare KV.
+- Archive data routes require API-key or OAuth authentication. Public health/schema endpoints and image delivery have separate access rules.
+- API rate limits apply per key; the hosted MCP server also limits requests per IP.
 
 ## 7. Data Subject Rights
 
 Users may exercise the following rights by contacting the Processor:
 
-- **Access**: Export all personal data via the API export endpoints
+- **Access**: Request a copy of personal data from the Processor
 - **Rectification**: Request correction of inaccurate data
 - **Erasure**: Request deletion of all personal data
-- **Portability**: Receive data in JSON or CSV format via export endpoints
+- **Portability**: Request personal data in a portable format from the Processor
 - **Restriction**: Request temporary restriction of processing
 - **Objection**: Object to specific processing activities
 
@@ -68,8 +71,7 @@ Requests will be responded to within 30 days.
 ## 8. Data Retention
 
 - Synced data is retained indefinitely unless deletion is requested
-- OAuth access tokens expire after 1 hour
-- OAuth refresh tokens expire after 90 days of inactivity
+- OAuth session lifetimes are documented in the [remote connection guide](https://docs.rewind.rest/mcp/connect-remote#token-lifetimes)
 - Deleted data is permanently removed from all storage within 30 days
 
 ## 9. Data Breach Notification

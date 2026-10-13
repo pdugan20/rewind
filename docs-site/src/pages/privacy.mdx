@@ -1,7 +1,7 @@
 ---
 layout: ../layouts/Legal.astro
 title: Privacy Policy
-lastUpdated: May 3, 2026
+lastUpdated: October 13, 2026
 ---
 
 ## 1. Overview
@@ -21,30 +21,30 @@ Rewind syncs data from third-party services on behalf of the account owner. This
 
 ## 3. How Data is Stored
 
-All data is stored in Cloudflare D1 (SQLite) databases. Images are stored in Cloudflare R2 object storage. All data is associated with a user ID and is not shared between users.
+Structured archive data is stored in Cloudflare D1 databases, images in R2 object storage, OAuth state in KV, and search embeddings in Vectorize. Rewind is operated as a personal archive; the hosted MCP connector reads the archive configured by the operator. It is not a self-service multi-tenant service.
 
 ## 4. How Data is Used
 
-Data is used solely to power the Rewind API. We do not sell, share, or transfer your data to third parties. Data is only accessible via authenticated API requests using your API key.
+Data powers the Rewind API, connected clients, search, and artwork features. We do not sell your data. Connected clients and the service providers described below receive data needed for those features. Archive API requests require authentication; image delivery and public health/schema endpoints have separate access rules.
 
 ## 5. Third-Party Services
 
-Rewind connects to third-party APIs (Last.fm, Apple Music, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, Google Calendar, Gmail, TMDB) to sync data. Your use of those services is governed by their respective privacy policies.
+Rewind connects to third-party APIs (Last.fm, Apple Music, Strava, Plex, Letterboxd, Discogs, Trakt, Instapaper, Google Calendar, Gmail, TMDB) to sync data. Your use of those services is governed by their respective privacy policies. Semantic search sends article text and search queries to Voyage AI to create embeddings. CD artwork generation sends source artwork and a generation prompt to OpenAI. Cloudflare hosts the service and its storage.
 
 ## 5a. MCP connector for Claude
 
 Rewind provides an MCP (Model Context Protocol) server that allows Claude (by Anthropic) to access your Rewind data. When you connect Claude to Rewind:
 
-- **Authentication**: You authenticate via GitHub OAuth. Rewind does not store your GitHub password. We receive a GitHub user ID which is mapped to your Rewind account.
+- **Authentication**: You authenticate via GitHub OAuth. Rewind does not store your GitHub password. We check your GitHub user ID against the hosted connector’s access allowlist.
 - **Data accessed**: Claude can read your listening, running, watching, collecting, reading, and attending data through the Rewind API. All access is read-only.
 - **Data transmitted to Anthropic**: When you use Claude with the Rewind connector, your data is sent to Anthropic's servers as part of tool call results. Anthropic's handling of this data is governed by [Anthropic's privacy policy](https://www.anthropic.com/privacy) and your Claude plan terms.
-- **OAuth tokens**: Access tokens (1 hour) and refresh tokens (90 days, sliding) are stored encrypted in Cloudflare KV. Tokens are hashed before storage and are automatically deleted upon expiration or when you disconnect the integration.
-- **No additional data collection**: The MCP server is a stateless passthrough. It does not log, store, or analyze your queries or the data returned to Claude beyond what is necessary for the OAuth token lifecycle.
+- **OAuth state**: The hosted server uses Cloudflare KV for OAuth state. See the [remote connection guide](https://docs.rewind.rest/mcp/connect-remote#token-lifetimes) for session lifetimes.
+- **Operational diagnostics**: The service logs authentication and error diagnostics. The MCP connector reads results from the Rewind API rather than maintaining a separate copy of the archive.
 - **Disconnecting**: You can disconnect the Rewind connector from Claude at any time via Claude's settings. This removes Anthropic's stored tokens. Server-side tokens expire naturally or can be revoked by contacting us.
 
 ## 6. Data Retention
 
-Data is retained indefinitely unless you request deletion. You can export all your data at any time via the API's export endpoints.
+Data is retained indefinitely unless you request deletion. Contact the operator to request access to or deletion of your archive. There are no dedicated self-service export endpoints.
 
 ## 7. Security
 

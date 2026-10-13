@@ -1,5 +1,7 @@
 # Image Pipeline
 
+For current endpoints and response fields, use the [public images guide](../../docs-mintlify/domains/images.mdx) and generated API reference. These notes retain integration decisions and historical operational context; source files remain authoritative.
+
 Centralized image management for all domains. Fetches from multiple sources in priority order, stores originals in Cloudflare R2, generates ThumbHash blur placeholders, extracts dominant and accent colors, and serves via CDN with on-the-fly transforms through Cloudflare Images.
 
 ## Architecture
@@ -341,16 +343,6 @@ X-Dominant-Color: #1a2b3c
 X-Accent-Color: #4d5e6f
 Cache-Control: public, max-age=31536000, immutable
 ```
-
-## Environment Variables
-
-| Variable                    | Description                                          |
-| --------------------------- | ---------------------------------------------------- |
-| FANART_TV_API_KEY           | Fanart.tv project API key (free)                     |
-| APPLE_MUSIC_DEVELOPER_TOKEN | Apple Music JWT (shared with listening domain)       |
-| TMDB_API_KEY                | TMDB read access token (shared with watching domain) |
-
-R2 bucket binding (IMAGES) configured in wrangler.toml.
 
 ## Image Overrides
 

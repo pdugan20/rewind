@@ -318,6 +318,25 @@ function validateCi(document, problems) {
   if (!docsCommands.includes('npm exec -- mint broken-links')) {
     problems.push('Docs must invoke exact locally installed Mint');
   }
+  for (const command of [
+    'npm run test:docs',
+    'node scripts/check-docs.mjs',
+    'npm exec -- mint validate',
+    'npm exec -- mint broken-links --check-anchors --check-redirects',
+    'npm ci --prefix docs-site --ignore-scripts',
+    'npm run www:build',
+  ]) {
+    const steps = (document.jobs?.docs?.steps ?? []).filter(
+      (step) => stepRun(step) === command
+    );
+    if (
+      steps.length !== 1 ||
+      steps[0]?.if !== undefined ||
+      steps[0]?.['continue-on-error'] !== undefined
+    ) {
+      problems.push(`Docs must run without bypass: ${command}`);
+    }
+  }
   const lintCommands = (document.jobs?.lint?.steps ?? [])
     .map(stepRun)
     .join('\n');
@@ -2921,4 +2940,38 @@ test('artwork deploy shares the trusted CI gate and D1 migration job', () => {
   assert.ok(
     deploy.jobs['finalize-checkpoint'].needs.includes('deploy-root-worker')
   );
+});
+
+test('documentation checks cannot be removed or made optional', () => {
+  const baseline = parse(
+    readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8')
+  );
+  for (const command of [
+    'npm run test:docs',
+    'node scripts/check-docs.mjs',
+    'npm exec -- mint validate',
+    'npm exec -- mint broken-links --check-anchors --check-redirects',
+    'npm run www:build',
+  ]) {
+    for (const bypass of ['remove', 'if', 'continue-on-error']) {
+      const document = structuredClone(baseline);
+      const step = document.jobs.docs.steps.find(
+        (step) => stepRun(step) === command
+      );
+      assert.ok(step, command);
+      if (bypass === 'remove')
+        document.jobs.docs.steps = document.jobs.docs.steps.filter(
+          (candidate) => candidate !== step
+        );
+      else step[bypass] = bypass === 'if' ? 'false' : true;
+      const problems = [];
+      validateCi(document, problems);
+      assert.ok(
+        problems.some((message) =>
+          message.includes(`Docs must run without bypass: ${command}`)
+        ),
+        `${command}: ${bypass}`
+      );
+    }
+  }
 });

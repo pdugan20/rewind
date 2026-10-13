@@ -1,6 +1,6 @@
 # Landing Site Improvements
 
-Technical reference for upgrading `rewind.rest` (Astro landing site).
+Historical proposal for `rewind.rest`. Its snippets and page inventory describe the original design, not current configuration. Use [README](README.md) for remaining decisions and inspect `docs-site/` before implementation.
 
 ## Current State
 
