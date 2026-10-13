@@ -2,7 +2,8 @@
 
 > **Status — 2026-08-11:** core shipped work is preserved here. GitHub #67–#69
 > own current expansion work.
-> Turn the existing attending domain into a queryable, fan-perspective analytic surface for natural-language questions like "what Mariners games have I attended this season," "how many home runs have the Mariners hit at games I attended," "what's Julio's batting average at games I've attended this year," and "how many times have I seen Kirby pitch."
+
+Turn the existing attending domain into a queryable, fan-perspective analytic surface for natural-language questions like "what Mariners games have I attended this season," "how many home runs have the Mariners hit at games I attended," "what's Julio's batting average at games I've attended this year," and "how many times have I seen Kirby pitch."
 
 The underlying data is mostly already on disk — `attended_event_players` carries per-game `batting_line` / `pitching_line` JSON parsed from MLB box scores, and each event's `event_data` carries `home_team` / `away_team` / scores. The gaps are query shape (no team filter on `/events`), aggregation (model has to fetch every game and sum client-side), and UI (only the season grid renders inline today; everything else is text + accordion images).
 

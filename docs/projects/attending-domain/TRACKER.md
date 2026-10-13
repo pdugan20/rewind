@@ -4,7 +4,8 @@
 > follow-ups live in GitHub #67 (non-MLB box scores), #68 (performer photos),
 > and #69 (setlist enrichment). Unchecked historical phase items are not a
 > second backlog.
-> Legend: [ ] pending, [x] done, [~] in progress.
+
+Legend: [ ] pending, [x] done, [~] in progress.
 
 Phases are designed to ship independently — each delivers verifiable value (tests pass, an admin endpoint returns real data) on its own. Earlier phases gate later ones; within a phase, sub-tasks usually parallelize.
 

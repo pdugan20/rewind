@@ -3,7 +3,8 @@
 > **Reconciled 2026-08-11:** completed/historical working ledger. Remaining
 > unchecked ideas are not active unless promoted to a current GitHub or Linear
 > issue.
-> Legend: [ ] pending, [x] done, [~] in progress.
+
+Legend: [ ] pending, [x] done, [~] in progress.
 
 Background and motivation in `README.md`.
 
