@@ -1,4 +1,7 @@
-import { queueArtworkReprocessing } from './services/cd-artwork/reprocessing.js';
+import {
+  queueArtworkReprocessing,
+  queueRenderRetry,
+} from './services/cd-artwork/reprocessing.js';
 import {
   galleryApp,
   registerGalleryData,
@@ -887,7 +890,7 @@ export class CdDiscoveryWorkflow extends WorkflowEntrypoint<
       if (attempt < 3)
         await step.sleep(
           `provider-backoff-${attempt}`,
-          (result.outcome === 'catalog_changed'
+          (result.outcome === 'catalog_changed' || result.capacityRetry
             ? result.retryAfter
             : Math.max(3600 * 2 ** attempt, result.retryAfter)) * 1000
         );
@@ -935,6 +938,16 @@ export class CdArtworkWorkflow extends WorkflowEntrypoint<
       () => processRaw(this.env, jobId, userId)
     );
     const job = await getJob(this.env, jobId, userId);
+    if (job?.automatic && !registered.candidateHash) {
+      await step.do(
+        'admit-automatic-render-recovery',
+        { retries: { limit: 2, delay: '10 seconds' }, timeout: '1 minute' },
+        async () => {
+          await queueRenderRetry(this.env, jobId, userId);
+          await dispatchListeningChecks(this.env);
+        }
+      );
+    }
     if (job?.automatic && registered.candidateHash) {
       const published = await step.do(
         'publish-verified-candidate',

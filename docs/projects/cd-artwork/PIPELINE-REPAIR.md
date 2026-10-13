@@ -1,6 +1,14 @@
 # Automatic artwork pipeline repair
 
-Current status: the uncapped Worker with full-pixel material proposal measurement
+The existing-artwork reset was released through PR323 and admitted the requested
+batch into the normal automated pipeline. It exposed two shared gaps: transparent
+pale discs were measured against a white matte, and catalog formatting or stale
+bindings could strand source lookup. The repair described under natural-flow
+recovery below addresses those gaps and connects failed renders to automatic
+source recovery. Release and public activation are verified separately; diagnostic
+images are never imported as replacements.
+
+Earlier material release: the uncapped Worker with full-pixel material proposal measurement
 is deployed at `2867661f-86d9-4a35-80de-ee6c43dadaa6`. Four fresh live samples
 have published automatically: one native retail source, two restored retail
 sources and one cover-generated design. Their public PNG/WebP hashes and exact
@@ -305,7 +313,33 @@ That diagnostic image still shows colored detail just inside the neutral band;
 the whole final disc must be checked. Geometry passing alone is not publication
 proof. No diagnostic PNG is imported as part of this correction.
 
-This follow-up has not been deployed and no live selections have been reset yet.
-Release must use committed source on main through the current deployment guard;
-do not bypass it with another dirty-checkout upload. The portfolio remains
-undeployed and is outside this batch.
+This reset was released through committed source on main. The portfolio remains
+undeployed. All further releases use the same protected source/deployment guard.
+
+## Natural-flow recovery
+
+Transparent images with transparent exterior and spindle are measured using their
+alpha boundaries, keeping pale artwork independent of white-matte contrast.
+Opaque scans retain the photographed-boundary path. Connected spindle/background
+components, hidden RGB, excessive distortion and final visible defects still fail.
+
+Stored Apple IDs are hints to verify, not permanent failures. A failed binding can
+recover through a uniquely matched collection, exact album artist and observed
+track. Bound MusicBrainz title, artist and release-group evidence resolves catalog
+disambiguation and live labels; these labels are not stripped blindly. Song guest
+credits do not invalidate album membership. A small scrobble-title variance is
+allowed only with independent logical-album proof, one matching track and unchanged
+version qualifiers. Ordinary checks retain recorded-album evidence; legacy evidence
+is inherited only from an explicitly authorized check tied to that job.
+
+A geometry/quality failure durably queues source selection again. The existing
+source retry policy permits a corrective generation and then moves to alternatives
+or stops when sources are exhausted. Repeated Workflow delivery cannot create an
+unbounded generation loop. Retry admission preserves existing accepted artwork;
+only an explicit outdated-artwork reset withdraws a selection. Pins, owner review,
+identity changes and non-render interruptions do not enter this retry path.
+
+Local provider spacing does not reserve unused slots under contention and uses
+seconds of Workflow backoff. Real provider outages retain their Retry-After and
+bounded exponential recovery. Outdated processor-tagged reset checks can be
+replaced atomically without cancelling ordinary pending listening checks.

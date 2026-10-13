@@ -8,7 +8,8 @@ import {
 import { beforeAll, beforeEach, afterEach, it, expect, vi } from 'vitest';
 import type { ArtworkEnv, Job } from './types.js';
 import { now, sha256 } from './types.js';
-import { artworkApp } from '../../cd-artwork-worker.js';
+import { artworkApp, CdArtworkWorkflow } from '../../cd-artwork-worker.js';
+import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { createTestApiKey } from '../../test-helpers.js';
 import { clearAuthCache } from '../../lib/auth.js';
 import {
@@ -24,7 +25,7 @@ import { ArtworkError } from './sources.js';
 import { checkListeningArtwork } from './discovery.js';
 import { generateOnce, processRaw } from './generation.js';
 import { publishAutomatic } from './automatic.js';
-import { queueArtworkReprocessing } from './reprocessing.js';
+import { queueArtworkReprocessing, queueRenderRetry } from './reprocessing.js';
 import { saveFeedback, feedbackSchema } from './feedback.js';
 import { materialInspectionView } from './rendering.js';
 import { png, readPixels } from '../../../scripts/cd-artwork/pixels.mjs';
@@ -279,6 +280,97 @@ async function selected(retail = false) {
 }
 const withKey = () =>
   ({ ...runtime, OPENAI_API_KEY: 'synthetic-test-key' }) as ArtworkEnv;
+it.each(['proven', 'unbound', 'ambiguous', 'version'])(
+  'allows a small track typo only with unique independent album proof %s',
+  async (mode) => {
+    await play();
+    await runtime.DB.exec(
+      "UPDATE lastfm_tracks SET name='Synthetic in the water' WHERE id=1;"
+    );
+    if (mode !== 'unbound')
+      await runtime.DB.prepare('UPDATE lastfm_albums SET mbid=? WHERE id=1')
+        .bind(RELEASE)
+        .run();
+    const collection = structuredClone(appleAlbum);
+    collection.relationships.tracks.data[0].attributes.name =
+      'Synthetic into the water';
+    if (mode === 'ambiguous')
+      collection.relationships.tracks.data.push({
+        id: '457',
+        attributes: {
+          name: 'Synthetic in the waters',
+          artistName: 'Synthetic artist',
+        },
+      });
+    if (mode === 'version')
+      collection.relationships.tracks.data[0].attributes.name += ' (Live)';
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      if (String(url).includes('musicbrainz.org'))
+        return Response.json({
+          id: RELEASE,
+          title: 'Synthetic album',
+          'artist-credit': [{ name: 'Synthetic artist' }],
+          'release-group': { id: GROUP, title: 'Synthetic album' },
+        });
+      return Response.json(
+        String(url).includes('/search?')
+          ? { results: { albums: { data: [collection] } } }
+          : { data: [collection] }
+      );
+    });
+    const promise = verifiedCover(
+      { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1)
+    );
+    if (mode === 'proven')
+      expect((await promise).discovery.observed_track_proof).toBe(
+        'catalog_anchored_title_variance'
+      );
+    else
+      await expect(promise).rejects.toMatchObject({
+        code: 'cover_track_mismatch',
+      });
+  }
+);
+it('a failed background restoration keeps the existing accepted cover visible during recovery', async () => {
+  providers({ retail: true, verdictOverride: { no_added_rim_effects: false } });
+  await play();
+  await runtime.DB.prepare(
+    "INSERT INTO cd_artwork_jobs(id,user_id,album_id,state,input,source_hash,source_key,source_mime,candidate_hash,provenance,updated_at,created_at) VALUES('old-cover',1,1,'accepted',?,'old-source','old-key','image/png',?,'{}',?,?)"
+  )
+    .bind(
+      JSON.stringify({ source_kind: 'cover' }),
+      'f'.repeat(64),
+      now(),
+      now()
+    )
+    .run();
+  await runtime.DB.exec(
+    "UPDATE cd_artwork_albums SET active_job='old-cover' WHERE user_id=1 AND album_id=1; UPDATE cd_artwork_checks SET completed_at='2026-01-01' WHERE user_id=1 AND album_id=1;"
+  );
+  const album = await ownedAlbum(runtime, 1, 1);
+  const source = await selectAutomaticSource(runtime, 1, 1, album, RELEASE, 1);
+  const job = (
+    await enqueue(runtime, source.request, 1, false, {
+      source,
+      expectedActiveJob: 'old-cover',
+      catalogIdentity: album,
+    })
+  ).job;
+  await generateOnce(withKey(), job.id, 1);
+  await processRaw(withKey(), job.id, 1);
+  expect(await queueRenderRetry(runtime, job.id, 1)).toBe(true);
+  expect(
+    await runtime.DB.prepare(
+      'SELECT active_job,hidden_job FROM cd_artwork_albums WHERE user_id=1 AND album_id=1'
+    ).first()
+  ).toMatchObject({ active_job: 'old-cover', hidden_job: null });
+});
 it('admits a new album with no CD identity exactly once and selects its verified cover', async () => {
   providers();
   await play();
@@ -513,6 +605,182 @@ it('authenticated Apple catalog verifies a cover without requiring a CD edition'
     })
   );
 });
+it('recovers a stale stored catalog ID through a unique album, artist and track proof', async () => {
+  await play();
+  const corrected = structuredClone(appleAlbum);
+  corrected.id = '789';
+  const stale = structuredClone(appleAlbum);
+  stale.attributes.name = 'Unrelated album';
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    await runtime.DB.exec(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+    );
+    const u = String(url);
+    return Response.json(
+      u.includes('/search?')
+        ? { results: { albums: { data: [corrected] } } }
+        : { data: [u.includes('/albums/789?') ? corrected : stale] }
+    );
+  });
+  const result = await verifiedCover(
+    { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1)
+  );
+  expect(result.discovery.collection_id).toBe('789');
+  expect(result.discovery.observed_track_verified).toBe(true);
+  expect((await ownedAlbum(runtime, 1, 1)).apple_music_id).toBe(123);
+});
+it('accepts featured song credits while keeping collection artist and track membership checks', async () => {
+  await play();
+  const collection = structuredClone(appleAlbum);
+  collection.relationships.tracks.data[0].attributes.name =
+    'Synthetic song (feat. Guest)';
+  collection.relationships.tracks.data[0].attributes.artistName =
+    'Synthetic artist & Guest';
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+    Response.json({ data: [collection] })
+  );
+  const result = await verifiedCover(
+    { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1)
+  );
+  expect(result.discovery.observed_track_verified).toBe(true);
+});
+it.each([false, true])(
+  'accepts omitted leading song articles only for a unique album member %s',
+  async (ambiguous) => {
+    await play();
+    const collection = structuredClone(appleAlbum);
+    collection.relationships.tracks.data[0].attributes.name =
+      'A Synthetic song';
+    if (ambiguous)
+      collection.relationships.tracks.data.push({
+        id: '457',
+        attributes: {
+          name: 'The Synthetic song',
+          artistName: 'Synthetic artist',
+        },
+      });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      return Response.json(
+        String(url).includes('/search?')
+          ? { results: { albums: { data: [collection] } } }
+          : { data: [collection] }
+      );
+    });
+    const promise = verifiedCover(
+      { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1)
+    );
+    if (ambiguous)
+      await expect(promise).rejects.toMatchObject({
+        code: 'cover_track_mismatch',
+      });
+    else expect((await promise).discovery.observed_track_verified).toBe(true);
+  }
+);
+it.each([true, false])(
+  'requires catalog evidence before treating a bare title as an inherently live album %s',
+  async (live) => {
+    await play();
+    await runtime.DB.prepare('UPDATE lastfm_albums SET mbid=? WHERE id=1')
+      .bind(RELEASE)
+      .run();
+    const collection = structuredClone(appleAlbum);
+    collection.attributes.name += ' (Live)';
+    collection.relationships.tracks.data[0].attributes.name += ' (Live)';
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      if (String(url).includes('musicbrainz.org'))
+        return Response.json({
+          id: RELEASE,
+          title: 'Synthetic album',
+          'artist-credit': [{ name: 'Synthetic artist' }],
+          'release-group': {
+            id: GROUP,
+            title: 'Synthetic album',
+            'secondary-types': live ? ['Live'] : [],
+          },
+        });
+      return Response.json(
+        String(url).includes('/search?')
+          ? { results: { albums: { data: [collection] } } }
+          : { data: [collection] }
+      );
+    });
+    const promise = verifiedCover(
+      { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1)
+    );
+    if (live)
+      expect((await promise).discovery.catalog_alias_proof).toMatchObject({
+        live: true,
+      });
+    else
+      await expect(promise).rejects.toMatchObject({
+        code: 'cover_identity_unverified',
+      });
+  }
+);
+it.each(['Amber Album', 'Other Album'])(
+  'uses bound catalog disambiguation rather than guessing self-title aliases %s',
+  async (disambiguation) => {
+    await play();
+    await runtime.DB.prepare(
+      "UPDATE lastfm_albums SET name='Synthetic album (Amber Album)',mbid=? WHERE id=1"
+    )
+      .bind(RELEASE)
+      .run();
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      if (String(url).includes('musicbrainz.org'))
+        return Response.json({
+          id: RELEASE,
+          title: 'Synthetic album',
+          'artist-credit': [{ name: 'Synthetic artist' }],
+          'release-group': {
+            id: GROUP,
+            title: 'Synthetic album',
+            disambiguation,
+          },
+        });
+      return Response.json(
+        String(url).includes('/search?')
+          ? { results: { albums: { data: [appleAlbum] } } }
+          : { data: [appleAlbum] }
+      );
+    });
+    const promise = verifiedCover(
+      { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1)
+    );
+    if (disambiguation === 'Amber Album')
+      expect((await promise).discovery.catalog_alias_proof).toMatchObject({
+        titleAliasVerified: true,
+      });
+    else
+      await expect(promise).rejects.toMatchObject({
+        code: 'cover_identity_unverified',
+      });
+  }
+);
 it.each(['artist', 'album', 'track'])(
   'authenticated Apple catalog holds contradictory %s metadata',
   async (field) => {
@@ -522,7 +790,7 @@ it.each(['artist', 'album', 'track'])(
     if (field === 'album') album.attributes.name = 'Different album';
     if (field === 'track')
       album.relationships.tracks.data[0].attributes.name = 'Different song';
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
       Response.json({ data: [album] })
     );
     await expect(
@@ -857,7 +1125,9 @@ it.each(['album', 'artist', 'track'])(
     if (field === 'album') bad.results[0].collectionName = 'Different album';
     if (field === 'artist') bad.results[0].artistName = 'Different artist';
     if (field === 'track') bad.results[1].trackName = 'Different song';
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json(bad));
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      Response.json(bad)
+    );
     await expect(
       verifiedCover(runtime, 1, 1, await ownedAlbum(runtime, 1, 1))
     ).rejects.toMatchObject({
@@ -923,7 +1193,7 @@ it('a retail scan cannot bypass a contradictory stored Apple album binding', asy
   bad.results[0].collectionName = 'Different album';
   const fetcher = vi
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValue(Response.json(bad));
+    .mockImplementation(async () => Response.json(bad));
   await expect(
     selectAutomaticSource(
       runtime,
@@ -935,7 +1205,7 @@ it('a retail scan cannot bypass a contradictory stored Apple album binding', asy
     )
   ).rejects.toMatchObject({ code: 'cover_identity_unverified' });
   expect(
-    fetcher.mock.calls.some(([u]) => String(u).includes('musicbrainz.org'))
+    fetcher.mock.calls.some(([u]) => String(u).includes('coverartarchive.org'))
   ).toBe(false);
 });
 it('an independently verified cover remains usable while retail discovery retries', async () => {
@@ -1372,6 +1642,113 @@ it('retries the same source once with a distinct prompt, then stops spending', a
     ).sourceKind
   ).toBe('cover');
 });
+it('new listening automatically retries a failed render once and stops when that source is exhausted', async () => {
+  const fetcher = providers({
+    verdictOverride: { no_added_rim_effects: false },
+  });
+  await play();
+  const create = vi.fn(async () => ({}));
+  const target = {
+    ...withKey(),
+    CD_WORKFLOW: { create },
+    CD_DISCOVERY: { create },
+  } as unknown as ArtworkEnv;
+  const firstCheck = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
+  ).first<{ id: number }>())!;
+  await checkListeningArtwork(target, firstCheck.id);
+  const first = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_jobs ORDER BY created_at DESC LIMIT 1'
+  ).first<{ id: string }>())!;
+  const step = {
+    do: vi.fn(
+      async (
+        _name: string,
+        _options: unknown,
+        action: () => Promise<unknown>
+      ) => action()
+    ),
+  } as unknown as WorkflowStep;
+  const run = (id: string) =>
+    CdArtworkWorkflow.prototype.run.call(
+      { env: target } as unknown as CdArtworkWorkflow,
+      { payload: { jobId: id, userId: 1 } } as WorkflowEvent<{
+        jobId: string;
+        userId: number;
+      }>,
+      step
+    );
+  await run(first.id);
+  expect((await getJob(target, first.id, 1))?.error_code).toBe(
+    'automatic_quality_hold'
+  );
+  expect(await queueRenderRetry(target, first.id, 1)).toBe(false);
+  const retryCheck = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
+  ).first<{ id: number }>())!;
+  expect(retryCheck.id).not.toBe(firstCheck.id);
+  await checkListeningArtwork(target, retryCheck.id);
+  const retry = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_jobs WHERE id<>?'
+  )
+    .bind(first.id)
+    .first<{ id: string }>())!;
+  expect(
+    JSON.parse((await getJob(target, retry.id, 1))!.provenance).renderRetry
+  ).toEqual({ attempt: 1, reason: 'quality' });
+  await run(retry.id);
+  const exhaustedCheck = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
+  ).first<{ id: number }>())!;
+  expect((await checkListeningArtwork(target, exhaustedCheck.id)).outcome).toBe(
+    'source_unavailable'
+  );
+  expect(
+    (
+      await runtime.DB.prepare(
+        'SELECT COUNT(*) n FROM cd_artwork_checks WHERE completed_at IS NULL'
+      ).first<{ n: number }>()
+    )?.n
+  ).toBe(0);
+  expect(
+    (
+      await runtime.DB.prepare(
+        "SELECT COUNT(*) n FROM cd_artwork_events WHERE action='automatic-reprocess-requested'"
+      ).first<{ n: number }>()
+    )?.n
+  ).toBe(0);
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).includes('/images/edits'))
+  ).toHaveLength(2);
+  expect(await approvedArtwork(target, [1], 1)).toEqual([]);
+});
+it.each(['pinned', 'review_hold', 'automatic_verification_unavailable'])(
+  'does not automate an owner hold or unrelated interruption %s',
+  async (blocked) => {
+    providers({ verdictOverride: { no_visible_defects: false } });
+    const job = await selected();
+    await generateOnce(withKey(), job.id, 1);
+    await processRaw(withKey(), job.id, 1);
+    if (blocked === 'automatic_verification_unavailable')
+      await runtime.DB.prepare(
+        'UPDATE cd_artwork_jobs SET error_code=? WHERE id=?'
+      )
+        .bind(blocked, job.id)
+        .run();
+    else
+      await runtime.DB.exec(
+        `UPDATE cd_artwork_albums SET ${blocked}=1 WHERE user_id=1 AND album_id=1;`
+      );
+    expect(await queueRenderRetry(runtime, job.id, 1)).toBe(false);
+    expect(
+      (
+        await runtime.DB.prepare(
+          "SELECT COUNT(*) n FROM cd_artwork_events WHERE action='automatic-render-retry-requested'"
+        ).first<{ n: number }>()
+      )?.n
+    ).toBe(0);
+  }
+);
 it('a verifier outage does not blacklist otherwise usable source artwork', async () => {
   providers({ failVerifier: true });
   const job = await selected(),

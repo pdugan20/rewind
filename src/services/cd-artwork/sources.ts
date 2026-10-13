@@ -99,6 +99,52 @@ interface Release {
     artist?: { id?: string; name: string };
   }>;
 }
+/** Resolve title aliases only from a bound catalog entity and its artist.
+ * Store labels such as a color-album disambiguator or a live suffix are not
+ * guessed from strings. They must agree with MusicBrainz's logical album. */
+export async function catalogIdentityProof(
+  env: ArtworkEnv,
+  album: CatalogAlbum,
+  knownRelease?: string
+) {
+  const id = album.mbid || knownRelease;
+  if (!id || !uuid.test(id)) return null;
+  type Identity = Release & {
+    disambiguation?: string;
+    'secondary-types'?: string[];
+    'release-group'?: {
+      id: string;
+      title?: string;
+      disambiguation?: string;
+      'secondary-types'?: string[];
+    };
+  };
+  let record = await providerJson<Identity>(
+    env,
+    `https://musicbrainz.org/ws/2/release/${id}?inc=release-groups+artist-credits&fmt=json`
+  );
+  if (!record)
+    record = await providerJson<Identity>(
+      env,
+      `https://musicbrainz.org/ws/2/release-group/${id}?inc=artist-credits&fmt=json`
+    );
+  if (!record?.title || !artistIdentityMatches(album, record)) return null;
+  const group = record['release-group'] ?? record;
+  const title = group.title || record.title;
+  const alias = album.name.match(/^(.*?)\s*\(([^()]+)\)$/);
+  const sameAlias =
+    alias &&
+    albumMatches(alias[1], title, album.artist) &&
+    group.disambiguation &&
+    normalize(alias[2]) === normalize(group.disambiguation);
+  if (!albumMatches(album.name, title, album.artist) && !sameAlias) return null;
+  return {
+    title,
+    releaseGroupId: group.id,
+    live: group['secondary-types']?.includes('Live') === true,
+    titleAliasVerified: !!sameAlias,
+  };
+}
 export interface CatalogAlbum {
   name: string;
   artist: string;
@@ -175,14 +221,26 @@ export async function providerJson<T>(
       : hostname === 'www.theaudiodb.com'
         ? 2100
         : 1100;
+  const stamp = Date.now();
   const row = await env.DB.prepare(
-    'UPDATE cd_artwork_control SET provider_next_ms=MAX(provider_next_ms,?)+? WHERE id=1 RETURNING provider_next_ms'
+    'UPDATE cd_artwork_control SET provider_next_ms=MAX(provider_next_ms,?)+? WHERE id=1 AND provider_next_ms<=? RETURNING provider_next_ms'
   )
-    .bind(Date.now(), spacing)
+    .bind(stamp, spacing, stamp + 15000)
     .first<{ provider_next_ms: number }>();
-  if (!row) throw new ArtworkError('control_missing', 503);
+  if (!row) {
+    const control = await env.DB.prepare(
+      'SELECT provider_next_ms FROM cd_artwork_control WHERE id=1'
+    ).first<{ provider_next_ms: number }>();
+    if (!control) throw new ArtworkError('control_missing', 503);
+    // A busy caller must not reserve an unused slot or push everyone else
+    // farther into the future. This is local spacing, not a provider outage.
+    throw new ArtworkError(
+      'discovery_busy',
+      429,
+      Math.max(1, Math.ceil((control.provider_next_ms - Date.now()) / 1000))
+    );
+  }
   const delay = row.provider_next_ms - spacing - Date.now();
-  if (delay > 15000) throw new ArtworkError('discovery_busy', 429);
   if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
   const r = await fetch(url, {
     // Cloudflare can forward headers across redirects; never redirect a credential.

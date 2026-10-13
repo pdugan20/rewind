@@ -75,6 +75,46 @@ async function count(table: string) {
     n: number;
   }>())!.n;
 }
+it('replaces only a reset check admitted by an older processor', async () => {
+  await seed({ held: true });
+  const old = await runtime.DB.prepare(
+    "INSERT INTO cd_artwork_checks(user_id,album_id,release_id,medium_position) VALUES(1,1,'',1) RETURNING id"
+  ).first<{ id: number }>();
+  await runtime.DB.prepare(
+    "INSERT INTO cd_artwork_events(user_id,album_id,job_id,action,reviewer,created_at,details) VALUES(1,1,?,'automatic-reprocess-requested','owner-requested-pipeline-reset','2026-01-01',?)"
+  )
+    .bind(jobId, JSON.stringify({ processorHash: 'older', checkId: old!.id }))
+    .run();
+  expect((await queueArtworkReprocessing(runtime, 1, [1], true)).items).toEqual(
+    [{ album_id: 1, status: 'would_queue' }]
+  );
+  expect(
+    (await queueArtworkReprocessing(runtime, 1, [1], false)).items
+  ).toEqual([{ album_id: 1, status: 'queued' }]);
+  expect(
+    (
+      await runtime.DB.prepare(
+        'SELECT outcome FROM cd_artwork_checks WHERE id=?'
+      )
+        .bind(old!.id)
+        .first<{ outcome: string }>()
+    )?.outcome
+  ).toBe('processor_replaced');
+  const pending = await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
+  ).first<{ id: number }>();
+  expect(pending?.id).not.toBe(old!.id);
+});
+it('does not replace an ordinary pending listening check without a processor marker', async () => {
+  await seed({ held: true });
+  await runtime.DB.exec(
+    "INSERT INTO cd_artwork_checks(user_id,album_id,release_id,medium_position) VALUES(1,1,'',1);"
+  );
+  expect(
+    (await queueArtworkReprocessing(runtime, 1, [1], false)).items
+  ).toEqual([{ album_id: 1, status: 'already_queued' }]);
+  expect(await count('cd_artwork_checks')).toBe(1);
+});
 it('previews an outdated selected disc without changing selection, history or outbox', async () => {
   await seed();
   const before = await count('lastfm_scrobbles');

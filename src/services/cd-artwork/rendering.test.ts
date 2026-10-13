@@ -44,6 +44,36 @@ function scan(hole: number, hub: number, stretch = 1, holeShade = 255) {
 }
 
 describe('source artwork normalization and print coverage', () => {
+  it('measures a pale transparent face using alpha rather than white-matte contrast', () => {
+    const data = new Uint8Array(1024 * 1024 * 4);
+    for (let y = 0; y < 1024; y++)
+      for (let x = 0; x < 1024; x++) {
+        const r = Math.hypot(x + 0.5 - 508, y + 0.5 - 510);
+        const alpha =
+          r < 58 ? 1 : Math.round(255 * Math.max(0, Math.min(1, 471 - r)));
+        data.set([249, 246, 240, alpha], (y * 1024 + x) * 4);
+      }
+    const result = normalizeRetail(png({ width: 1024, height: 1024, data }));
+    expect(result.verification.boundaryEvidence).toBe('alpha');
+    expect(result.geometry.pass).toBe(true);
+    expect(at(result.image, 512, 512)[3]).toBe(0);
+    expect(at(result.image, 750, 512)).toEqual([249, 246, 240, 255]);
+  });
+  it('does not infer transparent geometry from an opaque spindle', () => {
+    const opaque = normalizeRetail(scan(60, 110));
+    expect(opaque.verification.boundaryEvidence).toBe('scan');
+    expect(opaque.geometry.pass).toBe(true);
+  });
+  it('rejects alpha holes connected to the exterior and invisible RGB discs', () => {
+    const source = readPixels(composeCover(solidCover()).bytes);
+    for (let y = 500; y <= 524; y++)
+      for (let x = 512; x < 1024; x++) source.data[(y * 1024 + x) * 4 + 3] = 0;
+    expect(() => normalizeRetail(png(source))).toThrow(
+      'hole_connected_to_background'
+    );
+    for (let i = 3; i < source.data.length; i += 4) source.data[i] = 0;
+    expect(() => normalizeRetail(png(source))).toThrow('rim_uncertain');
+  });
   it('allows full-face artwork next to both the spindle and outer edge', () => {
     const result = composeCover(solidCover());
     expect(checkGeometry(result.image).pass).toBe(true);

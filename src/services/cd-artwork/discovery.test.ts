@@ -414,6 +414,39 @@ describe('durable discovery and recovery', () => {
     expect((await checks())[0].outcome).toBe('error');
     expect((await checks())[0].completed_at).not.toBeNull();
   });
+  it('uses seconds for local provider capacity and preserves the real outage backoff', async () => {
+    await identity();
+    await play();
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_control SET provider_next_ms=? WHERE id=1'
+    )
+      .bind(Date.now() + 20000)
+      .run();
+    provider();
+    const sleep = vi.fn(async (_name: string, _duration: number) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+    });
+    const step = {
+      do: async (
+        _name: string,
+        configOrCallback: unknown,
+        callback?: () => Promise<unknown>
+      ) => (callback ?? (configOrCallback as () => Promise<unknown>))(),
+      sleep,
+    } as unknown as WorkflowStep;
+    await CdDiscoveryWorkflow.prototype.run.call(
+      { env: runtime } as unknown as CdDiscoveryWorkflow,
+      { payload: { checkId: (await checks())[0].id } } as WorkflowEvent<{
+        checkId: number;
+      }>,
+      step
+    );
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(sleep.mock.calls[0][1]).toBeLessThan(60000);
+    expect((await checks())[0].completed_at).not.toBeNull();
+  });
   it('dispatches and completes an actual runtime Workflow with discovery-only provider requests', async () => {
     await identity();
     await play();

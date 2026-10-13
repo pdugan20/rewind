@@ -1,6 +1,10 @@
 import { env, applyD1Migrations } from 'cloudflare:test';
 import { beforeAll, beforeEach, afterEach, it, expect, vi } from 'vitest';
-import { resolveSource, resolveEditionCandidates } from './sources.js';
+import {
+  resolveSource,
+  resolveEditionCandidates,
+  providerJson,
+} from './sources.js';
 import type { ArtworkEnv } from './types.js';
 const runtime = env as typeof env & ArtworkEnv;
 const sourceId = '11111111-1111-4111-8111-111111111111';
@@ -135,4 +139,29 @@ it('keeps unidentified self-titled candidates as explicit edition choices', asyn
     true
   );
   expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it('busy callers do not reserve unused provider slots or wait an hour for local capacity', async () => {
+  const future = Date.now() + 20000;
+  await runtime.DB.prepare(
+    'UPDATE cd_artwork_control SET provider_next_ms=? WHERE id=1'
+  )
+    .bind(future)
+    .run();
+  const fetcher = vi.fn();
+  vi.stubGlobal('fetch', fetcher);
+  await expect(
+    providerJson(runtime, 'https://musicbrainz.org/ws/2/release/' + sourceId)
+  ).rejects.toMatchObject({
+    code: 'discovery_busy',
+    status: 429,
+    retryAfter: expect.any(Number),
+  });
+  expect(
+    (
+      await runtime.DB.prepare(
+        'SELECT provider_next_ms FROM cd_artwork_control WHERE id=1'
+      ).first<{ provider_next_ms: number }>()
+    )?.provider_next_ms
+  ).toBe(future);
+  expect(fetcher).not.toHaveBeenCalled();
 });
