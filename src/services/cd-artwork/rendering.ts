@@ -594,3 +594,35 @@ export function normalizeRetail(bytes: Uint8Array) {
     },
   };
 }
+
+/** Inspection only: unwrap the outer face at4x radial magnification. Thin added
+ * chrome/rainbow rings are otherwise lost in a whole-disc verifier view. This
+ * never changes the source, generated output or published derivative. */
+export function rimInspectionView(bytes: Uint8Array) {
+  const source = decodeSource(bytes);
+  if (source.width !== 1024 || source.height !== 1024)
+    throw Error('material_requires_normalization');
+  const width = 1024,
+    height = 256,
+    data = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const angle = (x / width) * 2 * Math.PI,
+        radius = 420 + (y / height) * 64;
+      const sx = Math.min(
+          1023,
+          Math.max(0, Math.floor(512 + radius * Math.cos(angle)))
+        ),
+        sy = Math.min(
+          1023,
+          Math.max(0, Math.floor(512 + radius * Math.sin(angle)))
+        );
+      const si = (sy * 1024 + sx) * 4,
+        i = (y * width + x) * 4,
+        a = source.data[si + 3] / 255;
+      for (let c = 0; c < 3; c++)
+        data[i + c] = Math.round(source.data[si + c] * a + 248 * (1 - a));
+      data[i + 3] = 255;
+    }
+  return png({ width, height, data });
+}

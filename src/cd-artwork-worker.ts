@@ -1,3 +1,4 @@
+import { queueArtworkReprocessing } from './services/cd-artwork/reprocessing.js';
 import {
   galleryApp,
   registerGalleryData,
@@ -491,6 +492,25 @@ app.post(`${admin}/jobs`, async (c) => {
     result.reused ? 200 : 202
   );
 });
+// Owner-authorized reset enters the existing automatic discovery outbox.
+app.post(`${admin}/reprocess`, async (c) => {
+  const body = z
+    .object({
+      album_ids: z.array(z.number().int().positive()).min(1).max(20),
+      dry_run: z.boolean().default(true),
+    })
+    .strict()
+    .parse(await jsonBody(c.req.raw));
+  const result = await queueArtworkReprocessing(
+    c.env,
+    c.get('userId'),
+    [...new Set(body.album_ids)],
+    body.dry_run
+  );
+  if (!body.dry_run) c.executionCtx.waitUntil(dispatchListeningChecks(c.env));
+  return c.json(result, body.dry_run ? 200 : 202);
+});
+
 // Replay the automatic policy for one owned album with real recorded history.
 // Preview is the default; apply never fabricates a listening event.
 app.post(`${admin}/albums/:id/automatic`, async (c) => {

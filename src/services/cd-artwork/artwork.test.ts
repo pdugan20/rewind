@@ -1550,3 +1550,43 @@ it('reports no daily limit and rejects the retired budget control instead of sil
     ).first('enabled')
   ).toBe(0);
 });
+
+it('requires admin authorization for an artwork reprocess batch', async () => {
+  const response = await request(admin + '/reprocess', readKey, {
+    album_ids: [1],
+  });
+  expect(response.status).toBe(403);
+});
+it('previews reprocessing by default without creating jobs, selections or checks', async () => {
+  await runtime.DB.exec(
+    'UPDATE cd_artwork_control SET automatic_enabled=1 WHERE id=1'
+  );
+  const response = await request(admin + '/reprocess', adminKey, {
+    album_ids: [1],
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    dry_run: true,
+    items: [{ album_id: 1, status: 'no_recorded_play' }],
+  });
+  expect(
+    (await runtime.DB.prepare(
+      'SELECT COUNT(*) n FROM cd_artwork_checks'
+    ).first())!.n
+  ).toBe(0);
+});
+it('rejects a reprocessing batch containing another owner album before mutation', async () => {
+  await runtime.DB.exec(
+    'UPDATE cd_artwork_control SET automatic_enabled=1 WHERE id=1'
+  );
+  const response = await request(admin + '/reprocess', adminKey, {
+    album_ids: [1, 2],
+    dry_run: false,
+  });
+  expect(response.status).toBe(404);
+  expect(
+    (await runtime.DB.prepare(
+      'SELECT COUNT(*) n FROM cd_artwork_albums'
+    ).first())!.n
+  ).toBe(0);
+});

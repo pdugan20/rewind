@@ -31,20 +31,19 @@ export function treatmentForDecision(
 ): HubTreatment {
   const d = hubDecisionSchema.parse(value);
   if (d.confidence !== 'high' || d.kind === 'uncertain')
-    throw Error('material_identity_uncertain');
+    return { mode: 'preserve' };
   if (d.kind === 'opaque') {
-    if (d.region_id !== null) throw Error('material_decision_invalid');
     return { mode: 'preserve' };
   }
   const region = regions.find((r) => r.id === d.region_id);
-  if (!d.unprinted || !d.non_metallic || !region)
-    throw Error('material_decision_invalid');
+  if (!d.unprinted || !d.non_metallic || !region) return { mode: 'preserve' };
   return { mode: 'clear', inner: region.inner, outer: region.outer };
 }
 
 /** Identify only a complete, unprinted, non-metallic annulus. A physical ring,
  * whiteness or silver appearance alone is not evidence that it is transparent.
- * Partial printing/unclear material boundaries remain private, never patched.
+ * Partial printing/unclear material boundaries preserve their source appearance;
+ * uncertainty cannot authorize an alpha patch and need not block publication.
  */
 export async function classifyRetailHub(
   env: ArtworkEnv,

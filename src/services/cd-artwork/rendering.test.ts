@@ -8,6 +8,7 @@ import {
   composeCover,
   normalizeRetail,
   materialInspectionView,
+  rimInspectionView,
 } from './rendering.js';
 
 const at = (p: ReturnType<typeof readPixels>, x: number, y: number) => [
@@ -191,4 +192,32 @@ describe('source artwork normalization and print coverage', () => {
     expect(at(result.image, 600, 532)[3]).toBe(117);
     expect(at(dark, 512, 512)).toEqual([32, 35, 32, 255]);
   });
+});
+
+it('magnifies a thin colored rim for inspection without changing the candidate', () => {
+  const data = new Uint8Array(1024 * 1024 * 4);
+  for (let y = 0; y < 1024; y++)
+    for (let x = 0; x < 1024; x++) {
+      const r = Math.hypot(x + 0.5 - 512, y + 0.5 - 512);
+      if (r >= 60 && r <= 480)
+        data.set(
+          r >= 463 && r < 465 ? [180, 30, 220, 255] : [193, 193, 193, 255],
+          (y * 1024 + x) * 4
+        );
+    }
+  const before = png({ width: 1024, height: 1024, data }),
+    saved = before.slice();
+  const view = readPixels(rimInspectionView(before));
+  expect(view.width).toBe(1024);
+  expect(view.height).toBe(256);
+  let purple = 0;
+  for (let i = 0; i < view.data.length; i += 4)
+    if (
+      view.data[i] === 180 &&
+      view.data[i + 1] === 30 &&
+      view.data[i + 2] === 220
+    )
+      purple++;
+  expect(purple).toBeGreaterThan(4 * 1024);
+  expect(before).toEqual(saved);
 });

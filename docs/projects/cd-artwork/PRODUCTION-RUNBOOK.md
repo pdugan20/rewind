@@ -92,3 +92,35 @@ Album lookups may return optional `fallback_artwork` alongside accepted album ar
 ## Source recovery and deployed drift
 
 See [the October 13 reconciliation](../../maintenance/2026-10-13-cd-artwork-reconciliation.md). It distinguishes the recovered branch, the restored deployed version, and the additional local fixes. Commit and review runtime changes before publishing them; a manual deployment from dirty source can be replaced by the next automatic release from main. The [maintenance closeout](../../maintenance/2026-10-13-closeout.md) separates API/artwork deployment impact and adds source checks. Use `npm run deployment:check` to inspect the active versions and `npm run deploy:artwork` for an approved artwork release. A clean committed checkout, known production source, and full Git source tags are required. Unknown deployed source blocks replacement until it is reconciled; do not bypass the guard to clear an error.
+
+## Automated reprocessing
+
+Source prepared October 13; release and live reset verification are still pending.
+
+`POST /v1/admin/cd-artwork/reprocess` accepts `album_ids` with at most20 owned
+albums and `dry_run`, defaulttrue. It classifies the whole requested batch before
+writing. Eligible outdated selections are withdrawn using a conditional update,
+and the existing durable discovery outbox receives the album. The normal source
+lookup, native-source or OpenAI rendering, finishing, final inspection and
+conditional activation run afterward. The request does not import images,
+accept candidates, delete immutable evidence, or insert listening events.
+
+Pins, explicit owner review holds, current processing and already queued checks
+are preserved. Current shared-policy accepted results remain selected. Successful
+v8 results already passed shared-edge, source/material and final-render checks;
+v9's advisory material confidence is compatible with those accepted results.
+Earlier manual selections and artwork lacking that proof must be reprocessed.
+
+Scheduled recovery also reconsiders established artwork records from older
+policies in small batches. It does not scan or enroll the listening library.
+A failed job from the current processor is not retried indefinitely. An explicit
+finite request can enroll an existing historical album with a recorded play;
+it cannot create a fake play or bypass album identity verification.
+
+Policyv9 makes uncertain center material advisory. Ambiguous or unsafe alpha
+proposals retain the source appearance and still receive final artwork grading.
+Only confidently supported, unprinted plastic can have alpha reconstructed;
+ink and metal stay intact. Wrong artwork, lost lettering, visible defects and
+gross geometry problems remain publication failures. The separate
+`no_added_rim_effects` flag rejects invented rainbow/chrome/glow details anywhere
+on the final disc, including rings inside the shared neutral outer band.

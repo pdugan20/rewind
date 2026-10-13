@@ -1,8 +1,10 @@
 import type { ArtworkEnv, Job } from './types.js';
 import { dispatch } from './store.js';
 import { recoverListeningChecks } from './discovery.js';
+import { recoverOutdatedArtwork } from './reprocessing.js';
 
-/** Recovery only: no library enrollment, due-album scan or unsolicited check. */
+/** Recovery only: admitted work and established artwork from older policies.
+ * No listening-library enrollment or unsolicited historical backfill. */
 export async function scheduledArtwork(env: ArtworkEnv) {
   if (
     !(
@@ -22,5 +24,6 @@ export async function scheduledArtwork(env: ArtworkEnv) {
       console.log('[ERROR] CD artwork dispatch unavailable');
     }
   }
+  await recoverOutdatedArtwork(env);
   await recoverListeningChecks(env);
 }

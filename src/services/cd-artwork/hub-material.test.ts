@@ -77,14 +77,33 @@ describe('source-shaped hub materials', () => {
     expect(pixel(after.image, 750, 512)).toEqual(pixel(before.image, 750, 512));
     expect(hasNativeHubAlpha(after.bytes)).toBe(true);
     for (const d of [
-      { ...clear, kind: 'uncertain', confidence: 'uncertain' },
       { ...clear, unprinted: false },
       { ...clear, non_metallic: false },
       { ...clear, region_id: 999 },
     ])
-      expect(() =>
+      expect(
         treatmentForDecision(d, [{ id: 0, inner: 62, outer: 100 }])
-      ).toThrow();
+      ).toEqual({ mode: 'preserve' });
+  });
+  it('preserves the source rather than guessing alpha when material is uncertain', () => {
+    expect(
+      treatmentForDecision(
+        {
+          ...clear,
+          kind: 'uncertain',
+          confidence: 'uncertain',
+          region_id: null,
+        },
+        []
+      )
+    ).toEqual({ mode: 'preserve' });
+    const before = base([193, 193, 193]);
+    expect(
+      finishHub(
+        before.bytes,
+        treatmentForDecision({ ...clear, confidence: 'uncertain' }, [])
+      ).bytes
+    ).toEqual(before.bytes);
   });
   it('holds a mask that crosses colored printing or dark lettering', () => {
     expect(() =>
@@ -130,9 +149,9 @@ it('measures boundaries in code and cannot accept invented model coordinates', (
     inner: regions[0].inner,
     outer: regions[0].outer,
   });
-  expect(() =>
-    treatmentForDecision({ ...clear, region_id: 999 }, regions)
-  ).toThrow('material_decision_invalid');
+  expect(treatmentForDecision({ ...clear, region_id: 999 }, regions)).toEqual({
+    mode: 'preserve',
+  });
   expect(() =>
     treatmentForDecision({ ...clear, inner_radius: 62 }, regions)
   ).toThrow();

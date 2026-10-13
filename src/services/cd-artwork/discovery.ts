@@ -92,6 +92,13 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
           state: string | null;
           source_kind: string | null;
         }>();
+      // An explicit reset is tied to this durable check. Ordinary new-listen
+      // checks retain their stricter snapshot attribution.
+      const historicalReplay = await env.DB.prepare(
+        "SELECT id FROM cd_artwork_events WHERE user_id=? AND album_id=? AND action='automatic-reprocess-requested' AND json_extract(details,'$.checkId')=? LIMIT 1"
+      )
+        .bind(row.user_id, row.album_id, row.id)
+        .first();
       const selected = await selectAutomaticSource(
         env,
         row.album_id,
@@ -99,7 +106,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
         album,
         row.release_id,
         row.medium_position,
-        false,
+        !!historicalReplay,
         active?.source_kind === 'cover'
       );
       if (active?.state === 'accepted' && selected.sourceKind === 'cover') {
