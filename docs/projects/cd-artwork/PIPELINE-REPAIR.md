@@ -5,8 +5,19 @@ batch into the normal automated pipeline. It exposed two shared gaps: transparen
 pale discs were measured against a white matte, and catalog formatting or stale
 bindings could strand source lookup. The repair described under natural-flow
 recovery below addresses those gaps and connects failed renders to automatic
-source recovery. Release and public activation are verified separately; diagnostic
-images are never imported as replacements.
+source recovery. PR324 released those fixes, and all eight remaining failures
+published automatically. Their public PNG/WebP downloads and digests were
+verified, every PNG passed canonical geometry, and the eleven existing accepted
+assets remained unchanged. Diagnostic images were never imported as replacements.
+
+Consumer verification exposed a separate delivery problem: a five-album manifest
+took about two seconds while the portfolio's artwork deadline was1.5 seconds.
+Optional WebP verification could therefore hide every published PNG. The delivery
+follow-up returns the authoritative D1 snapshot and bounds optional WebP and
+fallback enrichment to500ms after that snapshot resolves. Late reads stop without
+changing the returned entries; corrupt variants still undergo the same integrity
+checks. Its deployed latency and the existing portfolio response must be verified
+separately from the already completed artwork publication.
 
 Earlier material release: the uncapped Worker with full-pixel material proposal measurement
 is deployed at `2867661f-86d9-4a35-80de-ee6c43dadaa6`. Four fresh live samples
