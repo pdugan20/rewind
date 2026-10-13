@@ -312,6 +312,69 @@ describe('authorization, publication and accepted-state preservation', () => {
     ).toBe('image/png');
     expect(await approvedArtwork(runtime, [1], 2)).toEqual([]);
   });
+  it('serves published PNG artwork when optional variant and fallback storage stalls or fails', async () => {
+    const job = await candidate('7'.repeat(64));
+    await reviewJob(runtime, job.id, 1, 'accepted', true, 'synthetic-test');
+    const originalGet = runtime.IMAGES.get.bind(runtime.IMAGES);
+    const originalFallbackGet = runtime.ARTWORK.get.bind(runtime.ARTWORK);
+    const pendingReads: Array<Promise<unknown>> = [];
+    let release: (() => void) | undefined;
+    const stalled = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const get = vi
+      .spyOn(runtime.IMAGES, 'get')
+      .mockImplementation(async (...args) => {
+        if (String(args[0]).startsWith('listening/cd-artwork-variants/')) {
+          // Resolve as an absent descriptor after release, so this reader
+          // cannot start additional R2 calls during test cleanup.
+          const result = stalled.then(() => null);
+          pendingReads.push(result);
+          return result;
+        }
+        return originalGet(...args);
+      });
+    const fallbackGet = vi
+      .spyOn(runtime.ARTWORK, 'get')
+      .mockImplementation(async (...args) => {
+        if (String(args[0]).startsWith('fallback/users/')) {
+          const result = stalled.then(() => null);
+          pendingReads.push(result);
+          return result;
+        }
+        return originalFallbackGet(...args);
+      });
+    try {
+      const response = await request(`${read}/albums?ids=1`, readKey);
+      expect(response.status).toBe(200);
+      const snapshot = (await response.json()) as {
+        data: Array<{ sha256: string; variants?: unknown }>;
+        fallback_artwork?: unknown;
+      };
+      expect(snapshot.data[0].sha256).toBe(job.candidate_hash);
+      expect(snapshot.data[0].variants).toBeUndefined();
+      expect(snapshot.fallback_artwork).toBeUndefined();
+    } finally {
+      release!();
+      // Let the bounded read finish before restoring the R2 mock.
+      await stalled;
+      await Promise.all(pendingReads);
+      get.mockRestore();
+      fallbackGet.mockRestore();
+    }
+    vi.spyOn(runtime.IMAGES, 'get').mockRejectedValue(
+      new Error('R2 unavailable')
+    );
+    vi.spyOn(runtime.ARTWORK, 'get').mockRejectedValue(
+      new Error('R2 unavailable')
+    );
+    const failed = await request(`${read}/albums?ids=1`, readKey);
+    expect(failed.status).toBe(200);
+    const failedSnapshot = (await failed.json()) as {
+      data: Array<{ sha256: string }>;
+    };
+    expect(failedSnapshot.data[0].sha256).toBe(job.candidate_hash);
+  });
   it('advertises and serves only the verified optional WebP while preserving PNG identity', async () => {
     const job = await candidate('4'.repeat(64));
     await reviewJob(runtime, job.id, 1, 'accepted', true, 'synthetic-test');

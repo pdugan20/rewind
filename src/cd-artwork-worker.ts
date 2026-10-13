@@ -62,6 +62,7 @@ import {
   readFallbackArtwork,
   readFallbackAsset,
   seedFallbackArtwork,
+  type FallbackArtwork,
 } from './services/cd-artwork/fallback.js';
 import { validateCandidate } from './services/cd-artwork/registration.js';
 import {
@@ -110,11 +111,20 @@ async function artworkSnapshotWithVariants(
   albumIds: number[],
   userId: number
 ) {
+  let expired = false;
+  let fallback: FallbackArtwork | null = null;
+  const fallbackRead = readFallbackArtwork(env, userId)
+    .catch(() => null)
+    .then((value) => {
+      if (!expired) fallback = value;
+    });
   const snapshot = await artworkSnapshot(env, albumIds, userId);
-  const data = new Array<(typeof snapshot.data)[number]>(snapshot.data.length);
+  // PNG publication is authoritative. Optional WebP reads must not delay the
+  // entire manifest beyond a consumer's deadline and hide valid artwork.
+  const data = [...snapshot.data];
   let next = 0;
   const projectNext = async () => {
-    while (true) {
+    while (!expired) {
       const index = next++;
       if (index >= snapshot.data.length) return;
       const artwork = snapshot.data[index];
@@ -122,7 +132,10 @@ async function artworkSnapshotWithVariants(
         data[index] = artwork;
         continue;
       }
-      const variant = await readStoredWebpVariant(env, artwork.sha256);
+      const variant = await readStoredWebpVariant(env, artwork.sha256).catch(
+        () => null
+      );
+      if (expired) return;
       if (!variant) {
         data[index] = artwork;
         continue;
@@ -142,10 +155,24 @@ async function artworkSnapshotWithVariants(
       };
     }
   };
-  await Promise.all(
+  const variants = Promise.all(
     Array.from({ length: Math.min(2, snapshot.data.length) }, projectNext)
   );
-  const fallback = await readFallbackArtwork(env, userId);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.all([variants, fallbackRead]),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          expired = true;
+          resolve();
+        }, 500);
+      }),
+    ]);
+  } finally {
+    expired = true;
+    clearTimeout(timer);
+  }
   return {
     ...snapshot,
     data,
