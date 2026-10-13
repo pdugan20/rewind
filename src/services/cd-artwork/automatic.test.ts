@@ -944,6 +944,98 @@ it('authenticated Apple errors remain retryable and never leak the credential to
   );
   expect(retail?.[1]?.headers).not.toHaveProperty('Authorization');
 });
+it.each([
+  'proven',
+  'unbound',
+  'unbound-undated',
+  'unbound-different-date',
+  'bound-undated',
+  'different-date',
+  'missing-track',
+  'changed-lookup',
+])(
+  'multiple catalog IDs may supply a proven representative cover %s',
+  async (mode) => {
+    await play();
+    await runtime.DB.prepare(
+      'UPDATE lastfm_albums SET apple_music_id=NULL,mbid=? WHERE id=1'
+    )
+      .bind(mode.startsWith('unbound') ? null : RELEASE)
+      .run();
+    const spy = providers();
+    const original = spy.getMockImplementation()!;
+    const collections = [123, 124].map((id) => ({
+      ...lookup.results[0],
+      collectionId: id,
+      releaseDate:
+        mode.endsWith('undated') && id === 124
+          ? undefined
+          : mode === 'different-date' ||
+              (mode === 'unbound-different-date' && id === 124)
+            ? '2002-02-03'
+            : '2001-02-03',
+    }));
+    spy.mockImplementation(async (url, init) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      const u = String(url);
+      if (u.includes('itunes.apple.com/search'))
+        return Response.json({ results: collections });
+      if (u.includes('itunes.apple.com/lookup')) {
+        const id = Number(new URL(u).searchParams.get('id'));
+        const collection = collections.find((c) => c.collectionId === id)!;
+        return Response.json({
+          results: [
+            {
+              ...collection,
+              collectionName:
+                mode === 'changed-lookup'
+                  ? 'Different album'
+                  : collection.collectionName,
+            },
+            {
+              ...lookup.results[1],
+              collectionId: id,
+              trackName:
+                mode === 'missing-track' ? 'Different song' : 'Synthetic song',
+            },
+          ],
+        });
+      }
+      if (u.includes('musicbrainz.org'))
+        return Response.json({
+          id: RELEASE,
+          title: 'Synthetic album',
+          date: '2001-02-03',
+          'release-group': {
+            id: GROUP,
+            title: 'Synthetic album',
+            'first-release-date': '2001-02-03',
+          },
+          'artist-credit': [{ name: 'Synthetic artist' }],
+        });
+      return original(url, init);
+    });
+    const selected = verifiedCover(
+      runtime,
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1)
+    );
+    if (['proven', 'unbound', 'bound-undated'].includes(mode))
+      expect((await selected).discovery).toMatchObject({
+        collection_id: '123',
+        observed_track_verified: true,
+        cover_selection: 'representative_catalog_edition',
+      });
+    else
+      await expect(selected).rejects.toMatchObject({
+        code: 'cover_identity_ambiguous',
+      });
+  }
+);
+
 it('wrong album, track or ambiguous search never schedules paid work', async () => {
   providers({ searchAmbiguous: true });
   await play();

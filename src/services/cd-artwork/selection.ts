@@ -38,6 +38,7 @@ interface Collection {
   artworkUrl100?: string;
   wrapperType?: string;
   trackName?: string;
+  releaseDate?: string;
 }
 interface AppleResource {
   id: string;
@@ -45,6 +46,7 @@ interface AppleResource {
     name?: string;
     artistName?: string;
     artwork?: { url: string };
+    releaseDate?: string;
   };
   relationships?: { tracks?: { data?: AppleResource[] } };
 }
@@ -94,6 +96,7 @@ const appleCollection = (album: AppleResource): Collection => ({
     .replace('{w}', '1200')
     .replace('{h}', '1200')
     .replace('{f}', 'jpg'),
+  releaseDate: album.attributes?.releaseDate,
 });
 async function searchCoverCatalog(env: ArtworkEnv, album: CatalogAlbum) {
   const authenticated = !!env.APPLE_MUSIC_DEVELOPER_TOKEN;
@@ -288,6 +291,7 @@ export async function verifiedCover(
   let id = album.apple_music_id == null ? null : String(album.apple_music_id);
   const stored = id && /^\d+$/.test(id) ? await readCandidate(id) : null;
   let result = stored;
+  let representative = false;
   if (!result?.collection || !result.trackVerified) {
     const candidates: Collection[] = [];
     for (const candidate of await searchCoverCatalog(env, album))
@@ -300,7 +304,60 @@ export async function verifiedCover(
       )
         candidates.push(candidate);
     const ids = [...new Set(candidates.map((c) => String(c.collectionId)))];
-    if (ids.length !== 1)
+    if (ids.length > 1) {
+      if (proof === undefined)
+        proof = await catalogIdentityProof(env, album, knownRelease);
+      const exactTitle = (title: string) =>
+        title.normalize('NFKC').trim().toLowerCase();
+      const exactCandidates = candidates.filter(
+        (candidate) =>
+          candidate.collectionName &&
+          exactTitle(candidate.collectionName) === exactTitle(album.name)
+      );
+      const fullDate = (candidate: Collection) => {
+        const date = candidate.releaseDate?.slice(0, 10) ?? '';
+        return /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+          (!proof?.releaseDate || date.startsWith(proof.releaseDate))
+          ? date
+          : null;
+      };
+      const dates = new Set(exactCandidates.map(fullDate));
+      const expectedDate =
+        proof?.releaseDate && /^\d{4}-\d{2}-\d{2}$/.test(proof.releaseDate)
+          ? proof.releaseDate
+          : dates.size === 1 && !dates.has(null)
+            ? [...dates][0]
+            : null;
+      const representsAlbum = (candidate: Collection) =>
+        !!expectedDate &&
+        !!candidate.collectionName &&
+        exactTitle(candidate.collectionName) === exactTitle(album.name) &&
+        candidate.releaseDate?.slice(0, 10) === expectedDate;
+      // Clean/explicit and storefront editions can have distinct collection
+      // IDs for one logical album. Exact title, a shared release date,
+      // artist identity and a fresh observed-track match authorize a
+      // representative cover, without claiming an owned edition.
+      // A bound catalog date takes precedence over provider equivalence.
+      const choices = [
+        ...new Set(
+          candidates.filter(representsAlbum).map((c) => String(c.collectionId))
+        ),
+      ].sort();
+      for (const choice of choices.slice(0, 3)) {
+        const candidate = await readCandidate(choice);
+        if (
+          candidate.collection &&
+          candidate.trackVerified &&
+          representsAlbum(candidate.collection)
+        ) {
+          id = choice;
+          result = candidate;
+          representative = true;
+          break;
+        }
+      }
+      if (!representative) throw new ArtworkError('cover_identity_ambiguous');
+    } else if (ids.length !== 1)
       throw new ArtworkError(
         ids.length
           ? 'cover_identity_ambiguous'
@@ -310,8 +367,10 @@ export async function verifiedCover(
               ? 'cover_identity_unverified'
               : 'cover_not_found'
       );
-    id = ids[0];
-    result = await readCandidate(id);
+    else {
+      id = ids[0];
+      result = await readCandidate(id);
+    }
   }
   if (!id || !result?.collection)
     throw new ArtworkError('cover_identity_unverified');
@@ -350,6 +409,9 @@ export async function verifiedCover(
       album_artist_verified: true,
       observed_track_verified: true,
       observed_track_proof: result.trackProof,
+      ...(representative
+        ? { cover_selection: 'representative_catalog_edition' }
+        : {}),
       ...(proof
         ? { catalog_title: proof.title, catalog_alias_proof: proof }
         : {}),

@@ -1,13 +1,19 @@
 # Automatic artwork pipeline repair
 
-The post-release audit found one remaining cover fallback whose real CD upgrade
-had failed before the geometry repair. Its verified CD source existed in the job
-ledger but was absent from the active cover's release binding. A later catalog
-search could miss that pressing and silently reuse the cover. Source selection now
-revisits remembered automatic CD candidates before searching again, scoped to the
-same user and album and revalidated against current catalog and archive metadata.
-Stale identities are skipped; provider failures keep their existing backoff.
-This follow-up still requires live deployment and publication verification.
+Source retries now retain verified automatic CD candidates from the same user's
+job ledger and revalidate them before a fresh catalog search. This prevents a
+published cover from hiding an earlier real CD source whose render failed.
+Stale identities are skipped; provider failures retain their retry handling.
+
+Duplicate catalog collection IDs can also describe clean, explicit or storefront
+editions of the same logical album. Representative cover selection now requires
+an exact full title, artist identity, a consistent release date and a fresh match
+for an observed track. A verified MusicBrainz date provides an independent anchor;
+without it, all exact-title candidates must supply the same full date. Missing or
+conflicting dates remain unresolved rather than silently selecting another album.
+Every chosen ID is freshly looked up, and no more than three are examined.
+Synthetic tests cover remembered sources and contradictory or incomplete catalog
+metadata. These changes still require live deployment and publication verification.
 
 The existing-artwork reset was released through PR323 and admitted the requested
 batch into the normal automated pipeline. It exposed two shared gaps: transparent
@@ -25,8 +31,9 @@ Optional WebP verification could therefore hide every published PNG. The deliver
 follow-up returns the authoritative D1 snapshot and bounds optional WebP and
 fallback enrichment to500ms after that snapshot resolves. Late reads stop without
 changing the returned entries; corrupt variants still undergo the same integrity
-checks. Its deployed latency and the existing portfolio response must be verified
-separately from the already completed artwork publication.
+checks. Live verification confirmed the manifest and existing portfolio return the current
+public images within the consumer deadline. The original accepted image hashes
+were unchanged by this delivery repair.
 
 Earlier material release: the uncapped Worker with full-pixel material proposal measurement
 is deployed at `2867661f-86d9-4a35-80de-ee6c43dadaa6`. Four fresh live samples

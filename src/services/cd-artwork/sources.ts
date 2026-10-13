@@ -110,6 +110,8 @@ export async function catalogIdentityProof(
   const id = album.mbid || knownRelease;
   if (!id || !uuid.test(id)) return null;
   type Identity = Release & {
+    date?: string;
+    'first-release-date'?: string;
     disambiguation?: string;
     'secondary-types'?: string[];
     'release-group'?: {
@@ -117,6 +119,7 @@ export async function catalogIdentityProof(
       title?: string;
       disambiguation?: string;
       'secondary-types'?: string[];
+      'first-release-date'?: string;
     };
   };
   let record = await providerJson<Identity>(
@@ -141,6 +144,7 @@ export async function catalogIdentityProof(
   return {
     title,
     releaseGroupId: group.id,
+    releaseDate: group['first-release-date'] ?? record.date ?? null,
     live: group['secondary-types']?.includes('Live') === true,
     titleAliasVerified: !!sameAlias,
   };
