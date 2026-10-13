@@ -24,6 +24,7 @@ import { ArtworkError } from './sources.js';
 import { checkListeningArtwork } from './discovery.js';
 import { generateOnce, processRaw } from './generation.js';
 import { publishAutomatic } from './automatic.js';
+import { queueArtworkReprocessing } from './reprocessing.js';
 import { saveFeedback, feedbackSchema } from './feedback.js';
 import { materialInspectionView } from './rendering.js';
 import { png, readPixels } from '../../../scripts/cd-artwork/pixels.mjs';
@@ -42,6 +43,7 @@ const verdict = {
   lettering_preserved: true,
   no_invented_content: true,
   no_visible_defects: true,
+  no_added_rim_effects: true,
   concentric_geometry: true,
   retail_source_supported: true,
   material_confident: true,
@@ -341,6 +343,7 @@ it.each([
   { lettering_preserved: false },
   { no_invented_content: false },
   { no_visible_defects: false },
+  { no_added_rim_effects: false },
   { concentric_geometry: false },
   { material_preserved: false },
 ])('holds visual defects or uncertainty: %j', async (verdictOverride) => {
@@ -353,13 +356,13 @@ it.each([
   expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
   expect(await approvedArtwork(target, [1], 1)).toEqual([]);
 });
-it('retail material uncertainty stays private', async () => {
+it('material confidence is advisory when source appearance remains intact', async () => {
   providers({ retail: true, verdictOverride: { material_confident: false } });
   const job = await selected(true),
     target = withKey();
   await generateOnce(target, job.id, 1);
   await processRaw(target, job.id, 1);
-  expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
 });
 it('a lost verifier response cannot pay for repeated verification or generation', async () => {
   const fetcher = providers({ failVerifier: true });
@@ -1296,7 +1299,13 @@ it('judges the exact final candidate on both backgrounds without a later opacity
   const images = body.input[0].content.filter(
     (part: { type: string }) => part.type === 'input_image'
   );
-  expect(images).toHaveLength(3);
+  expect(images).toHaveLength(4);
+  const rimImage = readPixels(
+    Uint8Array.from(atob(images[3].image_url.split(',')[1]), (c) =>
+      c.charCodeAt(0)
+    )
+  );
+  expect([rimImage.width, rimImage.height]).toEqual([1024, 256]);
   for (const [index, color] of [
     [1, [248, 248, 244]],
     [2, [32, 35, 32]],
@@ -1809,7 +1818,7 @@ it('native source alpha is retained without asking a model to identify its mater
     ]
   ).toBe(117);
 });
-it('holds an uncertain source material decision before final grading or candidate storage', async () => {
+it('keeps uncertain center pixels unchanged and still runs final artwork grading', async () => {
   const fetcher = providers({
     retail: true,
     hubDecision: {
@@ -1825,9 +1834,13 @@ it('holds an uncertain source material decision before final grading or candidat
   await generateOnce(target, job.id, 1);
   await processRaw(target, job.id, 1);
   const saved = (await getJob(target, job.id, 1))!;
-  expect(saved.error_code).toBe('automatic_quality_hold');
-  expect(saved.candidate_key).toBeNull();
-  expect(fetcher.mock.calls.filter(isFinalVerification)).toHaveLength(0);
+  expect(saved.error_code).toBeNull();
+  expect(saved.candidate_key).not.toBeNull();
+  expect(JSON.parse(saved.provenance).hubVerification.treatment.mode).toBe(
+    'preserve'
+  );
+  expect(fetcher.mock.calls.filter(isFinalVerification)).toHaveLength(1);
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
   const count = fetcher.mock.calls.length;
   await processRaw(target, job.id, 1);
   expect(fetcher.mock.calls.length).toBe(count);
@@ -1934,3 +1947,31 @@ it.each([false, true])(
       );
   }
 );
+
+it('uses real legacy play evidence only for the explicitly queued historical replay', async () => {
+  providers();
+  await runtime.DB.exec(
+    "UPDATE cd_artwork_control SET enroll_since='2099-01-01'; INSERT INTO lastfm_scrobbles(user_id,track_id,album_recorded,scrobbled_at,created_at) VALUES(1,1,0,'2026-01-01','2026-01-01')"
+  );
+  await queueArtworkReprocessing(runtime, 1, [1], false);
+  const check = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks'
+  ).first<{ id: number }>())!;
+  const target = {
+    ...withKey(),
+    CD_WORKFLOW: { create: vi.fn(async () => ({})) },
+  } as unknown as ArtworkEnv;
+  expect((await checkListeningArtwork(target, check.id)).outcome).toBe(
+    'generation_queued'
+  );
+  expect(
+    (await runtime.DB.prepare(
+      'SELECT COUNT(*) n FROM lastfm_scrobbles'
+    ).first())!.n
+  ).toBe(1);
+  expect(
+    (await runtime.DB.prepare(
+      'SELECT COUNT(*) n FROM cd_artwork_jobs WHERE automatic=1'
+    ).first())!.n
+  ).toBe(1);
+});

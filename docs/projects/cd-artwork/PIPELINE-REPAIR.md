@@ -276,3 +276,36 @@ in `.codex/hub-release`, `.codex/uncapped-release` and
 per-album registry. The local comparison has light/dark center views and the
 existing Discman player. Desktop/390px have no overflow; generated public art
 loads and spins in the player. Sony shell SHA is unchanged.
+
+## Existing artwork reset follow-up
+
+October13, source preparation. Patrick explicitly requested removing outdated
+CD selections from public Rewind and reprocessing them through automation.
+A fresh public inventory found12 legacy selections, four current shared-policy
+results, and older failed Pinkerton/Wilco jobs. The four previous live examples
+were not coverage verification for those recent albums. All three saved failed
+outputs now pass current geometry normalization; Pinkerton's old artistic flags
+passed, with material confidence being its publication blocker. Wilco's native
+retail source reproduces the exact later accepted local sample, but that sample
+was not activated publicly. Nirvana and Pierce the Veil have no artwork registry
+rows or jobs; ordinary new-listen enrollment is not a historical backfill.
+
+The proposed shared correction retires outdated active selections and queues the
+existing automatic discovery outbox. It preserves original job/evidence history,
+identity/pin/concurrency guards, current accepted results and recorded listening
+history. A bounded admin reprocessing endpoint and scheduled recovery of older
+established artwork eliminate the need for per-album manual uploads or approval.
+The policy now preserves ambiguous photographed center material instead of
+blocking usable source-faithful artwork. Added rim effects have a distinct final
+inspection flag, and remain a hard publication failure.
+
+The previously shown rainbow Wilco cover is saved private failed-job output,
+not accepted artwork. Its old geometry failure occurred before final inspection.
+That diagnostic image still shows colored detail just inside the neutral band;
+the whole final disc must be checked. Geometry passing alone is not publication
+proof. No diagnostic PNG is imported as part of this correction.
+
+This follow-up has not been deployed and no live selections have been reset yet.
+Release must use committed source on main through the current deployment guard;
+do not bypass it with another dirty-checkout upload. The portfolio remains
+undeployed and is outside this batch.
