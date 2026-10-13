@@ -22,6 +22,7 @@ import {
   ArtworkError,
   boundedBytes,
   resolveEditionCandidates,
+  resolveSource,
 } from './services/cd-artwork/sources.js';
 import {
   enqueue,
@@ -53,6 +54,17 @@ import {
 } from './services/cd-artwork/discovery.js';
 import type { DiscoveryCheck } from './services/cd-artwork/discovery.js';
 import { scheduledArtwork } from './services/cd-artwork/scheduler.js';
+import {
+  readFallbackArtwork,
+  readFallbackAsset,
+  seedFallbackArtwork,
+} from './services/cd-artwork/fallback.js';
+import { validateCandidate } from './services/cd-artwork/registration.js';
+import {
+  prepareAudioDbArtwork,
+  reviewAudioDbArtwork,
+  readAudioDbReviewHash,
+} from './services/cd-artwork/audiodb.js';
 
 const materialSchema = z
   .object({
@@ -129,7 +141,12 @@ async function artworkSnapshotWithVariants(
   await Promise.all(
     Array.from({ length: Math.min(2, snapshot.data.length) }, projectNext)
   );
-  return { ...snapshot, data };
+  const fallback = await readFallbackArtwork(env, userId);
+  return {
+    ...snapshot,
+    data,
+    ...(fallback ? { fallback_artwork: fallback } : {}),
+  };
 }
 app.use('*', async (c, next) => cors(c.env)(c, next));
 app.use(
@@ -189,8 +206,90 @@ app.get(`${read}/albums/:id`, async (c) => {
       album_id: id,
       artwork: snapshot.data[0] ?? null,
       withdrawal: snapshot.withdrawals[0] ?? null,
+      ...(snapshot.fallback_artwork
+        ? { fallback_artwork: snapshot.fallback_artwork }
+        : {}),
     },
     { headers: { 'Cache-Control': 'private, max-age=60' } }
+  );
+});
+app.get(`${read}/fallback/assets/:file`, async (c) => {
+  const asset = await readFallbackAsset(c.env, c.req.param('file'));
+  if (!asset) return c.notFound();
+  return new Response(asset.bytes, {
+    headers: {
+      'Content-Type': asset.mime,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Access-Control-Allow-Origin': '*',
+      'X-Content-Type-Options': 'nosniff',
+      ETag: `"${asset.sha256}"`,
+    },
+  });
+});
+app.post(`${admin}/fallback`, async (c) => {
+  const bytes = await boundedBytes(
+    new Response(c.req.raw.body),
+    17 * 1024 * 1024
+  );
+  const form = await new Response(new Uint8Array(bytes), {
+    headers: { 'Content-Type': c.req.header('Content-Type') ?? '' },
+  }).formData();
+  const input = z
+    .object({
+      expected_sha256: assetId.nullable(),
+      review_evidence: z.string().trim().min(12).max(2000),
+      source_sha256: assetId.optional(),
+    })
+    .strict()
+    .parse(JSON.parse(z.string().parse(form.get('input'))));
+  const file = form.get('candidate');
+  const original = form.get('source');
+  if (
+    !(file instanceof File) ||
+    !file.size ||
+    file.size > 8 * 1024 * 1024 ||
+    (original !== null &&
+      (!(original instanceof File) ||
+        !original.size ||
+        original.size > 8 * 1024 * 1024)) ||
+    (original !== null) !== (input.source_sha256 !== undefined)
+  )
+    throw new ArtworkError('invalid_fallback_import', 400);
+  const png = new Uint8Array(await file.arrayBuffer());
+  let valid = false;
+  try {
+    valid = validateCandidate(png).pass;
+  } catch {
+    /* Malformed upload. */
+  }
+  if (!valid) throw new ArtworkError('candidate_geometry_invalid', 400);
+  const source =
+    original instanceof File
+      ? {
+          bytes: new Uint8Array(await original.arrayBuffer()),
+          sha256: input.source_sha256!,
+        }
+      : undefined;
+  if (source && (await sha256(source.bytes)) !== source.sha256)
+    throw new ArtworkError('fallback_source_hash_invalid', 400);
+  const current = await readFallbackArtwork(c.env, c.get('userId'));
+  if ((current?.sha256 ?? null) !== input.expected_sha256)
+    throw new ArtworkError('fallback_stale', 409);
+  if (c.req.query('apply') !== 'true')
+    return c.json({
+      validated: true,
+      sha256: await sha256(png),
+      current_sha256: current?.sha256 ?? null,
+    });
+  return c.json(
+    await seedFallbackArtwork(
+      c.env,
+      c.get('userId'),
+      png,
+      input.expected_sha256,
+      input.review_evidence,
+      source
+    )
   );
 });
 app.get(`${read}/assets/:file`, async (c) => {
@@ -295,6 +394,84 @@ app.post(`${admin}/albums/:id/resolve`, async (c) => {
   const id = z.coerce.number().int().positive().parse(c.req.param('id'));
   const album = await ownedAlbum(c.env, id, c.get('userId'));
   return c.json(await resolveEditionCandidates(c.env, album));
+});
+app.post(`${admin}/albums/:id/audiodb`, async (c) => {
+  const albumId = z.coerce.number().int().positive().parse(c.req.param('id'));
+  const userId = c.get('userId');
+  const album = await ownedAlbum(c.env, albumId, userId);
+  const body = z
+    .object({
+      release_id: z.uuid(),
+      medium_position: z.number().int().min(1).max(10),
+      review: z
+        .object({
+          groupId: z.uuid(),
+          providerAlbumId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+          sourceUrl: z.url().max(2000),
+          sourceSha256: assetId,
+          expectedPreviousSha256: assetId.nullable().optional(),
+          officialArtwork: z.literal(true),
+          evidence: z.string().trim().min(12).max(2000),
+        })
+        .strict()
+        .optional(),
+    })
+    .strict()
+    .parse(await jsonBody(c.req.raw));
+  const source = await resolveSource(
+    c.env,
+    {
+      album_id: albumId,
+      release_id: body.release_id,
+      medium_position: body.medium_position,
+      source_kind: 'retail',
+    },
+    album,
+    true
+  );
+  if (!source.discovery.medium_verified || !source.discovery.release_group_id)
+    throw new ArtworkError('edition_medium_ambiguous', 422);
+  const prepared = await prepareAudioDbArtwork(
+    c.env,
+    album,
+    source.discovery.release_group_id
+  );
+  if (!prepared) return c.json({ outcome: 'not_found' });
+  const { bytes: _bytes, ...candidate } = prepared;
+  if (c.req.query('apply') !== 'true')
+    return c.json({
+      outcome: 'needs_official_artwork_review',
+      candidate,
+      previous_review_sha256: await readAudioDbReviewHash(
+        c.env,
+        userId,
+        albumId,
+        prepared.groupId,
+        prepared.providerAlbumId
+      ),
+    });
+  if (!body.review) throw new ArtworkError('audiodb_review_required', 400);
+  for (const field of [
+    'groupId',
+    'providerAlbumId',
+    'sourceUrl',
+    'sourceSha256',
+  ] as const)
+    if (body.review[field] !== prepared[field])
+      throw new ArtworkError('audiodb_review_binding_changed', 409);
+  return c.json({
+    outcome: 'reviewed',
+    source: await reviewAudioDbArtwork(
+      c.env,
+      userId,
+      albumId,
+      album,
+      prepared,
+      true,
+      body.review.evidence,
+      body.review.expectedPreviousSha256
+    ),
+  });
 });
 app.get(`${read}/health`, requireAuth('read'), async (c) =>
   c.json({
@@ -636,7 +813,7 @@ app.use(`${admin}/recheck`, async (c, next) =>
 app.get(`${admin}/control`, async (c) =>
   c.json(
     await c.env.DB.prepare(
-      'SELECT enabled,automatic_enabled,daily_limit,budget_day,submitted_count FROM cd_artwork_control WHERE id=1'
+      'SELECT enabled,automatic_enabled,NULL AS daily_limit,budget_day,submitted_count FROM cd_artwork_control WHERE id=1'
     ).first()
   )
 );
@@ -645,16 +822,14 @@ app.post(`${admin}/control`, async (c) => {
     .object({
       enabled: z.boolean(),
       automatic_enabled: z.boolean().optional(),
-      daily_limit: z.number().int().min(0).max(10),
     })
     .strict()
     .parse(await jsonBody(c.req.raw));
   await c.env.DB.prepare(
-    'UPDATE cd_artwork_control SET enabled=?,daily_limit=?,automatic_enabled=COALESCE(?,automatic_enabled) WHERE id=1'
+    'UPDATE cd_artwork_control SET enabled=?,automatic_enabled=COALESCE(?,automatic_enabled) WHERE id=1'
   )
     .bind(
       Number(body.enabled),
-      body.daily_limit,
       body.automatic_enabled === undefined
         ? null
         : Number(body.automatic_enabled)
@@ -733,7 +908,7 @@ export class CdArtworkWorkflow extends WorkflowEntrypoint<
       { retries: { limit: 0, delay: '1 second' }, timeout: '5 minutes' },
       () => generateOnce(this.env, jobId, userId)
     );
-    if (!result.rawKey) return { state: 'held_or_budget_limited' };
+    if (!result.rawKey) return { state: 'held_or_unavailable' };
     const registered = await step.do(
       'register-material-and-persist-candidate',
       { retries: { limit: 2, delay: '10 seconds' }, timeout: '4 minutes' },

@@ -168,7 +168,13 @@ export async function providerJson<T>(
 ): Promise<T | null> {
   // Atomic shared spacing across isolates/workflows/manual requests. No parallel
   // provider loop can bypass this reservation by using a separate process.
-  const spacing = new URL(url).hostname === 'itunes.apple.com' ? 3100 : 1100;
+  const hostname = new URL(url).hostname;
+  const spacing =
+    hostname === 'itunes.apple.com'
+      ? 3100
+      : hostname === 'www.theaudiodb.com'
+        ? 2100
+        : 1100;
   const row = await env.DB.prepare(
     'UPDATE cd_artwork_control SET provider_next_ms=MAX(provider_next_ms,?)+? WHERE id=1 RETURNING provider_next_ms'
   )
@@ -251,6 +257,8 @@ export async function resolveSource(
   const discovery = {
     outcome: media.length ? (ambiguous ? 'ambiguous' : 'found') : 'not_found',
     release_id: input.release_id,
+    release_group_id: release['release-group']?.id ?? null,
+    medium_verified: !ambiguous,
     covers:
       archive?.images
         ?.filter((i) => i.approved && i.types?.includes('Front'))

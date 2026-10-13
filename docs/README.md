@@ -63,3 +63,5 @@ This inventory includes shipped work with open verification or follow-up items. 
 ## Maintenance review
 
 See the [October 13, 2026 review](maintenance/2026-10-13-docs-and-branches.md) for documentation corrections, branch cleanup evidence, and unresolved next-step decisions.
+
+See the [October 13 CD artwork reconciliation](maintenance/2026-10-13-cd-artwork-reconciliation.md) for recovered runtime source, deployment restoration, review fixes, and the remaining release boundary.

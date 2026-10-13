@@ -5,6 +5,7 @@ import { ArtworkError } from './sources.js';
 import { getJob, ownedAlbum } from './store.js';
 import { validateCandidate } from './registration.js';
 import { artworkMetadata } from './metadata.js';
+import { readReviewedAudioDbArtwork } from './audiodb.js';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 export const reviewedMasterSchema = z
@@ -19,6 +20,13 @@ export const reviewedMasterSchema = z
     source_kind: z.enum(['retail', 'cover']),
     source_url: z.url().max(2000),
     source_sha256: hash,
+    audiodb: z
+      .object({
+        release_group_id: z.uuid(),
+        provider_album_id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+      })
+      .strict()
+      .optional(),
     candidate_sha256: hash,
     release_id: z.uuid().nullable().default(null),
     medium_position: z.number().int().min(1).max(10).nullable().default(null),
@@ -94,8 +102,16 @@ function validateSource(input: ReviewedMasterInput) {
   const cover =
     url.hostname === 'cdn.rewind.rest' &&
     url.pathname.endsWith(`/listening/albums/${input.album_id}/original.jpg`);
+  const audioDb =
+    url.hostname === 'r2.theaudiodb.com' &&
+    /^\/images\/media\/album\/cdart\/[A-Za-z0-9_-]+\.png$/.test(url.pathname);
   if (
-    !(mb || discogs || (cover && input.source_kind === 'cover')) ||
+    !!input.audiodb !== audioDb ||
+    (audioDb && (input.source_kind !== 'retail' || input.release_id !== null))
+  )
+    throw new ArtworkError('source_identity_invalid');
+  if (
+    !(mb || discogs || audioDb || (cover && input.source_kind === 'cover')) ||
     (url.search &&
       (!cover || [...url.searchParams.keys()].some((k) => k !== 'v')))
   )
@@ -118,6 +134,21 @@ export async function prepareReviewedMaster(
   )
     throw new ArtworkError('album_identity_mismatch', 409);
   validateSource(input);
+  if (input.audiodb) {
+    const reviewed = await readReviewedAudioDbArtwork(
+      env,
+      userId,
+      input.album_id,
+      {
+        groupId: input.audiodb.release_group_id,
+        providerAlbumId: input.audiodb.provider_album_id,
+        sourceUrl: input.source_url,
+        sourceSha256: input.source_sha256,
+      }
+    );
+    if (!reviewed)
+      throw new ArtworkError('audiodb_official_review_required', 409);
+  }
   if (
     files.source.length > 12 * 1024 * 1024 ||
     files.candidate.length > 12 * 1024 * 1024
@@ -205,6 +236,17 @@ export async function persistReviewedMaster(
       : 'reviewed_source',
     releaseId: input.release_id,
     mediumPosition: input.medium_position,
+    ...(input.audiodb
+      ? {
+          sourceIdentityEvidence: {
+            provider: 'audiodb',
+            release_group_id: input.audiodb.release_group_id,
+            provider_album_id: input.audiodb.provider_album_id,
+            source_sha256: input.source_sha256,
+            officialArtwork: true,
+          },
+        }
+      : {}),
     material: input.material,
     importEvidence: {
       review: input.review_evidence,

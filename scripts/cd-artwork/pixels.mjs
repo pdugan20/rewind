@@ -15,8 +15,19 @@ export const smooth = (t) => {
   return t * t * (3 - 2 * t);
 };
 export function readPixels(bytes) {
+  if (bytes.byteLength > 12 * 1024 * 1024) throw Error('image_bytes_limit');
   if (bytes[0] === 255 && bytes[1] === 216)
-    return jpeg.decode(bytes, { useTArray: true, maxResolutionInMP: 20 });
+    return jpeg.decode(bytes, { useTArray: true, maxResolutionInMP: 12 });
+  if (
+    bytes.length < 24 ||
+    ![137, 80, 78, 71, 13, 10, 26, 10].every((b, i) => bytes[i] === b)
+  )
+    throw Error('image_format_invalid');
+  const header = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = header.getUint32(16),
+    height = header.getUint32(20);
+  if (!width || !height || width * height > 12_000_000)
+    throw Error('image_dimensions_invalid');
   const p = decode(bytes);
   if (p.depth !== 8 || ![3, 4].includes(p.channels))
     throw Error('Use an 8-bit RGB/RGBA PNG or JPEG');
@@ -76,7 +87,12 @@ export function checkGeometry(p) {
       !outsideLeaks &&
       !missingFace &&
       !holeEdgeMissing &&
-      transitions.join(',') === '32,992',
+      // Resampling source alpha can move the 50% edge crossing one pixel
+      // even though the normalizer's physical clip is exactly radius 480.
+      // Keep this bounded; extra contours and larger silhouette errors fail.
+      transitions.length === 2 &&
+      Math.abs(transitions[0] - 32) <= 1 &&
+      Math.abs(transitions[1] - 992) <= 1,
     holeLeaks,
     outsideLeaks,
     missingFace,

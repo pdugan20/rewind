@@ -7,7 +7,7 @@ import {
 } from 'cloudflare:test';
 import { beforeAll, beforeEach, afterEach, it, expect, vi } from 'vitest';
 import type { ArtworkEnv, Job } from './types.js';
-import { now } from './types.js';
+import { now, sha256 } from './types.js';
 import { artworkApp } from '../../cd-artwork-worker.js';
 import { createTestApiKey } from '../../test-helpers.js';
 import { clearAuthCache } from '../../lib/auth.js';
@@ -25,26 +25,41 @@ import { checkListeningArtwork } from './discovery.js';
 import { generateOnce, processRaw } from './generation.js';
 import { publishAutomatic } from './automatic.js';
 import { saveFeedback, feedbackSchema } from './feedback.js';
-import { png } from '../../../scripts/cd-artwork/pixels.mjs';
+import { materialInspectionView } from './rendering.js';
+import { png, readPixels } from '../../../scripts/cd-artwork/pixels.mjs';
 const runtime = env as typeof env & ArtworkEnv;
+function isFinalVerification([url, init]: Parameters<typeof fetch>) {
+  return (
+    String(url).includes('/responses') &&
+    JSON.parse(String(init?.body)).text.format.name !== 'retail_hub_material'
+  );
+}
 const RELEASE = '11111111-1111-4111-8111-111111111111';
+const GROUP = '33333333-3333-4333-8333-333333333333';
 const verdict = {
   confidence: 'high',
   artwork_preserved: true,
   lettering_preserved: true,
   no_invented_content: true,
   no_visible_defects: true,
+  concentric_geometry: true,
+  retail_source_supported: true,
   material_confident: true,
+  material_preserved: true,
   material_inner: 64,
   material_outer: 108,
   material_opacity: 0.45,
 };
-function disc() {
+function disc(includeRing = true) {
   const data = new Uint8Array(1024 * 1024 * 4).fill(255);
   for (let y = 0; y < 1024; y++)
     for (let x = 0; x < 1024; x++) {
       const r = Math.hypot(x + 0.5 - 512, y + 0.5 - 512);
-      if (r >= 60 && r <= 480) data.set([75, 90, 105, 255], (y * 1024 + x) * 4);
+      if (r >= 60 && r <= 480)
+        data.set(
+          includeRing && r < 100 ? [170, 180, 190, 255] : [75, 90, 105, 255],
+          (y * 1024 + x) * 4
+        );
     }
   return png({ width: 1024, height: 1024, data });
 }
@@ -89,10 +104,19 @@ const appleAlbum = {
 };
 function providers({
   retail = false,
+  audioDb = false,
   verdictOverride = {},
   failVerifier = false,
   searchAmbiguous = false,
   missingRetail = false,
+  retailSource = bytes,
+  hubDecision = {
+    kind: 'opaque',
+    confidence: 'high',
+    region_id: null as number | null,
+    unprinted: false,
+    non_metallic: false,
+  },
 } = {}) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
     // Source tests exercise selection, not wall-clock provider throttling.
@@ -111,7 +135,12 @@ function providers({
                 content: [
                   {
                     type: 'output_text',
-                    text: JSON.stringify({ ...verdict, ...verdictOverride }),
+                    text: JSON.stringify(
+                      JSON.parse(String(init?.body)).text.format.name ===
+                        'retail_hub_material'
+                        ? hubDecision
+                        : { ...verdict, ...verdictOverride }
+                    ),
                   },
                 ],
               },
@@ -125,10 +154,33 @@ function providers({
     }
     if (missingRetail && u.endsWith('synthetic.png'))
       return new Response('', { status: 404 });
-    if (u.includes('mzstatic.com') || u.endsWith('synthetic.png'))
-      return new Response(new Uint8Array(bytes), {
+    if (u.includes('theaudiodb.com/api/'))
+      return Response.json({
+        album: [
+          {
+            idAlbum: '123',
+            strAlbum: 'Synthetic album',
+            strArtist: 'Synthetic artist',
+            strMusicBrainzReleaseGroupID: GROUP,
+            strAlbumCDart:
+              'https://r2.theaudiodb.com/images/media/album/cdart/123.png',
+          },
+        ],
+      });
+    if (u.includes('theaudiodb.com/images/')) {
+      const pixels = readPixels(bytes);
+      pixels.data[(512 * 1024 + 800) * 4] = 120;
+      return new Response(new Uint8Array(png(pixels)), {
         headers: { 'Content-Type': 'image/png' },
       });
+    }
+    if (u.includes('mzstatic.com') || u.endsWith('synthetic.png'))
+      return new Response(
+        new Uint8Array(u.endsWith('synthetic.png') ? retailSource : bytes),
+        {
+          headers: { 'Content-Type': 'image/png' },
+        }
+      );
     if (u.includes('itunes.apple.com/search'))
       return Response.json({
         results: searchAmbiguous
@@ -156,6 +208,7 @@ function providers({
       return Response.json({
         id: RELEASE,
         title: 'Synthetic album',
+        ...(audioDb ? { 'release-group': { id: GROUP } } : {}),
         media: [{ format: 'CD', position: 1 }],
         'artist-credit': [{ name: 'Synthetic artist' }],
       });
@@ -272,10 +325,8 @@ it.each([false, true])(
     await processRaw(target, job.id, 1);
     expect(
       fetcher.mock.calls.filter(([u]) => String(u).includes('/images/edits'))
-    ).toHaveLength(1);
-    expect(
-      fetcher.mock.calls.filter(([u]) => String(u).includes('/responses'))
-    ).toHaveLength(retail ? 2 : 1);
+    ).toHaveLength(retail ? 0 : 1);
+    expect(fetcher.mock.calls.filter(isFinalVerification)).toHaveLength(1);
     expect(
       (
         await runtime.DB.prepare(
@@ -290,6 +341,8 @@ it.each([
   { lettering_preserved: false },
   { no_invented_content: false },
   { no_visible_defects: false },
+  { concentric_geometry: false },
+  { material_preserved: false },
 ])('holds visual defects or uncertainty: %j', async (verdictOverride) => {
   providers({ verdictOverride });
   const job = await selected();
@@ -316,9 +369,7 @@ it('a lost verifier response cannot pay for repeated verification or generation'
   await processRaw(target, job.id, 1);
   await processRaw(target, job.id, 1);
   await generateOnce(target, job.id, 1);
-  expect(
-    fetcher.mock.calls.filter(([u]) => String(u).includes('/responses'))
-  ).toHaveLength(1);
+  expect(fetcher.mock.calls.filter(isFinalVerification)).toHaveLength(1);
   expect(
     fetcher.mock.calls.filter(([u]) => String(u).includes('/images/edits'))
   ).toHaveLength(1);
@@ -597,9 +648,7 @@ it('a live verifier claim cannot be stolen by a concurrent recovery', async () =
     .bind(new Date(Date.now() + 120000).toISOString(), job.id)
     .run();
   expect((await processRaw(target, job.id, 1)).state).toBe('held');
-  expect(
-    fetcher.mock.calls.filter(([u]) => String(u).includes('/responses'))
-  ).toHaveLength(0);
+  expect(fetcher.mock.calls.filter(isFinalVerification)).toHaveLength(0);
 });
 it('stale source selection cannot acquire a new catalog identity', async () => {
   providers();
@@ -892,6 +941,10 @@ it('an independently verified cover remains usable while retail discovery retrie
     await runtime.DB.prepare(
       'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
     ).run();
+    if (String(url).includes('mzstatic.com'))
+      return new Response(new Uint8Array(bytes), {
+        headers: { 'Content-Type': 'image/png' },
+      });
     return String(url).includes('itunes.apple.com')
       ? Response.json(lookup)
       : new Response('', { status: 503 });
@@ -1187,3 +1240,697 @@ it('a reviewed cover edition never authorizes a different logical CD album', asy
     spy.mock.calls.some(([url]) => String(url).includes('/release/' + RELEASE))
   ).toBe(false);
 });
+
+it('rejects unsupported retail source designs without requesting owner approval', async () => {
+  providers({
+    retail: true,
+    verdictOverride: { retail_source_supported: false },
+  });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  expect((await getJob(target, job.id, 1))?.error_code).toBe(
+    'automatic_quality_hold'
+  );
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
+});
+it('preserves an opaque retail hub instead of requiring invented transparency', async () => {
+  providers({ retail: true, verdictOverride: { material_opacity: 1 } });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  expect((await processRaw(target, job.id, 1)).state).toBe('pending');
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
+  const saved = await getJob(target, job.id, 1);
+  expect(
+    JSON.parse(saved!.provenance).verification.material.treatment.mode
+  ).toBe('preserve');
+});
+it('does not publish a candidate verified under an older geometry policy', async () => {
+  providers();
+  const job = await selected(),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  await runtime.DB.prepare(
+    "UPDATE cd_artwork_jobs SET provenance=json_remove(provenance,'$.verificationPolicy') WHERE id=?"
+  )
+    .bind(job.id)
+    .run();
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
+  expect(await approvedArtwork(target, [1], 1)).toEqual([]);
+});
+it('judges the exact final candidate on both backgrounds without a later opacity patch', async () => {
+  const fetcher = providers({ retail: true });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  const saved = (await getJob(target, job.id, 1))!;
+  const object = (await runtime.ARTWORK.get(saved.candidate_key!))!;
+  const candidate = new Uint8Array(await object.arrayBuffer());
+  const calls = fetcher.mock.calls.filter(isFinalVerification);
+  expect(calls).toHaveLength(1);
+  const body = JSON.parse(String(calls[0][1]!.body));
+  const images = body.input[0].content.filter(
+    (part: { type: string }) => part.type === 'input_image'
+  );
+  expect(images).toHaveLength(3);
+  for (const [index, color] of [
+    [1, [248, 248, 244]],
+    [2, [32, 35, 32]],
+  ] as const) {
+    const binary = atob(images[index].image_url.split(',')[1]);
+    const submitted = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    expect(await sha256(submitted)).toBe(
+      await sha256(materialInspectionView(candidate, color))
+    );
+  }
+  expect(JSON.parse(saved.provenance).verifiedCandidateHash).toBe(
+    await sha256(candidate)
+  );
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
+});
+it('retries the same source once with a distinct prompt, then stops spending', async () => {
+  providers({ verdictOverride: { concentric_geometry: false } });
+  const job = await selected(),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  const album = await ownedAlbum(runtime, 1, 1);
+  const retrySource = await selectAutomaticSource(runtime, 1, 1, album, '', 1);
+  expect(retrySource.renderRetry).toEqual({ attempt: 1, reason: 'quality' });
+  const { job: retry } = await enqueue(runtime, retrySource.request, 1, false, {
+    source: retrySource,
+    expectedActiveJob: null,
+    catalogIdentity: album,
+  });
+  expect(retry.source_hash).toBe(job.source_hash);
+  expect(JSON.parse(retry.provenance).generationKey).not.toBe(
+    JSON.parse(job.provenance).generationKey
+  );
+  expect(
+    (
+      await enqueue(runtime, retrySource.request, 1, false, {
+        source: retrySource,
+        expectedActiveJob: null,
+        catalogIdentity: album,
+      })
+    ).job.id
+  ).toBe(retry.id);
+  await generateOnce(target, retry.id, 1);
+  await processRaw(target, retry.id, 1);
+  await expect(
+    selectAutomaticSource(runtime, 1, 1, album, '', 1)
+  ).rejects.toMatchObject({ code: 'artwork_sources_exhausted' });
+  // A different processor can retry: this is not a permanent album blacklist.
+  await runtime.DB.prepare(
+    "UPDATE cd_artwork_jobs SET provenance=json_set(provenance,'$.processorHash','old-processor') WHERE id IN (?,?)"
+  )
+    .bind(job.id, retry.id)
+    .run();
+  expect(
+    (
+      await selectAutomaticSource(
+        runtime,
+        1,
+        1,
+        await ownedAlbum(runtime, 1, 1),
+        '',
+        1
+      )
+    ).sourceKind
+  ).toBe('cover');
+});
+it('a verifier outage does not blacklist otherwise usable source artwork', async () => {
+  providers({ failVerifier: true });
+  const job = await selected(),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  expect(
+    (
+      await selectAutomaticSource(
+        runtime,
+        1,
+        1,
+        await ownedAlbum(runtime, 1, 1),
+        '',
+        1
+      )
+    ).sourceKind
+  ).toBe('cover');
+});
+it('changed automatic source bytes create a fresh job while identical bytes reuse it', async () => {
+  providers();
+  const job = await selected();
+  await runtime.DB.prepare(
+    "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_quality_hold' WHERE id=?"
+  )
+    .bind(job.id)
+    .run();
+  const album = await ownedAlbum(runtime, 1, 1);
+  const source = await verifiedCover(runtime, 1, 1, album);
+  const pixels = readPixels(bytes);
+  pixels.data[(512 * 1024 + 800) * 4] = 120;
+  source.preparedBytes = png(pixels);
+  source.preparedMime = 'image/png';
+  const enqueueChanged = () =>
+    enqueue(runtime, source.request, 1, false, {
+      source,
+      expectedActiveJob: null,
+      catalogIdentity: album,
+    });
+  const changed = await enqueueChanged();
+  expect(changed.job.id).not.toBe(job.id);
+  expect((await enqueueChanged()).job.id).toBe(changed.job.id);
+});
+
+it('automatically publishes identity-matched AudioDB artwork without a saved human review', async () => {
+  providers({ audioDb: true });
+  const job = await selected(true),
+    target = withKey();
+  expect(
+    JSON.parse(job.provenance).sourceIdentityEvidence.audiodb.outcome
+  ).toBe('identity_matched_candidate');
+  expect(
+    (await runtime.ARTWORK.list({ prefix: 'audiodb/reviews/' })).objects
+  ).toHaveLength(0);
+  await generateOnce(target, job.id, 1);
+  expect((await processRaw(target, job.id, 1)).state).toBe('pending');
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
+});
+it('tries AudioDB after the bounded CAA render retry is exhausted', async () => {
+  providers({
+    retail: true,
+    audioDb: true,
+    verdictOverride: { concentric_geometry: false },
+  });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  const album = await ownedAlbum(runtime, 1, 1);
+  const retrySource = await selectAutomaticSource(
+    runtime,
+    1,
+    1,
+    album,
+    RELEASE,
+    1
+  );
+  const { job: retry } = await enqueue(runtime, retrySource.request, 1, false, {
+    source: retrySource,
+    expectedActiveJob: null,
+    catalogIdentity: album,
+  });
+  expect(retry.source_hash).toBe(job.source_hash);
+  await generateOnce(target, retry.id, 1);
+  await processRaw(target, retry.id, 1);
+  const source = await selectAutomaticSource(
+    runtime,
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1),
+    RELEASE,
+    1
+  );
+  expect(source.sourceKind).toBe('retail');
+  expect(source.discovery.audiodb).toMatchObject({
+    outcome: 'identity_matched_candidate',
+  });
+  const next = await enqueue(runtime, source.request, 1, false, {
+    source,
+    expectedActiveJob: null,
+    catalogIdentity: await ownedAlbum(runtime, 1, 1),
+  });
+  expect(next.job.id).not.toBe(job.id);
+  expect(next.job.source_hash).not.toBe(job.source_hash);
+});
+
+it('the controlled render retry works beyond the retired daily cap without duplicating submission', async () => {
+  const fetcher = providers({
+    verdictOverride: { concentric_geometry: false },
+  });
+  const job = await selected(),
+    target = withKey();
+  await runtime.DB.prepare(
+    'UPDATE cd_artwork_control SET daily_limit=1 WHERE id=1'
+  ).run();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  const album = await ownedAlbum(runtime, 1, 1);
+  const source = await selectAutomaticSource(runtime, 1, 1, album, '', 1);
+  const { job: retry } = await enqueue(runtime, source.request, 1, false, {
+    source,
+    expectedActiveJob: null,
+    catalogIdentity: album,
+  });
+  expect((await generateOnce(target, retry.id, 1)).rawKey).toBeTruthy();
+  await generateOnce(target, retry.id, 1);
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).includes('/images/edits'))
+  ).toHaveLength(2);
+  expect((await getJob(runtime, retry.id, 1))?.state).toBe('submitted');
+});
+it('persists numeric geometry failures without a verifier call or publication', async () => {
+  const fetcher = providers();
+  const job = await selected(),
+    target = withKey();
+  const pixels = readPixels(bytes);
+  for (let y = 0; y < 1024; y++)
+    for (let x = 0; x < 1024; x++)
+      if (Math.hypot(x + 0.5 - 512, y + 0.5 - 512) < 130)
+        pixels.data.set([255, 255, 255, 255], (y * 1024 + x) * 4);
+  await runtime.ARTWORK.put(`jobs/1/${job.id}/raw.png`, png(pixels));
+  await processRaw(target, job.id, 1);
+  const saved = await getJob(runtime, job.id, 1);
+  expect(saved?.error_code).toBe('automatic_geometry_hold');
+  const inspection = JSON.parse(saved!.provenance).geometryInspection;
+  expect(inspection.failures).toContain('scan_normalization_uncertain');
+  expect(inspection.rawHash).toMatch(/^[a-f0-9]{64}$/);
+  expect(
+    fetcher.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes('/responses') &&
+        JSON.parse(String(init?.body)).text.format.name !==
+          'retail_hub_material'
+    )
+  ).toHaveLength(0);
+  expect(await approvedArtwork(target, [1], 1)).toEqual([]);
+});
+
+it('allows full-face retail print without imposing a visible hub ring', async () => {
+  const fetcher = providers({ retail: true });
+  const job = await selected(true),
+    target = withKey();
+  await runtime.ARTWORK.put(`jobs/1/${job.id}/raw.png`, disc(false));
+  expect((await processRaw(target, job.id, 1)).state).toBe('pending');
+  expect(
+    fetcher.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes('/responses') &&
+        JSON.parse(String(init?.body)).text.format.name !==
+          'retail_hub_material'
+    )
+  ).toHaveLength(1);
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
+  const saved = (await getJob(target, job.id, 1))!;
+  const object = (await runtime.ARTWORK.get(saved.candidate_key!))!;
+  const pixels = readPixels(new Uint8Array(await object.arrayBuffer()));
+  expect(pixels.data[(512 * 1024 + 590) * 4 + 3]).toBe(255);
+});
+
+it.each([true, false])(
+  'the automatic %s-retail candidate contains the shared finish before inspection',
+  async (retail) => {
+    const fetcher = providers({ retail });
+    const job = await selected(retail),
+      target = withKey();
+    await runtime.ARTWORK.put(`jobs/1/${job.id}/raw.png`, disc(false));
+    expect((await processRaw(target, job.id, 1)).state).toBe('pending');
+    const saved = (await getJob(target, job.id, 1))!;
+    expect(JSON.parse(saved.provenance).normalization.outerEdge).toMatchObject({
+      printRadius: 470,
+      width: 10,
+      color: '#c1c1c1',
+    });
+    const object = (await runtime.ARTWORK.get(saved.candidate_key!))!;
+    const pixels = readPixels(new Uint8Array(await object.arrayBuffer()));
+    expect([
+      ...pixels.data.slice((512 * 1024 + 987) * 4, (512 * 1024 + 987) * 4 + 4),
+    ]).toEqual([193, 193, 193, 255]);
+    expect([
+      ...pixels.data.slice((512 * 1024 + 750) * 4, (512 * 1024 + 750) * 4 + 4),
+    ]).toEqual([75, 90, 105, 255]);
+    const calls = fetcher.mock.calls.filter(isFinalVerification);
+    expect(calls).toHaveLength(1);
+    expect(
+      JSON.parse(String(calls[0][1]!.body)).input[0].content[0].text
+    ).toContain(
+      'shared renderer intentionally replaces only canonical radius 470–480'
+    );
+  }
+);
+
+it('normalizes usable retail art without an image key or incrementing submission usage', async () => {
+  const fetcher = providers({ retail: true });
+  const job = await selected(true);
+  await runtime.DB.prepare(
+    'UPDATE cd_artwork_control SET budget_day=?,submitted_count=3 WHERE id=1'
+  )
+    .bind(now().slice(0, 10))
+    .run();
+  const target = { ...runtime, OPENAI_API_KEY: undefined } as ArtworkEnv;
+  expect((await generateOnce(target, job.id, 1)).rawKey).toBeTruthy();
+  const saved = (await getJob(target, job.id, 1))!;
+  expect(saved.state).toBe('queued');
+  expect(JSON.parse(saved.provenance)).toMatchObject({
+    calculatedUsd: 0,
+    model: null,
+    nativeRendering: { sourceHash: job.source_hash },
+  });
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).includes('/images/edits'))
+  ).toHaveLength(0);
+  expect(
+    (
+      await runtime.DB.prepare(
+        'SELECT submitted_count FROM cd_artwork_control WHERE id=1'
+      ).first<{ submitted_count: number }>()
+    )?.submitted_count
+  ).toBe(3);
+});
+
+it('recovers native bytes after an interrupted storage response without double normalization', async () => {
+  const fetcher = providers({ retail: true });
+  const job = await selected(true),
+    target = withKey();
+  const rawKey = `jobs/1/${job.id}/raw.png`;
+  const put = runtime.ARTWORK.put.bind(runtime.ARTWORK);
+  const putter = vi
+    .spyOn(runtime.ARTWORK, 'put')
+    .mockImplementation(async (...args) => {
+      const result = await put(...args);
+      if (args[0] === rawKey) throw Error('synthetic_lost_storage_response');
+      return result;
+    });
+  await expect(generateOnce(target, job.id, 1)).rejects.toThrow(
+    'synthetic_lost_storage_response'
+  );
+  putter.mockRestore();
+  const interrupted = (await getJob(target, job.id, 1))!;
+  expect(interrupted.raw_key).toBeNull();
+  const bytes = new Uint8Array(
+    await (await runtime.ARTWORK.get(rawKey))!.arrayBuffer()
+  );
+  expect(JSON.parse(interrupted.provenance).nativeRendering.rawHash).toBe(
+    await sha256(bytes)
+  );
+  expect((await generateOnce(target, job.id, 1)).rawKey).toBe(rawKey);
+  expect((await processRaw(target, job.id, 1)).state).toBe('pending');
+  const saved = (await getJob(target, job.id, 1))!;
+  expect(saved.candidate_hash).toBe(await sha256(bytes));
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).includes('/images/edits'))
+  ).toHaveLength(0);
+});
+
+it.each(['proof', 'bytes'])(
+  'holds tampered native %s before visual grading or publication',
+  async (mode) => {
+    const fetcher = providers({ retail: true });
+    const job = await selected(true),
+      target = withKey();
+    await generateOnce(target, job.id, 1);
+    if (mode === 'proof')
+      await runtime.DB.prepare(
+        "UPDATE cd_artwork_jobs SET provenance=json_set(provenance,'$.nativeRendering.sourceHash','wrong') WHERE id=?"
+      )
+        .bind(job.id)
+        .run();
+    else {
+      const saved = (await getJob(target, job.id, 1))!;
+      const raw = readPixels(
+        new Uint8Array(
+          await (await runtime.ARTWORK.get(saved.raw_key!))!.arrayBuffer()
+        )
+      );
+      raw.data[(512 * 1024 + 800) * 4] = 255;
+      await runtime.ARTWORK.put(saved.raw_key!, png(raw));
+    }
+    expect((await processRaw(target, job.id, 1)).state).toBe(
+      'needs_registration'
+    );
+    expect((await getJob(target, job.id, 1))?.error_code).toBe(
+      'automatic_geometry_hold'
+    );
+    expect(
+      fetcher.mock.calls.filter(
+        ([url, init]) =>
+          String(url).includes('/responses') &&
+          JSON.parse(String(init?.body)).text.format.name !==
+            'retail_hub_material'
+      )
+    ).toHaveLength(0);
+    expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
+  }
+);
+
+it('a failed native material check gets one bounded image restoration instead of the same native result', async () => {
+  const fetcher = providers({
+    retail: true,
+    verdictOverride: { material_preserved: false },
+  });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  expect((await getJob(target, job.id, 1))?.error_code).toBe(
+    'automatic_quality_hold'
+  );
+  const album = await ownedAlbum(runtime, 1, 1);
+  const source = await selectAutomaticSource(runtime, 1, 1, album, RELEASE, 1);
+  expect(source.renderRetry).toEqual({ attempt: 1, reason: 'quality' });
+  const { job: retry } = await enqueue(runtime, source.request, 1, false, {
+    source,
+    expectedActiveJob: null,
+    catalogIdentity: album,
+  });
+  await generateOnce(target, retry.id, 1);
+  const calls = fetcher.mock.calls.filter(([url]) =>
+    String(url).includes('/images/edits')
+  );
+  expect(calls).toHaveLength(1);
+  const form = calls[0][1]!.body as FormData;
+  expect(form.get('background')).toBe('transparent');
+  expect(form.get('prompt')).toContain(
+    'Material identification and clear-plastic alpha are handled separately by the renderer'
+  );
+  expect(
+    JSON.parse((await getJob(target, retry.id, 1))!.provenance).nativeRendering
+  ).toBeUndefined();
+  await processRaw(target, retry.id, 1);
+  expect((await publishAutomatic(target, retry.id, 1)).state).toBe('held');
+  // This fixture serves identical bytes as the cover too. The exhausted hash
+  // must not gain another paid attempt just by appearing at a different URL.
+  await expect(
+    selectAutomaticSource(runtime, 1, 1, album, RELEASE, 1)
+  ).rejects.toMatchObject({ code: 'artwork_sources_exhausted' });
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).includes('/images/edits'))
+  ).toHaveLength(1);
+});
+
+it.each([false, true])(
+  'uncertain native geometry falls back to the provider while respecting processing disabled=%s',
+  async (disabled) => {
+    const pixels = readPixels(bytes);
+    for (let y = 0; y < 1024; y++)
+      for (let x = 0; x < 1024; x++)
+        if (Math.hypot(x + 0.5 - 512, y + 0.5 - 512) < 130)
+          pixels.data.set([255, 255, 255, 255], (y * 1024 + x) * 4);
+    const fetcher = providers({ retail: true, retailSource: png(pixels) });
+    const job = await selected(true),
+      target = withKey();
+    if (disabled)
+      await runtime.DB.prepare(
+        'UPDATE cd_artwork_control SET enabled=0 WHERE id=1'
+      ).run();
+    const result = await generateOnce(target, job.id, 1);
+    expect(!!result.rawKey).toBe(!disabled);
+    expect(
+      fetcher.mock.calls.filter(([url]) =>
+        String(url).includes('/images/edits')
+      )
+    ).toHaveLength(disabled ? 0 : 1);
+    const saved = (await getJob(target, job.id, 1))!;
+    expect(JSON.parse(saved.provenance).nativeRendering).toBeUndefined();
+    if (disabled) expect(saved.state).toBe('queued');
+  }
+);
+
+it('material identification precedes grading and the cover hub is checked in the exact published bytes', async () => {
+  const fetcher = providers();
+  const job = await selected(),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  const saved = (await getJob(target, job.id, 1))!;
+  const p = JSON.parse(saved.provenance);
+  expect(p.hubVerification.treatment).toEqual({ mode: 'cover' });
+  const object = (await runtime.ARTWORK.get(saved.candidate_key!))!;
+  const bytes = new Uint8Array(await object.arrayBuffer()),
+    image = readPixels(bytes);
+  expect(image.data[(512 * 1024 + 588) * 4 + 3]).toBe(117);
+  expect(image.data[(512 * 1024 + 750) * 4 + 3]).toBe(255);
+  expect(p.verifiedMaterialHash).toBe(await sha256(bytes));
+  expect(
+    fetcher.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes('/responses') &&
+        JSON.parse(String(init?.body)).text.format.name ===
+          'retail_hub_material'
+    )
+  ).toHaveLength(0);
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('accepted');
+});
+it('native source alpha is retained without asking a model to identify its material', async () => {
+  const source = readPixels(disc());
+  for (let y = 0; y < 1024; y++)
+    for (let x = 0; x < 1024; x++) {
+      const r = Math.hypot(x + 0.5 - 512, y + 0.5 - 512);
+      if (r > 64 && r < 96) source.data[(y * 1024 + x) * 4 + 3] = 117;
+    }
+  const fetcher = providers({ retail: true, retailSource: png(source) });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  const saved = (await getJob(target, job.id, 1))!;
+  expect(saved.state).toBe('pending');
+  expect(JSON.parse(saved.provenance).hubVerification.treatment.mode).toBe(
+    'preserve'
+  );
+  expect(
+    fetcher.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes('/responses') &&
+        JSON.parse(String(init?.body)).text.format.name ===
+          'retail_hub_material'
+    )
+  ).toHaveLength(0);
+  const object = (await runtime.ARTWORK.get(saved.candidate_key!))!;
+  expect(
+    readPixels(new Uint8Array(await object.arrayBuffer())).data[
+      (512 * 1024 + 588) * 4 + 3
+    ]
+  ).toBe(117);
+});
+it('holds an uncertain source material decision before final grading or candidate storage', async () => {
+  const fetcher = providers({
+    retail: true,
+    hubDecision: {
+      kind: 'uncertain',
+      confidence: 'uncertain',
+      region_id: null,
+      unprinted: false,
+      non_metallic: false,
+    },
+  });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  const saved = (await getJob(target, job.id, 1))!;
+  expect(saved.error_code).toBe('automatic_quality_hold');
+  expect(saved.candidate_key).toBeNull();
+  expect(fetcher.mock.calls.filter(isFinalVerification)).toHaveLength(0);
+  const count = fetcher.mock.calls.length;
+  await processRaw(target, job.id, 1);
+  expect(fetcher.mock.calls.length).toBe(count);
+});
+it('rejects a publication proof whose material hash no longer matches the candidate', async () => {
+  providers();
+  const job = await selected(),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  await runtime.DB.prepare(
+    "UPDATE cd_artwork_jobs SET provenance=json_set(provenance,'$.verifiedMaterialHash','wrong') WHERE id=?"
+  )
+    .bind(job.id)
+    .run();
+  expect((await publishAutomatic(target, job.id, 1)).state).toBe('held');
+  expect(await approvedArtwork(target, [1], 1)).toEqual([]);
+});
+
+it('recovers a transient material classifier outage once using the same saved raw bytes', async () => {
+  const fetcher = providers({ retail: true, failVerifier: true });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  expect((await processRaw(target, job.id, 1)).state).toBe('held');
+  expect((await getJob(target, job.id, 1))?.validation_state).toBe('claimed');
+  expect((await processRaw(target, job.id, 1)).state).toBe('held');
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).includes('/responses'))
+  ).toHaveLength(1);
+  await runtime.DB.prepare(
+    "UPDATE cd_artwork_jobs SET validation_lease_until='2000-01-01' WHERE id=?"
+  )
+    .bind(job.id)
+    .run();
+  fetcher.mockRestore();
+  const recovered = providers({ retail: true });
+  expect((await processRaw(target, job.id, 1)).state).toBe('pending');
+  expect(
+    recovered.mock.calls.filter(([url]) =>
+      String(url).includes('/images/edits')
+    )
+  ).toHaveLength(0);
+});
+it('exhausts transient material recovery after two attempts without looping', async () => {
+  const fetcher = providers({ retail: true, failVerifier: true });
+  const job = await selected(true),
+    target = withKey();
+  await generateOnce(target, job.id, 1);
+  await processRaw(target, job.id, 1);
+  await runtime.DB.prepare(
+    "UPDATE cd_artwork_jobs SET validation_lease_until='2000-01-01' WHERE id=?"
+  )
+    .bind(job.id)
+    .run();
+  await processRaw(target, job.id, 1);
+  expect((await getJob(target, job.id, 1))?.validation_state).toBe('held');
+  await processRaw(target, job.id, 1);
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).includes('/responses'))
+  ).toHaveLength(2);
+});
+
+it.each([false, true])(
+  'replays cached material proof after a candidate write interruption and rejects changed decision=%s',
+  async (tampered) => {
+    const fetcher = providers({ retail: true }),
+      target = withKey(),
+      job = await selected(true);
+    await generateOnce(target, job.id, 1);
+    const put = vi
+      .spyOn(runtime.ARTWORK, 'put')
+      .mockRejectedValueOnce(Error('synthetic_candidate_write_interruption'));
+    await expect(processRaw(target, job.id, 1)).rejects.toThrow(
+      'synthetic_candidate_write_interruption'
+    );
+    put.mockRestore();
+    const saved = (await getJob(target, job.id, 1))!;
+    expect(saved.candidate_key).toBeNull();
+    expect(JSON.parse(saved.provenance).verifiedMaterialHash).toBeTruthy();
+    if (tampered)
+      await runtime.DB.prepare(
+        "UPDATE cd_artwork_jobs SET provenance=json_set(provenance,'$.hubDecision',json(?)) WHERE id=?"
+      )
+        .bind(
+          JSON.stringify({
+            kind: 'clear_plastic',
+            confidence: 'high',
+            region_id: 999,
+            unprinted: true,
+            non_metallic: true,
+          }),
+          job.id
+        )
+        .run();
+    const calls = fetcher.mock.calls.length;
+    expect((await processRaw(target, job.id, 1)).state).toBe(
+      tampered ? 'needs_registration' : 'pending'
+    );
+    expect(fetcher.mock.calls.length).toBe(calls);
+    if (tampered)
+      expect((await getJob(target, job.id, 1))?.error_code).toBe(
+        'automatic_verification_stale'
+      );
+  }
+);

@@ -226,7 +226,7 @@ describe('durable jobs and paid request safety', () => {
       )?.submitted_count
     ).toBe(1);
   });
-  it('keeps disabled or budget-exhausted work queued without invoking a provider', async () => {
+  it('keeps disabled work queued without invoking a provider', async () => {
     const job = await seed();
     await runtime.DB.prepare(
       'UPDATE cd_artwork_control SET enabled=0 WHERE id=1'
@@ -1303,4 +1303,250 @@ describe('reviewed master coverage without generation', () => {
       ).first('n')
     ).toBe(1);
   });
+});
+
+describe('generic fallback API handoff', () => {
+  it('requires admin for seeding, validates without writes, and serves metadata independently of albums', async () => {
+    const png = prepareCandidate(rawDisc(), input).bytes;
+    async function uploadFallback(key: string, apply = false) {
+      const form = new FormData();
+      form.set(
+        'input',
+        JSON.stringify({
+          expected_sha256: null,
+          review_evidence:
+            'Reviewed synthetic generic fallback geometry and alpha.',
+        })
+      );
+      form.set('candidate', new File([new Uint8Array(png)], 'fallback.png'));
+      return artworkApp.request(
+        `https://api.rewind.rest${admin}/fallback${apply ? '?apply=true' : ''}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${key}` },
+          body: form,
+        },
+        runtime,
+        createExecutionContext()
+      );
+    }
+    await runtime.ARTWORK.delete('fallback/users/1/descriptor.json');
+    expect((await uploadFallback(readKey)).status).toBe(403);
+    expect((await uploadFallback(adminKey)).status).toBe(200);
+    expect(
+      await runtime.ARTWORK.get('fallback/users/1/descriptor.json')
+    ).toBeNull();
+    const applied = await uploadFallback(adminKey, true);
+    expect(applied.status).toBe(200);
+    const descriptor = (await applied.json()) as {
+      sha256: string;
+      image_url: string;
+    };
+    expect((await request(`${read}/albums?ids=`, readKey)).status).toBe(200);
+    const snapshot = (await (
+      await request(`${read}/albums?ids=`, readKey)
+    ).json()) as { data: unknown[]; fallback_artwork: unknown };
+    expect(snapshot.data).toEqual([]);
+    expect(snapshot.fallback_artwork).toEqual(descriptor);
+    const other = (await (
+      await request(`${read}/albums?ids=`, otherKey)
+    ).json()) as { fallback_artwork: unknown };
+    expect(other.fallback_artwork).toBeUndefined();
+    const asset = await artworkApp.request(descriptor.image_url, {}, runtime);
+    expect(asset.status).toBe(200);
+    expect(asset.headers.get('Content-Type')).toBe('image/png');
+    expect(asset.headers.get('Cache-Control')).toContain('immutable');
+    expect(await sha256(new Uint8Array(await asset.arrayBuffer()))).toBe(
+      descriptor.sha256
+    );
+    expect((await uploadFallback(adminKey, true)).status).toBe(409);
+  });
+});
+
+describe('AudioDB owner review API', () => {
+  it('keeps previews private and binds explicit review to the owned album and exact source', async () => {
+    const group = '11111111-1111-4111-8111-111111111111';
+    const sourceUrl =
+      'https://r2.theaudiodb.com/images/media/album/cdart/synthetic.png';
+    const png = rawDisc();
+    let providerClock = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => (providerClock += 3000));
+    const fetcher = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (url) => {
+        const path = String(url);
+        if (path.startsWith('https://musicbrainz.org/ws/2/release/'))
+          return Response.json({
+            id: input.release_id,
+            title: 'Synthetic album',
+            'artist-credit': [
+              {
+                name: 'Synthetic artist',
+                artist: { name: 'Synthetic artist' },
+              },
+            ],
+            'release-group': { id: group },
+            media: [{ format: 'CD', position: 1 }],
+          });
+        if (path.startsWith('https://coverartarchive.org/'))
+          return Response.json({ images: [] });
+        if (
+          path ===
+          `https://www.theaudiodb.com/api/v1/json/123/album-mb.php?i=${group}`
+        )
+          return Response.json({
+            album: [
+              {
+                idAlbum: '123',
+                strAlbum: 'Synthetic album',
+                strArtist: 'Synthetic artist',
+                strMusicBrainzID: group,
+                strAlbumCDart: sourceUrl,
+              },
+            ],
+          });
+        if (path === sourceUrl)
+          return new Response(new Uint8Array(png), {
+            headers: { 'Content-Type': 'image/png' },
+          });
+        throw new Error('Unexpected upstream request in owner review');
+      });
+    const endpoint = `${admin}/albums/1/audiodb`;
+    const body = { release_id: input.release_id, medium_position: 1 };
+    expect((await request(endpoint, readKey, body)).status).toBe(403);
+    expect((await request(endpoint, otherKey, body)).status).toBe(404);
+    expect(fetcher).not.toHaveBeenCalled();
+    const before = (await runtime.ARTWORK.list()).objects.map((o) => o.key);
+    const preview = await request(endpoint, adminKey, body);
+    expect(preview.status).toBe(200);
+    const result = (await preview.json()) as {
+      outcome: string;
+      candidate: Record<string, unknown>;
+    };
+    expect(result.outcome).toBe('needs_official_artwork_review');
+    expect(result.candidate).not.toHaveProperty('bytes');
+    expect((await runtime.ARTWORK.list()).objects.map((o) => o.key)).toEqual(
+      before
+    );
+    const { artist: _artist, album: _album, ...binding } = result.candidate;
+    const registered = prepareCandidate(png, input).bytes;
+    const masterInput = reviewedMasterSchema.parse({
+      album_id: 1,
+      expected_album: { artist: 'Synthetic artist', title: 'Synthetic album' },
+      source_kind: 'retail',
+      source_url: sourceUrl,
+      source_sha256: await sha256(png),
+      candidate_sha256: await sha256(registered),
+      audiodb: { release_group_id: group, provider_album_id: '123' },
+      material: {
+        inner: 62,
+        outer: 90,
+        evidence: 'Synthetic photographed hub retained opaque and reviewed.',
+      },
+      review_evidence:
+        'Exact reviewed source registered without any model generation.',
+      processing: {
+        method: 'deterministic-registration',
+        evidence:
+          'Source face preserved with canonical geometry and silhouette.',
+      },
+    });
+    const masterFiles = { source: png, candidate: registered };
+    await expect(
+      prepareReviewedMaster(runtime, masterInput, masterFiles, 1)
+    ).rejects.toMatchObject({ code: 'audiodb_official_review_required' });
+    const review = {
+      ...binding,
+      officialArtwork: true,
+      evidence: 'Owner compared the exact bytes to official retail CD design.',
+    };
+    expect(
+      (
+        await request(`${endpoint}?apply=true`, adminKey, {
+          ...body,
+          review: { ...review, sourceSha256: '0'.repeat(64) },
+        })
+      ).status
+    ).toBe(409);
+    expect(
+      (await request(`${endpoint}?apply=true`, adminKey, { ...body, review }))
+        .status
+    ).toBe(200);
+    expect(
+      (await prepareReviewedMaster(runtime, masterInput, masterFiles, 1)).id
+    ).toMatch(/^[a-f0-9]{64}$/);
+    await expect(
+      prepareReviewedMaster(
+        runtime,
+        {
+          ...masterInput,
+          audiodb: { ...masterInput.audiodb!, provider_album_id: '456' },
+        },
+        masterFiles,
+        1
+      )
+    ).rejects.toMatchObject({ code: 'audiodb_official_review_required' });
+    await expect(
+      prepareReviewedMaster(
+        runtime,
+        { ...masterInput, audiodb: undefined },
+        masterFiles,
+        1
+      )
+    ).rejects.toMatchObject({ code: 'source_identity_invalid' });
+    expect(
+      await runtime.DB.prepare(
+        'SELECT COUNT(*) AS n FROM cd_artwork_jobs'
+      ).first('n')
+    ).toBe(0);
+    expect(
+      await runtime.DB.prepare(
+        'SELECT COUNT(*) AS n FROM cd_artwork_albums'
+      ).first('n')
+    ).toBe(0);
+  });
+});
+
+it.each([0, 3, 10])(
+  'retired daily_limit=%s does not block submission and duplicate claims still count once',
+  async (legacyLimit) => {
+    const job = await seed();
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_control SET daily_limit=?,budget_day=?,submitted_count=100 WHERE id=1'
+    )
+      .bind(legacyLimit, new Date().toISOString().slice(0, 10))
+      .run();
+    const claims = await Promise.all([
+      claimSubmission(runtime, job),
+      claimSubmission(runtime, job),
+    ]);
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(
+      await runtime.DB.prepare(
+        'SELECT submitted_count FROM cd_artwork_control WHERE id=1'
+      ).first('submitted_count')
+    ).toBe(101);
+  }
+);
+it('reports no daily limit and rejects the retired budget control instead of silently applying it', async () => {
+  const status = await request(admin + '/control', adminKey);
+  expect(
+    ((await status.json()) as { daily_limit: null }).daily_limit
+  ).toBeNull();
+  expect(
+    (
+      await request(admin + '/control', adminKey, {
+        enabled: true,
+        daily_limit: 0,
+      })
+    ).status
+  ).toBe(400);
+  expect(
+    (await request(admin + '/control', adminKey, { enabled: false })).status
+  ).toBe(200);
+  expect(
+    await runtime.DB.prepare(
+      'SELECT enabled FROM cd_artwork_control WHERE id=1'
+    ).first('enabled')
+  ).toBe(0);
 });

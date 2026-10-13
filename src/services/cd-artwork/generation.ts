@@ -10,6 +10,7 @@ import { MODEL, now, sha256 } from './types.js';
 import { boundedBytes, ArtworkError } from './sources.js';
 import { getJob, claimSubmission } from './store.js';
 import { prepareCandidate } from './registration.js';
+import { normalizeRetail, RENDER_STRATEGY } from './rendering.js';
 
 const rawKey = (userId: number, id: string) => `jobs/${userId}/${id}/raw.png`;
 export async function generateOnce(
@@ -63,31 +64,83 @@ export async function generateOnce(
       const raw = await env.ARTWORK.get(prior.raw_key);
       if (raw) {
         const bytes = await raw.arrayBuffer();
-        await env.ARTWORK.put(key, bytes, {
-          httpMetadata: { contentType: 'image/png' },
-          onlyIf: { etagDoesNotMatch: '*' },
-        });
         const p = JSON.parse(job.provenance);
         p.reusedRawFrom = prior.id;
         p.rawHash = await sha256(new Uint8Array(bytes));
         p.calculatedUsd = 0;
+        const priorRendering = JSON.parse(prior.provenance).nativeRendering;
+        if (priorRendering) p.nativeRendering = priorRendering;
         await env.DB.prepare(
-          'UPDATE cd_artwork_jobs SET raw_key=?,provenance=?,updated_at=? WHERE id=? AND user_id=?'
+          'UPDATE cd_artwork_jobs SET provenance=?,updated_at=? WHERE id=? AND user_id=?'
         )
-          .bind(key, JSON.stringify(p), now(), id, userId)
+          .bind(JSON.stringify(p), now(), id, userId)
+          .run();
+        await env.ARTWORK.put(key, bytes, {
+          httpMetadata: { contentType: 'image/png' },
+          onlyIf: { etagDoesNotMatch: '*' },
+        });
+        await env.DB.prepare(
+          'UPDATE cd_artwork_jobs SET raw_key=?,updated_at=? WHERE id=? AND user_id=?'
+        )
+          .bind(key, now(), id, userId)
           .run();
         return { rawKey: key };
       }
     }
   }
-  if (!env.OPENAI_API_KEY || job.state !== 'queued') return { rawKey: null };
+  if (job.state !== 'queued') return { rawKey: null };
   const source = await env.ARTWORK.get(job.source_key);
   if (!source) throw Error('source_missing');
   const sourceBytes = new Uint8Array(await source.arrayBuffer());
   if ((await sha256(sourceBytes)) !== job.source_hash)
     throw Error('source_integrity_failed');
-  const form = new FormData();
   const provenance = JSON.parse(job.provenance);
+  if (
+    job.automatic &&
+    !provenance.renderRetry &&
+    (JSON.parse(job.input) as JobInput).source_kind === 'retail'
+  ) {
+    let native;
+    try {
+      native = normalizeRetail(sourceBytes);
+    } catch {
+      native = null;
+    }
+    if (native) {
+      // This is deterministic local processing. It neither calls the image
+      // provider nor claims/decrements the paid-submission ledger.
+      const hash = await sha256(native.bytes);
+      provenance.nativeRendering = {
+        strategy: RENDER_STRATEGY,
+        sourceHash: job.source_hash,
+        rawHash: hash,
+        verification: native.verification,
+      };
+      provenance.rawHash = hash;
+      provenance.calculatedUsd = 0;
+      provenance.model = null;
+      // Persist the interpretation before the object. A stopped write sequence
+      // must never make an already-normalized source look like provider output.
+      const saved = await env.DB.prepare(
+        "UPDATE cd_artwork_jobs SET provenance=?,error_code=NULL,updated_at=? WHERE id=? AND user_id=? AND state='queued' AND candidate_hash IS NULL"
+      )
+        .bind(JSON.stringify(provenance), now(), id, userId)
+        .run();
+      if (saved.meta.changes !== 1) return { rawKey: null };
+      await env.ARTWORK.put(key, native.bytes, {
+        httpMetadata: { contentType: 'image/png' },
+        onlyIf: { etagDoesNotMatch: '*' },
+      });
+      await env.DB.prepare(
+        "UPDATE cd_artwork_jobs SET raw_key=?,updated_at=? WHERE id=? AND user_id=? AND state='queued' AND candidate_hash IS NULL"
+      )
+        .bind(key, now(), id, userId)
+        .run();
+      return { rawKey: key };
+    }
+  }
+  if (!env.OPENAI_API_KEY) return { rawKey: null };
+  const form = new FormData();
   for (const [k, v] of Object.entries(provenance.settings))
     form.append(k, String(v));
   form.append('prompt', provenance.prompt);
