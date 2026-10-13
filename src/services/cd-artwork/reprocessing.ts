@@ -1,9 +1,9 @@
 import type { ArtworkEnv, Job } from './types.js';
 import { now } from './types.js';
-import { ownedAlbum, getPendingAutomatic } from './store.js';
+import { ownedAlbum, getPendingAutomatic, getJob } from './store.js';
 import { ArtworkError } from './sources.js';
 import { PROCESSOR_HASH } from './processor-version.js';
-import { VERIFICATION_POLICY } from './automatic.js';
+import { VERIFICATION_POLICY, automaticEligible } from './automatic.js';
 import { HUB_POLICY } from './rendering.js';
 
 /** v8 already enforced the shared edge, final light/dark view and no invented
@@ -50,7 +50,8 @@ export async function queueArtworkReprocessing(
   env: ArtworkEnv,
   userId: number,
   albumIds: number[],
-  dryRun = true
+  dryRun = true,
+  retry?: { jobId: string; allowLegacy: boolean }
 ) {
   const control = await env.DB.prepare(
     'SELECT enabled,automatic_enabled FROM cd_artwork_control WHERE id=1'
@@ -83,10 +84,13 @@ export async function queueArtworkReprocessing(
       pending &&
       JSON.parse(pending.provenance).processorHash === PROCESSOR_HASH;
     const existingCheck = await env.DB.prepare(
-      'SELECT id FROM cd_artwork_checks WHERE user_id=? AND album_id=? AND completed_at IS NULL'
+      "SELECT k.id,(SELECT json_extract(e.details,'$.processorHash') FROM cd_artwork_events e WHERE e.user_id=k.user_id AND e.album_id=k.album_id AND e.action IN ('automatic-reprocess-requested','automatic-render-retry-requested') AND json_extract(e.details,'$.checkId')=k.id ORDER BY e.id DESC LIMIT 1) AS processor_hash FROM cd_artwork_checks k WHERE k.user_id=? AND k.album_id=? AND k.completed_at IS NULL"
     )
       .bind(userId, id)
-      .first();
+      .first<{ id: number; processor_hash: string | null }>();
+    const staleCheck =
+      existingCheck?.processor_hash &&
+      existingCheck.processor_hash !== PROCESSOR_HASH;
     const status = !eligible
       ? 'ineligible'
       : !play
@@ -95,11 +99,11 @@ export async function queueArtworkReprocessing(
           ? 'pinned'
           : state?.review_hold
             ? 'review_hold'
-            : currentPublishedArtwork(state)
+            : !retry && currentPublishedArtwork(state)
               ? 'current_artwork'
               : currentPending
                 ? 'processing'
-                : existingCheck
+                : existingCheck && !staleCheck
                   ? 'already_queued'
                   : 'would_queue';
     plan.push({ id, status, state });
@@ -116,8 +120,10 @@ export async function queueArtworkReprocessing(
         ).bind(userId, id, stamp),
         // The token binds all following statements to this CAS winner.
         env.DB.prepare(
-          "UPDATE cd_artwork_albums SET active_job=NULL,hidden_job=COALESCE(active_job,hidden_job),last_checked_at=NULL,next_check=?,discovery_outcome='reprocess_requested',discovery_evidence=? WHERE user_id=? AND album_id=? AND active_job IS ? AND pinned=0 AND review_hold=0 AND (SELECT enabled=1 AND automatic_enabled=1 FROM cd_artwork_control WHERE id=1) AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_albums.album_id AND a.user_id=cd_artwork_albums.user_id AND a.is_filtered=0 AND r.is_filtered=0 AND a.identity_conflict=0 AND r.identity_conflict=0) AND NOT EXISTS(SELECT 1 FROM cd_artwork_checks c WHERE c.user_id=cd_artwork_albums.user_id AND c.album_id=cd_artwork_albums.album_id AND c.completed_at IS NULL) AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs n WHERE n.user_id=cd_artwork_albums.user_id AND n.album_id=cd_artwork_albums.album_id AND n.automatic=1 AND json_extract(n.provenance,'$.processorHash')=? AND (n.state IN ('queued','submitted','provider_unknown','pending') OR (n.state='needs_registration' AND COALESCE(n.validation_state,'') IN ('','claimed','passed')))) RETURNING album_id"
+          "UPDATE cd_artwork_albums SET active_job=CASE WHEN ? THEN active_job ELSE NULL END,hidden_job=CASE WHEN ? THEN hidden_job ELSE COALESCE(active_job,hidden_job) END,last_checked_at=NULL,next_check=?,discovery_outcome='reprocess_requested',discovery_evidence=? WHERE user_id=? AND album_id=? AND active_job IS ? AND pinned=0 AND review_hold=0 AND (SELECT enabled=1 AND automatic_enabled=1 FROM cd_artwork_control WHERE id=1) AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_albums.album_id AND a.user_id=cd_artwork_albums.user_id AND a.is_filtered=0 AND r.is_filtered=0 AND a.identity_conflict=0 AND r.identity_conflict=0) AND NOT EXISTS(SELECT 1 FROM cd_artwork_checks c WHERE c.user_id=cd_artwork_albums.user_id AND c.album_id=cd_artwork_albums.album_id AND c.completed_at IS NULL AND NOT EXISTS(SELECT 1 FROM cd_artwork_events e WHERE e.user_id=c.user_id AND e.album_id=c.album_id AND e.action IN ('automatic-reprocess-requested','automatic-render-retry-requested') AND json_extract(e.details,'$.checkId')=c.id AND json_extract(e.details,'$.processorHash')<>?)) AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs n WHERE n.user_id=cd_artwork_albums.user_id AND n.album_id=cd_artwork_albums.album_id AND n.automatic=1 AND json_extract(n.provenance,'$.processorHash')=? AND (n.state IN ('queued','submitted','provider_unknown','pending') OR (n.state='needs_registration' AND COALESCE(n.validation_state,'') IN ('','claimed','passed')))) AND (? IS NULL OR NOT EXISTS(SELECT 1 FROM cd_artwork_events e WHERE e.user_id=cd_artwork_albums.user_id AND e.album_id=cd_artwork_albums.album_id AND e.job_id=? AND e.action='automatic-render-retry-requested')) RETURNING album_id"
         ).bind(
+          Number(!!retry),
+          Number(!!retry),
           stamp,
           JSON.stringify({
             reprocessing: token,
@@ -126,8 +132,14 @@ export async function queueArtworkReprocessing(
           userId,
           id,
           state?.active_job ?? null,
-          PROCESSOR_HASH
+          PROCESSOR_HASH,
+          PROCESSOR_HASH,
+          retry?.jobId ?? null,
+          retry?.jobId ?? null
         ),
+        env.DB.prepare(
+          "UPDATE cd_artwork_checks SET completed_at=?,outcome='processor_replaced' WHERE user_id=? AND album_id=? AND completed_at IS NULL AND EXISTS(SELECT 1 FROM cd_artwork_events e WHERE e.user_id=cd_artwork_checks.user_id AND e.album_id=cd_artwork_checks.album_id AND e.action IN ('automatic-reprocess-requested','automatic-render-retry-requested') AND json_extract(e.details,'$.checkId')=cd_artwork_checks.id AND json_extract(e.details,'$.processorHash')<>?) AND EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=? AND c.album_id=? AND json_extract(c.discovery_evidence,'$.reprocessing')=?)"
+        ).bind(stamp, userId, id, PROCESSOR_HASH, userId, id, token),
         env.DB.prepare(
           "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_reprocess_requested',updated_at=? WHERE user_id=? AND album_id=? AND automatic=1 AND state IN ('queued','submitted','provider_unknown','needs_registration','pending') AND COALESCE(validation_state,'')<>'held' AND COALESCE(json_extract(provenance,'$.processorHash'),'')<>? AND EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=? AND c.album_id=? AND json_extract(c.discovery_evidence,'$.reprocessing')=?)"
         ).bind(stamp, userId, id, PROCESSOR_HASH, userId, id, token),
@@ -135,8 +147,22 @@ export async function queueArtworkReprocessing(
           "INSERT OR IGNORE INTO cd_artwork_checks(user_id,album_id,release_id,medium_position) SELECT user_id,album_id,release_id,medium_position FROM cd_artwork_albums WHERE user_id=? AND album_id=? AND json_extract(discovery_evidence,'$.reprocessing')=?"
         ).bind(userId, id, token),
         env.DB.prepare(
-          "INSERT INTO cd_artwork_events(user_id,album_id,job_id,action,reviewer,created_at,details) SELECT user_id,album_id,hidden_job,'automatic-reprocess-requested','owner-requested-pipeline-reset',?,json_object('processorHash',?,'checkId',(SELECT k.id FROM cd_artwork_checks k WHERE k.user_id=cd_artwork_albums.user_id AND k.album_id=cd_artwork_albums.album_id AND k.completed_at IS NULL)) FROM cd_artwork_albums WHERE user_id=? AND album_id=? AND json_extract(discovery_evidence,'$.reprocessing')=?"
-        ).bind(stamp, PROCESSOR_HASH, userId, id, token),
+          "INSERT INTO cd_artwork_events(user_id,album_id,job_id,action,reviewer,created_at,details) SELECT user_id,album_id,COALESCE(?,hidden_job),?,?,?,json_object('processorHash',?,'allowLegacy',?,'checkId',(SELECT k.id FROM cd_artwork_checks k WHERE k.user_id=cd_artwork_albums.user_id AND k.album_id=cd_artwork_albums.album_id AND k.completed_at IS NULL)) FROM cd_artwork_albums WHERE user_id=? AND album_id=? AND json_extract(discovery_evidence,'$.reprocessing')=?"
+        ).bind(
+          retry?.jobId ?? null,
+          retry
+            ? 'automatic-render-retry-requested'
+            : 'automatic-reprocess-requested',
+          retry
+            ? 'automatic-render-recovery'
+            : 'owner-requested-pipeline-reset',
+          stamp,
+          PROCESSOR_HASH,
+          Number(retry?.allowLegacy ?? true),
+          userId,
+          id,
+          token
+        ),
       ]);
       // Report durable admission. Retries reuse the outbox, never image imports.
       const queued = await env.DB.prepare(
@@ -149,6 +175,58 @@ export async function queueArtworkReprocessing(
     items.push({ album_id: id, status });
   }
   return { dry_run: dryRun, items };
+}
+
+/** A held render admits source selection again; selection already exhausts
+ * each source after its single corrective generation. No image is accepted
+ * here. Provider interruptions and explicit owner review holds are excluded. */
+export async function queueRenderRetry(
+  env: ArtworkEnv,
+  id: string,
+  userId: number
+) {
+  const job = await getJob(env, id, userId);
+  if (
+    !job?.automatic ||
+    job.validation_state !== 'held' ||
+    !['automatic_geometry_hold', 'automatic_quality_hold'].includes(
+      job.error_code ?? ''
+    ) ||
+    JSON.parse(job.provenance).processorHash !== PROCESSOR_HASH ||
+    !(await automaticEligible(env, job))
+  )
+    return false;
+  const previous = await env.DB.prepare(
+    "SELECT id FROM cd_artwork_events WHERE user_id=? AND album_id=? AND job_id=? AND action='automatic-render-retry-requested' LIMIT 1"
+  )
+    .bind(userId, job.album_id, id)
+    .first();
+  if (previous) return false;
+  const origin = JSON.parse(job.provenance).sourceIdentityEvidence
+    ?.admitted_check_id;
+  const replay =
+    Number.isSafeInteger(origin) &&
+    (await env.DB.prepare(
+      "SELECT id FROM cd_artwork_events WHERE user_id=? AND album_id=? AND json_extract(details,'$.checkId')=? AND (action='automatic-reprocess-requested' OR (action='automatic-render-retry-requested' AND json_extract(details,'$.allowLegacy')=1)) LIMIT 1"
+    )
+      .bind(userId, job.album_id, origin)
+      .first());
+  // Retire only this job's admitted check, which may be waiting to revisit a
+  // temporarily unavailable retail provider. Its old Workflow will cancel.
+  if (Number.isSafeInteger(origin))
+    await env.DB.prepare(
+      "UPDATE cd_artwork_checks SET completed_at=?,outcome='render_retry' WHERE id=? AND user_id=? AND album_id=? AND completed_at IS NULL AND EXISTS(SELECT 1 FROM cd_artwork_jobs j WHERE j.id=? AND j.user_id=cd_artwork_checks.user_id AND j.album_id=cd_artwork_checks.album_id AND j.validation_state='held' AND j.error_code IN ('automatic_geometry_hold','automatic_quality_hold'))"
+    )
+      .bind(now(), origin, userId, job.album_id, id)
+      .run();
+  const result = await queueArtworkReprocessing(
+    env,
+    userId,
+    [job.album_id],
+    false,
+    { jobId: id, allowLegacy: !!replay }
+  );
+  return result.items[0]?.status === 'queued';
 }
 
 /** Reconsider only established artwork records after a processor change. This

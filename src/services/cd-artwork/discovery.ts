@@ -68,7 +68,8 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
   }
   let outcome: string,
     evidence: unknown,
-    retryAfter = 0;
+    retryAfter = 0,
+    capacityRetry = false;
   try {
     const album = await ownedAlbum(env, row.album_id, row.user_id);
     const control = await env.DB.prepare(
@@ -95,7 +96,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
       // An explicit reset is tied to this durable check. Ordinary new-listen
       // checks retain their stricter snapshot attribution.
       const historicalReplay = await env.DB.prepare(
-        "SELECT id FROM cd_artwork_events WHERE user_id=? AND album_id=? AND action='automatic-reprocess-requested' AND json_extract(details,'$.checkId')=? LIMIT 1"
+        "SELECT id FROM cd_artwork_events WHERE user_id=? AND album_id=? AND (action='automatic-reprocess-requested' OR (action='automatic-render-retry-requested' AND json_extract(details,'$.allowLegacy')=1)) AND json_extract(details,'$.checkId')=? LIMIT 1"
       )
         .bind(row.user_id, row.album_id, row.id)
         .first();
@@ -109,6 +110,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
         !!historicalReplay,
         active?.source_kind === 'cover'
       );
+      selected.discovery.admitted_check_id = row.id;
       if (active?.state === 'accepted' && selected.sourceKind === 'cover') {
         outcome = 'cover_reused';
       } else {
@@ -132,6 +134,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
       }
       evidence = selected.discovery;
       retryAfter = Math.max(retryAfter, selected.retailRetryAfter ?? 0);
+      capacityRetry = selected.retailRetryKind === 'capacity';
     } else {
       const result = await resolveSource(
         env,
@@ -170,6 +173,8 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     if (outcome === 'catalog_changed') retryAfter = 60;
     if (outcome === 'error')
       retryAfter = error instanceof ArtworkError ? error.retryAfter : 3600;
+    capacityRetry =
+      error instanceof ArtworkError && error.code === 'discovery_busy';
   }
   // Record completion of this admitted check. Selection can bind a previously
   // unknown release; active artwork is changed only by conditional publication.
@@ -187,7 +192,11 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     )
     .run();
   if (!retryAfter) await finishCheck(env, row, outcome);
-  return { outcome, retryAfter };
+  return {
+    outcome,
+    retryAfter,
+    ...(capacityRetry ? { capacityRetry: true } : {}),
+  };
 }
 export async function finishCheck(
   env: ArtworkEnv,

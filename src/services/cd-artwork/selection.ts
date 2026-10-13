@@ -8,6 +8,7 @@ import {
   downloadImage,
   resolveEditionCandidates,
   resolveSource,
+  catalogIdentityProof,
   type CatalogAlbum,
 } from './sources.js';
 import { prepareAudioDbArtwork } from './audiodb.js';
@@ -23,6 +24,7 @@ export interface SelectedSource {
   preparedBytes?: Uint8Array;
   preparedMime?: string;
   retailRetryAfter?: number;
+  retailRetryKind?: 'capacity';
   sourceKind: 'retail' | 'cover';
   renderRetry?: { attempt: 1; reason: 'geometry' | 'quality' };
   identityType: 'representative_release' | 'reviewed_source';
@@ -45,6 +47,43 @@ interface AppleResource {
     artwork?: { url: string };
   };
   relationships?: { tracks?: { data?: AppleResource[] } };
+}
+function catalogTrackNear(requested: string, returned: string) {
+  const normalize = (value: string) =>
+    value
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  const a = normalize(requested),
+    b = normalize(returned);
+  const versions = (value: string) =>
+    value
+      .match(
+        /\b(?:live|remix|mix|acoustic|instrumental|demo|radio|edit|session)\b/g
+      )
+      ?.sort()
+      .join(',') ?? '';
+  if (
+    Math.min(a.length, b.length) < 16 ||
+    Math.max(a.length, b.length) > 240 ||
+    Math.abs(a.length - b.length) > 2 ||
+    versions(a) !== versions(b)
+  )
+    return false;
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++)
+      next[j] = Math.min(
+        next[j - 1] + 1,
+        row[j] + 1,
+        row[j - 1] + Number(a[i - 1] !== b[j - 1])
+      );
+    row = next;
+  }
+  return row[b.length] <= 2;
 }
 const appleCollection = (album: AppleResource): Collection => ({
   wrapperType: 'collection',
@@ -118,7 +157,8 @@ export async function verifiedCover(
   albumId: number,
   userId: number,
   album: CatalogAlbum,
-  allowLegacy = false
+  allowLegacy = false,
+  knownRelease?: string
 ): Promise<SelectedSource> {
   const tracks = await env.DB.prepare(
     'SELECT t.name FROM lastfm_scrobbles s INDEXED BY idx_lastfm_scrobbles_user_album_date JOIN lastfm_tracks t NOT INDEXED ON t.id=s.track_id AND t.user_id=s.user_id WHERE s.user_id=? AND s.album_recorded=1 AND s.album_id=? AND t.is_filtered=0 ORDER BY s.scrobbled_at DESC LIMIT 8'
@@ -137,49 +177,146 @@ export async function verifiedCover(
   }
   if (!tracks.results.length)
     throw new ArtworkError('cover_identity_unverified');
-  let id = album.apple_music_id == null ? null : String(album.apple_music_id);
-  if (!id || !/^\d+$/.test(id)) {
-    const candidates = (await searchCoverCatalog(env, album)).filter(
-      (c) =>
-        c.collectionId &&
-        c.collectionName &&
-        c.artistName &&
-        artistIdentityMatches(album.artist, c.artistName) &&
-        albumMatches(album.name, c.collectionName, album.artist)
+  let proof: Awaited<ReturnType<typeof catalogIdentityProof>> | undefined;
+  const stripLive = (title: string) =>
+    title
+      .replace(
+        /\s*(?:\(live(?:\s+(?:at|from|in|on)\s+[^)]+)?\)|\[live(?:\s+(?:at|from|in|on)\s+[^\]]+)?\]|[-–—]\s*live(?:\s+(?:at|from|in|on)\s+.+)?)$/i,
+        ''
+      )
+      .trim();
+  const trackTitle = (title: string, live = false) => {
+    const withoutCredit = title
+      .replace(/\s*&\s*/g, ' and ')
+      .replace(/\s*(?:\(|\[)(?:feat\.?|ft\.?|featuring)\s+[^)\]]+[)\]]$/i, '')
+      .replace(/\s+(?:[-–—]\s*)?(?:feat\.?|ft\.?|featuring)\s+.+$/i, '')
+      .trim();
+    return live ? stripLive(withoutCredit) : withoutCredit;
+  };
+  const titleMatches = async (title: string) => {
+    if (albumMatches(album.name, title, album.artist)) return true;
+    if (proof === undefined)
+      proof = await catalogIdentityProof(env, album, knownRelease);
+    return (
+      !!proof &&
+      albumMatches(
+        proof.title,
+        proof.live ? stripLive(title) : title,
+        album.artist
+      )
     );
+  };
+  const readCandidate = async (id: string) => {
+    const lookup = await lookupCoverCatalog(env, id);
+    const collection = lookup.find(
+      (c) => c.wrapperType === 'collection' && String(c.collectionId) === id
+    );
+    if (
+      !collection?.artistName ||
+      !collection.collectionName ||
+      !artistIdentityMatches(album.artist, collection.artistName) ||
+      !(await titleMatches(collection.collectionName))
+    )
+      return { collection: null, trackVerified: false };
+    // Album-level artist identity and track membership are authoritative.
+    // Song credits may include guest performers without changing its album.
+    const songs = lookup.filter(
+      (c) => c.wrapperType === 'track' && String(c.collectionId) === id
+    );
+    const live =
+      proof?.live === true ||
+      (stripLive(album.name) !== album.name &&
+        stripLive(collection.collectionName) !== collection.collectionName);
+    const withoutArticle = (title: string) =>
+      title.replace(/^(?:a|an|the)\s+/i, '');
+    let trackVerified = tracks.results.some((t) => {
+      const requested = trackTitle(t.name, live);
+      if (
+        songs.some(
+          (s) =>
+            s.trackName &&
+            trackMatches(requested, trackTitle(s.trackName, live))
+        )
+      )
+        return true;
+      // A scrobble can omit a leading article. Accept only one such member of
+      // this proven album, never an arbitrary fuzzy match or duplicate title.
+      return (
+        songs.filter(
+          (s) =>
+            s.trackName &&
+            trackMatches(
+              withoutArticle(requested),
+              withoutArticle(trackTitle(s.trackName, live))
+            )
+        ).length === 1
+      );
+    });
+    let trackProof = trackVerified ? 'catalog_member_title' : null;
+    if (!trackVerified) {
+      if (proof === undefined)
+        proof = await catalogIdentityProof(env, album, knownRelease);
+      if (
+        proof &&
+        albumMatches(
+          proof.title,
+          proof.live
+            ? stripLive(collection.collectionName)
+            : collection.collectionName,
+          album.artist
+        )
+      ) {
+        // Only an independently proven logical album may tolerate a small
+        // scrobble typo, identifying exactly one member. Version qualifiers
+        // remain significant; this is not fuzzy album or artist search.
+        trackVerified = tracks.results.some(
+          (t) =>
+            songs.filter(
+              (s) =>
+                s.trackName &&
+                catalogTrackNear(
+                  trackTitle(t.name, proof?.live),
+                  trackTitle(s.trackName, proof?.live)
+                )
+            ).length === 1
+        );
+        if (trackVerified) trackProof = 'catalog_anchored_title_variance';
+      }
+    }
+    return { collection, trackVerified, trackProof };
+  };
+  let id = album.apple_music_id == null ? null : String(album.apple_music_id);
+  const stored = id && /^\d+$/.test(id) ? await readCandidate(id) : null;
+  let result = stored;
+  if (!result?.collection || !result.trackVerified) {
+    const candidates: Collection[] = [];
+    for (const candidate of await searchCoverCatalog(env, album))
+      if (
+        candidate.collectionId &&
+        candidate.collectionName &&
+        candidate.artistName &&
+        artistIdentityMatches(album.artist, candidate.artistName) &&
+        (await titleMatches(candidate.collectionName))
+      )
+        candidates.push(candidate);
     const ids = [...new Set(candidates.map((c) => String(c.collectionId)))];
     if (ids.length !== 1)
       throw new ArtworkError(
-        ids.length ? 'cover_identity_ambiguous' : 'cover_not_found'
+        ids.length
+          ? 'cover_identity_ambiguous'
+          : stored?.collection
+            ? 'cover_track_mismatch'
+            : id
+              ? 'cover_identity_unverified'
+              : 'cover_not_found'
       );
     id = ids[0];
+    result = await readCandidate(id);
   }
-  if (!/^\d+$/.test(id)) throw new ArtworkError('cover_identity_unverified');
-  const lookup = await lookupCoverCatalog(env, id);
-  const collection = lookup.find(
-    (c) => c.wrapperType === 'collection' && String(c.collectionId) === id
-  );
-  if (
-    !collection?.artistName ||
-    !collection.collectionName ||
-    !artistIdentityMatches(album.artist, collection.artistName) ||
-    !albumMatches(album.name, collection.collectionName, album.artist)
-  )
+  if (!id || !result?.collection)
     throw new ArtworkError('cover_identity_unverified');
-  const songs =
-    lookup.filter(
-      (c) =>
-        c.wrapperType === 'track' &&
-        String(c.collectionId) === id &&
-        c.artistName &&
-        artistIdentityMatches(album.artist, c.artistName)
-    ) ?? [];
-  if (
-    !tracks.results.some((t) =>
-      songs.some((s) => s.trackName && trackMatches(t.name, s.trackName))
-    )
-  )
-    throw new ArtworkError('cover_track_mismatch');
+  if (!result.trackVerified) throw new ArtworkError('cover_track_mismatch');
+  const collection = result.collection;
   const artwork = collection.artworkUrl100;
   if (!artwork) throw new ArtworkError('cover_not_found');
   const sourceUrl = artwork.replace(/\d+x\d+bb(?=\.)/, '1200x1200bb');
@@ -212,6 +349,10 @@ export async function verifiedCover(
         : 'itunes',
       album_artist_verified: true,
       observed_track_verified: true,
+      observed_track_proof: result.trackProof,
+      ...(proof
+        ? { catalog_title: proof.title, catalog_alias_proof: proof }
+        : {}),
       play_evidence: legacyEvidence
         ? 'legacy_track_association'
         : 'recorded_album',
@@ -264,7 +405,14 @@ export async function selectAutomaticSource(
     const candidate =
       cover ??
       verified ??
-      (await verifiedCover(env, albumId, userId, album, allowLegacy));
+      (await verifiedCover(
+        env,
+        albumId,
+        userId,
+        album,
+        allowLegacy,
+        releaseId || undefined
+      ));
     const image =
       candidate.preparedBytes && candidate.preparedMime
         ? { bytes: candidate.preparedBytes, mime: candidate.preparedMime }
@@ -282,15 +430,25 @@ export async function selectAutomaticSource(
   // A stored Apple binding is independent identity evidence, not permission
   // to ignore contradictory metadata when a retail scan happens to exist.
   const verified = album.apple_music_id
-    ? await verifiedCover(env, albumId, userId, album, allowLegacy)
+    ? await verifiedCover(
+        env,
+        albumId,
+        userId,
+        album,
+        allowLegacy,
+        releaseId || undefined
+      )
     : null;
+  const retailAlbum = verified?.discovery.catalog_title
+    ? { ...album, name: String(verified.discovery.catalog_title) }
+    : album;
   let cover: SelectedSource | null = null;
   try {
     let releases = releaseId ? [releaseId] : [];
     if (!releases.length || revisitEdition) {
       const candidates = await resolveEditionCandidates(
         env,
-        album,
+        retailAlbum,
         true,
         releaseId || undefined
       );
@@ -318,7 +476,7 @@ export async function selectAutomaticSource(
         medium_position: release === releaseId ? mediumPosition : 1,
         source_kind: 'retail',
       };
-      const found = await resolveSource(env, request, album, true);
+      const found = await resolveSource(env, request, retailAlbum, true);
       const images = found.discovery.images.filter((i) => i.approved);
       if (found.discovery.outcome === 'found' && images.length === 1) {
         request.image_id = images[0].id;
@@ -346,7 +504,7 @@ export async function selectAutomaticSource(
         audioDbGroups.add(groupId);
         let candidate;
         try {
-          candidate = await prepareAudioDbArtwork(env, album, groupId);
+          candidate = await prepareAudioDbArtwork(env, retailAlbum, groupId);
         } catch (error) {
           if (!(error instanceof ArtworkError) || error.status !== 422)
             throw error;
@@ -411,6 +569,9 @@ export async function selectAutomaticSource(
     return {
       ...fallback,
       retailRetryAfter: error.retryAfter,
+      ...(error.code === 'discovery_busy'
+        ? { retailRetryKind: 'capacity' as const }
+        : {}),
       discovery: {
         ...fallback.discovery,
         outcome: 'retail_provider_pending',

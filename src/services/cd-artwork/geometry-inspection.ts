@@ -298,7 +298,7 @@ function inspectRadialProfile(
  */
 export function inspectRegistration(
   raw: Uint8Array,
-  holeMode: 'white' | 'scan' = 'white'
+  holeMode: 'white' | 'scan' | 'alpha' = 'white'
 ) {
   if (
     raw.length < 24 ||
@@ -316,7 +316,7 @@ export function inspectRegistration(
     const alpha = p.data[i + 3] / 255;
     for (let c = 0; c < 3; c++)
       p.data[i + c] = Math.round(p.data[i + c] * alpha + 255 * (1 - alpha));
-    p.data[i + 3] = 255;
+    if (holeMode !== 'alpha') p.data[i + 3] = 255;
   }
   if (p.width !== 1024 || p.height !== 1024)
     throw Error('output_dimensions_invalid');
@@ -329,7 +329,7 @@ export function inspectRegistration(
       const luma =
         (bilinear(p, x, y, 0) + bilinear(p, x, y, 1) + bilinear(p, x, y, 2)) /
         3;
-      if (luma < 220) {
+      if (holeMode === 'alpha' ? bilinear(p, x, y, 3) >= 128 : luma < 220) {
         outerPoints.push([x, y]);
         break;
       }
@@ -361,11 +361,14 @@ export function inspectRegistration(
           p.data[queue[0] * 4 + 2]
         ) - 12
       : 245;
-  if (holeThreshold < 205) throw Error('hole_uncertain');
+  if (holeMode !== 'alpha' && holeThreshold < 205)
+    throw Error('hole_uncertain');
   const white = (index: number) =>
-    p.data[index * 4] > holeThreshold &&
-    p.data[index * 4 + 1] > holeThreshold &&
-    p.data[index * 4 + 2] > holeThreshold;
+    holeMode === 'alpha'
+      ? p.data[index * 4 + 3] <= 16
+      : p.data[index * 4] > holeThreshold &&
+        p.data[index * 4 + 1] > holeThreshold &&
+        p.data[index * 4 + 2] > holeThreshold;
   if (!white(queue[0])) throw Error('hole_uncertain');
   while (head < tail) {
     const index = queue[head++],

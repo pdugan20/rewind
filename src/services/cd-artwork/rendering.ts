@@ -450,8 +450,22 @@ export function composeCover(
 
 function scanCanvas(bytes: Uint8Array) {
   const source = decodeSource(bytes);
+  // Actual alpha can identify a pale face whose edge disappears on a white
+  // matte. Use it only when the exterior and physical spindle are transparent.
+  const alphaBoundary = [
+    [0, 0],
+    [source.width - 1, 0],
+    [0, source.height - 1],
+    [source.width - 1, source.height - 1],
+    [source.width / 2, 0],
+    [source.width / 2, source.height - 1],
+    [0, source.height / 2],
+    [source.width - 1, source.height / 2],
+    [source.width / 2, source.height / 2],
+  ].every(([x, y]) => sample(source, x, y)[3] <= 16);
   const scale = 940 / Math.max(source.width, source.height);
   const data = new Uint8Array(1024 * 1024 * 4).fill(255);
+  if (alphaBoundary) for (let i = 3; i < data.length; i += 4) data[i] = 0;
   for (let y = 0; y < 1024; y++)
     for (let x = 0; x < 1024; x++) {
       const sx = (x + 0.5 - 512) / scale + source.width / 2 - 0.5;
@@ -461,11 +475,15 @@ function scanCanvas(bytes: Uint8Array) {
       const color = sample(source, sx, sy),
         i = (y * 1024 + x) * 4;
       for (let c = 0; c < 3; c++)
-        data[i + c] = Math.round((color[c] * color[3]) / 255 + 255 - color[3]);
+        data[i + c] = alphaBoundary
+          ? color[c]
+          : Math.round((color[c] * color[3]) / 255 + 255 - color[3]);
+      if (alphaBoundary) data[i + 3] = color[3];
     }
   return {
     source,
     scale,
+    measurementMode: alphaBoundary ? ('alpha' as const) : ('scan' as const),
     measurement: png({ width: 1024, height: 1024, data }),
   };
 }
@@ -483,7 +501,10 @@ function directionalRadius(ellipse: Ellipse, vx: number, vy: number) {
  */
 export function normalizeRetail(bytes: Uint8Array) {
   const canvas = scanCanvas(bytes);
-  const inspection = inspectRegistration(canvas.measurement, 'scan');
+  const inspection = inspectRegistration(
+    canvas.measurement,
+    canvas.measurementMode
+  );
   const outer = inspection.outerEllipse,
     inner = inspection.innerEllipse;
   const scale = 480 / Math.sqrt(outer.a * outer.b);
@@ -578,6 +599,7 @@ export function normalizeRetail(bytes: Uint8Array) {
     ...result,
     verification: {
       method: 'continuous scan normalization',
+      boundaryEvidence: canvas.measurementMode,
       sourceGeometry: { outer, inner, holeRadius, offset },
       hubAnchor: anchor,
       printCoverage: 'preserved from source inside shared outer edge',
