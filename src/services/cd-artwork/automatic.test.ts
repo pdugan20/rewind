@@ -437,7 +437,11 @@ it.each(['valid', 'changed', 'foreign', 'new-image'])(
         searches++;
         return Response.json({ count: 0, releases: [] });
       }
-      if (mode === 'new-image' && u.includes('coverartarchive.org'))
+      if (
+        mode === 'new-image' &&
+        u.includes('coverartarchive.org') &&
+        !u.endsWith('synthetic.png')
+      )
         return Response.json({
           images: [
             {
