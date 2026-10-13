@@ -215,8 +215,10 @@ describe('play-triggered admission', () => {
   });
 });
 describe('listening sync integration', () => {
-  const client = (failSecondPage = false) =>
-    ({
+  const client = (failSecondPage = false) => {
+    // Repeated fetches represent the same upstream play, even across a second boundary.
+    const eventTimestamp = String(Math.floor(Date.now() / 1000));
+    return {
       getRecentTracks: async ({ page }: { page: number }) => {
         if (page === 2 && failSecondPage)
           throw new Error('synthetic upstream failure');
@@ -232,7 +234,7 @@ describe('listening sync integration', () => {
                 url: 'https://last.fm/synthetic',
                 image: [],
                 date: {
-                  uts: String(Math.floor(Date.now() / 1000)),
+                  uts: eventTimestamp,
                   '#text': 'Synthetic timestamp',
                 },
               },
@@ -240,7 +242,8 @@ describe('listening sync integration', () => {
           },
         };
       },
-    }) as unknown as LastfmClient;
+    } as unknown as LastfmClient;
+  };
   it('real sync inserts one durable check and duplicate sync does not add another', async () => {
     await identity();
     const db = createDb(runtime.DB),
