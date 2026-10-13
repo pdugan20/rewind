@@ -400,6 +400,89 @@ it('admits a new album with no CD identity exactly once and selects its verified
   });
   expect(jobs.results[0].automatic).toBe(1);
 });
+it.each(['valid', 'changed', 'foreign', 'new-image'])(
+  'rechecks a remembered CD source before searching again %s',
+  async (mode) => {
+    await play();
+    const spy = providers({ retail: true });
+    const original = spy.getMockImplementation()!;
+    const album = await ownedAlbum(runtime, 1, 1);
+    const previousSource = await selectAutomaticSource(
+      runtime,
+      1,
+      1,
+      album,
+      RELEASE,
+      1
+    );
+    const previous = (
+      await enqueue(runtime, previousSource.request, 1, false, {
+        source: previousSource,
+        expectedActiveJob: null,
+        catalogIdentity: album,
+      })
+    ).job;
+    await runtime.DB.prepare(
+      "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_geometry_hold',provenance=json_set(provenance,'$.processorHash','prior-processor'),user_id=? WHERE id=?"
+    )
+      .bind(mode === 'foreign' ? 2 : 1, previous.id)
+      .run();
+    let searches = 0;
+    spy.mockImplementation(async (url, init) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      const u = String(url);
+      if (u.includes('/release/?')) {
+        searches++;
+        return Response.json({ count: 0, releases: [] });
+      }
+      if (mode === 'new-image' && u.includes('coverartarchive.org'))
+        return Response.json({
+          images: [
+            {
+              id: 10,
+              approved: true,
+              types: ['Medium'],
+              image: 'https://coverartarchive.org/synthetic.png',
+            },
+          ],
+        });
+      if (
+        mode === 'changed' &&
+        u.includes('musicbrainz.org/ws/2/release/' + RELEASE)
+      )
+        return Response.json({
+          id: RELEASE,
+          title: 'Different album',
+          media: [{ format: 'CD', position: 1 }],
+          'artist-credit': [{ name: 'Synthetic artist' }],
+        });
+      return original(url, init);
+    });
+    const source = await selectAutomaticSource(
+      runtime,
+      1,
+      1,
+      album,
+      '',
+      1,
+      false,
+      true
+    );
+    const usable = mode === 'valid' || mode === 'new-image';
+    expect(source.sourceKind).toBe(usable ? 'retail' : 'cover');
+    if (usable) {
+      expect(source.request).toMatchObject({
+        release_id: RELEASE,
+        medium_position: 1,
+        image_id: mode === 'new-image' ? '10' : '9',
+      });
+      expect(searches).toBe(0);
+    } else expect(searches).toBe(1);
+  }
+);
+
 it.each([false, true])(
   'generates, verifies and publishes the %s retail path without manual approval',
   async (retail) => {

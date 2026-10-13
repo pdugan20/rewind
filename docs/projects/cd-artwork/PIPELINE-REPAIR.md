@@ -1,5 +1,14 @@
 # Automatic artwork pipeline repair
 
+The post-release audit found one remaining cover fallback whose real CD upgrade
+had failed before the geometry repair. Its verified CD source existed in the job
+ledger but was absent from the active cover's release binding. A later catalog
+search could miss that pressing and silently reuse the cover. Source selection now
+revisits remembered automatic CD candidates before searching again, scoped to the
+same user and album and revalidated against current catalog and archive metadata.
+Stale identities are skipped; provider failures keep their existing backoff.
+This follow-up still requires live deployment and publication verification.
+
 The existing-artwork reset was released through PR323 and admitted the requested
 batch into the normal automated pipeline. It exposed two shared gaps: transparent
 pale discs were measured against a white matte, and catalog formatting or stale

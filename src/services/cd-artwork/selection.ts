@@ -442,10 +442,42 @@ export async function selectAutomaticSource(
   const retailAlbum = verified?.discovery.catalog_title
     ? { ...album, name: String(verified.discovery.catalog_title) }
     : album;
+  // A cover can be published while a proven CD source is waiting or failed.
+  // Retain those candidates across retries; a fresh search need not rank the
+  // same pressing again. Every remembered candidate is revalidated below.
+  const remembered = new Map<
+    string,
+    { medium_position: number; image_id: string | null }
+  >();
+  if (revisitEdition) {
+    const prior = await env.DB.prepare(
+      "SELECT json_extract(input,'$.release_id') AS release_id,json_extract(input,'$.medium_position') AS medium_position,json_extract(input,'$.image_id') AS image_id FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND automatic=1 AND json_extract(input,'$.source_kind')='retail' AND json_extract(provenance,'$.sourceIdentityEvidence.medium_verified')=1 ORDER BY created_at DESC LIMIT 3"
+    )
+      .bind(userId, albumId)
+      .all<{
+        release_id: string;
+        medium_position: number;
+        image_id: string | null;
+      }>();
+    for (const candidate of prior.results)
+      if (
+        /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(
+          candidate.release_id
+        ) &&
+        Number.isSafeInteger(candidate.medium_position) &&
+        candidate.medium_position >= 1 &&
+        candidate.medium_position <= 10 &&
+        !remembered.has(candidate.release_id)
+      )
+        remembered.set(candidate.release_id, candidate);
+  }
   let cover: SelectedSource | null = null;
   try {
-    let releases = releaseId ? [releaseId] : [];
-    if (!releases.length || revisitEdition) {
+    let releases = [
+      ...new Set([...(releaseId ? [releaseId] : []), ...remembered.keys()]),
+    ].slice(0, 3);
+    let searched = false;
+    const discoverReleases = async () => {
       const candidates = await resolveEditionCandidates(
         env,
         retailAlbum,
@@ -468,29 +500,54 @@ export async function selectAutomaticSource(
           .sort();
         releases = [...new Set([...releases, ...discovered])].slice(0, 3);
       }
-    }
-    for (const release of releases) {
+    };
+    for (let index = 0; index < 3; index++) {
+      if (
+        index >= releases.length &&
+        !searched &&
+        (!releaseId || revisitEdition)
+      ) {
+        searched = true;
+        await discoverReleases();
+      }
+      const release = releases[index];
+      if (!release) break;
+      const previous = remembered.get(release);
       const request: JobRequest = {
         album_id: albumId,
         release_id: release,
-        medium_position: release === releaseId ? mediumPosition : 1,
+        medium_position:
+          release === releaseId
+            ? mediumPosition
+            : (previous?.medium_position ?? 1),
         source_kind: 'retail',
       };
-      const found = await resolveSource(env, request, retailAlbum, true);
+      let found;
+      try {
+        found = await resolveSource(env, request, retailAlbum, true);
+      } catch (error) {
+        if (previous && error instanceof ArtworkError && error.status === 422)
+          continue;
+        throw error;
+      }
       const images = found.discovery.images.filter((i) => i.approved);
-      if (found.discovery.outcome === 'found' && images.length === 1) {
-        request.image_id = images[0].id;
-        const downloaded = await usableSource(images[0].url);
+      const selectedImage =
+        (previous?.image_id
+          ? images.find((image) => image.id === previous.image_id)
+          : undefined) ?? (images.length === 1 ? images[0] : undefined);
+      if (found.discovery.outcome === 'found' && selectedImage) {
+        request.image_id = selectedImage.id;
+        const downloaded = await usableSource(selectedImage.url);
         if (downloaded && (await usable(downloaded.bytes)))
           return {
             preparedBytes: downloaded.bytes,
             preparedMime: downloaded.mime,
             renderRetry: await renderRetry(downloaded.bytes),
             ...found,
-            sourceUrl: images[0].url,
+            sourceUrl: selectedImage.url,
             sourceKind: 'retail',
             identityType: 'representative_release',
-            selectedImageId: images[0].id,
+            selectedImageId: selectedImage.id,
             request,
           };
       }
