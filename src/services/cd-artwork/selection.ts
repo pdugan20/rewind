@@ -38,6 +38,7 @@ interface Collection {
   artworkUrl100?: string;
   wrapperType?: string;
   trackName?: string;
+  releaseDate?: string;
 }
 interface AppleResource {
   id: string;
@@ -45,6 +46,7 @@ interface AppleResource {
     name?: string;
     artistName?: string;
     artwork?: { url: string };
+    releaseDate?: string;
   };
   relationships?: { tracks?: { data?: AppleResource[] } };
 }
@@ -94,6 +96,7 @@ const appleCollection = (album: AppleResource): Collection => ({
     .replace('{w}', '1200')
     .replace('{h}', '1200')
     .replace('{f}', 'jpg'),
+  releaseDate: album.attributes?.releaseDate,
 });
 async function searchCoverCatalog(env: ArtworkEnv, album: CatalogAlbum) {
   const authenticated = !!env.APPLE_MUSIC_DEVELOPER_TOKEN;
@@ -288,6 +291,7 @@ export async function verifiedCover(
   let id = album.apple_music_id == null ? null : String(album.apple_music_id);
   const stored = id && /^\d+$/.test(id) ? await readCandidate(id) : null;
   let result = stored;
+  let representative = false;
   if (!result?.collection || !result.trackVerified) {
     const candidates: Collection[] = [];
     for (const candidate of await searchCoverCatalog(env, album))
@@ -300,7 +304,60 @@ export async function verifiedCover(
       )
         candidates.push(candidate);
     const ids = [...new Set(candidates.map((c) => String(c.collectionId)))];
-    if (ids.length !== 1)
+    if (ids.length > 1) {
+      if (proof === undefined)
+        proof = await catalogIdentityProof(env, album, knownRelease);
+      const exactTitle = (title: string) =>
+        title.normalize('NFKC').trim().toLowerCase();
+      const exactCandidates = candidates.filter(
+        (candidate) =>
+          candidate.collectionName &&
+          exactTitle(candidate.collectionName) === exactTitle(album.name)
+      );
+      const fullDate = (candidate: Collection) => {
+        const date = candidate.releaseDate?.slice(0, 10) ?? '';
+        return /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+          (!proof?.releaseDate || date.startsWith(proof.releaseDate))
+          ? date
+          : null;
+      };
+      const dates = new Set(exactCandidates.map(fullDate));
+      const expectedDate =
+        proof?.releaseDate && /^\d{4}-\d{2}-\d{2}$/.test(proof.releaseDate)
+          ? proof.releaseDate
+          : dates.size === 1 && !dates.has(null)
+            ? [...dates][0]
+            : null;
+      const representsAlbum = (candidate: Collection) =>
+        !!expectedDate &&
+        !!candidate.collectionName &&
+        exactTitle(candidate.collectionName) === exactTitle(album.name) &&
+        candidate.releaseDate?.slice(0, 10) === expectedDate;
+      // Clean/explicit and storefront editions can have distinct collection
+      // IDs for one logical album. Exact title, a shared release date,
+      // artist identity and a fresh observed-track match authorize a
+      // representative cover, without claiming an owned edition.
+      // A bound catalog date takes precedence over provider equivalence.
+      const choices = [
+        ...new Set(
+          candidates.filter(representsAlbum).map((c) => String(c.collectionId))
+        ),
+      ].sort();
+      for (const choice of choices.slice(0, 3)) {
+        const candidate = await readCandidate(choice);
+        if (
+          candidate.collection &&
+          candidate.trackVerified &&
+          representsAlbum(candidate.collection)
+        ) {
+          id = choice;
+          result = candidate;
+          representative = true;
+          break;
+        }
+      }
+      if (!representative) throw new ArtworkError('cover_identity_ambiguous');
+    } else if (ids.length !== 1)
       throw new ArtworkError(
         ids.length
           ? 'cover_identity_ambiguous'
@@ -310,8 +367,10 @@ export async function verifiedCover(
               ? 'cover_identity_unverified'
               : 'cover_not_found'
       );
-    id = ids[0];
-    result = await readCandidate(id);
+    else {
+      id = ids[0];
+      result = await readCandidate(id);
+    }
   }
   if (!id || !result?.collection)
     throw new ArtworkError('cover_identity_unverified');
@@ -350,6 +409,9 @@ export async function verifiedCover(
       album_artist_verified: true,
       observed_track_verified: true,
       observed_track_proof: result.trackProof,
+      ...(representative
+        ? { cover_selection: 'representative_catalog_edition' }
+        : {}),
       ...(proof
         ? { catalog_title: proof.title, catalog_alias_proof: proof }
         : {}),
@@ -442,10 +504,42 @@ export async function selectAutomaticSource(
   const retailAlbum = verified?.discovery.catalog_title
     ? { ...album, name: String(verified.discovery.catalog_title) }
     : album;
+  // A cover can be published while a proven CD source is waiting or failed.
+  // Retain those candidates across retries; a fresh search need not rank the
+  // same pressing again. Every remembered candidate is revalidated below.
+  const remembered = new Map<
+    string,
+    { medium_position: number; image_id: string | null }
+  >();
+  if (revisitEdition) {
+    const prior = await env.DB.prepare(
+      "SELECT json_extract(input,'$.release_id') AS release_id,json_extract(input,'$.medium_position') AS medium_position,json_extract(input,'$.image_id') AS image_id FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND automatic=1 AND json_extract(input,'$.source_kind')='retail' AND json_extract(provenance,'$.sourceIdentityEvidence.medium_verified')=1 ORDER BY created_at DESC LIMIT 3"
+    )
+      .bind(userId, albumId)
+      .all<{
+        release_id: string;
+        medium_position: number;
+        image_id: string | null;
+      }>();
+    for (const candidate of prior.results)
+      if (
+        /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(
+          candidate.release_id
+        ) &&
+        Number.isSafeInteger(candidate.medium_position) &&
+        candidate.medium_position >= 1 &&
+        candidate.medium_position <= 10 &&
+        !remembered.has(candidate.release_id)
+      )
+        remembered.set(candidate.release_id, candidate);
+  }
   let cover: SelectedSource | null = null;
   try {
-    let releases = releaseId ? [releaseId] : [];
-    if (!releases.length || revisitEdition) {
+    let releases = [
+      ...new Set([...(releaseId ? [releaseId] : []), ...remembered.keys()]),
+    ].slice(0, 3);
+    let searched = false;
+    const discoverReleases = async () => {
       const candidates = await resolveEditionCandidates(
         env,
         retailAlbum,
@@ -468,29 +562,54 @@ export async function selectAutomaticSource(
           .sort();
         releases = [...new Set([...releases, ...discovered])].slice(0, 3);
       }
-    }
-    for (const release of releases) {
+    };
+    for (let index = 0; index < 3; index++) {
+      if (
+        index >= releases.length &&
+        !searched &&
+        (!releaseId || revisitEdition)
+      ) {
+        searched = true;
+        await discoverReleases();
+      }
+      const release = releases[index];
+      if (!release) break;
+      const previous = remembered.get(release);
       const request: JobRequest = {
         album_id: albumId,
         release_id: release,
-        medium_position: release === releaseId ? mediumPosition : 1,
+        medium_position:
+          release === releaseId
+            ? mediumPosition
+            : (previous?.medium_position ?? 1),
         source_kind: 'retail',
       };
-      const found = await resolveSource(env, request, retailAlbum, true);
+      let found;
+      try {
+        found = await resolveSource(env, request, retailAlbum, true);
+      } catch (error) {
+        if (previous && error instanceof ArtworkError && error.status === 422)
+          continue;
+        throw error;
+      }
       const images = found.discovery.images.filter((i) => i.approved);
-      if (found.discovery.outcome === 'found' && images.length === 1) {
-        request.image_id = images[0].id;
-        const downloaded = await usableSource(images[0].url);
+      const selectedImage =
+        (previous?.image_id
+          ? images.find((image) => image.id === previous.image_id)
+          : undefined) ?? (images.length === 1 ? images[0] : undefined);
+      if (found.discovery.outcome === 'found' && selectedImage) {
+        request.image_id = selectedImage.id;
+        const downloaded = await usableSource(selectedImage.url);
         if (downloaded && (await usable(downloaded.bytes)))
           return {
             preparedBytes: downloaded.bytes,
             preparedMime: downloaded.mime,
             renderRetry: await renderRetry(downloaded.bytes),
             ...found,
-            sourceUrl: images[0].url,
+            sourceUrl: selectedImage.url,
             sourceKind: 'retail',
             identityType: 'representative_release',
-            selectedImageId: images[0].id,
+            selectedImageId: selectedImage.id,
             request,
           };
       }

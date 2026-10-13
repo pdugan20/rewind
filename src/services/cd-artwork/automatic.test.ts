@@ -400,6 +400,93 @@ it('admits a new album with no CD identity exactly once and selects its verified
   });
   expect(jobs.results[0].automatic).toBe(1);
 });
+it.each(['valid', 'changed', 'foreign', 'new-image'])(
+  'rechecks a remembered CD source before searching again %s',
+  async (mode) => {
+    await play();
+    const spy = providers({ retail: true });
+    const original = spy.getMockImplementation()!;
+    const album = await ownedAlbum(runtime, 1, 1);
+    const previousSource = await selectAutomaticSource(
+      runtime,
+      1,
+      1,
+      album,
+      RELEASE,
+      1
+    );
+    const previous = (
+      await enqueue(runtime, previousSource.request, 1, false, {
+        source: previousSource,
+        expectedActiveJob: null,
+        catalogIdentity: album,
+      })
+    ).job;
+    await runtime.DB.prepare(
+      "UPDATE cd_artwork_jobs SET state='needs_registration',validation_state='held',error_code='automatic_geometry_hold',provenance=json_set(provenance,'$.processorHash','prior-processor'),user_id=? WHERE id=?"
+    )
+      .bind(mode === 'foreign' ? 2 : 1, previous.id)
+      .run();
+    let searches = 0;
+    spy.mockImplementation(async (url, init) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      const u = String(url);
+      if (u.includes('/release/?')) {
+        searches++;
+        return Response.json({ count: 0, releases: [] });
+      }
+      if (
+        mode === 'new-image' &&
+        u.includes('coverartarchive.org') &&
+        !u.endsWith('synthetic.png')
+      )
+        return Response.json({
+          images: [
+            {
+              id: 10,
+              approved: true,
+              types: ['Medium'],
+              image: 'https://coverartarchive.org/synthetic.png',
+            },
+          ],
+        });
+      if (
+        mode === 'changed' &&
+        u.includes('musicbrainz.org/ws/2/release/' + RELEASE)
+      )
+        return Response.json({
+          id: RELEASE,
+          title: 'Different album',
+          media: [{ format: 'CD', position: 1 }],
+          'artist-credit': [{ name: 'Synthetic artist' }],
+        });
+      return original(url, init);
+    });
+    const source = await selectAutomaticSource(
+      runtime,
+      1,
+      1,
+      album,
+      '',
+      1,
+      false,
+      true
+    );
+    const usable = mode === 'valid' || mode === 'new-image';
+    expect(source.sourceKind).toBe(usable ? 'retail' : 'cover');
+    if (usable) {
+      expect(source.request).toMatchObject({
+        release_id: RELEASE,
+        medium_position: 1,
+        image_id: mode === 'new-image' ? '10' : '9',
+      });
+      expect(searches).toBe(0);
+    } else expect(searches).toBe(1);
+  }
+);
+
 it.each([false, true])(
   'generates, verifies and publishes the %s retail path without manual approval',
   async (retail) => {
@@ -857,6 +944,98 @@ it('authenticated Apple errors remain retryable and never leak the credential to
   );
   expect(retail?.[1]?.headers).not.toHaveProperty('Authorization');
 });
+it.each([
+  'proven',
+  'unbound',
+  'unbound-undated',
+  'unbound-different-date',
+  'bound-undated',
+  'different-date',
+  'missing-track',
+  'changed-lookup',
+])(
+  'multiple catalog IDs may supply a proven representative cover %s',
+  async (mode) => {
+    await play();
+    await runtime.DB.prepare(
+      'UPDATE lastfm_albums SET apple_music_id=NULL,mbid=? WHERE id=1'
+    )
+      .bind(mode.startsWith('unbound') ? null : RELEASE)
+      .run();
+    const spy = providers();
+    const original = spy.getMockImplementation()!;
+    const collections = [123, 124].map((id) => ({
+      ...lookup.results[0],
+      collectionId: id,
+      releaseDate:
+        mode.endsWith('undated') && id === 124
+          ? undefined
+          : mode === 'different-date' ||
+              (mode === 'unbound-different-date' && id === 124)
+            ? '2002-02-03'
+            : '2001-02-03',
+    }));
+    spy.mockImplementation(async (url, init) => {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      const u = String(url);
+      if (u.includes('itunes.apple.com/search'))
+        return Response.json({ results: collections });
+      if (u.includes('itunes.apple.com/lookup')) {
+        const id = Number(new URL(u).searchParams.get('id'));
+        const collection = collections.find((c) => c.collectionId === id)!;
+        return Response.json({
+          results: [
+            {
+              ...collection,
+              collectionName:
+                mode === 'changed-lookup'
+                  ? 'Different album'
+                  : collection.collectionName,
+            },
+            {
+              ...lookup.results[1],
+              collectionId: id,
+              trackName:
+                mode === 'missing-track' ? 'Different song' : 'Synthetic song',
+            },
+          ],
+        });
+      }
+      if (u.includes('musicbrainz.org'))
+        return Response.json({
+          id: RELEASE,
+          title: 'Synthetic album',
+          date: '2001-02-03',
+          'release-group': {
+            id: GROUP,
+            title: 'Synthetic album',
+            'first-release-date': '2001-02-03',
+          },
+          'artist-credit': [{ name: 'Synthetic artist' }],
+        });
+      return original(url, init);
+    });
+    const selected = verifiedCover(
+      runtime,
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1)
+    );
+    if (['proven', 'unbound', 'bound-undated'].includes(mode))
+      expect((await selected).discovery).toMatchObject({
+        collection_id: '123',
+        observed_track_verified: true,
+        cover_selection: 'representative_catalog_edition',
+      });
+    else
+      await expect(selected).rejects.toMatchObject({
+        code: 'cover_identity_ambiguous',
+      });
+  }
+);
+
 it('wrong album, track or ambiguous search never schedules paid work', async () => {
   providers({ searchAmbiguous: true });
   await play();
