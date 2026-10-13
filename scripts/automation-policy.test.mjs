@@ -715,6 +715,8 @@ function validateDeploy(document, problems) {
     'impact',
     'apply-d1-migrations',
     'd1-no-impact',
+    'deploy-artwork-worker',
+    'artwork-worker-no-impact',
     'deploy-root-worker',
     'root-worker-no-impact',
     'finalize-checkpoint',
@@ -793,7 +795,7 @@ function validateDeploy(document, problems) {
   }
 
   const classify = steps.find(
-    (step) => step?.name === 'Classify D1 and root Worker impact'
+    (step) => step?.name === 'Classify D1 and Worker impact'
   );
   const classifyRun = stepRun(classify);
   if (
@@ -881,7 +883,20 @@ function validateDeploy(document, problems) {
       needs.impact.result == 'success' &&
       (needs.apply-d1-migrations.result == 'success' ||
       needs.d1-no-impact.result == 'success') &&
+      (needs.deploy-artwork-worker.result == 'success' ||
+      needs.artwork-worker-no-impact.result == 'success') &&
       needs.impact.outputs.root_worker == 'true'
+    `,
+    'deploy-artwork-worker': `
+      always() &&
+      needs.impact.result == 'success' &&
+      (needs.apply-d1-migrations.result == 'success' ||
+      needs.d1-no-impact.result == 'success') &&
+      needs.impact.outputs.artwork_worker == 'true'
+    `,
+    'artwork-worker-no-impact': `
+      needs.impact.result == 'success' &&
+      needs.impact.outputs.artwork_worker == 'false'
     `,
     'root-worker-no-impact': `
       needs.impact.result == 'success' &&
@@ -901,6 +916,8 @@ function validateDeploy(document, problems) {
       'impact',
       'apply-d1-migrations',
       'd1-no-impact',
+      'deploy-artwork-worker',
+      'artwork-worker-no-impact',
     ])
   ) {
     problems.push(
@@ -916,7 +933,11 @@ function validateDeploy(document, problems) {
     problems.push('Root Worker deployments must target Production');
   }
 
-  for (const jobId of ['apply-d1-migrations', 'deploy-root-worker']) {
+  for (const jobId of [
+    'apply-d1-migrations',
+    'deploy-artwork-worker',
+    'deploy-root-worker',
+  ]) {
     validateExactHeadCheckout(
       document.jobs?.[jobId],
       '${{ needs.impact.outputs.head_sha }}',
@@ -935,20 +956,71 @@ function validateDeploy(document, problems) {
       'Remote D1 apply must exist only in the migration-impact job'
     );
   }
-  const rootDeployJobs = expectedJobIds.filter((jobId) =>
-    serializedJob(document, jobId).includes('npm exec -- wrangler deploy')
-  );
-  if (!sameObject(rootDeployJobs, ['deploy-root-worker'])) {
-    problems.push('Root Worker deploy must exist only in its impact job');
+  const preMigrationCheck = (
+    document.jobs?.['apply-d1-migrations']?.steps ?? []
+  ).find((step) => step?.name === 'Verify deployed source before migrations');
+  if (
+    stepRun(preMigrationCheck) !== 'npm run deployment:check' ||
+    preMigrationCheck?.if !== undefined ||
+    preMigrationCheck?.['continue-on-error'] !== undefined
+  ) {
+    problems.push(
+      'D1 migration must verify deployed source without bypass before mutating data'
+    );
   }
-
-  for (const jobId of ['d1-no-impact', 'root-worker-no-impact']) {
+  for (const [jobId, command] of [
+    ['deploy-root-worker', 'deploy:worker'],
+    ['deploy-artwork-worker', 'deploy:artwork'],
+  ]) {
+    const matches = expectedJobIds.filter((id) =>
+      serializedJob(document, id).includes(`npm run ${command} --`)
+    );
+    const job = document.jobs?.[jobId];
+    const deployStep = (job?.steps ?? []).find((step) =>
+      stepRun(step).startsWith(`npm run ${command} --`)
+    );
+    if (
+      !sameObject(matches, [jobId]) ||
+      stepRun(deployStep) !==
+        `npm run ${command} -- --expected-head "\${{ needs.impact.outputs.head_sha }}"` ||
+      deployStep?.if !== undefined ||
+      deployStep?.['continue-on-error'] !== undefined ||
+      job?.['continue-on-error'] !== undefined ||
+      !sameObject(job?.environment, {
+        name: 'Production',
+        url: 'https://api.rewind.rest',
+      })
+    ) {
+      problems.push(
+        `${jobId} must use the guarded source deployment only in its impact job`
+      );
+    }
+  }
+  if (
+    !sameObject(document.jobs?.['deploy-artwork-worker']?.needs, [
+      'impact',
+      'apply-d1-migrations',
+      'd1-no-impact',
+    ])
+  ) {
+    problems.push(
+      'Artwork deployment must wait for the D1 impact path to finalize'
+    );
+  }
+  if (JSON.stringify(document).includes('npm exec -- wrangler deploy')) {
+    problems.push('Worker deployment must not bypass source verification');
+  }
+  for (const jobId of [
+    'd1-no-impact',
+    'root-worker-no-impact',
+    'artwork-worker-no-impact',
+  ]) {
     const serialized = serializedJob(document, jobId);
     if (
       !serialized.includes('no production impact') ||
       serialized.includes('CLOUDFLARE_API_TOKEN') ||
-      serialized.includes('wrangler d1 migrations apply') ||
-      serialized.includes('wrangler deploy')
+      serialized.includes('wrangler') ||
+      serialized.includes('npm run deploy:')
     ) {
       problems.push(`${jobId} must be an explicit secret-free no-op`);
     }
@@ -965,6 +1037,8 @@ function validateDeploy(document, problems) {
         'impact',
         'apply-d1-migrations',
         'd1-no-impact',
+        'deploy-artwork-worker',
+        'artwork-worker-no-impact',
         'deploy-root-worker',
         'root-worker-no-impact',
       ],
@@ -973,6 +1047,8 @@ function validateDeploy(document, problems) {
         needs.impact.result == 'success' &&
         (needs.apply-d1-migrations.result == 'success' ||
         needs.d1-no-impact.result == 'success') &&
+        (needs.deploy-artwork-worker.result == 'success' ||
+        needs.artwork-worker-no-impact.result == 'success') &&
         (needs.deploy-root-worker.result == 'success' ||
         needs.root-worker-no-impact.result == 'success')
       `,
@@ -1246,7 +1322,11 @@ function validateTrustedBoundaries(workflows, sources, problems) {
         serialized.includes('CLOUDFLARE_API_TOKEN') &&
         !(
           (name === 'deploy.yml' &&
-            ['apply-d1-migrations', 'deploy-root-worker'].includes(jobId)) ||
+            [
+              'apply-d1-migrations',
+              'deploy-artwork-worker',
+              'deploy-root-worker',
+            ].includes(jobId)) ||
           (name === 'mcp-server.yml' && jobId === 'deploy-worker')
         )
       ) {
@@ -1314,7 +1394,7 @@ function validatePackages(rootPackage, mcpPackage, problems) {
   }
   if (
     rootPackage.scripts?.['test:automation-policy'] !==
-    'node --test scripts/automation-policy.test.mjs scripts/deploy-checkpoint.test.mjs scripts/deploy-impact.test.mjs scripts/deploy-range.test.mjs'
+    'node --test scripts/automation-policy.test.mjs scripts/deploy-checkpoint.test.mjs scripts/deploy-impact.test.mjs scripts/deploy-range.test.mjs scripts/deploy-worker.test.mjs'
   ) {
     problems.push(
       'test:automation-policy must invoke the zero-network Node suite'
@@ -2904,7 +2984,7 @@ test('rejects security groups that absorb routine or major updates', () => {
   }
 });
 
-test('artwork deploy shares the trusted CI gate and D1 migration job', () => {
+test('artwork deployment preserves CI, migrations, provider ordering and checkpoint gates', () => {
   const ci = parseYaml(
     readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8')
   );
@@ -2917,29 +2997,21 @@ test('artwork deploy shares the trusted CI gate and D1 migration job', () => {
   const deploy = parseYaml(
     readFileSync(join(ROOT, '.github/workflows/deploy.yml'), 'utf8')
   );
-  const job = deploy.jobs['deploy-root-worker'];
-  assert.ok(job.needs.includes('apply-d1-migrations'));
   assert.ok(
-    job.steps.some(
-      (step) =>
-        step.run === 'npm exec -- wrangler deploy -c wrangler.cd-artwork.jsonc'
+    deploy.jobs['deploy-artwork-worker'].needs.includes('apply-d1-migrations')
+  );
+  assert.ok(
+    deploy.jobs['deploy-root-worker'].needs.includes('deploy-artwork-worker')
+  );
+  assert.ok(
+    deploy.jobs['finalize-checkpoint'].needs.includes('deploy-artwork-worker')
+  );
+  assert.ok(
+    deploy.jobs['finalize-checkpoint'].needs.includes(
+      'artwork-worker-no-impact'
     )
   );
-  const artworkIndex = job.steps.findIndex(
-    (step) =>
-      step.run === 'npm exec -- wrangler deploy -c wrangler.cd-artwork.jsonc'
-  );
-  const rootIndex = job.steps.findIndex(
-    (step) => step.run === 'npm exec -- wrangler deploy'
-  );
-  assert.ok(
-    artworkIndex >= 0 && artworkIndex < rootIndex,
-    'Deploy the RPC provider before its consumer'
-  );
   assert.equal(deploy.concurrency['cancel-in-progress'], false);
-  assert.ok(
-    deploy.jobs['finalize-checkpoint'].needs.includes('deploy-root-worker')
-  );
 });
 
 test('documentation checks cannot be removed or made optional', () => {
@@ -2973,5 +3045,47 @@ test('documentation checks cannot be removed or made optional', () => {
         `${command}: ${bypass}`
       );
     }
+  }
+});
+
+test('artwork classification, source guard, no-op and checkpoint cannot be bypassed', () => {
+  const baseline = parseYaml(
+    readFileSync(join(ROOT, '.github/workflows/deploy.yml'), 'utf8')
+  );
+  for (const mutate of [
+    (doc) => {
+      doc.jobs['deploy-artwork-worker'].if = 'always()';
+    },
+    (doc) => {
+      doc.jobs['deploy-artwork-worker'].needs = ['impact'];
+    },
+    (doc) => {
+      doc.jobs['deploy-artwork-worker'].steps.at(-1).run =
+        'npm exec -- wrangler deploy -c wrangler.cd-artwork.jsonc';
+    },
+    (doc) => {
+      doc.jobs['deploy-artwork-worker'].steps.at(-1)['continue-on-error'] =
+        true;
+    },
+    (doc) => {
+      doc.jobs['artwork-worker-no-impact'].steps[0].run =
+        'npm run deploy:artwork';
+    },
+    (doc) => {
+      doc.jobs['finalize-checkpoint'].needs = doc.jobs[
+        'finalize-checkpoint'
+      ].needs.filter((id) => id !== 'deploy-artwork-worker');
+    },
+    (doc) => {
+      doc.jobs['apply-d1-migrations'].steps.find(
+        (step) => step.name === 'Verify deployed source before migrations'
+      ).if = 'false';
+    },
+  ]) {
+    const doc = structuredClone(baseline);
+    mutate(doc);
+    const problems = [];
+    validateDeploy(doc, problems);
+    assert.ok(problems.length > 0);
   }
 });

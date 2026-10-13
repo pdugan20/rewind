@@ -21,7 +21,7 @@
   },
   "scripts": {
     "dev": "npm run db:migrate && wrangler dev",
-    "deploy": "npm run db:migrate && npm run db:remote && wrangler deploy",
+    "deploy": "npm run deployment:check && npm run db:migrate && npm run db:remote && npm run deploy:worker",
     "build": "wrangler deploy --dry-run --outdir dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -31,7 +31,7 @@
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "test:automation-policy": "node --test scripts/automation-policy.test.mjs scripts/deploy-checkpoint.test.mjs scripts/deploy-impact.test.mjs scripts/deploy-range.test.mjs",
+    "test:automation-policy": "node --test scripts/automation-policy.test.mjs scripts/deploy-checkpoint.test.mjs scripts/deploy-impact.test.mjs scripts/deploy-range.test.mjs scripts/deploy-worker.test.mjs",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply rewind-db --local",
@@ -51,7 +51,11 @@
     "test:cd-artwork": "vitest run -c vitest.cd-artwork.config.ts && node --test scripts/cd-artwork/pipeline.test.mjs",
     "build:cd-artwork": "wrangler deploy -c wrangler.cd-artwork.jsonc --dry-run",
     "docs:check": "node scripts/check-docs.mjs && tsx scripts/gen-mcp-reference.ts --check",
-    "test:docs": "node --import tsx --test scripts/check-docs.test.mjs scripts/apex-routing.test.mjs"
+    "test:docs": "node --import tsx --test scripts/check-docs.test.mjs scripts/apex-routing.test.mjs",
+    "deploy:worker": "node scripts/deploy-worker.mjs root",
+    "deploy:artwork": "node scripts/deploy-worker.mjs artwork",
+    "deployment:source-check": "node scripts/deploy-worker.mjs root --source-check",
+    "deployment:check": "node scripts/deploy-worker.mjs root --check && node scripts/deploy-worker.mjs artwork --check"
   },
   "lint-staged": {
     "*.{js,ts,tsx}": [

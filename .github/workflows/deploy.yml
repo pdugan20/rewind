@@ -25,6 +25,7 @@ jobs:
       head_sha: ${{ steps.classify.outputs.head_sha }}
       d1_migrations: ${{ steps.classify.outputs.d1_migrations }}
       root_worker: ${{ steps.classify.outputs.root_worker }}
+      artwork_worker: ${{ steps.classify.outputs.artwork_worker }}
       root_graph_changed: ${{ steps.classify.outputs.root_graph_changed }}
       summary: ${{ steps.classify.outputs.summary }}
     steps:
@@ -148,7 +149,7 @@ jobs:
             --expected-run-attempt "${{ steps.checkpoint.outputs.checkpoint_run_attempt }}" \
             --output "$GITHUB_OUTPUT"
 
-      - name: Classify D1 and root Worker impact
+      - name: Classify D1 and Worker impact
         id: classify
         run: |
           HEAD_SHA="$(git rev-parse HEAD)"
@@ -193,6 +194,11 @@ jobs:
 
       - run: npm ci
 
+      - name: Verify deployed source before migrations
+        run: npm run deployment:check
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
       - name: Apply D1 migrations
         run: npm exec -- wrangler d1 migrations apply rewind-db --remote
         env:
@@ -213,8 +219,8 @@ jobs:
           echo "D1 migrations: no production impact"
           printf 'Classification: %s\n' "$IMPACT_SUMMARY"
 
-  deploy-root-worker:
-    name: Deploy Root Worker
+  deploy-artwork-worker:
+    name: Deploy CD artwork Worker
     needs: [impact, apply-d1-migrations, d1-no-impact]
     runs-on: ubuntu-latest
     environment:
@@ -225,6 +231,70 @@ jobs:
       needs.impact.result == 'success' &&
       (needs.apply-d1-migrations.result == 'success' ||
       needs.d1-no-impact.result == 'success') &&
+      needs.impact.outputs.artwork_worker == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.impact.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify trusted checkout
+        run: test "$(git rev-parse HEAD)" = "${{ needs.impact.outputs.head_sha }}"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install npm 11.5.2
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "11.5.2"
+
+      - run: npm ci
+
+      - name: Deploy artwork to Cloudflare Workers
+        run: npm run deploy:artwork -- --expected-head "${{ needs.impact.outputs.head_sha }}"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  artwork-worker-no-impact:
+    name: CD artwork Worker — no production impact
+    needs: impact
+    runs-on: ubuntu-latest
+    if: >
+      needs.impact.result == 'success' &&
+      needs.impact.outputs.artwork_worker == 'false'
+    steps:
+      - name: Report explicit no-op
+        env:
+          IMPACT_SUMMARY: ${{ needs.impact.outputs.summary }}
+        run: |
+          echo "CD artwork Worker: no production impact"
+          printf 'Classification: %s\n' "$IMPACT_SUMMARY"
+
+  deploy-root-worker:
+    name: Deploy Root Worker
+    needs:
+      [
+        impact,
+        apply-d1-migrations,
+        d1-no-impact,
+        deploy-artwork-worker,
+        artwork-worker-no-impact,
+      ]
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: https://api.rewind.rest
+    if: >
+      always() &&
+      needs.impact.result == 'success' &&
+      (needs.apply-d1-migrations.result == 'success' ||
+      needs.d1-no-impact.result == 'success') &&
+      (needs.deploy-artwork-worker.result == 'success' ||
+      needs.artwork-worker-no-impact.result == 'success') &&
       needs.impact.outputs.root_worker == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -248,13 +318,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Deploy CD artwork Worker
-        run: npm exec -- wrangler deploy -c wrangler.cd-artwork.jsonc
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
       - name: Deploy to Cloudflare Workers
-        run: npm exec -- wrangler deploy
+        run: npm run deploy:worker -- --expected-head "${{ needs.impact.outputs.head_sha }}"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
@@ -279,6 +344,8 @@ jobs:
       - impact
       - apply-d1-migrations
       - d1-no-impact
+      - deploy-artwork-worker
+      - artwork-worker-no-impact
       - deploy-root-worker
       - root-worker-no-impact
     runs-on: ubuntu-latest
@@ -287,6 +354,8 @@ jobs:
       needs.impact.result == 'success' &&
       (needs.apply-d1-migrations.result == 'success' ||
       needs.d1-no-impact.result == 'success') &&
+      (needs.deploy-artwork-worker.result == 'success' ||
+      needs.artwork-worker-no-impact.result == 'success') &&
       (needs.deploy-root-worker.result == 'success' ||
       needs.root-worker-no-impact.result == 'success')
     steps:
