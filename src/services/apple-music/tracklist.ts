@@ -1,0 +1,301 @@
+/**
+ * Apple Music catalog tracklist enrichment.
+ *
+ * Scrobbles only tell us which songs were played. A CD-style player needs the
+ * album as released: every song in disc/track order with its preview. This
+ * reads the album from the catalog API with its tracks relationship and
+ * stores the whole tracklist in lastfm_album_tracks.
+ *
+ *   GET https://api.music.apple.com/v1/catalog/us/albums/{id}?include=tracks
+ *
+ * Uses the same developer token and identity checks as album.ts. A matched
+ * read replaces the album's rows as one set; transient failures leave the
+ * stored tracklist and retry timestamp untouched; confirmed no-matches are
+ * cooled down by tracklist_synced_at like apple_music_enriched_at.
+ */
+
+import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import type { Database } from '../../db/client.js';
+import {
+  lastfmAlbumTracks,
+  lastfmAlbums,
+  lastfmArtists,
+} from '../../db/schema/lastfm.js';
+import {
+  albumMatches,
+  artistIdentityMatches,
+} from '../images/sources/utils.js';
+
+const API_ORIGIN = 'https://api.music.apple.com';
+const CATALOG_BASE = `${API_ORIGIN}/v1/catalog/us/albums`;
+const NINETY_DAYS_AGO_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days')";
+// The tracks relationship pages at 300; box sets beyond a few pages are not
+// worth more catalog calls for a preview player.
+const MAX_TRACK_PAGES = 4;
+const PREVIEW_HOST = 'audio-ssl.itunes.apple.com';
+
+interface CatalogSong {
+  id: string;
+  type: string;
+  attributes?: {
+    name?: string;
+    artistName?: string;
+    discNumber?: number;
+    trackNumber?: number;
+    durationInMillis?: number;
+    isrc?: string;
+    url?: string;
+    previews?: Array<{ url?: string }>;
+  };
+}
+
+interface TrackPage {
+  data?: CatalogSong[];
+  next?: string;
+}
+
+interface CatalogAlbumWithTracks {
+  data?: Array<{
+    id: string;
+    type: string;
+    attributes?: { name?: string; artistName?: string };
+    relationships?: { tracks?: TrackPage };
+  }>;
+}
+
+interface CatalogTrack {
+  appleMusicId: number;
+  discNumber: number;
+  trackNumber: number;
+  name: string;
+  artistName: string | null;
+  durationMs: number | null;
+  isrc: string | null;
+  previewUrl: string | null;
+  appleMusicUrl: string | null;
+}
+
+type TracklistResult =
+  | { status: 'matched'; tracks: CatalogTrack[] }
+  | { status: 'no_match' }
+  | { status: 'error' };
+
+async function getJson<T>(
+  url: string,
+  developerToken: string
+): Promise<{ ok: true; body: T } | { ok: false; status: number | null }> {
+  try {
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${developerToken}` },
+    });
+    if (!resp.ok) return { ok: false, status: resp.status };
+    return { ok: true, body: (await resp.json()) as T };
+  } catch {
+    return { ok: false, status: null };
+  }
+}
+
+function previewUrl(song: CatalogSong): string | null {
+  const raw = song.attributes?.previews?.[0]?.url;
+  if (typeof raw !== 'string') return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' && url.hostname === PREVIEW_HOST
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function toTrack(song: CatalogSong): CatalogTrack | null {
+  const a = song.attributes;
+  const id = Number(song.id);
+  if (
+    song.type !== 'songs' ||
+    !a ||
+    !Number.isSafeInteger(id) ||
+    id <= 0 ||
+    typeof a.name !== 'string' ||
+    !a.name ||
+    typeof a.trackNumber !== 'number' ||
+    a.trackNumber <= 0
+  )
+    return null;
+  return {
+    appleMusicId: id,
+    discNumber:
+      typeof a.discNumber === 'number' && a.discNumber > 0 ? a.discNumber : 1,
+    trackNumber: a.trackNumber,
+    name: a.name,
+    artistName: typeof a.artistName === 'string' ? a.artistName : null,
+    durationMs:
+      typeof a.durationInMillis === 'number' && a.durationInMillis > 0
+        ? a.durationInMillis
+        : null,
+    isrc: typeof a.isrc === 'string' && a.isrc ? a.isrc : null,
+    previewUrl: previewUrl(song),
+    appleMusicUrl:
+      typeof a.url === 'string' && a.url.startsWith('https://music.apple.com/')
+        ? a.url
+        : null,
+  };
+}
+
+/**
+ * Fetch one album's catalog tracklist after validating album and artist
+ * identity. Music videos and malformed rows are dropped; duplicate positions
+ * keep the first row so the stored set satisfies the position unique index.
+ */
+export async function fetchAlbumTracklist(
+  developerToken: string,
+  appleMusicId: number,
+  expected: { name: string; artistName: string }
+): Promise<TracklistResult> {
+  const first = await getJson<CatalogAlbumWithTracks>(
+    `${CATALOG_BASE}/${appleMusicId}?include=tracks`,
+    developerToken
+  );
+  if (!first.ok) {
+    console.log(
+      `[WARN] Apple Music tracklist /albums/${appleMusicId} returned ${first.status ?? 'network error'}`
+    );
+    return { status: first.status === 404 ? 'no_match' : 'error' };
+  }
+  const album = (Array.isArray(first.body?.data) ? first.body.data : []).find(
+    (item) => item?.id === String(appleMusicId) && item.type === 'albums'
+  );
+  const attrs = album?.attributes;
+  if (!attrs) return { status: 'error' };
+  if (
+    typeof attrs.name !== 'string' ||
+    typeof attrs.artistName !== 'string' ||
+    !albumMatches(expected.name, attrs.name, expected.artistName) ||
+    !artistIdentityMatches(expected.artistName, attrs.artistName)
+  )
+    return { status: 'no_match' };
+
+  const songs: CatalogSong[] = [];
+  let page: TrackPage | undefined = album?.relationships?.tracks;
+  for (let n = 0; page && n < MAX_TRACK_PAGES; n++) {
+    if (Array.isArray(page.data)) songs.push(...page.data);
+    // `next` is a path on the API origin; never follow anything else.
+    if (typeof page.next !== 'string' || !page.next.startsWith('/v1/')) break;
+    const more = await getJson<TrackPage>(
+      `${API_ORIGIN}${page.next}`,
+      developerToken
+    );
+    if (!more.ok) return { status: 'error' };
+    page = more.body;
+  }
+
+  const seen = new Set<string>();
+  const tracks: CatalogTrack[] = [];
+  for (const song of songs) {
+    const track = toTrack(song);
+    if (!track) continue;
+    const position = `${track.discNumber}:${track.trackNumber}`;
+    if (seen.has(position)) continue;
+    seen.add(position);
+    tracks.push(track);
+  }
+  if (tracks.length === 0) return { status: 'no_match' };
+  tracks.sort(
+    (a, b) => a.discNumber - b.discNumber || a.trackNumber - b.trackNumber
+  );
+  return { status: 'matched', tracks };
+}
+
+/**
+ * Store catalog tracklists for the given albums when missing or older than
+ * 90 days. Bounded by the caller's id list, so a sync only spends catalog
+ * calls on albums it is about to show.
+ */
+export async function syncAlbumTracklists(
+  db: Database,
+  developerToken: string,
+  albumIds: number[],
+  userId = 1
+): Promise<{ stored: number; skipped: number }> {
+  if (albumIds.length === 0) return { stored: 0, skipped: 0 };
+  const candidates = await db
+    .select({
+      id: lastfmAlbums.id,
+      name: lastfmAlbums.name,
+      artistName: lastfmArtists.name,
+      appleMusicId: lastfmAlbums.appleMusicId,
+    })
+    .from(lastfmAlbums)
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmAlbums.artistId, lastfmArtists.id),
+        eq(lastfmAlbums.userId, lastfmArtists.userId)
+      )
+    )
+    .where(
+      and(
+        eq(lastfmAlbums.userId, userId),
+        inArray(lastfmAlbums.id, albumIds),
+        eq(lastfmAlbums.isFiltered, 0),
+        eq(lastfmAlbums.identityConflict, 0),
+        eq(lastfmArtists.isFiltered, 0),
+        eq(lastfmArtists.identityConflict, 0),
+        sql`${lastfmAlbums.appleMusicId} IS NOT NULL`,
+        or(
+          isNull(lastfmAlbums.tracklistSyncedAt),
+          lt(lastfmAlbums.tracklistSyncedAt, sql.raw(NINETY_DAYS_AGO_SQL))
+        )
+      )
+    );
+
+  let stored = 0;
+  let skipped = 0;
+  for (const album of candidates) {
+    if (album.appleMusicId == null) continue;
+    const result = await fetchAlbumTracklist(
+      developerToken,
+      album.appleMusicId,
+      { name: album.name, artistName: album.artistName }
+    );
+    if (result.status === 'error') {
+      skipped++;
+      continue;
+    }
+    const now = new Date().toISOString();
+    const stamp = db
+      .update(lastfmAlbums)
+      .set({ tracklistSyncedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(lastfmAlbums.id, album.id),
+          eq(lastfmAlbums.userId, userId),
+          eq(lastfmAlbums.appleMusicId, album.appleMusicId)
+        )
+      );
+    if (result.status === 'no_match') {
+      await stamp;
+      skipped++;
+      continue;
+    }
+    const clear = db
+      .delete(lastfmAlbumTracks)
+      .where(
+        and(
+          eq(lastfmAlbumTracks.userId, userId),
+          eq(lastfmAlbumTracks.albumId, album.id)
+        )
+      );
+    const inserts = result.tracks.map((track) =>
+      db.insert(lastfmAlbumTracks).values({
+        userId,
+        albumId: album.id,
+        ...track,
+        syncedAt: now,
+      })
+    );
+    await db.batch([clear, ...inserts, stamp]);
+    stored++;
+  }
+  return { stored, skipped };
+}

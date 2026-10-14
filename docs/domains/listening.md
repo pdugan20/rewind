@@ -41,13 +41,14 @@ Note: Artist images deprecated since ~2020. All artist image URLs return placeho
 - Base URL: `https://api.music.apple.com/v1/`
 - Auth: `Authorization: Bearer {developer_token}` (JWT signed with MusicKit private key)
 - Rate limit: Generous, undocumented
-- Used for: Artist images, high-res album art (up to 3000x3000)
+- Used for: Artist images, high-res album art (up to 3000x3000), album release year and track count, album tracklists
 - Artwork URL template: replace `{w}x{h}` with desired dimensions
 
 ### Key Endpoints
 
 - `GET /v1/catalog/{storefront}/search?types=artists&term=...`
 - `GET /v1/catalog/{storefront}/artists/{id}`
+- `GET /v1/catalog/{storefront}/albums/{id}?include=tracks` -- tracklist in disc/track order with ISRC, duration, preview and song URL ([`tracklist.ts`](../../src/services/apple-music/tracklist.ts), stored in `lastfm_album_tracks`)
 
 ## iTunes Search/Lookup API
 
@@ -64,6 +65,7 @@ Note: Artist images deprecated since ~2020. All artist image URLs return placeho
 ## Sync Strategy
 
 - **Recent scrobbles**: every 15 minutes via cron. Fetch `user.getRecentTracks` with `from={last_scrobble_timestamp}`. Insert new scrobbles, upsert artists/albums/tracks. New artists are automatically tagged with genres via `artist.getTopTags`.
+- **Recent albums shelf**: after each 15-minute scrobble sync, [`refreshDiscman`](../../src/services/discman/refresh.ts) enriches up to 15 newest unenriched tracks (previews arrive within one sync instead of the daily batch), stores catalog tracklists for the 12 most recent albums when missing or 90 days stale, and publishes one row to `listening_discman_snapshots`. `GET /v1/listening/discman` serves that row; there is no time window on album selection.
 - **Top lists**: daily at 3 AM. Fetch all 6 periods for artists, albums, tracks. Delete old rankings, insert new.
 - **User stats**: daily at 3 AM alongside top lists. Call `user.getInfo` for total scrobbles. Compute unique counts from local DB.
 - **Full historical backfill**: one-time. Paginate through all `user.getRecentTracks` from oldest to newest. ~124K scrobbles / 200 per page / 5 per second = ~2 minutes.

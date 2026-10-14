@@ -663,9 +663,9 @@ describe('listening routes', () => {
       return album;
     }
 
-    function authFetch(path: string) {
+    function authFetch(path: string, init: { headers?: HeadersInit } = {}) {
       return SELF.fetch(`http://localhost${path}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...init.headers, Authorization: `Bearer ${token}` },
       });
     }
 
@@ -688,9 +688,15 @@ describe('listening routes', () => {
       });
       const response = await authFetch('/v1/listening/recent/albums?limit=10');
       expect(response.status).toBe(200);
-      expect(response.headers.get('Cache-Control')).toBe(
-        'public, max-age=30, s-maxage=30'
+      expect(response.headers.get('Cache-Control')).toBe('private, max-age=30');
+      expect(response.headers.get('Vary')).toContain('Authorization');
+      const etag = response.headers.get('ETag');
+      expect(etag).toBeTruthy();
+      const revalidated = await authFetch(
+        '/v1/listening/recent/albums?limit=10',
+        { headers: { 'If-None-Match': etag! } }
       );
+      expect(revalidated.status).toBe(304);
       const body = (await response.json()) as any;
       expect(body.data.map((item: any) => item.album.name)).toEqual([
         'Superfuzz Bigmuff',

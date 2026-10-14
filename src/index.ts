@@ -1,4 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
+import { etag, RETAINED_304_HEADERS } from 'hono/etag';
 import type { Env } from './types/env.js';
 import { cors } from './lib/cors.js';
 import { requireAuth } from './lib/auth.js';
@@ -24,6 +25,8 @@ import adminReindex from './routes/admin-reindex.js';
 import adminAttending from './routes/admin-attending.js';
 import { LastfmClient } from './services/lastfm/client.js';
 import { afterListeningSync } from './lib/artwork-notify.js';
+import discman from './routes/discman.js';
+import { refreshDiscman } from './services/discman/refresh.js';
 import { syncListening } from './services/lastfm/sync.js';
 import { syncRunning } from './services/strava/sync.js';
 import { syncWatching } from './services/plex/sync.js';
@@ -76,6 +79,22 @@ app.use('/v1/*', async (c, next) => {
   return authMiddleware(c, next);
 });
 
+// Listening clients poll on a short interval; a matching If-None-Match gets
+// an empty 304 instead of the full body. Runs after auth, so 401s are untouched.
+app.use(
+  '/v1/listening/*',
+  etag({
+    weak: true,
+    // Keep CORS on 304s so browser scripts sending If-None-Match can read them.
+    retainedHeaders: [
+      ...RETAINED_304_HEADERS,
+      'access-control-allow-origin',
+      'access-control-allow-credentials',
+      'access-control-expose-headers',
+    ],
+  })
+);
+
 // Root alias for the OpenAPI spec. The canonical path is /v1/openapi.json,
 // but agents and SDK generators commonly probe /openapi.json at the API
 // origin first — redirect there so discovery works without prior knowledge
@@ -87,6 +106,7 @@ app.get('/openapi.json', (c) => c.redirect('/v1/openapi.json', 301));
 const routes = app
   .basePath('/v1')
   .route('/', system)
+  .route('/listening/discman', discman)
   .route('/listening', listening)
   .route('/running', running)
   .route('/watching', watching)
@@ -150,7 +170,15 @@ export default {
             ctx,
             syncListening(db, client, { type: 'scrobbles' })
           )
-            .then(() => processListeningImages(db, env))
+            .then(() =>
+              // Image failures must not hold back the shelf rebuild.
+              processListeningImages(db, env).catch((err) =>
+                console.log(
+                  `[ERROR] Listening image processing failed: ${err instanceof Error ? err.message : String(err)}`
+                )
+              )
+            )
+            .then(() => refreshDiscman(db, env))
             .catch((err) =>
               console.log(
                 `[ERROR] Scrobble sync cron failed: ${err instanceof Error ? err.message : String(err)}`
