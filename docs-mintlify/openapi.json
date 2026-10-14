@@ -198,6 +198,319 @@
           "integrity"
         ]
       },
+      "DiscmanSnapshot": {
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
+          "built_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "albums": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscmanAlbum"
+            },
+            "maxItems": 12
+          }
+        },
+        "required": [
+          "schema_version",
+          "built_at",
+          "albums"
+        ]
+      },
+      "DiscmanAlbum": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "apple_music_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "apple_music_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "released_year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "total_tracks": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "image": {
+            "$ref": "#/components/schemas/DiscmanImage"
+          },
+          "artist": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "apple_music_id": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "apple_music_url": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uri"
+              },
+              "genre": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "image": {
+                "$ref": "#/components/schemas/DiscmanImage"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "url",
+              "apple_music_id",
+              "apple_music_url",
+              "genre",
+              "image"
+            ]
+          },
+          "last_played_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "play_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "All-time plays attributed to this album"
+          },
+          "tracklist_source": {
+            "type": "string",
+            "enum": [
+              "catalog",
+              "listens"
+            ],
+            "description": "catalog: the released tracklist in disc/track order. listens: only songs played from this album, in first-heard order, when no catalog tracklist is stored."
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscmanTrack"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url",
+          "apple_music_id",
+          "apple_music_url",
+          "released_year",
+          "total_tracks",
+          "image",
+          "artist",
+          "last_played_at",
+          "play_count",
+          "tracklist_source",
+          "tracks"
+        ]
+      },
+      "DiscmanImage": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "thumbhash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dominant_color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "accent_color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "urls": {
+            "type": "object",
+            "properties": {
+              "thumbnail": {
+                "type": "string",
+                "format": "uri",
+                "description": "64px square"
+              },
+              "small": {
+                "type": "string",
+                "format": "uri",
+                "description": "150px square"
+              },
+              "medium": {
+                "type": "string",
+                "format": "uri",
+                "description": "300px square"
+              },
+              "large": {
+                "type": "string",
+                "format": "uri",
+                "description": "600px square"
+              }
+            },
+            "required": [
+              "thumbnail",
+              "small",
+              "medium",
+              "large"
+            ]
+          }
+        },
+        "required": [
+          "thumbhash",
+          "dominant_color",
+          "accent_color",
+          "urls"
+        ]
+      },
+      "DiscmanTrack": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "1-based play order within the album"
+          },
+          "disc_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "track_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "isrc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "apple_music_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "apple_music_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "preview_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "track_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Listening track id when this song has been played"
+          },
+          "play_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_played_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "position",
+          "disc_number",
+          "track_number",
+          "name",
+          "duration_ms",
+          "isrc",
+          "apple_music_id",
+          "apple_music_url",
+          "preview_url",
+          "track_id",
+          "play_count",
+          "last_played_at"
+        ]
+      },
       "ErrorResponse": {
         "type": "object",
         "properties": {
@@ -2336,6 +2649,77 @@
                   "integrity": {
                     "lastfm_album_artist_mismatch_count": 0
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listening/discman": {
+      "get": {
+        "operationId": "getListeningDiscman",
+        "tags": [
+          "Listening"
+        ],
+        "summary": "Prepared recent albums with tracklists",
+        "description": "Returns up to 12 most recently played distinct albums, newest first, with no time window. Each album includes its Apple Music catalog tracklist in disc/track order when stored (otherwise the songs played from it), previews, Apple Music links, artist image, all image sizes, and per-track play counts and last-played times. Prepared after each scrobble sync; no live provider requests. Supports If-None-Match.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prepared shelf",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscmanSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Shelf unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "status"
+                  ]
                 }
               }
             }

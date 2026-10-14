@@ -77,6 +77,8 @@ export const lastfmAlbums = sqliteTable(
     releasedYear: integer('released_year'),
     totalTracks: integer('total_tracks'),
     appleMusicEnrichedAt: text('apple_music_enriched_at'),
+    // Gates the catalog tracklist refresh in services/apple-music/tracklist.ts.
+    tracklistSyncedAt: text('tracklist_synced_at'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -350,4 +352,48 @@ export const lastfmYearlyStats = sqliteTable(
     uniqueIndex('idx_lastfm_yearly_stats_unique').on(table.userId, table.year),
     index('idx_lastfm_yearly_stats_user_id').on(table.userId),
   ]
+);
+
+// Apple Music catalog tracklist per album, in disc/track order. Replaced as a
+// set on each successful catalog read; see services/apple-music/tracklist.ts.
+// Independent of lastfm_tracks: a catalog row exists whether or not it was
+// ever played, and is matched to played tracks at read time.
+export const lastfmAlbumTracks = sqliteTable(
+  'lastfm_album_tracks',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').notNull().default(1),
+    albumId: integer('album_id')
+      .notNull()
+      .references(() => lastfmAlbums.id, { onDelete: 'cascade' }),
+    appleMusicId: integer('apple_music_id').notNull(),
+    discNumber: integer('disc_number').notNull().default(1),
+    trackNumber: integer('track_number').notNull(),
+    name: text('name').notNull(),
+    artistName: text('artist_name'),
+    durationMs: integer('duration_ms'),
+    isrc: text('isrc'),
+    previewUrl: text('preview_url'),
+    appleMusicUrl: text('apple_music_url'),
+    syncedAt: text('synced_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_lastfm_album_tracks_position').on(
+      table.userId,
+      table.albumId,
+      table.discNumber,
+      table.trackNumber
+    ),
+  ]
+);
+
+// One prepared recent-albums shelf per owner (GET /v1/listening/discman),
+// rebuilt after each scrobble sync. See services/discman/snapshot.ts.
+export const listeningDiscmanSnapshots = sqliteTable(
+  'listening_discman_snapshots',
+  {
+    userId: integer('user_id').primaryKey(),
+    snapshot: text('snapshot').notNull(),
+    builtAt: text('built_at').notNull(),
+  }
 );
