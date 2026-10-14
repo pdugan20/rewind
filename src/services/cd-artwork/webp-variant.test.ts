@@ -21,7 +21,19 @@ describe('lossless WebP preparation', () => {
 
     expect(decoded.width).toBe(1024);
     expect(decoded.height).toBe(1024);
-    expect(decoded.data).toEqual(new Uint8ClampedArray(pixels));
+    // Compare raw bytes. A deep toEqual walks all 4,194,304 elements through
+    // Vitest's generic equality and took ~3.7 of this test's ~4.3 seconds,
+    // which pushed it past the 20 second timeout on busy CI runners.
+    const actual = new Uint8Array(
+      decoded.data.buffer,
+      decoded.data.byteOffset,
+      decoded.data.byteLength
+    );
+    expect(actual.byteLength).toBe(pixels.byteLength);
+    // -1 when every RGBA byte matches; otherwise the first differing byte.
+    expect(actual.findIndex((value, index) => value !== pixels[index])).toBe(
+      -1
+    );
     expect(webp.byteLength).toBeGreaterThan(0);
   });
 
