@@ -270,6 +270,8 @@ describe('tracklist title identity', () => {
       'From the Muddy Banks of the Wishkah (Live)',
     ],
     ['Pinkerton', 'Pinkerton (Deluxe Edition) [Remastered]'],
+    ['Nevermind', 'Nevermind (20th Anniversary Super Deluxe Edition)'],
+    ['Abbey Road', 'Abbey Road (Remastered 2019)'],
     ['Pinkerton', 'Pinkerton'],
   ])('accepts %s as catalog %s', (stored, catalog) => {
     expect(tracklistTitleMatches(stored, catalog, 'Artist')).toBe(true);
@@ -280,6 +282,10 @@ describe('tracklist title identity', () => {
     ['Midnights', 'Midnights - Single'],
     ['Midnights', 'Midnights (Remixes)'],
     ['Midnights', 'Midnights Live (Edition)'],
+    ['Midnights', 'Midnights (Instrumental Version)'],
+    ['Midnights', 'Midnights (Remix Edition)'],
+    ['Fearless', "Fearless (Taylor's Version)"],
+    ['Wishkah', 'Wishkah (Live at Wembley)'],
   ])('rejects %s as catalog %s', (stored, catalog) => {
     expect(tracklistTitleMatches(stored, catalog, 'Artist')).toBe(false);
   });
