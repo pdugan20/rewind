@@ -344,6 +344,10 @@ describe('authorization, publication and accepted-state preservation', () => {
         }
         return originalFallbackGet(...args);
       });
+    // The response is bounded well before this fires, so it is still served
+    // while storage stalls; releasing later lets the background lookups that
+    // the request helper waits on finish instead of deadlocking it.
+    const releaseTimer = setTimeout(() => release!(), 1500);
     try {
       const response = await request(`${read}/albums?ids=1`, readKey);
       expect(response.status).toBe(200);
@@ -355,6 +359,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       expect(snapshot.data[0].variants).toBeUndefined();
       expect(snapshot.fallback_artwork).toBeUndefined();
     } finally {
+      clearTimeout(releaseTimer);
       release!();
       // Let the bounded read finish before restoring the R2 mock.
       await stalled;

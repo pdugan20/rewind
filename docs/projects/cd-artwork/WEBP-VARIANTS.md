@@ -27,12 +27,19 @@ confirmed error. Each has at most two encoder attempts. An attempt reads one
 canonical PNG, writes and checks one immutable WebP, and may write two small
 private descriptor objects; a partial failure can leave an unadvertised R2
 object. Each snapshot descriptor reads the private descriptor and hash index,
-then checks WebP size, MIME, and ETag. A cold or ETag-changed object also gets
-one bounded read and SHA-256 verification. A positive 60-second per-isolate
-cache holds only the verified ETag and is capped at 64 hashes; it never stores
-image bytes or acceptance/withdrawal state. At most two descriptors are
-validated concurrently, even for a 20-album request. Warm validation is three
-R2 operations per variant; cold validation is four. Direct WebP delivery checks
+then checks WebP size, MIME, and ETag. Once a variant's bytes have been hashed,
+D1 table `cd_artwork_variant_checks` (migration 0054) records the object ETag
+and byte count they were hashed under. While the stored object still has that
+ETag, later snapshots advertise the variant without downloading it again; a
+missing record or a changed ETag gets one bounded read and SHA-256 verification
+before the variant is advertised, so replaced or corrupt bytes are never
+trusted. A positive 60-second per-isolate cache also holds only the verified
+ETag and is capped at 64 hashes; neither store holds image bytes or
+acceptance/withdrawal state. A request validates all of its descriptors (at most 20) in parallel within a 500 ms budget. Lookups that miss the budget are left
+out of that response and finish in the background, recording their ETag so the
+next snapshot can advertise them. Warm or recorded validation is three R2
+operations and one D1 read per variant; cold validation adds one R2 read and
+one D1 write. Direct WebP delivery checks
 both descriptors and accepted-job state and hashes the bounded response body
 before returning it. Actual billing depends on the account's Cloudflare plan
 and usage; this change makes no dollar estimate.
