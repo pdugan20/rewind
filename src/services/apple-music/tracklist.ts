@@ -87,6 +87,29 @@ type TracklistResult =
   | { status: 'no_match' }
   | { status: 'error'; stop?: boolean };
 
+// A trailing bracketed qualifier naming an edition, version or live release.
+const EDITION_QUALIFIER =
+  /\s*[([][^)\]]*\b(?:edition|version|deluxe|expanded|remaster(?:ed)?|live|anniversary|bonus)\b[^)\]]*[)\]]\s*$/i;
+
+/**
+ * The stored catalog id was chosen from the songs actually played, so the
+ * catalog may name that edition: "Midnights (3am Edition)" or
+ * "From the Muddy Banks of the Wishkah (Live)" for a bare stored title.
+ * Only the catalog side drops such qualifiers; a different title, or a
+ * stored qualifier the catalog lacks, still fails.
+ */
+export function tracklistTitleMatches(
+  stored: string,
+  catalog: string,
+  artistName: string
+): boolean {
+  if (albumMatches(stored, catalog, artistName)) return true;
+  let bare = catalog;
+  while (EDITION_QUALIFIER.test(bare))
+    bare = bare.replace(EDITION_QUALIFIER, '');
+  return bare !== catalog && albumMatches(stored, bare, artistName);
+}
+
 async function getJson<T>(
   url: string,
   developerToken: string
@@ -181,7 +204,7 @@ export async function fetchAlbumTracklist(
   if (
     typeof attrs.name !== 'string' ||
     typeof attrs.artistName !== 'string' ||
-    !albumMatches(expected.name, attrs.name, expected.artistName) ||
+    !tracklistTitleMatches(expected.name, attrs.name, expected.artistName) ||
     !artistIdentityMatches(expected.artistName, attrs.artistName)
   )
     return { status: 'no_match' };
