@@ -32,11 +32,13 @@ import {
   type DiscmanTrack,
 } from './schema.js';
 
-const SCAN_BATCH_SIZE = 100;
-// Album-wise listening spends ~10-15 scrobbles per album, so 12 albums
-// usually resolve in the first few hundred rows. The cap bounds a pathological
-// history (one album on repeat) without imposing a time window.
-const SCAN_LIMIT = 3000;
+const SCAN_BATCH_SIZE = 500;
+// Album-wise listening spends ~10-15 scrobbles per album, so 12 albums with
+// disc art usually resolve in the first few hundred rows. Recent albums whose
+// art is not ready yet (a various-artists soundtrack files each artist as its
+// own album) can push the 12th much further back. The cap bounds that scan,
+// and the scan also ends once every album with art has been found.
+const SCAN_LIMIT = 20000;
 
 interface ScanRow {
   scrobbleId: number;
@@ -52,16 +54,43 @@ interface SelectedAlbum {
   lastPlayedAt: string;
 }
 
-/** Newest-first distinct albums, skipping filtered tracks, albums and artists. */
+/**
+ * Albums whose active disc artwork is accepted. The shelf only lists albums a
+ * CD player can show; art accepted later appears at the next rebuild. Filtered
+ * albums and artists are left out here too, so the scan's early stop counts
+ * only albums it could actually select.
+ */
+async function albumsWithArtwork(
+  db: Database,
+  userId: number
+): Promise<Set<number>> {
+  const rows = await db.all<{ album_id: number }>(sql`
+    SELECT a.album_id FROM cd_artwork_albums a
+    JOIN cd_artwork_jobs j
+      ON j.id = a.active_job AND j.user_id = a.user_id AND j.album_id = a.album_id
+    JOIN lastfm_albums l ON l.id = a.album_id AND l.user_id = a.user_id
+    JOIN lastfm_artists r ON r.id = l.artist_id AND r.user_id = l.user_id
+    WHERE a.user_id = ${userId} AND j.state = 'accepted'
+      AND j.candidate_hash IS NOT NULL
+      AND l.is_filtered = 0 AND r.is_filtered = 0`);
+  return new Set(rows.map((row) => row.album_id));
+}
+
+/**
+ * Newest-first distinct albums with accepted disc art, skipping filtered
+ * tracks, albums and artists.
+ */
 export async function selectRecentAlbums(
   db: Database,
   userId: number,
   limit = DISCMAN_ALBUM_LIMIT
 ): Promise<SelectedAlbum[]> {
+  const withArtwork = await albumsWithArtwork(db, userId);
+  const wanted = Math.min(limit, withArtwork.size);
   const selected = new Map<number, SelectedAlbum>();
   let inspected = 0;
   let cursor: { at: string; id: number } | null = null;
-  while (selected.size < limit && inspected < SCAN_LIMIT) {
+  while (selected.size < wanted && inspected < SCAN_LIMIT) {
     const take = Math.min(SCAN_BATCH_SIZE, SCAN_LIMIT - inspected);
     const cursorCondition: SQL | undefined = cursor
       ? sql<boolean>`(${lastfmScrobbles.scrobbledAt}, ${lastfmScrobbles.id}) < (${cursor.at}, ${cursor.id})`
@@ -105,6 +134,7 @@ export async function selectRecentAlbums(
     for (const row of rows) {
       if (
         row.albumId === null ||
+        !withArtwork.has(row.albumId) ||
         row.trackFiltered === 1 ||
         row.albumFiltered === 1 ||
         row.artistFiltered === null ||
@@ -116,7 +146,7 @@ export async function selectRecentAlbums(
         albumId: row.albumId,
         lastPlayedAt: row.scrobbledAt,
       });
-      if (selected.size === limit) break;
+      if (selected.size === wanted) break;
     }
     const last = rows.at(-1)!;
     cursor = { at: last.scrobbledAt, id: last.scrobbleId };
