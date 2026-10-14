@@ -25,6 +25,7 @@ import { buildCdnUrl } from '../images/presets.js';
 import { trackMatches } from '../images/sources/utils.js';
 import {
   DISCMAN_ALBUM_LIMIT,
+  DiscmanAlbum as DiscmanAlbumSchema,
   DiscmanSnapshot,
   type DiscmanAlbum,
   type DiscmanImage,
@@ -141,6 +142,13 @@ const appleMusicUrl = (value: string | null) =>
 const previewUrl = (value: string | null) =>
   httpsUrl(value, 'audio-ssl.itunes.apple.com');
 
+// Stored durations can be 0 when a provider reported no length; the contract
+// only admits positive milliseconds.
+const durationMs = (value: number | null | undefined) =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0
+    ? value
+    : null;
+
 async function imagesFor(
   db: Database,
   userId: number,
@@ -237,7 +245,7 @@ function playedToTrack(played: PlayedTrack, position: number): DiscmanTrack {
     disc_number: null,
     track_number: null,
     name: played.name,
-    duration_ms: played.duration_ms,
+    duration_ms: durationMs(played.duration_ms),
     isrc: null,
     apple_music_id: played.apple_music_id,
     apple_music_url: appleMusicUrl(played.apple_music_url),
@@ -323,21 +331,39 @@ export async function buildDiscmanSnapshot(
     if (catalog.length > 0) {
       source = 'catalog';
       tracks = [];
-      for (const row of catalog) {
-        const sameSong = (p: PlayedTrack) =>
-          (p.apple_music_id !== null &&
-            p.apple_music_id === row.appleMusicId) ||
-          trackMatches(row.name, p.name);
-        // A catalog song the owner filtered out (an audiobook chapter, a
-        // skit) stays out of the shelf.
-        if (filteredPlays.some(sameSong)) continue;
-        const match = audiblePlays.find(sameSong);
+      const sameId = (row: (typeof catalog)[number], p: PlayedTrack) =>
+        p.apple_music_id !== null && p.apple_music_id === row.appleMusicId;
+      const sameName = (row: (typeof catalog)[number], p: PlayedTrack) =>
+        trackMatches(row.name, p.name);
+      // A catalog song the owner filtered out (an audiobook chapter, a
+      // skit) stays out of the shelf.
+      const shown = catalog.filter(
+        (row) => !filteredPlays.some((p) => sameId(row, p) || sameName(row, p))
+      );
+      // Each played song attaches to one catalog row: exact catalog ids
+      // first, then names, so a title repeated across discs or editions
+      // does not count the same plays twice.
+      const matches = new Map<number, PlayedTrack>();
+      const claimed = new Set<number>();
+      for (const same of [sameId, sameName])
+        for (const row of shown) {
+          if (matches.has(row.id)) continue;
+          const match = audiblePlays.find(
+            (p) => !claimed.has(p.track_id) && same(row, p)
+          );
+          if (!match) continue;
+          matches.set(row.id, match);
+          claimed.add(match.track_id);
+        }
+      for (const row of shown) {
+        const match = matches.get(row.id);
         tracks.push({
           position: tracks.length + 1,
           disc_number: row.discNumber,
           track_number: row.trackNumber,
           name: row.name,
-          duration_ms: row.durationMs ?? match?.duration_ms ?? null,
+          duration_ms:
+            durationMs(row.durationMs) ?? durationMs(match?.duration_ms),
           isrc: row.isrc,
           apple_music_id: row.appleMusicId,
           apple_music_url: appleMusicUrl(row.appleMusicUrl),
@@ -356,7 +382,7 @@ export async function buildDiscmanSnapshot(
       tracks = audiblePlays.map((row, index) => playedToTrack(row, index + 1));
     }
 
-    albums.push({
+    const candidate: DiscmanAlbum = {
       id: album.id,
       name: album.name,
       url: album.url,
@@ -381,7 +407,16 @@ export async function buildDiscmanSnapshot(
       ),
       tracklist_source: source,
       tracks,
-    });
+    };
+    // One malformed stored value must not take down the whole shelf.
+    const parsed = DiscmanAlbumSchema.safeParse(candidate);
+    if (parsed.success) albums.push(parsed.data);
+    else
+      console.log(
+        `[ERROR] Discman album ${album.id} skipped: ${parsed.error.issues
+          .map((issue) => issue.path.join('.'))
+          .join(', ')}`
+      );
   }
   return DiscmanSnapshot.parse({
     schema_version: 1,
@@ -427,5 +462,11 @@ export async function readDiscmanSnapshot(
     .where(eq(listeningDiscmanSnapshots.userId, userId))
     .limit(1);
   if (!row) return null;
-  return DiscmanSnapshot.parse(JSON.parse(row.snapshot));
+  // A row written under an older contract is rebuilt rather than served.
+  try {
+    const parsed = DiscmanSnapshot.safeParse(JSON.parse(row.snapshot));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
 }

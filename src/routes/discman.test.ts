@@ -10,6 +10,7 @@ import {
   listeningDiscmanSnapshots,
 } from '../db/schema/lastfm.js';
 import { images } from '../db/schema/system.js';
+import { eq } from 'drizzle-orm';
 import { createTestApiKey, setupTestDb } from '../test-helpers.js';
 import { DiscmanSnapshot } from '../services/discman/schema.js';
 import {
@@ -266,5 +267,100 @@ describe('GET /v1/listening/discman', () => {
     expect(res.status).toBe(200);
     const stored = await db.select().from(listeningDiscmanSnapshots);
     expect(stored).toHaveLength(1);
+  });
+
+  it('rebuilds a stored snapshot that no longer matches the contract', async () => {
+    await seedAlbum({
+      artist: 'Low',
+      album: 'Things We Lost',
+      plays: ['Medicine'],
+    });
+    await db.insert(listeningDiscmanSnapshots).values({
+      userId: 1,
+      snapshot: JSON.stringify({ schema_version: 0 }),
+      builtAt: '2026-01-01T00:00:00.000Z',
+    });
+    const res = await get();
+    expect(res.status).toBe(200);
+    const body = DiscmanSnapshot.parse(await res.json());
+    expect(body.albums.map((a) => a.name)).toEqual(['Things We Lost']);
+  });
+
+  it('keeps CORS and Vary on a 304 revalidation', async () => {
+    await seedAlbum({ artist: 'Low', album: 'Things', plays: ['Medicine'] });
+    const origin = { Origin: 'https://patdugan.me' };
+    const res = await get(origin);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(
+      'https://patdugan.me'
+    );
+    const vary = res.headers.get('Vary') ?? '';
+    expect(vary).toContain('Authorization');
+    expect(vary).toContain('Origin');
+    const revalidated = await get({
+      ...origin,
+      'If-None-Match': res.headers.get('ETag')!,
+    });
+    expect(revalidated.status).toBe(304);
+    expect(revalidated.headers.get('Access-Control-Allow-Origin')).toBe(
+      'https://patdugan.me'
+    );
+    expect(revalidated.headers.get('Cache-Control')).toBe(
+      'private, max-age=60'
+    );
+    expect(revalidated.headers.get('Vary')).toContain('Authorization');
+  });
+
+  it('nulls a zero stored duration instead of failing the shelf', async () => {
+    const album = await seedAlbum({
+      artist: 'Low',
+      album: 'Things',
+      plays: ['Medicine'],
+    });
+    await db
+      .update(lastfmTracks)
+      .set({ durationMs: 0 })
+      .where(eq(lastfmTracks.albumId, album.id));
+    const { albums } = await buildDiscmanSnapshot(db, 1);
+    expect(albums).toHaveLength(1);
+    expect(albums[0].tracks[0].duration_ms).toBeNull();
+  });
+
+  it('attaches each played song to one catalog row, preferring its catalog id', async () => {
+    const album = await seedAlbum({
+      artist: 'Mudhoney',
+      album: 'Superfuzz Bigmuff',
+      plays: ['Need', 'Need'],
+      appleMusicId: 101,
+    });
+    // The played song is the disc 2 version of a title that also opens disc 1.
+    await db
+      .update(lastfmTracks)
+      .set({ appleMusicId: 2001 })
+      .where(eq(lastfmTracks.albumId, album.id));
+    await db.insert(lastfmAlbumTracks).values(
+      [
+        [1001, 1],
+        [2001, 2],
+      ].map(([appleMusicId, discNumber]) => ({
+        albumId: album.id,
+        appleMusicId,
+        discNumber,
+        trackNumber: 1,
+        name: 'Need',
+        syncedAt: '2026-10-01T00:00:00.000Z',
+      }))
+    );
+    const [shelf] = (await buildDiscmanSnapshot(db, 1)).albums;
+    expect(
+      shelf.tracks.map((t) => [t.disc_number, t.apple_music_id, t.play_count])
+    ).toEqual([
+      [1, 1001, 0],
+      [2, 2001, 2],
+    ]);
+    const [track] = await db
+      .select()
+      .from(lastfmTracks)
+      .where(eq(lastfmTracks.albumId, album.id));
+    expect(shelf.tracks[1].track_id).toBe(track.id);
   });
 });
