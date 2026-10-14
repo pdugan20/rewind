@@ -14,6 +14,7 @@ import {
   lastfmTracks,
   lastfmAlbums,
   lastfmArtists,
+  lastfmScrobbles,
 } from '../../db/schema/lastfm.js';
 import {
   artistIdentityMatches,
@@ -21,6 +22,10 @@ import {
   trackMatches,
   cleanArtistName,
 } from '../images/sources/utils.js';
+import {
+  VARIOUS_ARTISTS_MBID,
+  VARIOUS_ARTISTS_NAME,
+} from '../lastfm/constants.js';
 
 const ITUNES_SEARCH_URL = 'https://itunes.apple.com/search';
 
@@ -41,6 +46,8 @@ interface ITunesSongResult {
   artistViewUrl?: string;
   collectionId?: number;
   collectionName?: string;
+  /** Present when the album artist differs from the track artist. */
+  collectionArtistName?: string;
   collectionViewUrl?: string;
   previewUrl?: string;
 }
@@ -86,11 +93,14 @@ type ArtistSearchResult =
   | { status: 'error' };
 
 /**
- * Search iTunes for a song and return the first validated match.
+ * Search iTunes for a song. Among validated matches, prefer the release on
+ * the album that was actually played: the first match is often the artist's
+ * own album even when the play came from a soundtrack or compilation.
  */
 async function searchItunes(
   artistName: string,
-  trackName: string
+  trackName: string,
+  albumName?: string | null
 ): Promise<SearchResult> {
   const artist = cleanArtistName(artistName);
   const term = `${artist} ${trackName}`;
@@ -112,6 +122,7 @@ async function searchItunes(
 
   const data = (await response.json()) as ITunesSearchResponse;
 
+  let first: ITunesSongResult | undefined;
   for (const result of data.results) {
     if (!result.trackViewUrl) continue;
 
@@ -124,10 +135,165 @@ async function searchItunes(
       continue;
     }
 
-    return { status: 'found', result };
+    first ??= result;
+    if (
+      !albumName ||
+      (result.collectionName &&
+        albumMatches(albumName, result.collectionName, artistName))
+    )
+      return { status: 'found', result };
   }
 
-  return { status: 'no_match' };
+  return first ? { status: 'found', result: first } : { status: 'no_match' };
+}
+
+/** The user's canonical "Various Artists" row, by MBID, then by name. */
+async function variousArtistsFor(db: Database, userId: number) {
+  const [row] = await db
+    .select({ id: lastfmArtists.id })
+    .from(lastfmArtists)
+    .where(
+      and(
+        eq(lastfmArtists.userId, userId),
+        or(
+          eq(lastfmArtists.mbid, VARIOUS_ARTISTS_MBID),
+          eq(lastfmArtists.name, VARIOUS_ARTISTS_NAME)
+        )
+      )
+    )
+    .orderBy(sql`${lastfmArtists.mbid} IS NOT ${VARIOUS_ARTISTS_MBID}`)
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/**
+ * Files a track played from a various-artists record under that record's
+ * single "Various Artists" album. Last.fm reports only the track artist, so
+ * sync creates one album per artist ("Reservoir Dogs" by Harry Nilsson, by
+ * Stealers Wheel, …). The iTunes match confirms the played album and its
+ * album artist; only then are this track and its scrobbles of that album
+ * moved. Other album artists are left alone: album identity stays
+ * (name, artist), and only the canonical Various Artists row may hold other
+ * artists' tracks (see docs/projects/album-attribution-repair).
+ *
+ * Runs before the track is marked enriched, and the move is one batch, so a
+ * failure leaves the track queued for another attempt.
+ */
+async function fileUnderCompilation(
+  db: Database,
+  track: { id: number; userId: number; albumId: number; albumName: string },
+  result: ITunesSongResult
+): Promise<boolean> {
+  if (
+    result.collectionArtistName?.trim().toLowerCase() !==
+      VARIOUS_ARTISTS_NAME.toLowerCase() ||
+    !result.collectionName ||
+    !albumMatches(track.albumName, result.collectionName)
+  )
+    return false;
+  const variousArtistsId = await variousArtistsFor(db, track.userId);
+  if (variousArtistsId === null) return false;
+  const [current] = await db
+    .select({
+      artistId: lastfmAlbums.artistId,
+      isFiltered: lastfmAlbums.isFiltered,
+    })
+    .from(lastfmAlbums)
+    .where(
+      and(
+        eq(lastfmAlbums.id, track.albumId),
+        eq(lastfmAlbums.userId, track.userId)
+      )
+    )
+    .limit(1);
+  if (!current || current.artistId === variousArtistsId) return false;
+
+  // Album identity is (name, artist). The filter decision depends on the
+  // album name, so it carries over from the per-artist album.
+  await db
+    .insert(lastfmAlbums)
+    .values({
+      userId: track.userId,
+      name: track.albumName,
+      artistId: variousArtistsId,
+      isFiltered: current.isFiltered ?? 0,
+    })
+    .onConflictDoNothing();
+  const [compilation] = await db
+    .select({ id: lastfmAlbums.id })
+    .from(lastfmAlbums)
+    .where(
+      and(
+        eq(lastfmAlbums.userId, track.userId),
+        eq(lastfmAlbums.name, track.albumName),
+        eq(lastfmAlbums.artistId, variousArtistsId)
+      )
+    )
+    .limit(1);
+  if (!compilation) return false;
+
+  await db.batch([
+    db
+      .update(lastfmTracks)
+      .set({ albumId: compilation.id, updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(lastfmTracks.id, track.id),
+          eq(lastfmTracks.userId, track.userId),
+          eq(lastfmTracks.albumId, track.albumId)
+        )
+      ),
+    // Only plays recorded on the per-artist album move; plays of the same
+    // song from another album keep theirs.
+    db
+      .update(lastfmScrobbles)
+      .set({ albumId: compilation.id })
+      .where(
+        and(
+          eq(lastfmScrobbles.trackId, track.id),
+          eq(lastfmScrobbles.userId, track.userId),
+          eq(lastfmScrobbles.albumRecorded, 1),
+          eq(lastfmScrobbles.albumId, track.albumId)
+        )
+      ),
+    ...(result.collectionId && result.collectionViewUrl
+      ? [
+          db
+            .update(lastfmAlbums)
+            .set({
+              appleMusicId: result.collectionId,
+              appleMusicUrl: result.collectionViewUrl,
+            })
+            .where(
+              and(
+                eq(lastfmAlbums.id, compilation.id),
+                eq(lastfmAlbums.userId, track.userId),
+                isNull(lastfmAlbums.appleMusicId)
+              )
+            ),
+        ]
+      : []),
+  ]);
+  // Disc-art discovery enrolls an album when one of its songs is played
+  // (migration 0046). The moved plays count as plays of the compilation, so
+  // enroll it the same way: an identity hold, never a paid submission. Its
+  // next play would enroll it too, so a failure here is only logged.
+  try {
+    await db.run(sql`INSERT OR IGNORE INTO cd_artwork_albums(user_id,album_id,release_id,medium_position,next_check,discovery_outcome,discovery_evidence)
+      SELECT a.user_id,a.id,'',1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),'identity_required','{}'
+      FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id
+      WHERE a.id=${compilation.id} AND a.user_id=${track.userId}
+        AND a.is_filtered=0 AND r.is_filtered=0
+        AND (SELECT enabled FROM cd_artwork_control WHERE id=1)=1
+        AND EXISTS (SELECT 1 FROM lastfm_scrobbles s
+          WHERE s.album_id=a.id AND s.user_id=a.user_id AND s.album_recorded=1
+            AND s.scrobbled_at >= (SELECT enroll_since FROM cd_artwork_control WHERE id=1))`);
+  } catch (error) {
+    console.log(
+      `[ERROR] Disc-art enrollment failed for album ${compilation.id}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  return true;
 }
 
 /**
@@ -146,7 +312,11 @@ async function enrichTrack(
   }
 ): Promise<'enriched' | 'no_match' | 'rate_limited' | 'error'> {
   try {
-    const searchResult = await searchItunes(track.artistName, track.name);
+    const searchResult = await searchItunes(
+      track.artistName,
+      track.name,
+      track.albumName
+    );
 
     if (searchResult.status === 'rate_limited') {
       return 'rate_limited';
@@ -174,6 +344,16 @@ async function enrichTrack(
 
     const { result } = searchResult;
     const now = new Date().toISOString();
+    // Before the track is marked enriched: a failed move throws to the catch
+    // below and leaves the track queued for another attempt.
+    const filedUnderCompilation =
+      track.albumId !== null && track.albumName !== null
+        ? await fileUnderCompilation(
+            db,
+            { ...track, albumId: track.albumId, albumName: track.albumName },
+            result
+          )
+        : false;
 
     const updated = await db
       .update(lastfmTracks)
@@ -217,6 +397,7 @@ async function enrichTrack(
     if (
       track.albumId &&
       track.albumName &&
+      !filedUnderCompilation &&
       result.collectionName &&
       !albumMatches(track.artistName, track.albumName) &&
       albumMatches(track.albumName, result.collectionName, track.artistName) &&

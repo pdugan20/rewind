@@ -63,6 +63,43 @@ describe('event album identity', () => {
       getArtistTopTags: async () => ({ toptags: { tag: [] } }),
     } as unknown as LastfmClient;
   }
+  it('files later plays of a soundtrack song under its Various Artists album', async () => {
+    const various = await upsertArtist(
+      db,
+      'Various Artists',
+      '89ad4ac3-39f7-470e-963a-56509c546377'
+    );
+    const artist = await upsertArtist(db, 'Synthetic', null);
+    const compilation = await upsertAlbum(
+      db,
+      'Soundtrack',
+      various.id,
+      null,
+      'Various Artists'
+    );
+    // Enrichment already moved this song from the per-artist album.
+    await upsertAlbum(db, 'Soundtrack', artist.id, null, 'Synthetic');
+    await db.insert(lastfmTracks).values({
+      name: 'Shared song',
+      artistId: artist.id,
+      albumId: compilation.id,
+    });
+    await syncRecentScrobbles(
+      db,
+      client([raw('Soundtrack', 1780000000), raw('Other release', 1780000100)])
+    );
+    const other = (await db.select().from(lastfmAlbums)).find(
+      (album) => album.name === 'Other release'
+    )!;
+    const plays = await db
+      .select({ albumId: lastfmScrobbles.albumId })
+      .from(lastfmScrobbles)
+      .orderBy(lastfmScrobbles.scrobbledAt);
+    expect(plays.map((play) => play.albumId)).toEqual([
+      compilation.id,
+      other.id,
+    ]);
+  });
   it('preserves each reported album, legacy attribution and explicit absence through sync and replay', async () => {
     const artist = await upsertArtist(db, 'Synthetic', null);
     const original = await upsertAlbum(
