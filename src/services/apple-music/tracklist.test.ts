@@ -16,7 +16,11 @@ import {
   lastfmArtists,
 } from '../../db/schema/lastfm.js';
 import { setupTestDb } from '../../test-helpers.js';
-import { fetchAlbumTracklist, syncAlbumTracklists } from './tracklist.js';
+import {
+  fetchAlbumTracklist,
+  syncAlbumTracklists,
+  tracklistTitleMatches,
+} from './tracklist.js';
 
 const PREVIEW =
   'https://audio-ssl.itunes.apple.com/itunes-assets/a.plus.aac.p.m4a';
@@ -254,5 +258,54 @@ describe('syncAlbumTracklists', () => {
       await syncAlbumTracklists(db, 'token', [first.id, second.id])
     ).toEqual({ stored: 0, skipped: 1 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('tracklist title identity', () => {
+  it.each([
+    ['Midnights', 'Midnights (3am Edition)'],
+    ['Midnights', 'Midnights (The Til Dawn Edition)'],
+    [
+      'From the Muddy Banks of the Wishkah',
+      'From the Muddy Banks of the Wishkah (Live)',
+    ],
+    ['Pinkerton', 'Pinkerton (Deluxe Edition) [Remastered]'],
+    ['Nevermind', 'Nevermind (20th Anniversary Super Deluxe Edition)'],
+    ['Abbey Road', 'Abbey Road (Remastered 2019)'],
+    ['Pinkerton', 'Pinkerton'],
+  ])('accepts %s as catalog %s', (stored, catalog) => {
+    expect(tracklistTitleMatches(stored, catalog, 'Artist')).toBe(true);
+  });
+  it.each([
+    ['Star Wars', 'Alpha Mike Foxtrot: Rare Tracks 1994-2014'],
+    ['Midnights (3am Edition)', 'Midnights'],
+    ['Midnights', 'Midnights - Single'],
+    ['Midnights', 'Midnights (Remixes)'],
+    ['Midnights', 'Midnights Live (Edition)'],
+    ['Midnights', 'Midnights (Instrumental Version)'],
+    ['Midnights', 'Midnights (Remix Edition)'],
+    ['Fearless', "Fearless (Taylor's Version)"],
+    ['Wishkah', 'Wishkah (Live at Wembley)'],
+  ])('rejects %s as catalog %s', (stored, catalog) => {
+    expect(tracklistTitleMatches(stored, catalog, 'Artist')).toBe(false);
+  });
+  it('stores the catalog edition a played album points to', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        reply(
+          albumBody([song(1, 1), song(2, 2)], undefined, {
+            name: 'Synthetic (3am Edition)',
+            artistName: 'Synthetic',
+          })
+        )
+      )
+    );
+    const result = await fetchAlbumTracklist('token', 101, {
+      name: 'Synthetic',
+      artistName: 'Synthetic',
+    });
+    expect(result.status === 'matched' && result.tracks.length).toBe(2);
+    vi.unstubAllGlobals();
   });
 });
