@@ -76,7 +76,65 @@ jobs:
       - name: Run tests
         run: npm test
 
+  artwork-tests:
+    name: CD Artwork Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: '.nvmrc'
+
+      # Pull requests skip the suite only when scripts/deploy-impact.mjs
+      # classifies the change as unable to affect artwork. Every other event,
+      # including pushes to main that start Deploy, runs the full suite.
+      - name: Classify artwork test impact
+        id: impact
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          decision=true
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if node scripts/deploy-impact.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --merge-base --output "$RUNNER_TEMP/artwork-impact"; then
+              if grep -qx 'artwork_tests=false' "$RUNNER_TEMP/artwork-impact"; then
+                decision=false
+              fi
+            else
+              echo "Artwork impact could not be classified; running the suite."
+            fi
+          else
+            echo "$EVENT_NAME always runs the full artwork suite."
+          fi
+          echo "run=$decision" >> "$GITHUB_OUTPUT"
+
+      - name: Report skipped artwork suite
+        if: steps.impact.outputs.run == 'false'
+        run: echo "No change can affect the CD artwork Worker or its tests; the artwork suite is not required."
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        if: steps.impact.outputs.run != 'false'
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install npm 11.5.2
+        if: steps.impact.outputs.run != 'false'
+        run: npm install --global npm@11.5.2
+
+      - name: Verify npm version
+        if: steps.impact.outputs.run != 'false'
+        run: test "$(npm --version)" = "11.5.2"
+
+      - if: steps.impact.outputs.run != 'false'
+        run: npm ci
+
       - name: Verify CD artwork pipeline
+        if: steps.impact.outputs.run != 'false'
         run: npm run test:cd-artwork
 
   docs:
@@ -187,12 +245,13 @@ jobs:
     name: CI Gate
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, test, docs, build, security, dependency-review]
+    needs: [lint, test, artwork-tests, docs, build, security, dependency-review]
     steps:
       - name: Require every diagnostic job
         run: |
           test "${{ needs.lint.result }}" = "success" || exit 1
           test "${{ needs.test.result }}" = "success" || exit 1
+          test "${{ needs.artwork-tests.result }}" = "success" || exit 1
           test "${{ needs.docs.result }}" = "success" || exit 1
           test "${{ needs.build.result }}" = "success" || exit 1
           test "${{ needs.security.result }}" = "success" || exit 1

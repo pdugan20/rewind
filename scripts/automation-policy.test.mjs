@@ -247,6 +247,7 @@ function validateCi(document, problems) {
   const required = {
     lint: 'Lint',
     test: 'Test',
+    'artwork-tests': 'CD Artwork Tests',
     docs: 'Docs Links',
     build: 'Build',
     security: 'Security',
@@ -344,10 +345,89 @@ function validateCi(document, problems) {
     problems.push('Lint must invoke the local exact Claude lint script');
   }
   validateGate(document.jobs?.gate, problems, document.defaults);
+  validateArtworkTests(document.jobs?.['artwork-tests'], problems);
   validateDeploymentRangeMetadata(
     document.jobs?.['deployment-range'],
     problems
   );
+}
+
+const ARTWORK_SUITE_CONDITION = "steps.impact.outputs.run != 'false'";
+const ARTWORK_SKIP_CONDITION = "steps.impact.outputs.run == 'false'";
+
+function validateArtworkTests(job, problems) {
+  if (job?.if !== undefined || job?.['continue-on-error'] !== undefined) {
+    problems.push('CD Artwork Tests must always run and report a result');
+  }
+  const steps = job?.steps ?? [];
+  const checkout = steps.find((step) => step?.uses === CHECKOUT);
+  if (checkout?.with?.['fetch-depth'] !== 0) {
+    problems.push('CD Artwork Tests must fetch history to classify impact');
+  }
+  const classifyIndex = steps.findIndex((step) => step?.id === 'impact');
+  const classify = steps[classifyIndex];
+  const expectedEnv = {
+    EVENT_NAME: '${{ github.event_name }}',
+    BASE_SHA: '${{ github.event.pull_request.base.sha }}',
+    HEAD_SHA: '${{ github.sha }}',
+  };
+  const expectedCommands = [
+    'decision=true',
+    'if [ "$EVENT_NAME" = "pull_request" ]; then',
+    'if node scripts/deploy-impact.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --merge-base --output "$RUNNER_TEMP/artwork-impact"; then',
+    'if grep -qx \'artwork_tests=false\' "$RUNNER_TEMP/artwork-impact"; then',
+    'decision=false',
+    'fi',
+    'else',
+    'echo "Artwork impact could not be classified; running the suite."',
+    'fi',
+    'else',
+    'echo "$EVENT_NAME always runs the full artwork suite."',
+    'fi',
+    'echo "run=$decision" >> "$GITHUB_OUTPUT"',
+  ];
+  if (
+    classifyIndex < 0 ||
+    classify?.if !== undefined ||
+    classify?.['continue-on-error'] !== undefined ||
+    !sameObject(classify?.env, expectedEnv) ||
+    !sameObject(normalizeCommands(stepRun(classify)), expectedCommands)
+  ) {
+    problems.push(
+      'CD Artwork Tests must skip only pull requests classified without artwork impact'
+    );
+  }
+  for (const [index, step] of steps.entries()) {
+    if (step?.['continue-on-error'] !== undefined) {
+      problems.push('CD Artwork Tests steps must not set continue-on-error');
+    }
+    if (index <= classifyIndex) {
+      if (index < classifyIndex && step?.if !== undefined) {
+        problems.push('CD Artwork Tests must classify unconditionally');
+      }
+      continue;
+    }
+    if (step?.name === 'Report skipped artwork suite') {
+      if (
+        step.if !== ARTWORK_SKIP_CONDITION ||
+        !/^echo "[^"$`]*"$/.test(stepRun(step))
+      ) {
+        problems.push('CD Artwork Tests skip report must only echo');
+      }
+      continue;
+    }
+    if (step?.if !== ARTWORK_SUITE_CONDITION) {
+      problems.push(
+        'CD Artwork Tests must run unless the change is classified without artwork impact'
+      );
+    }
+  }
+  const suites = steps.filter(
+    (step) => stepRun(step) === 'npm run test:cd-artwork'
+  );
+  if (suites.length !== 1 || steps.indexOf(suites[0]) <= classifyIndex) {
+    problems.push('CD Artwork Tests must run the artwork suite once');
+  }
 }
 
 function validateDeploymentRangeMetadata(job, problems) {
@@ -419,6 +499,7 @@ function validateGate(gate, problems, workflowDefaults) {
   const requiredNeeds = [
     'lint',
     'test',
+    'artwork-tests',
     'docs',
     'build',
     'security',
@@ -450,6 +531,7 @@ function validateGate(gate, problems, workflowDefaults) {
   const expectedCommands = [
     'test "${{ needs.lint.result }}" = "success" || exit 1',
     'test "${{ needs.test.result }}" = "success" || exit 1',
+    'test "${{ needs.artwork-tests.result }}" = "success" || exit 1',
     'test "${{ needs.docs.result }}" = "success" || exit 1',
     'test "${{ needs.build.result }}" = "success" || exit 1',
     'test "${{ needs.security.result }}" = "success" || exit 1',
@@ -2631,12 +2713,21 @@ test('rejects a non-enforcing aggregate gate', () => {
   validateGate(
     {
       if: 'always()',
-      needs: ['lint', 'test', 'docs', 'build', 'security', 'dependency-review'],
+      needs: [
+        'lint',
+        'test',
+        'artwork-tests',
+        'docs',
+        'build',
+        'security',
+        'dependency-review',
+      ],
       steps: [
         {
           run: `
             echo needs.lint.result success
             echo needs.test.result success
+            echo needs.artwork-tests.result success
             echo needs.docs.result success
             echo needs.build.result success
             echo needs.security.result success
@@ -2989,7 +3080,9 @@ test('artwork deployment preserves CI, migrations, provider ordering and checkpo
     readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8')
   );
   assert.ok(
-    ci.jobs.test.steps.some((step) => step.run === 'npm run test:cd-artwork')
+    ci.jobs['artwork-tests'].steps.some(
+      (step) => step.run === 'npm run test:cd-artwork'
+    )
   );
   assert.ok(
     ci.jobs.build.steps.some((step) => step.run === 'npm run build:cd-artwork')
@@ -3087,5 +3180,70 @@ test('artwork classification, source guard, no-op and checkpoint cannot be bypas
     const problems = [];
     validateDeploy(doc, problems);
     assert.ok(problems.length > 0);
+  }
+});
+
+test('CD Artwork Tests cannot skip open, skip main, or leave the gate pending', () => {
+  const baseline = parseYaml(
+    readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8')
+  );
+  const suite = (doc) =>
+    doc.jobs['artwork-tests'].steps.find(
+      (step) => step.run === 'npm run test:cd-artwork'
+    );
+  const classify = (doc) =>
+    doc.jobs['artwork-tests'].steps.find((step) => step.id === 'impact');
+  for (const mutate of [
+    (doc) => {
+      suite(doc).if = "steps.impact.outputs.run == 'true'";
+    },
+    (doc) => {
+      suite(doc)['continue-on-error'] = true;
+    },
+    (doc) => {
+      doc.jobs['artwork-tests'].steps = doc.jobs['artwork-tests'].steps.filter(
+        (step) => step !== suite(doc)
+      );
+    },
+    (doc) => {
+      doc.jobs['artwork-tests'].if = "github.event_name == 'pull_request'";
+    },
+    (doc) => {
+      classify(doc).run = classify(doc).run.replace(
+        '[ "$EVENT_NAME" = "pull_request" ]',
+        'true'
+      );
+    },
+    (doc) => {
+      classify(doc).run = classify(doc).run.replace(
+        'decision=true',
+        'decision=false'
+      );
+    },
+    (doc) => {
+      classify(doc).env.BASE_SHA = '${{ github.sha }}';
+    },
+    (doc) => {
+      doc.jobs['artwork-tests'].steps.find(
+        (step) => step.name === 'Report skipped artwork suite'
+      ).run = 'npm run test:cd-artwork || true';
+    },
+    (doc) => {
+      doc.jobs.gate.needs = doc.jobs.gate.needs.filter(
+        (id) => id !== 'artwork-tests'
+      );
+    },
+    (doc) => {
+      doc.jobs.gate.steps[0].run = doc.jobs.gate.steps[0].run.replace(
+        'test "${{ needs.artwork-tests.result }}" = "success" || exit 1',
+        'case "${{ needs.artwork-tests.result }}" in success|skipped) ;; *) exit 1 ;; esac'
+      );
+    },
+  ]) {
+    const doc = structuredClone(baseline);
+    mutate(doc);
+    const problems = [];
+    validateCi(doc, problems);
+    assert.ok(problems.length > 0, mutate.toString());
   }
 });

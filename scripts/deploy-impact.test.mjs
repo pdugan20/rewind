@@ -3,9 +3,11 @@ import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   readFileSync,
+  readdirSync,
   mkdtempSync,
   mkdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   isArtworkRuntime,
+  isArtworkTestInput,
   classifyChangedFiles,
   classifyGitRange,
   productionGraphChanged,
@@ -196,6 +199,7 @@ test('production graph flags feed the matching Worker only', () => {
       d1Migrations: false,
       rootWorker: true,
       artworkWorker: true,
+      artworkTests: true,
       mcpWorker: false,
       rootGraphChanged: true,
       mcpGraphChanged: false,
@@ -203,6 +207,7 @@ test('production graph flags feed the matching Worker only', () => {
         d1: [],
         root: ['root production dependency graph'],
         artwork: ['root production dependency graph'],
+        artworkTests: ['package-lock.json', 'root production dependency graph'],
         mcp: [],
       },
       changedFiles: ['package-lock.json'],
@@ -422,4 +427,167 @@ test('manual dispatch explicitly selects both Worker deployments', () => {
   );
   assert.equal(cli.outputs.root_worker, 'true');
   assert.equal(cli.outputs.artwork_worker, 'true');
+});
+
+test('artwork tests run for every artwork deployment and for test-only inputs', () => {
+  for (const path of [
+    'src/cd-artwork-worker.ts',
+    'src/lib/auth.ts',
+    'src/db/client.ts',
+    'src/types/env.ts',
+    'src/services/images/colors.ts',
+    'tsconfig.json',
+    'wrangler.cd-artwork.jsonc',
+    'migrations/0042_example.sql',
+    'vitest.cd-artwork.config.ts',
+    'src/services/cd-artwork/automatic.test.ts',
+    'scripts/cd-artwork/pipeline.test.mjs',
+    'src/test-helpers.ts',
+    'src/services/lastfm/sync.ts',
+    'package.json',
+    'package-lock.json',
+    '.nvmrc',
+    '.github/workflows/ci.yml',
+    'scripts/deploy-impact.mjs',
+  ]) {
+    assert.equal(classifyChangedFiles([path]).artworkTests, true, path);
+  }
+  assert.equal(
+    classifyChangedFiles([], { rootGraphChanged: true }).artworkTests,
+    true
+  );
+  assert.equal(
+    classifyChangedFiles([], { rootManifestChanged: true }).artworkTests,
+    true
+  );
+});
+
+test('API, MCP, documentation and unrelated tooling changes skip the artwork tests', () => {
+  const impact = classifyChangedFiles([
+    'src/routes/listening.ts',
+    'src/routes/listening.test.ts',
+    'src/services/strava/sync.ts',
+    'mcp-server/src/worker.ts',
+    'docs/ARCHITECTURE.md',
+    'docs-mintlify/index.mdx',
+    '.github/workflows/deploy.yml',
+    'scripts/automation-policy.test.mjs',
+  ]);
+  assert.equal(impact.artworkWorker, false);
+  assert.equal(impact.artworkTests, false);
+  assert.deepEqual(impact.reasons.artworkTests, []);
+});
+
+test('artwork test impact is a superset of artwork deployment impact', () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const files = git(root, ['ls-files']).split('\n').filter(Boolean);
+  for (const path of files) {
+    if (isArtworkRuntime(path)) {
+      assert.ok(isArtworkTestInput(path), path);
+    }
+  }
+});
+
+test('every local import of the artwork test suites remains in the test impact boundary', () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const seen = new Set();
+  function visit(path) {
+    if (seen.has(path)) return;
+    seen.add(path);
+    assert.ok(
+      isArtworkTestInput(relative(root, path)),
+      `Unclassified artwork test dependency: ${relative(root, path)}`
+    );
+    if (!/\.(ts|js|mjs|mts)$/.test(path)) return;
+    const source = ts.createSourceFile(
+      path,
+      readFileSync(path, 'utf8'),
+      ts.ScriptTarget.Latest,
+      true
+    );
+    function walk(node) {
+      let specifier;
+      // Type-only imports are included: the boundary is deliberately broad.
+      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
+        specifier = node.moduleSpecifier;
+      if (
+        ts.isCallExpression(node) &&
+        (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+          (ts.isIdentifier(node.expression) &&
+            node.expression.text === 'require'))
+      )
+        specifier = node.arguments[0];
+      if (
+        specifier &&
+        ts.isStringLiteral(specifier) &&
+        specifier.text.startsWith('.')
+      ) {
+        const target = resolve(dirname(path), specifier.text);
+        const resolved = [
+          target,
+          target.replace(/\.js$/, '.ts'),
+          `${target}.ts`,
+          `${target}.js`,
+        ].find(
+          (candidate) =>
+            existsSync(candidate) && !statSync(candidate).isDirectory()
+        );
+        assert.ok(
+          resolved,
+          `Unresolved test import ${specifier.text} in ${path}`
+        );
+        visit(resolved);
+      }
+      ts.forEachChild(node, walk);
+    }
+    walk(source);
+  }
+  const suites = join(root, 'src/services/cd-artwork');
+  for (const name of readdirSync(suites).filter((name) =>
+    name.endsWith('.test.ts')
+  )) {
+    visit(join(suites, name));
+  }
+  visit(join(root, 'scripts/cd-artwork/pipeline.test.mjs'));
+  visit(join(root, 'vitest.cd-artwork.config.ts'));
+  assert.ok(seen.size > 10);
+});
+
+test('CLI writes the artwork test decision for CI', () => {
+  withRepository((directory, initial) => {
+    writeFileSync(join(directory, 'src', 'routes.ts'), 'export {};\n');
+    const apiOnly = commit(directory, 'api only');
+    const apiOutputs = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [IMPACT_SCRIPT, '--base', initial, '--head', apiOnly, '--merge-base'],
+        { cwd: directory, encoding: 'utf8' }
+      )
+    ).outputs;
+    assert.equal(apiOutputs.artwork_tests, 'false');
+    mkdirSync(join(directory, 'src', 'services', 'cd-artwork'), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(directory, 'src', 'services', 'cd-artwork', 'store.ts'),
+      'export {};\n'
+    );
+    const artwork = commit(directory, 'artwork');
+    const artworkOutputs = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [IMPACT_SCRIPT, '--base', initial, '--head', artwork, '--merge-base'],
+        { cwd: directory, encoding: 'utf8' }
+      )
+    ).outputs;
+    assert.equal(artworkOutputs.artwork_tests, 'true');
+  });
+  const manual = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [IMPACT_SCRIPT, '--manual', '--head', 'a'.repeat(40)],
+      { encoding: 'utf8' }
+    )
+  ).outputs;
+  assert.equal(manual.artwork_tests, 'true');
 });
