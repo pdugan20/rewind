@@ -375,6 +375,62 @@ describe('authorization, publication and accepted-state preservation', () => {
     };
     expect(failedSnapshot.data[0].sha256).toBe(job.candidate_hash);
   });
+  it('advertises a verified WebP without re-downloading it while its object is unchanged', async () => {
+    const job = await candidate('6'.repeat(64));
+    await reviewJob(runtime, job.id, 1, 'accepted', true, 'synthetic-test');
+    const stored = await prepareAcceptedWebpVariant(
+      runtime,
+      job.candidate_hash!,
+      1
+    );
+    expect(stored).not.toBeNull();
+    const row = await runtime.DB.prepare(
+      'SELECT canonical_hash,bytes FROM cd_artwork_variant_checks WHERE variant_sha256=?'
+    )
+      .bind(stored!.sha256)
+      .first<{ canonical_hash: string; bytes: number }>();
+    expect(row).toEqual({
+      canonical_hash: job.candidate_hash,
+      bytes: stored!.bytes,
+    });
+    const variantKey = `listening/cd-artwork-variants/${stored!.sha256}.webp`;
+    // Expire the in-memory verification so only the durable record can help.
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 120_000);
+    const original = new Uint8Array(
+      await (await runtime.IMAGES.get(variantKey))!.arrayBuffer()
+    );
+    const get = vi.spyOn(runtime.IMAGES, 'get');
+    try {
+      const snapshot = (await (
+        await request(`${read}/albums?ids=1`, readKey)
+      ).json()) as { data: Array<{ variants?: Array<{ sha256: string }> }> };
+      expect(snapshot.data[0].variants?.[0]?.sha256).toBe(stored!.sha256);
+      expect(get.mock.calls.map(([key]) => key)).not.toContain(variantKey);
+      // A replaced object has a new ETag: it is hashed again, and a corrupt
+      // body is no longer advertised.
+      const bytes = original.slice();
+      bytes[bytes.length - 1] ^= 1;
+      await runtime.IMAGES.put(variantKey, bytes, {
+        httpMetadata: { contentType: 'image/webp' },
+      });
+      clock.mockReturnValue(now + 240_000);
+      const corrupt = (await (
+        await request(`${read}/albums?ids=1`, readKey)
+      ).json()) as { data: Array<{ variants?: unknown }> };
+      expect(corrupt.data[0].variants).toBeUndefined();
+    } finally {
+      get.mockRestore();
+      clock.mockRestore();
+      // Synthetic candidates share one variant object; leave it intact.
+      await runtime.IMAGES.put(variantKey, original, {
+        httpMetadata: {
+          contentType: 'image/webp',
+          cacheControl: 'public, max-age=31536000, immutable',
+        },
+      });
+    }
+  });
   it('advertises and serves only the verified optional WebP while preserving PNG identity', async () => {
     const job = await candidate('4'.repeat(64));
     await reviewJob(runtime, job.id, 1, 'accepted', true, 'synthetic-test');

@@ -18,6 +18,46 @@ const variantIndexKey = (hash: string) =>
   `${VARIANT_PREFIX}by-hash/${hash}.json`;
 const variantKey = (hash: string) => `${VARIANT_PREFIX}${hash}.webp`;
 
+/** The storage ETag this variant's bytes were last hashed under, if any. */
+async function durablyVerified(
+  env: ArtworkEnv,
+  descriptor: StoredWebpVariant,
+  etag: string
+) {
+  try {
+    const row = await env.DB.prepare(
+      'SELECT etag,bytes FROM cd_artwork_variant_checks WHERE variant_sha256=? AND canonical_hash=?'
+    )
+      .bind(descriptor.sha256, descriptor.canonical_hash)
+      .first<{ etag: string; bytes: number }>();
+    return row?.etag === etag && row.bytes === descriptor.bytes;
+  } catch {
+    return false;
+  }
+}
+
+async function recordVerified(
+  env: ArtworkEnv,
+  descriptor: StoredWebpVariant,
+  etag: string
+) {
+  try {
+    await env.DB.prepare(
+      'INSERT INTO cd_artwork_variant_checks (variant_sha256,canonical_hash,etag,bytes,verified_at) VALUES (?,?,?,?,?) ON CONFLICT(variant_sha256) DO UPDATE SET canonical_hash=excluded.canonical_hash,etag=excluded.etag,bytes=excluded.bytes,verified_at=excluded.verified_at'
+    )
+      .bind(
+        descriptor.sha256,
+        descriptor.canonical_hash,
+        etag,
+        descriptor.bytes,
+        new Date().toISOString()
+      )
+      .run();
+  } catch {
+    // The record only saves a later re-download; verification already passed.
+  }
+}
+
 async function acceptedCandidate(
   env: ArtworkEnv,
   hash: string,
@@ -131,11 +171,14 @@ export async function readStoredWebpVariant(
     )
       return null;
     const cached = verifiedVariantEtags.get(descriptor.sha256);
-    if (
-      cached?.until === undefined ||
-      cached.until <= Date.now() ||
-      cached.etag !== object.etag
-    ) {
+    const fresh =
+      cached !== undefined &&
+      cached.until > Date.now() &&
+      cached.etag === object.etag;
+    // Bytes hashed earlier under this same ETag have not been replaced since.
+    const durable =
+      !fresh && (await durablyVerified(env, descriptor, object.etag));
+    if (!fresh && !durable) {
       const body = await env.IMAGES.get(variantKey(descriptor.sha256));
       if (
         !body ||
@@ -156,11 +199,22 @@ export async function readStoredWebpVariant(
       while (verifiedVariantEtags.size > VERIFIED_VARIANT_CACHE_SIZE)
         // eslint-disable-next-line drizzle/enforce-delete-with-where -- Bounded Map cache eviction.
         verifiedVariantEtags.delete(verifiedVariantEtags.keys().next().value!);
+      await recordVerified(env, descriptor, object.etag);
+    } else if (durable) {
+      // eslint-disable-next-line drizzle/enforce-delete-with-where -- Refresh Map insertion order.
+      verifiedVariantEtags.delete(descriptor.sha256);
+      verifiedVariantEtags.set(descriptor.sha256, {
+        etag: object.etag,
+        until: Date.now() + VERIFIED_VARIANT_TTL_MS,
+      });
+      while (verifiedVariantEtags.size > VERIFIED_VARIANT_CACHE_SIZE)
+        // eslint-disable-next-line drizzle/enforce-delete-with-where -- Bounded Map cache eviction.
+        verifiedVariantEtags.delete(verifiedVariantEtags.keys().next().value!);
     } else {
       // Refresh insertion order for simple bounded LRU eviction.
       // eslint-disable-next-line drizzle/enforce-delete-with-where -- Refresh Map insertion order.
       verifiedVariantEtags.delete(descriptor.sha256);
-      verifiedVariantEtags.set(descriptor.sha256, cached);
+      verifiedVariantEtags.set(descriptor.sha256, cached!);
     }
     return descriptor;
   } catch {

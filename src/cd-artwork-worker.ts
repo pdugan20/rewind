@@ -155,8 +155,9 @@ async function artworkSnapshotWithVariants(
       };
     }
   };
+  // At most 20 albums per request; each lookup is a few small metadata reads.
   const variants = Promise.all(
-    Array.from({ length: Math.min(2, snapshot.data.length) }, projectNext)
+    Array.from({ length: snapshot.data.length }, projectNext)
   );
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
