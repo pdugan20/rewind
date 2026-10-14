@@ -18,21 +18,29 @@ const variantIndexKey = (hash: string) =>
   `${VARIANT_PREFIX}by-hash/${hash}.json`;
 const variantKey = (hash: string) => `${VARIANT_PREFIX}${hash}.webp`;
 
-/** The storage ETag this variant's bytes were last hashed under, if any. */
-async function durablyVerified(
+interface VariantCheck {
+  variant_sha256: string;
+  etag: string;
+  bytes: number;
+}
+
+/**
+ * Storage ETags that this canonical image's variants were last hashed under.
+ * Keyed by the canonical hash so it can be read alongside the descriptor.
+ */
+async function variantChecks(
   env: ArtworkEnv,
-  descriptor: StoredWebpVariant,
-  etag: string
-) {
+  canonicalHash: string
+): Promise<VariantCheck[]> {
   try {
-    const row = await env.DB.prepare(
-      'SELECT etag,bytes FROM cd_artwork_variant_checks WHERE variant_sha256=? AND canonical_hash=?'
+    const { results } = await env.DB.prepare(
+      'SELECT variant_sha256,etag,bytes FROM cd_artwork_variant_checks WHERE canonical_hash=? ORDER BY verified_at DESC LIMIT 8'
     )
-      .bind(descriptor.sha256, descriptor.canonical_hash)
-      .first<{ etag: string; bytes: number }>();
-    return row?.etag === etag && row.bytes === descriptor.bytes;
+      .bind(canonicalHash)
+      .all<VariantCheck>();
+    return results ?? [];
   } catch {
-    return false;
+    return [];
   }
 }
 
@@ -144,12 +152,21 @@ export async function readStoredWebpVariant(
   env: ArtworkEnv,
   canonicalHash: string
 ) {
-  const metadata = await env.IMAGES.get(metadataKey(canonicalHash));
+  // Two storage rounds instead of four: the descriptor with its verification
+  // records, then the index with the object's headers. The manifest has a
+  // 500 ms budget, and sequential reads regularly overran it.
+  const [metadata, checks] = await Promise.all([
+    env.IMAGES.get(metadataKey(canonicalHash)),
+    variantChecks(env, canonicalHash),
+  ]);
   if (!metadata || metadata.size > 1024) return null;
   try {
     const descriptor = JSON.parse(await metadata.text()) as unknown;
     if (!isStoredWebpVariant(descriptor, canonicalHash)) return null;
-    const index = await env.IMAGES.get(variantIndexKey(descriptor.sha256));
+    const [index, object] = await Promise.all([
+      env.IMAGES.get(variantIndexKey(descriptor.sha256)),
+      env.IMAGES.head(variantKey(descriptor.sha256)),
+    ]);
     if (!index || index.size > 1024) return null;
     const indexed = JSON.parse(await index.text()) as unknown;
     if (
@@ -162,7 +179,6 @@ export async function readStoredWebpVariant(
       indexed.version !== descriptor.version
     )
       return null;
-    const object = await env.IMAGES.head(variantKey(descriptor.sha256));
     if (
       !object ||
       object.size !== descriptor.bytes ||
@@ -177,7 +193,13 @@ export async function readStoredWebpVariant(
       cached.etag === object.etag;
     // Bytes hashed earlier under this same ETag have not been replaced since.
     const durable =
-      !fresh && (await durablyVerified(env, descriptor, object.etag));
+      !fresh &&
+      checks.some(
+        (check) =>
+          check.variant_sha256 === descriptor.sha256 &&
+          check.etag === object.etag &&
+          check.bytes === descriptor.bytes
+      );
     if (!fresh && !durable) {
       const body = await env.IMAGES.get(variantKey(descriptor.sha256));
       if (

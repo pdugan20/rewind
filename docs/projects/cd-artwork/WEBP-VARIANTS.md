@@ -38,8 +38,9 @@ ETag and is capped at 64 hashes; neither store holds image bytes or
 acceptance/withdrawal state. A request validates all of its descriptors (at most 20) in parallel within a 500 ms budget. Lookups that miss the budget are left
 out of that response and finish in the background, recording their ETag so the
 next snapshot can advertise them. Warm or recorded validation is three R2
-operations and one D1 read per variant; cold validation adds one R2 read and
-one D1 write. Direct WebP delivery checks
+operations and one D1 read per variant, issued in two parallel rounds (the
+descriptor with its D1 records, then the index with the object's headers);
+cold validation adds one R2 read and one D1 write. Direct WebP delivery checks
 both descriptors and accepted-job state and hashes the bounded response body
 before returning it. Actual billing depends on the account's Cloudflare plan
 and usage; this change makes no dollar estimate.
