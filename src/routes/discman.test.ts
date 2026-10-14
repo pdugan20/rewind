@@ -34,6 +34,9 @@ describe('GET /v1/listening/discman', () => {
   beforeEach(async () => {
     db = createDb(env.DB);
     minute = 0;
+    // Artwork rows reference albums, so they go first.
+    await env.DB.exec('DELETE FROM cd_artwork_albums');
+    await env.DB.exec('DELETE FROM cd_artwork_jobs');
     for (const table of [
       listeningDiscmanSnapshots,
       lastfmScrobbles,
@@ -54,6 +57,8 @@ describe('GET /v1/listening/discman', () => {
     filtered?: string[];
     albumFiltered?: boolean;
     appleMusicId?: number;
+    /** Disc art state; the shelf only lists albums with accepted art. */
+    artwork?: 'accepted' | 'pending' | 'hidden' | 'none';
   }) {
     const [artist] = await db
       .insert(lastfmArtists)
@@ -101,7 +106,40 @@ describe('GET /v1/listening/discman', () => {
         scrobbledAt: new Date(Date.UTC(2026, 9, 1, 0, minute)).toISOString(),
       });
     }
+    await attachArtwork(album.id, options.artwork ?? 'accepted');
     return album;
+  }
+
+  async function attachArtwork(
+    albumId: number,
+    state: 'accepted' | 'pending' | 'hidden' | 'none'
+  ) {
+    if (state === 'none') return;
+    const job = `job-${albumId}`;
+    const now = new Date(Date.UTC(2026, 9, 1)).toISOString();
+    await env.DB.prepare(
+      "INSERT INTO cd_artwork_jobs (id,user_id,album_id,state,input,source_hash,source_key,source_mime,candidate_hash,provenance,updated_at,created_at) VALUES (?,1,?,?,'{}','s','k','image/png',?,'{}',?,?)"
+    )
+      .bind(
+        job,
+        albumId,
+        state === 'pending' ? 'pending' : 'accepted',
+        albumId.toString(16).padStart(64, '0'),
+        now,
+        now
+      )
+      .run();
+    // Hidden art keeps its job but is no longer the album's active disc.
+    await env.DB.prepare(
+      "INSERT INTO cd_artwork_albums (user_id,album_id,release_id,medium_position,active_job,hidden_job,next_check) VALUES (1,?,'r',1,?,?,?)"
+    )
+      .bind(
+        albumId,
+        state === 'hidden' ? null : job,
+        state === 'hidden' ? job : null,
+        now
+      )
+      .run();
   }
 
   function get(headers: Record<string, string> = {}) {
@@ -126,6 +164,52 @@ describe('GET /v1/listening/discman', () => {
     expect(snapshot.albums.map((a) => a.name)).toEqual(
       Array.from({ length: 12 }, (_, i) => `Album ${13 - i}`)
     );
+  });
+
+  it('lists only albums with accepted disc art, reaching past newer albums without it', async () => {
+    await seedAlbum({ artist: 'Weezer', album: 'Pinkerton', plays: ['A'] });
+    await seedAlbum({
+      artist: 'Wilco',
+      album: 'Star Wars',
+      plays: ['B'],
+      artwork: 'hidden',
+    });
+    await seedAlbum({
+      artist: 'Pavement',
+      album: 'Wowee Zowee',
+      plays: ['C'],
+      artwork: 'pending',
+    });
+    await seedAlbum({
+      artist: 'Hole',
+      album: 'Live Through This',
+      plays: ['D'],
+    });
+    // A various-artists soundtrack files each artist as its own album, and
+    // none of them has art yet.
+    for (const artist of ['Harry Nilsson', 'Stealers Wheel', 'Joe Tex'])
+      await seedAlbum({
+        artist,
+        album: 'Reservoir Dogs',
+        plays: ['E', 'F'],
+        artwork: 'none',
+      });
+    const snapshot = await buildDiscmanSnapshot(db, 1);
+    expect(snapshot.albums.map((a) => a.name)).toEqual([
+      'Live Through This',
+      'Pinkerton',
+    ]);
+  });
+
+  it('publishes an empty shelf when no album has accepted disc art', async () => {
+    await seedAlbum({
+      artist: 'Bedlam',
+      album: 'Reservoir Dogs',
+      plays: ['A'],
+      artwork: 'none',
+    });
+    const snapshot = await buildDiscmanSnapshot(db, 1);
+    expect(snapshot.albums).toEqual([]);
   });
 
   it('uses the catalog tracklist in disc/track order with per-song plays', async () => {

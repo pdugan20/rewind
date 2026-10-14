@@ -2663,7 +2663,7 @@
           "Listening"
         ],
         "summary": "Prepared recent albums with tracklists",
-        "description": "Returns up to 12 most recently played distinct albums, newest first, with no time window. Each album includes its Apple Music catalog tracklist in disc/track order when stored (otherwise the songs played from it), previews, Apple Music links, artist image, all image sizes, and per-track play counts and last-played times. Prepared after each scrobble sync; no live provider requests. Supports If-None-Match.",
+        "description": "Returns up to 12 most recently played distinct albums that have accepted CD artwork, newest first, with no time window. Albums whose disc art is missing, pending, or hidden are skipped, so a shelf can reach past newer listening. Each album includes its Apple Music catalog tracklist in disc/track order when stored (otherwise the songs played from it), previews, Apple Music links, artist image, all image sizes, and per-track play counts and last-played times. Prepared after each 15-minute scrobble sync, so newly accepted art appears at the next rebuild; no live provider requests. Supports If-None-Match.",
         "security": [
           {
             "bearerAuth": []
