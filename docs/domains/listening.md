@@ -61,6 +61,7 @@ Note: Artist images deprecated since ~2020. All artist image URLs return placeho
   - `GET /lookup?id={trackId1},{trackId2},...&entity=song` -- batch lookup by Apple Music track IDs (up to 200 per request)
 - Lookup returns full metadata: trackId, artistId, collectionId, trackViewUrl, artistViewUrl, collectionViewUrl, previewUrl, trackTimeMillis
 - Image URL: `artworkUrl100` field, replace `100x100` with desired size (e.g., `600x600`, `3000x3000`)
+- **Various-artists records.** Last.fm reports only the track artist, so sync files a soundtrack song under a per-artist album ("Reservoir Dogs" by Harry Nilsson, by Stealers Wheel, …). Enrichment prefers the search result on the album that was played; when that album's `collectionArtistName` is "Various Artists", the track and its plays of that album move to one album credited to the canonical Various Artists row, which also takes the catalog id. Later plays of that song from that album are filed there at sync. Albums credited to another album artist (for example _Pure McCartney_, credited to Paul McCartney but holding Wings tracks) keep the track artist: only the Various Artists row may hold other artists' tracks ([album attribution repair](../projects/album-attribution-repair/README.md)). The emptied per-artist album row stays, with no plays.
 
 ## Sync Strategy
 

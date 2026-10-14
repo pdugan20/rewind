@@ -16,6 +16,7 @@ import { syncRuns } from '../../db/schema/system.js';
 import { LastfmClient, LASTFM_PERIODS } from './client.js';
 import type { LastfmPeriod } from './client.js';
 import { normalizeScrobble } from './transforms.js';
+import { getVariousArtistsId } from './constants.js';
 import {
   hasNumberedAudiobookSignature,
   isFiltered,
@@ -217,6 +218,46 @@ async function upsertTrack(
   return result[0].id;
 }
 
+/**
+ * Resolves the album a new play is filed under. Last.fm reports only the
+ * track artist, so a song from a various-artists record arrives under a
+ * per-artist album. Once iTunes enrichment has confirmed the record and moved
+ * the track to its "Various Artists" album (src/services/itunes/enrich.ts),
+ * later plays of the same album go there too.
+ */
+function playedAlbumResolver(db: Database) {
+  let variousArtists: Promise<number | null> | undefined;
+  return async (
+    trackId: number,
+    album: { id: number } | null,
+    albumName: string | undefined
+  ): Promise<number | null> => {
+    if (!album || !albumName) return album?.id ?? null;
+    variousArtists ??= getVariousArtistsId(db);
+    const variousArtistsId = await variousArtists;
+    if (variousArtistsId === null) return album.id;
+    const [compilation] = await db
+      .select({ id: lastfmAlbums.id })
+      .from(lastfmTracks)
+      .innerJoin(
+        lastfmAlbums,
+        and(
+          eq(lastfmAlbums.id, lastfmTracks.albumId),
+          eq(lastfmAlbums.userId, lastfmTracks.userId)
+        )
+      )
+      .where(
+        and(
+          eq(lastfmTracks.id, trackId),
+          eq(lastfmAlbums.name, albumName),
+          eq(lastfmAlbums.artistId, variousArtistsId)
+        )
+      )
+      .limit(1);
+    return compilation?.id ?? album.id;
+  };
+}
+
 async function startSyncRun(db: Database, syncType: string): Promise<number> {
   const result = await db
     .insert(syncRuns)
@@ -334,6 +375,7 @@ export async function syncRecentScrobbles(
   client: LastfmClient
 ): Promise<ScrobbleSyncResult> {
   const runId = await startSyncRun(db, 'scrobbles');
+  const playedAlbum = playedAlbumResolver(db);
   let totalSynced = 0;
   let totalFiltered = 0;
   const detectedAudiobookArtistKeys = new Set<string>();
@@ -654,7 +696,11 @@ export async function syncRecentScrobbles(
         if (!existingScrobble) {
           await db.insert(lastfmScrobbles).values({
             trackId,
-            albumId: album?.id ?? null,
+            albumId: await playedAlbum(
+              trackId,
+              album,
+              track.albumName ?? undefined
+            ),
             albumRecorded: 1,
             scrobbledAt: track.scrobbledAt,
           });
@@ -1155,6 +1201,7 @@ export async function backfillScrobbles(
   client: LastfmClient
 ): Promise<number> {
   const runId = await startSyncRun(db, 'backfill');
+  const playedAlbum = playedAlbumResolver(db);
   let totalSynced = 0;
 
   try {
@@ -1234,7 +1281,11 @@ export async function backfillScrobbles(
         if (!existingScrobble) {
           await db.insert(lastfmScrobbles).values({
             trackId,
-            albumId: album?.id ?? null,
+            albumId: await playedAlbum(
+              trackId,
+              album,
+              track.albumName ?? undefined
+            ),
             albumRecorded: 1,
             scrobbledAt: track.scrobbledAt,
           });
