@@ -47,6 +47,8 @@ The artwork cron runs daily at 04:20 UTC solely to recover undispatched/interrup
 
 Before an authorized release, run `npm run test:cd-artwork`, `npm run type-check`, focused ESLint and `npm run build:cd-artwork`. Review the actual migration diff; old rollout recipes are not a request to reapply migrations. Use the trusted release workflow and its migration ledger. The October 13 source recovery adds no migration.
 
+CI runs the artwork suite in its own CD Artwork Tests job, in parallel with the main tests. A pull request skips the suite only when `isArtworkTestInput` in `scripts/deploy-impact.mjs` finds no changed input. That boundary contains every path that makes Deploy ship the artwork Worker, plus the suites, their imports, migrations, root manifests and lockfile, the CI workflow and the classifier itself. A skipped run reports success, so CI Gate never waits on it. If classification fails, the suite runs. Pushes to main always run the full suite, because Deploy measures impact from its last successful checkpoint, which can include earlier main commits whose CI failed.
+
 Rollback pauses processing and rolls back the artwork Worker version/routes while retaining additive state and immutable recovery evidence. Main API calls and old clients continue independently. D1/R2 data is not rolled back by a Worker rollback. Use the prior version recorded in the deployment evidence. Check queue state, unknown outcomes, budget count, candidate integrity and real source/cost evidence before expanding generation.
 
 ## Release integration
