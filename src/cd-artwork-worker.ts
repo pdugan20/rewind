@@ -109,7 +109,9 @@ const read = '/v1/listening/cd-artwork',
 async function artworkSnapshotWithVariants(
   env: ArtworkEnv,
   albumIds: number[],
-  userId: number
+  userId: number,
+  /** Keeps unfinished variant lookups alive after the response is sent. */
+  keepAlive?: (work: Promise<unknown>) => void
 ) {
   let expired = false;
   let fallback: FallbackArtwork | null = null;
@@ -155,8 +157,9 @@ async function artworkSnapshotWithVariants(
       };
     }
   };
+  // At most 20 albums per request; each lookup is a few small metadata reads.
   const variants = Promise.all(
-    Array.from({ length: Math.min(2, snapshot.data.length) }, projectNext)
+    Array.from({ length: snapshot.data.length }, projectNext)
   );
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -173,6 +176,9 @@ async function artworkSnapshotWithVariants(
     expired = true;
     clearTimeout(timer);
   }
+  // A slow first verification finishes in the background and records its
+  // ETag, so the next manifest can advertise that variant without a download.
+  keepAlive?.(variants.catch(() => {}));
   return {
     ...snapshot,
     data,
@@ -212,13 +218,28 @@ async function jsonBody(request: Request) {
   );
 }
 const assetId = z.string().regex(/^[a-f0-9]{64}$/);
+/** Background work for this request, when the runtime provides a context. */
+const background =
+  (c: { executionCtx: { waitUntil(work: Promise<unknown>): void } }) =>
+  (work: Promise<unknown>) => {
+    try {
+      c.executionCtx.waitUntil(work);
+    } catch {
+      // Without an execution context the lookups simply end with the request.
+    }
+  };
 app.get(`${read}/albums`, async (c) => {
   const ids = z
     .array(z.coerce.number().int().positive())
     .max(20)
     .parse((c.req.query('ids') ?? '').split(',').filter(Boolean));
   return c.json(
-    await artworkSnapshotWithVariants(c.env, ids, c.get('userId')),
+    await artworkSnapshotWithVariants(
+      c.env,
+      ids,
+      c.get('userId'),
+      background(c)
+    ),
     {
       headers: { 'Cache-Control': 'private, max-age=60' },
     }
@@ -230,7 +251,8 @@ app.get(`${read}/albums/:id`, async (c) => {
   const snapshot = await artworkSnapshotWithVariants(
     c.env,
     [id],
-    c.get('userId')
+    c.get('userId'),
+    background(c)
   );
   return c.json(
     {
