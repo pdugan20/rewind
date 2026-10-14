@@ -33,6 +33,13 @@ const NINETY_DAYS_AGO_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days')";
 // worth more catalog calls for a preview player.
 const MAX_TRACK_PAGES = 4;
 const PREVIEW_HOST = 'audio-ssl.itunes.apple.com';
+// D1 binds at most 100 parameters per statement and counts every statement
+// toward the invocation's query limit. A row binds 12 values, so 8 rows per
+// insert keeps a long tracklist to a handful of statements.
+const ROWS_PER_INSERT = 8;
+// Throttling or a rejected developer token fails every remaining album the
+// same way; stop and let the next sync retry.
+const STOP_STATUSES = new Set([401, 403, 429]);
 
 interface CatalogSong {
   id: string;
@@ -78,7 +85,7 @@ interface CatalogTrack {
 type TracklistResult =
   | { status: 'matched'; tracks: CatalogTrack[] }
   | { status: 'no_match' }
-  | { status: 'error' };
+  | { status: 'error'; stop?: boolean };
 
 async function getJson<T>(
   url: string,
@@ -160,7 +167,11 @@ export async function fetchAlbumTracklist(
     console.log(
       `[WARN] Apple Music tracklist /albums/${appleMusicId} returned ${first.status ?? 'network error'}`
     );
-    return { status: first.status === 404 ? 'no_match' : 'error' };
+    if (first.status === 404) return { status: 'no_match' };
+    return {
+      status: 'error',
+      stop: first.status !== null && STOP_STATUSES.has(first.status),
+    };
   }
   const album = (Array.isArray(first.body?.data) ? first.body.data : []).find(
     (item) => item?.id === String(appleMusicId) && item.type === 'albums'
@@ -185,7 +196,11 @@ export async function fetchAlbumTracklist(
       `${API_ORIGIN}${page.next}`,
       developerToken
     );
-    if (!more.ok) return { status: 'error' };
+    if (!more.ok)
+      return {
+        status: 'error',
+        stop: more.status !== null && STOP_STATUSES.has(more.status),
+      };
     page = more.body;
   }
 
@@ -260,6 +275,7 @@ export async function syncAlbumTracklists(
     );
     if (result.status === 'error') {
       skipped++;
+      if (result.stop) break;
       continue;
     }
     const now = new Date().toISOString();
@@ -286,16 +302,28 @@ export async function syncAlbumTracklists(
           eq(lastfmAlbumTracks.albumId, album.id)
         )
       );
-    const inserts = result.tracks.map((track) =>
-      db.insert(lastfmAlbumTracks).values({
-        userId,
-        albumId: album.id,
-        ...track,
-        syncedAt: now,
-      })
-    );
-    await db.batch([clear, ...inserts, stamp]);
-    stored++;
+    const rows = result.tracks.map((track) => ({
+      userId,
+      albumId: album.id,
+      ...track,
+      syncedAt: now,
+    }));
+    const inserts = [];
+    for (let i = 0; i < rows.length; i += ROWS_PER_INSERT)
+      inserts.push(
+        db.insert(lastfmAlbumTracks).values(rows.slice(i, i + ROWS_PER_INSERT))
+      );
+    try {
+      // One atomic batch: readers never see a half-replaced tracklist.
+      await db.batch([clear, ...inserts, stamp]);
+      stored++;
+    } catch (err) {
+      // Leave this album unstamped for a later retry; keep going.
+      console.log(
+        `[ERROR] Tracklist store failed for album ${album.id}: ${err instanceof Error ? err.message : String(err)}`
+      );
+      skipped++;
+    }
   }
   return { stored, skipped };
 }

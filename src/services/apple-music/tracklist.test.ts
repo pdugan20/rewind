@@ -220,4 +220,39 @@ describe('syncAlbumTracklists', () => {
       .where(eq(lastfmAlbums.id, album.id));
     expect(row.tracklistSyncedAt).toBeNull();
   });
+
+  it('stores a long tracklist across several multi-row inserts', async () => {
+    const album = await seed();
+    const songs = Array.from({ length: 21 }, (_, i) => song(i + 1, i + 1));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(albumBody(songs))));
+    expect(await syncAlbumTracklists(db, 'token', [album.id])).toEqual({
+      stored: 1,
+      skipped: 0,
+    });
+    const rows = await db
+      .select()
+      .from(lastfmAlbumTracks)
+      .where(eq(lastfmAlbumTracks.albumId, album.id));
+    expect(rows.map((r) => r.trackNumber).sort((a, b) => a - b)).toEqual(
+      songs.map((_, i) => i + 1)
+    );
+  });
+
+  it('stops the batch when Apple Music throttles', async () => {
+    const first = await seed();
+    const [second] = await db
+      .insert(lastfmAlbums)
+      .values({
+        name: 'Other',
+        artistId: first.artistId,
+        appleMusicId: 102,
+      })
+      .returning();
+    const fetchMock = vi.fn().mockResolvedValue(reply({}, 429));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(
+      await syncAlbumTracklists(db, 'token', [first.id, second.id])
+    ).toEqual({ stored: 0, skipped: 1 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
