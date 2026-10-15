@@ -1,11 +1,9 @@
 /**
  * Finds the Apple Music catalog album a play came from, by album name.
  *
- * Used by the album check (src/services/itunes/album-enrich.ts). The iTunes
- * Search API rate-limits Cloudflare's shared egress, and a song search for a
- * well-known track returns the artist's own albums; the catalog API is
- * authenticated with the developer token, and searching by album name finds
- * soundtracks directly:
+ * The last step of the catalog matcher (resolve-album.ts), for plays whose
+ * song the catalog credits to someone else (dialogue clips on a soundtrack
+ * are credited to the actors). Also holds the shared catalog request helper.
  *
  *   GET https://api.music.apple.com/v1/catalog/us/search?types=albums&term=…
  *   GET https://api.music.apple.com/v1/catalog/us/albums/{id}?include=tracks
@@ -24,11 +22,8 @@
  * the played artist's name added to the term.
  */
 
-import {
-  albumMatches,
-  artistIdentityMatches,
-  trackMatches,
-} from '../images/sources/utils.js';
+import { artistIdentityMatches } from '../images/sources/utils.js';
+import { releaseTitleMatches, songTitleMatches } from './match.js';
 
 const ORIGIN = 'https://api.music.apple.com';
 const API = `${ORIGIN}/v1/catalog/us`;
@@ -64,7 +59,7 @@ interface CatalogAlbumResource {
   relationships?: { tracks?: TrackPage };
 }
 
-async function get<T>(
+export async function catalogGet<T>(
   path: string,
   token: string
 ): Promise<{ ok: true; body: T } | { ok: false; status: number }> {
@@ -78,7 +73,7 @@ async function get<T>(
   return { ok: true, body: (await response.json()) as T };
 }
 
-const failure = (status: number): CatalogAlbumResult =>
+export const catalogFailure = (status: number): CatalogAlbumResult =>
   status === 429
     ? { status: 'rate_limited' }
     : { status: 'error', detail: `Apple Music HTTP ${status}` };
@@ -109,24 +104,25 @@ async function searchAndConfirm(
   albumName: string,
   played: { track: string; artist: string }
 ): Promise<CatalogAlbumResult> {
-  const search = await get<{
+  const search = await catalogGet<{
     results?: { albums?: { data?: CatalogAlbumResource[] } };
   }>(
     `/search?${new URLSearchParams({ term, types: 'albums', limit: '10' })}`,
     token
   );
-  if (!search.ok) return failure(search.status);
+  if (!search.ok) return catalogFailure(search.status);
   const candidates = (search.body.results?.albums?.data ?? []).filter(
     (album) =>
-      album.attributes?.name && albumMatches(albumName, album.attributes.name)
+      album.attributes?.name &&
+      releaseTitleMatches(albumName, album.attributes.name, played.artist)
   );
   const holding: Array<{ album: CatalogAlbum; byPlayedArtist: boolean }> = [];
   for (const candidate of candidates.slice(0, CANDIDATES)) {
-    const detail = await get<{ data?: CatalogAlbumResource[] }>(
+    const detail = await catalogGet<{ data?: CatalogAlbumResource[] }>(
       `/albums/${candidate.id}?include=tracks`,
       token
     );
-    if (!detail.ok) return failure(detail.status);
+    if (!detail.ok) return catalogFailure(detail.status);
     const album = detail.body.data?.[0];
     const attrs = album?.attributes;
     const id = Number(album?.id);
@@ -140,15 +136,15 @@ async function searchAndConfirm(
     const tracks = [...(album?.relationships?.tracks?.data ?? [])];
     let next = album?.relationships?.tracks?.next;
     for (let page = 1; next && page < TRACK_PAGES; page++) {
-      const more = await get<TrackPage>(next, token);
-      if (!more.ok) return failure(more.status);
+      const more = await catalogGet<TrackPage>(next, token);
+      if (!more.ok) return catalogFailure(more.status);
       tracks.push(...(more.body.data ?? []));
       next = more.body.next;
     }
     const songs = tracks.filter(
       (track) =>
         !!track.attributes?.name &&
-        trackMatches(played.track, track.attributes.name)
+        songTitleMatches(played.track, track.attributes.name)
     );
     if (!songs.length) continue;
     holding.push({

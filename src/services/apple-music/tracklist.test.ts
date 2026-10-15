@@ -477,7 +477,11 @@ describe('recovering a stored catalog id that names another release', () => {
     expect(row.appleMusicId).toBe(222);
     const terms = crowded.mock.calls
       .map(([input]) => new URL(input))
-      .filter((url) => url.pathname.endsWith('/search'))
+      .filter(
+        (url) =>
+          url.pathname.endsWith('/search') &&
+          url.searchParams.get('types') === 'albums'
+      )
       .map((url) => url.searchParams.get('term'));
     expect(terms).toEqual(['Star Wars', 'Star Wars Wilco']);
   });

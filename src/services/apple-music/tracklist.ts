@@ -14,20 +14,20 @@
  * cooled down by tracklist_synced_at like apple_music_enriched_at.
  */
 
-import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
   lastfmAlbumTracks,
   lastfmAlbums,
   lastfmArtists,
-  lastfmScrobbles,
-  lastfmTracks,
 } from '../../db/schema/lastfm.js';
-import {
-  albumMatches,
-  artistIdentityMatches,
-} from '../images/sources/utils.js';
-import { findCatalogAlbum, type CatalogAlbum } from './catalog-album.js';
+import { artistIdentityMatches } from '../images/sources/utils.js';
+import type { CatalogAlbum } from './catalog-album.js';
+import { releaseTitleMatches } from './match.js';
+import { playedSong } from './played-song.js';
+import { resolveCatalogAlbum } from './resolve-album.js';
+
+export { tracklistTitleMatches } from './match.js';
 
 const API_ORIGIN = 'https://api.music.apple.com';
 const CATALOG_BASE = `${API_ORIGIN}/v1/catalog/us/albums`;
@@ -89,37 +89,6 @@ type TracklistResult =
   | { status: 'matched'; tracks: CatalogTrack[] }
   | { status: 'no_match' }
   | { status: 'error'; stop?: boolean };
-
-// Words that name a packaging of the same recordings. Recording variants such
-// as instrumental, acoustic, remix, sped-up or re-recorded ("Taylor's
-// Version") are deliberately absent.
-const EDITION_WORDS =
-  "(?:\\d+\\s*am|til dawn|(?:super )?deluxe|expanded|(?:\\d+(?:st|nd|rd|th) )?anniversary|special|bonus(?: tracks?)?|collector'?s|complete|platinum|international|tour|\\d{4})";
-// A whole trailing bracket: "(Live)", "(3am Edition)", "(The Til Dawn
-// Edition)", "(Deluxe)" or "(Remastered 2011)". Never "(Live at Wembley)".
-const EDITION_QUALIFIER = new RegExp(
-  `\\s*[([](?:live|(?:the )?(?:${EDITION_WORDS} )*(?:edition|version)|(?:\\d{4} )?remaster(?:ed)?(?: \\d{4})?|(?:super )?deluxe|expanded)[)\\]]\\s*$`,
-  'i'
-);
-
-/**
- * The stored catalog id was chosen from the songs actually played, so the
- * catalog may name that edition: "Midnights (3am Edition)" or
- * "From the Muddy Banks of the Wishkah (Live)" for a bare stored title.
- * Only the catalog side drops such qualifiers; a different title, or a
- * stored qualifier the catalog lacks, still fails.
- */
-export function tracklistTitleMatches(
-  stored: string,
-  catalog: string,
-  artistName: string
-): boolean {
-  if (albumMatches(stored, catalog, artistName)) return true;
-  let bare = catalog;
-  while (EDITION_QUALIFIER.test(bare))
-    bare = bare.replace(EDITION_QUALIFIER, '');
-  return bare !== catalog && albumMatches(stored, bare, artistName);
-}
 
 async function getJson<T>(
   url: string,
@@ -191,7 +160,7 @@ function toTrack(song: CatalogSong): CatalogTrack | null {
 export async function fetchAlbumTracklist(
   developerToken: string,
   appleMusicId: number,
-  expected: { name: string; artistName: string }
+  expected: { name: string; artistName: string; pinned?: boolean }
 ): Promise<TracklistResult> {
   const first = await getJson<CatalogAlbumWithTracks>(
     `${CATALOG_BASE}/${appleMusicId}?include=tracks`,
@@ -215,8 +184,9 @@ export async function fetchAlbumTracklist(
   if (
     typeof attrs.name !== 'string' ||
     typeof attrs.artistName !== 'string' ||
-    !tracklistTitleMatches(expected.name, attrs.name, expected.artistName) ||
-    !artistIdentityMatches(expected.artistName, attrs.artistName)
+    (!expected.pinned &&
+      (!releaseTitleMatches(expected.name, attrs.name, expected.artistName) ||
+        !artistIdentityMatches(expected.artistName, attrs.artistName)))
   )
     return { status: 'no_match' };
 
@@ -255,47 +225,10 @@ export async function fetchAlbumTracklist(
   return { status: 'matched', tracks };
 }
 
-/** A song played from this album, used to confirm a catalog album. */
-async function playedSong(
-  db: Database,
-  userId: number,
-  albumId: number
-): Promise<string | null> {
-  const [recorded] = await db
-    .select({ name: lastfmTracks.name })
-    .from(lastfmScrobbles)
-    .innerJoin(
-      lastfmTracks,
-      and(
-        eq(lastfmTracks.id, lastfmScrobbles.trackId),
-        eq(lastfmTracks.userId, lastfmScrobbles.userId)
-      )
-    )
-    .where(
-      and(
-        eq(lastfmScrobbles.userId, userId),
-        eq(lastfmScrobbles.albumId, albumId),
-        eq(lastfmScrobbles.albumRecorded, 1)
-      )
-    )
-    .orderBy(desc(lastfmScrobbles.scrobbledAt))
-    .limit(1);
-  if (recorded) return recorded.name;
-  const [track] = await db
-    .select({ name: lastfmTracks.name })
-    .from(lastfmTracks)
-    .where(
-      and(eq(lastfmTracks.userId, userId), eq(lastfmTracks.albumId, albumId))
-    )
-    .limit(1);
-  return track?.name ?? null;
-}
-
 /**
  * The catalog album to use when the stored Apple Music id names a different
  * release (Wilco's "Star Wars" was stored as the "Alpha Mike Foxtrot" box).
- * Searched by album name and confirmed by a played song on its tracklist,
- * then held to the same title and artist identity as any stored id.
+ * Found from a played song (resolve-album.ts), then held to the same title and artist identity as any stored id.
  * 'retry' means the lookup itself failed; the album stays unstamped.
  */
 async function recoverCatalogAlbum(
@@ -306,19 +239,17 @@ async function recoverCatalogAlbum(
 ): Promise<CatalogAlbum | 'retry' | null> {
   const song = await playedSong(db, userId, album.id);
   if (!song) return null;
-  const found = await findCatalogAlbum(developerToken, album.name, {
-    track: song,
-    artist: album.artistName,
+  const found = await resolveCatalogAlbum(developerToken, {
+    album: album.name,
+    track: song.track,
+    artist: song.artist,
   });
   if (found.status === 'rate_limited' || found.status === 'error')
     return 'retry';
   if (found.status !== 'found' || found.album.id === album.appleMusicId)
     return null;
-  return tracklistTitleMatches(
-    album.name,
-    found.album.name,
-    album.artistName
-  ) && artistIdentityMatches(album.artistName, found.album.artistName)
+  return releaseTitleMatches(album.name, found.album.name, album.artistName) &&
+    artistIdentityMatches(album.artistName, found.album.artistName)
     ? found.album
     : null;
 }
@@ -341,6 +272,7 @@ export async function syncAlbumTracklists(
       name: lastfmAlbums.name,
       artistName: lastfmArtists.name,
       appleMusicId: lastfmAlbums.appleMusicId,
+      pinned: lastfmAlbums.appleMusicPinned,
     })
     .from(lastfmAlbums)
     .innerJoin(
@@ -373,6 +305,7 @@ export async function syncAlbumTracklists(
     let result = await fetchAlbumTracklist(developerToken, album.appleMusicId, {
       name: album.name,
       artistName: album.artistName,
+      pinned: album.pinned === 1,
     });
     if (result.status === 'error') {
       skipped++;
@@ -381,7 +314,8 @@ export async function syncAlbumTracklists(
     }
     const now = new Date().toISOString();
     let corrected: CatalogAlbum | null = null;
-    if (result.status === 'no_match') {
+    // A pinned id was set by hand; never replace it.
+    if (result.status === 'no_match' && album.pinned !== 1) {
       const recovered = await recoverCatalogAlbum(
         db,
         developerToken,

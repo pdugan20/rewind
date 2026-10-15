@@ -79,6 +79,12 @@ export const lastfmAlbums = sqliteTable(
     appleMusicEnrichedAt: text('apple_music_enriched_at'),
     // Gates the catalog tracklist refresh in services/apple-music/tracklist.ts.
     tracklistSyncedAt: text('tracklist_synced_at'),
+    // 1 when an admin set apple_music_id by hand: automatic matching never
+    // replaces it, and tracklist sync trusts it without the title check.
+    appleMusicPinned: integer('apple_music_pinned').notNull().default(0),
+    // Last attempt to link a shelf album with no catalog id
+    // (services/discman/link-albums.ts); retried after a cooldown.
+    catalogLinkCheckedAt: text('catalog_link_checked_at'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
