@@ -99,19 +99,25 @@ type ArtistSearchResult =
 export async function searchItunes(
   artistName: string,
   trackName: string,
-  albumName?: string | null
+  albumName?: string | null,
+  /** Add the album to the search; finds compilation releases of common songs. */
+  withAlbum = false
 ): Promise<SearchResult> {
   const artist = cleanArtistName(artistName);
-  const term = `${artist} ${trackName}`;
+  const term =
+    withAlbum && albumName
+      ? `${artist} ${trackName} ${albumName}`
+      : `${artist} ${trackName}`;
   const url = new URL(ITUNES_SEARCH_URL);
   url.searchParams.set('term', term);
   url.searchParams.set('entity', 'song');
   url.searchParams.set('media', 'music');
-  url.searchParams.set('limit', '5');
+  url.searchParams.set('limit', withAlbum ? '10' : '5');
 
   const response = await fetch(url.toString());
 
-  if (response.status === 403) {
+  // Apple answers rate limits with 403 or 429.
+  if (response.status === 403 || response.status === 429) {
     return { status: 'rate_limited' };
   }
 

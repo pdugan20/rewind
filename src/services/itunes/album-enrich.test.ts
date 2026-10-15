@@ -183,13 +183,15 @@ describe('album checks', () => {
     const stealers = await played('Stealers Wheel', 'Stuck in the Middle');
     itunes((term) =>
       term.includes('Coconut')
-        ? [
-            // The artist's own album is iTunes' first match for the song.
-            song('Harry Nilsson', 'Coconut', 'Nilsson Schmilsson', {
-              collectionId: 304815001,
-            }),
-            soundtrack('Harry Nilsson', 'Coconut'),
-          ]
+        ? // A plain search finds only Nilsson's own albums; the soundtrack
+          // appears once the album is part of the search.
+          term.includes('Reservoir')
+          ? [soundtrack('Harry Nilsson', 'Coconut')]
+          : [
+              song('Harry Nilsson', 'Coconut', 'Nilsson Schmilsson', {
+                collectionId: 304815001,
+              }),
+            ]
         : [soundtrack('Stealers Wheel', 'Stuck in the Middle')]
     );
 
@@ -325,6 +327,31 @@ describe('album checks', () => {
       detail: 'HTTP 503',
       applied: false,
     });
+    expect((await album(nilsson.split.id)).itunesEnrichedAt).toBeNull();
+  });
+
+  it('stops at a rate limit and leaves the albums unchecked', async () => {
+    const nilsson = await played('Harry Nilsson', 'Coconut', {
+      createdAt: BEFORE_CUTOFF,
+    });
+    const stealers = await played('Stealers Wheel', 'Stuck in the Middle', {
+      createdAt: BEFORE_CUTOFF,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('slow down', { status: 429 }))
+    );
+    const live = await reviewAlbums(
+      db,
+      1,
+      [nilsson.split.id, stealers.split.id],
+      false,
+      0
+    );
+    expect(live.items.map((item) => item.action)).toEqual([
+      'rate_limited',
+      'rate_limited',
+    ]);
     expect((await album(nilsson.split.id)).itunesEnrichedAt).toBeNull();
   });
 
