@@ -36,7 +36,7 @@ beforeEach(async () => {
   );
   // Disc-art enrollment on play stays off unless a test turns it on.
   await env.DB.exec(
-    "UPDATE cd_artwork_control SET enabled=1,enroll_since='2099-01-01T00:00:00Z' WHERE id=1"
+    "UPDATE cd_artwork_control SET enabled=1,automatic_enabled=0,enroll_since='2099-01-01T00:00:00Z' WHERE id=1"
   );
   [{ id: variousArtistsId }] = await db
     .insert(lastfmArtists)
@@ -175,7 +175,7 @@ const songAlbum = async (trackId: number) =>
 describe('album checks', () => {
   it('files soundtrack plays under one Various Artists album, including songs that live elsewhere', async () => {
     await env.DB.exec(
-      "UPDATE cd_artwork_control SET enroll_since='2020-01-01T00:00:00Z' WHERE id=1"
+      "UPDATE cd_artwork_control SET automatic_enabled=1,enroll_since='2020-01-01T00:00:00Z' WHERE id=1"
     );
     const nilsson = await played('Harry Nilsson', 'Coconut', {
       songAlbum: 'Nilsson Schmilsson',
@@ -223,6 +223,47 @@ describe('album checks', () => {
       .bind(various.id)
       .first();
     expect(held).toEqual({ discovery_outcome: 'identity_required' });
+    // Its disc-art check is queued now, not at the next play.
+    const queued = await env.DB.prepare(
+      'SELECT COUNT(*) AS n FROM cd_artwork_checks WHERE album_id=? AND completed_at IS NULL'
+    )
+      .bind(various.id)
+      .first();
+    expect(queued).toEqual({ n: 1 });
+  });
+
+  it('queues no disc-art check when the only play is of a filtered track', async () => {
+    await env.DB.exec(
+      "UPDATE cd_artwork_control SET automatic_enabled=1,enroll_since='2020-01-01T00:00:00Z' WHERE id=1"
+    );
+    const stealers = await played('Stealers Wheel', 'Stuck in the Middle');
+    await db
+      .update(lastfmTracks)
+      .set({ isFiltered: 1 })
+      .where(eq(lastfmTracks.id, stealers.track.id));
+    itunes(() => [soundtrack('Stealers Wheel', 'Stuck in the Middle')]);
+    expect(await enrichNewAlbums(db, 5)).toMatchObject({ filed: 1 });
+    const queued = await env.DB.prepare(
+      'SELECT COUNT(*) AS n FROM cd_artwork_checks WHERE album_id=?'
+    )
+      .bind((await compilation()).id)
+      .first();
+    expect(queued).toEqual({ n: 0 });
+  });
+
+  it('queues no disc-art check while automatic processing is off', async () => {
+    await env.DB.exec(
+      "UPDATE cd_artwork_control SET enroll_since='2020-01-01T00:00:00Z' WHERE id=1"
+    );
+    await played('Stealers Wheel', 'Stuck in the Middle');
+    itunes(() => [soundtrack('Stealers Wheel', 'Stuck in the Middle')]);
+    expect(await enrichNewAlbums(db, 5)).toMatchObject({ filed: 1 });
+    const queued = await env.DB.prepare(
+      'SELECT COUNT(*) AS n FROM cd_artwork_checks WHERE album_id=?'
+    )
+      .bind((await compilation()).id)
+      .first();
+    expect(queued).toEqual({ n: 0 });
   });
 
   it('still files a new soundtrack song after track enrichment runs first', async () => {
