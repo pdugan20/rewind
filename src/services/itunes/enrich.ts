@@ -315,6 +315,8 @@ async function applyEnrichment(
           eq(lastfmAlbums.name, track.albumName),
           eq(lastfmAlbums.artistId, track.artistId),
           eq(lastfmAlbums.identityConflict, 0),
+          // A hand-pinned catalog id is never replaced.
+          eq(lastfmAlbums.appleMusicPinned, 0),
           isNull(lastfmAlbums.itunesEnrichedAt)
         )
       );
