@@ -140,6 +140,11 @@ export function trackMatches(requested: string, returned: string): boolean {
   return !!req && !!ret && req === ret;
 }
 
+/** A title as trackMatches compares it: edition labels removed, normalized. */
+export function comparableTitle(name: string): string {
+  return normalize(stripEditionLabels(name));
+}
+
 /**
  * Check if a returned album/collection name is a reasonable match.
  * Titles must be equal after removing recognized edition labels. Distinct

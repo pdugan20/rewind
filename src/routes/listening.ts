@@ -51,6 +51,11 @@ import {
 import { refreshArtistImageFromAppleMusicId } from '../services/images/sync-images.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
+import {
+  pinCatalogAlbum,
+  unresolvedAlbums,
+} from '../services/discman/catalog-links.js';
+import { selectRecentAlbums } from '../services/discman/snapshot.js';
 import { errorResponses, PaginationMeta } from '../lib/schemas/common.js';
 import {
   buildSparklinesForWindow,
@@ -4762,6 +4767,122 @@ listening.openapi(reviewAlbumsRoute, async (c) => {
       token: c.env.APPLE_MUSIC_DEVELOPER_TOKEN,
     })
   );
+});
+
+// GET /v1/listening/admin/unresolved-albums
+const unresolvedAlbumsRoute = createRoute({
+  method: 'get',
+  path: '/admin/unresolved-albums',
+  operationId: 'listUnresolvedListeningAlbums',
+  'x-hidden': true,
+  tags: ['Listening', 'Admin'],
+  summary: 'Shelf albums without a catalog tracklist',
+  description:
+    'Lists the albums on the current Discman shelf that have no stored Apple Music tracklist, so the player shows only their played songs. Each shelf refresh tries to link albums with no catalog id and retries after 7 days; pin the right id with PUT /admin/albums/{id}/apple-music.',
+  responses: {
+    200: {
+      description: 'Unresolved shelf albums, newest play first',
+      content: {
+        'application/json': {
+          schema: z.object({
+            items: z.array(
+              z.object({
+                album_id: z.number(),
+                album: z.string(),
+                artist: z.string(),
+                apple_music_id: z.number().nullable(),
+                apple_music_pinned: z.boolean(),
+                catalog_link_checked_at: z.string().nullable(),
+                tracklist_synced_at: z.string().nullable(),
+              })
+            ),
+          }),
+        },
+      },
+    },
+    ...errorResponses(401),
+  },
+});
+
+listening.openapi(unresolvedAlbumsRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const userId = c.get('userId');
+  const shelf = await selectRecentAlbums(db, userId);
+  return c.json({
+    items: await unresolvedAlbums(
+      db,
+      shelf.map((album) => album.albumId),
+      userId
+    ),
+  });
+});
+
+// PUT /v1/listening/admin/albums/{id}/apple-music
+const pinAlbumRoute = createRoute({
+  method: 'put',
+  path: '/admin/albums/{id}/apple-music',
+  operationId: 'pinListeningAlbumAppleMusic',
+  'x-hidden': true,
+  tags: ['Listening', 'Admin'],
+  summary: "Pin an album's Apple Music catalog id",
+  description:
+    'Sets the Apple Music album id by hand after confirming it exists in the catalog. Automatic matching never replaces a pinned id, and tracklist sync uses it without the title check. Send null to release the pin; the id stays and is checked again by tracklist sync.',
+  request: {
+    params: IdParamSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: z
+            .object({
+              apple_music_id: z.number().int().positive().nullable(),
+            })
+            .strict(),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'The album after the change',
+      content: {
+        'application/json': {
+          schema: z.object({
+            status: z.enum(['pinned', 'unpinned']),
+            album_id: z.number(),
+            apple_music_id: z.number().nullable(),
+            apple_music_url: z.string().nullable(),
+            catalog_name: z.string().optional(),
+            catalog_artist: z.string().optional(),
+          }),
+        },
+      },
+    },
+    ...errorResponses(400, 401, 404, 500),
+  },
+});
+
+listening.openapi(pinAlbumRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const id = parseInt(c.req.param('id'), 10);
+  if (isNaN(id) || id <= 0) return badRequest(c, 'Invalid album ID') as any;
+  const { apple_music_id } = c.req.valid('json');
+  const result = await pinCatalogAlbum(
+    db,
+    c.env.APPLE_MUSIC_DEVELOPER_TOKEN,
+    c.get('userId'),
+    id,
+    apple_music_id
+  );
+  switch (result.status) {
+    case 'album_not_found':
+      return notFound(c, 'Album not found') as any;
+    case 'catalog_not_found':
+      return badRequest(c, 'Apple Music album not found') as any;
+    case 'error':
+      return serverError(c, result.detail) as any;
+    default:
+      return c.json(result);
+  }
 });
 
 // POST /v1/listening/admin/enrich-artists

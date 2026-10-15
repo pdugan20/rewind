@@ -7135,6 +7135,225 @@
         }
       }
     },
+    "/v1/listening/admin/unresolved-albums": {
+      "get": {
+        "operationId": "listUnresolvedListeningAlbums",
+        "x-hidden": true,
+        "tags": [
+          "Listening",
+          "Admin"
+        ],
+        "summary": "Shelf albums without a catalog tracklist",
+        "description": "Lists the albums on the current Discman shelf that have no stored Apple Music tracklist, so the player shows only their played songs. Each shelf refresh tries to link albums with no catalog id and retries after 7 days; pin the right id with PUT /admin/albums/{id}/apple-music.",
+        "responses": {
+          "200": {
+            "description": "Unresolved shelf albums, newest play first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "album_id": {
+                            "type": "number"
+                          },
+                          "album": {
+                            "type": "string"
+                          },
+                          "artist": {
+                            "type": "string"
+                          },
+                          "apple_music_id": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "apple_music_pinned": {
+                            "type": "boolean"
+                          },
+                          "catalog_link_checked_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "tracklist_synced_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "album_id",
+                          "album",
+                          "artist",
+                          "apple_music_id",
+                          "apple_music_pinned",
+                          "catalog_link_checked_at",
+                          "tracklist_synced_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listening/admin/albums/{id}/apple-music": {
+      "put": {
+        "operationId": "pinListeningAlbumAppleMusic",
+        "x-hidden": true,
+        "tags": [
+          "Listening",
+          "Admin"
+        ],
+        "summary": "Pin an album's Apple Music catalog id",
+        "description": "Sets the Apple Music album id by hand after confirming it exists in the catalog. Automatic matching never replaces a pinned id, and tracklist sync uses it without the title check. Send null to release the pin; the id stays and is checked again by tracklist sync.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "42"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "apple_music_id": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "apple_music_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The album after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pinned",
+                        "unpinned"
+                      ]
+                    },
+                    "album_id": {
+                      "type": "number"
+                    },
+                    "apple_music_id": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "apple_music_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "catalog_name": {
+                      "type": "string"
+                    },
+                    "catalog_artist": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "album_id",
+                    "apple_music_id",
+                    "apple_music_url"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/listening/admin/enrich-artists": {
       "post": {
         "operationId": "enrichListeningArtists",

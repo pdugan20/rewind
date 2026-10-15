@@ -29,8 +29,9 @@ import {
   lastfmTracks,
 } from '../../db/schema/lastfm.js';
 import { albumMatches } from '../images/sources/utils.js';
+import { releaseTitleMatches } from '../apple-music/match.js';
 import { VARIOUS_ARTISTS_NAME } from '../lastfm/constants.js';
-import { findCatalogAlbum } from '../apple-music/catalog-album.js';
+import { resolveCatalogAlbum } from '../apple-music/resolve-album.js';
 import {
   searchItunes,
   variousArtistsFor,
@@ -88,6 +89,7 @@ interface AlbumRow {
   artistName: string;
   isFiltered: number | null;
   appleMusicId: number | null;
+  pinned: number;
 }
 
 interface AlbumPlan {
@@ -104,6 +106,7 @@ const albumColumns = {
   artistName: lastfmArtists.name,
   isFiltered: lastfmAlbums.isFiltered,
   appleMusicId: lastfmAlbums.appleMusicId,
+  pinned: lastfmAlbums.appleMusicPinned,
 };
 
 const recordedOn = (userId: number, albumId: number) =>
@@ -116,7 +119,7 @@ const recordedOn = (userId: number, albumId: number) =>
 /** Decides what to do with one album. Reads only. */
 /**
  * The release a played song came from. With a developer token the Apple Music
- * catalog is searched by album name and confirmed by its tracklist; without
+ * catalog is searched from the played song (resolve-album.ts); without
  * one, iTunes song search (rate-limited on shared egress) is the fallback.
  */
 async function findPlayedRelease(
@@ -125,7 +128,11 @@ async function findPlayedRelease(
   token: string | undefined
 ): Promise<SearchResult> {
   if (token) {
-    const catalog = await findCatalogAlbum(token, albumName, played);
+    const catalog = await resolveCatalogAlbum(token, {
+      album: albumName,
+      track: played.track,
+      artist: played.artist,
+    });
     if (catalog.status !== 'found') return catalog;
     return {
       status: 'found',
@@ -161,6 +168,17 @@ async function planAlbum(
     artist: album.artistName,
   };
   const variousArtistsId = await variousArtistsFor(db, album.userId);
+  // A pinned catalog id was set by hand; leave the album as it is.
+  if (album.pinned === 1)
+    return {
+      item: {
+        ...base,
+        played_track: null,
+        match: null,
+        action: 'already_linked',
+      },
+      variousArtistsId,
+    };
   const [played] = await db
     .select({ track: lastfmTracks.name, artist: lastfmArtists.name })
     .from(lastfmScrobbles)
@@ -222,7 +240,8 @@ async function planAlbum(
     action: 'no_album_match',
   };
   const playedThisAlbum =
-    !!result.collectionName && albumMatches(album.name, result.collectionName);
+    !!result.collectionName &&
+    releaseTitleMatches(album.name, result.collectionName, album.artistName);
   if (
     playedThisAlbum &&
     variousArtistsId !== null &&
@@ -260,7 +279,6 @@ async function planAlbum(
     item.tracks_moved = Number(tracks?.n ?? 0);
   } else if (
     playedThisAlbum &&
-    albumMatches(album.name, result.collectionName!, album.artistName) &&
     !albumMatches(album.artistName, album.name) &&
     result.collectionId &&
     result.collectionViewUrl
@@ -467,6 +485,7 @@ export async function enrichNewAlbums(
         isNull(lastfmAlbums.itunesEnrichedAt),
         eq(lastfmAlbums.identityConflict, 0),
         eq(lastfmAlbums.isFiltered, 0),
+        eq(lastfmAlbums.appleMusicPinned, 0),
         gte(lastfmAlbums.createdAt, ALBUM_CHECKS_SINCE),
         ...(variousArtistsId === null
           ? []

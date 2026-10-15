@@ -3,6 +3,7 @@ import type { Env } from '../../types/env.js';
 import { syncAlbumTracklists } from '../apple-music/tracklist.js';
 import { enrichBatch } from '../itunes/enrich.js';
 import { enrichNewAlbums } from '../itunes/album-enrich.js';
+import { linkShelfAlbums } from './catalog-links.js';
 import { publishDiscmanSnapshot, selectRecentAlbums } from './snapshot.js';
 
 // iTunes Search allows roughly 20 requests a minute; leave headroom for the
@@ -49,11 +50,30 @@ export async function refreshDiscman(
   }
   const albums = await selectRecentAlbums(db, userId);
   if (env.APPLE_MUSIC_DEVELOPER_TOKEN) {
+    const albumIds = albums.map((album) => album.albumId);
+    // Unlinked shelf albums get a catalog id first, so their tracklists are
+    // fetched below in the same refresh.
+    try {
+      const links = await linkShelfAlbums(
+        db,
+        env.APPLE_MUSIC_DEVELOPER_TOKEN,
+        albumIds,
+        userId
+      );
+      if (links.checked)
+        console.log(
+          `[ENRICH] shelf albums linked ${links.linked}/${links.checked}`
+        );
+    } catch (err) {
+      console.log(
+        `[ERROR] Shelf album linking failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     try {
       const result = await syncAlbumTracklists(
         db,
         env.APPLE_MUSIC_DEVELOPER_TOKEN,
-        albums.map((album) => album.albumId),
+        albumIds,
         userId
       );
       if (result.stored || result.skipped)
