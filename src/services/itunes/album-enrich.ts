@@ -148,7 +148,11 @@ async function planAlbum(db: Database, album: AlbumRow): Promise<AlbumPlan> {
 
   let search: SearchResult;
   try {
-    search = await searchItunes(played.artist, played.track, album.name);
+    // The album in the term surfaces soundtrack releases of songs whose own
+    // albums fill a plain search; fall back when it finds nothing.
+    search = await searchItunes(played.artist, played.track, album.name, true);
+    if (search.status === 'no_match')
+      search = await searchItunes(played.artist, played.track, album.name);
   } catch (error) {
     search = {
       status: 'error',
@@ -440,7 +444,9 @@ export async function reviewAlbums(
   db: Database,
   userId: number,
   albumIds: number[],
-  dryRun: boolean
+  dryRun: boolean,
+  /** Pause between albums; iTunes allows roughly 20 searches a minute. */
+  paceMs = 3000
 ): Promise<{ dry_run: boolean; items: AlbumReviewItem[] }> {
   if (albumIds.length === 0) return { dry_run: dryRun, items: [] };
   const albums = await albumsQuery(db)
@@ -450,7 +456,7 @@ export async function reviewAlbums(
     .orderBy(lastfmAlbums.id);
   const items: AlbumReviewItem[] = [];
   let rateLimited = false;
-  for (const album of albums) {
+  for (const [index, album] of albums.entries()) {
     if (rateLimited) {
       items.push({
         album_id: album.id,
@@ -462,6 +468,8 @@ export async function reviewAlbums(
       });
       continue;
     }
+    if (index > 0 && paceMs > 0)
+      await new Promise((resolve) => setTimeout(resolve, paceMs));
     const plan = await planAlbum(db, album);
     rateLimited = plan.item.action === 'rate_limited';
     if (!dryRun) {
