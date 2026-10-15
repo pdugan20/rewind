@@ -30,6 +30,7 @@ import {
 } from '../../db/schema/lastfm.js';
 import { albumMatches } from '../images/sources/utils.js';
 import { VARIOUS_ARTISTS_NAME } from '../lastfm/constants.js';
+import { findCatalogAlbum } from '../apple-music/catalog-album.js';
 import {
   searchItunes,
   variousArtistsFor,
@@ -113,7 +114,47 @@ const recordedOn = (userId: number, albumId: number) =>
   );
 
 /** Decides what to do with one album. Reads only. */
-async function planAlbum(db: Database, album: AlbumRow): Promise<AlbumPlan> {
+/**
+ * The release a played song came from. With a developer token the Apple Music
+ * catalog is searched by album name and confirmed by its tracklist; without
+ * one, iTunes song search (rate-limited on shared egress) is the fallback.
+ */
+async function findPlayedRelease(
+  played: { artist: string; track: string },
+  albumName: string,
+  token: string | undefined
+): Promise<SearchResult> {
+  if (token) {
+    const catalog = await findCatalogAlbum(token, albumName, played);
+    if (catalog.status !== 'found') return catalog;
+    return {
+      status: 'found',
+      result: {
+        collectionId: catalog.album.id,
+        collectionName: catalog.album.name,
+        collectionArtistName: catalog.album.artistName,
+        collectionViewUrl: catalog.album.url,
+      },
+    };
+  }
+  // The album in the term surfaces soundtrack releases of songs whose own
+  // albums fill a plain search; fall back when it finds nothing.
+  const withAlbum = await searchItunes(
+    played.artist,
+    played.track,
+    albumName,
+    true
+  );
+  return withAlbum.status === 'no_match'
+    ? searchItunes(played.artist, played.track, albumName)
+    : withAlbum;
+}
+
+async function planAlbum(
+  db: Database,
+  album: AlbumRow,
+  token: string | undefined
+): Promise<AlbumPlan> {
   const base = {
     album_id: album.id,
     album: album.name,
@@ -148,11 +189,7 @@ async function planAlbum(db: Database, album: AlbumRow): Promise<AlbumPlan> {
 
   let search: SearchResult;
   try {
-    // The album in the term surfaces soundtrack releases of songs whose own
-    // albums fill a plain search; fall back when it finds nothing.
-    search = await searchItunes(played.artist, played.track, album.name, true);
-    if (search.status === 'no_match')
-      search = await searchItunes(played.artist, played.track, album.name);
+    search = await findPlayedRelease(played, album.name, token);
   } catch (error) {
     search = {
       status: 'error',
@@ -397,7 +434,9 @@ function albumsQuery(db: Database) {
 export async function enrichNewAlbums(
   db: Database,
   limit: number,
-  userId = 1
+  userId = 1,
+  /** Apple Music developer token; iTunes search is used without it. */
+  token?: string
 ): Promise<{ checked: number; filed: number; linked: number }> {
   const variousArtistsId = await variousArtistsFor(db, userId);
   const albums = await albumsQuery(db)
@@ -418,7 +457,7 @@ export async function enrichNewAlbums(
     .limit(limit);
   const totals = { checked: 0, filed: 0, linked: 0 };
   for (const album of albums) {
-    const plan = await planAlbum(db, album);
+    const plan = await planAlbum(db, album, token);
     if (plan.item.action === 'rate_limited') break;
     try {
       const changed = await applyAlbumPlan(db, album, plan);
@@ -445,9 +484,15 @@ export async function reviewAlbums(
   userId: number,
   albumIds: number[],
   dryRun: boolean,
-  /** Pause between albums; iTunes allows roughly 20 searches a minute. */
-  paceMs = 3000
+  options: {
+    /** Apple Music developer token; iTunes search is used without it. */
+    token?: string;
+    /** Pause between albums when searching iTunes (~20 searches a minute). */
+    paceMs?: number;
+  } = {}
 ): Promise<{ dry_run: boolean; items: AlbumReviewItem[] }> {
+  const { token } = options;
+  const paceMs = options.paceMs ?? (token ? 0 : 3000);
   if (albumIds.length === 0) return { dry_run: dryRun, items: [] };
   const albums = await albumsQuery(db)
     .where(
@@ -470,7 +515,7 @@ export async function reviewAlbums(
     }
     if (index > 0 && paceMs > 0)
       await new Promise((resolve) => setTimeout(resolve, paceMs));
-    const plan = await planAlbum(db, album);
+    const plan = await planAlbum(db, album, token);
     rateLimited = plan.item.action === 'rate_limited';
     if (!dryRun) {
       try {
