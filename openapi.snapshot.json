@@ -6961,6 +6961,184 @@
         }
       }
     },
+    "/v1/listening/admin/reenrich-albums": {
+      "post": {
+        "operationId": "reenrichListeningAlbums",
+        "x-hidden": true,
+        "tags": [
+          "Listening",
+          "Admin"
+        ],
+        "summary": "Re-run Apple Music matching for listed albums",
+        "description": "Re-runs iTunes enrichment for the tracks on up to 20 owned albums, for plays matched before enrichment preferred the album that was played. Defaults to a dry run that reports, per track, the match and what a live run would do (file under the Various Artists album, link the album, or update only the track) without writing. A live run applies the same result; unmatched tracks keep their existing links.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "album_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "minItems": 1,
+                    "maxItems": 20
+                  },
+                  "dry_run": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "album_ids"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preview or results per track",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dry_run": {
+                      "type": "boolean"
+                    },
+                    "truncated": {
+                      "type": "boolean",
+                      "description": "True when the albums hold more than 50 tracks; only the first 50 were checked."
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "track_id": {
+                            "type": "number"
+                          },
+                          "track": {
+                            "type": "string"
+                          },
+                          "artist": {
+                            "type": "string"
+                          },
+                          "album_id": {
+                            "type": "number"
+                          },
+                          "album": {
+                            "type": "string"
+                          },
+                          "match": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "album": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "album_artist": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "catalog_id": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "album",
+                              "album_artist",
+                              "catalog_id"
+                            ]
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "file_under_various_artists",
+                              "link_album",
+                              "track_only",
+                              "no_match",
+                              "rate_limited",
+                              "error"
+                            ]
+                          },
+                          "target_album_id": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "plays_moved": {
+                            "type": "number"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "enriched",
+                              "no_match",
+                              "rate_limited",
+                              "error"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "track_id",
+                          "track",
+                          "artist",
+                          "album_id",
+                          "album",
+                          "match",
+                          "action"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "dry_run",
+                    "truncated",
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/listening/admin/enrich-artists": {
       "post": {
         "operationId": "enrichListeningArtists",

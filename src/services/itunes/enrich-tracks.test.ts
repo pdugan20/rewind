@@ -17,7 +17,7 @@ import {
   lastfmScrobbles,
 } from '../../db/schema/lastfm.js';
 import { setupTestDb } from '../../test-helpers.js';
-import { enrichBatch } from './enrich.js';
+import { enrichBatch, reenrichAlbums } from './enrich.js';
 const db = createDb(env.DB);
 async function seed(
   name = 'Synthetic (White Album - Deluxe Edition)',
@@ -340,6 +340,176 @@ describe('various-artists records', () => {
     results(soundtrack('Harry Nilsson', 'Coconut'));
     expect((await enrichBatch(db, 1)).succeeded).toBe(1);
     expect((await albumOf(nilsson.track.id)).id).toBe(nilsson.split.id);
+  });
+
+  describe('re-running albums matched before the fix', () => {
+    // Today's plays were enriched by the old first-match search, so their
+    // tracks carry a stamp and enrichBatch never revisits them.
+    async function enrichedEarlier(
+      artistName: string,
+      trackName: string,
+      album = SOUNDTRACK
+    ) {
+      const ids = await played(artistName, trackName, album);
+      await db
+        .update(lastfmTracks)
+        .set({ itunesEnrichedAt: '2026-10-14T00:00:00.000Z', appleMusicId: 7 })
+        .where(eq(lastfmTracks.id, ids.track.id));
+      return ids;
+    }
+
+    it('previews the move without writing, then applies the same result', async () => {
+      const existing = (
+        await db
+          .insert(lastfmAlbums)
+          .values({
+            name: SOUNDTRACK,
+            artistId: (
+              await db
+                .select()
+                .from(lastfmArtists)
+                .where(eq(lastfmArtists.name, 'Various Artists'))
+            )[0].id,
+          })
+          .returning()
+      )[0];
+      const nilsson = await enrichedEarlier('Harry Nilsson', 'Coconut');
+      results(soundtrack('Harry Nilsson', 'Coconut'));
+
+      const preview = await reenrichAlbums(db, 1, [nilsson.split.id], true);
+      expect(preview.items).toEqual([
+        expect.objectContaining({
+          track_id: nilsson.track.id,
+          action: 'file_under_various_artists',
+          target_album_id: existing.id,
+          plays_moved: 1,
+          match: {
+            album: 'Reservoir Dogs (Original Motion Picture Soundtrack)',
+            album_artist: 'Various Artists',
+            catalog_id: 1440847276,
+          },
+        }),
+      ]);
+      expect(preview.items[0].outcome).toBeUndefined();
+      expect((await albumOf(nilsson.track.id)).id).toBe(nilsson.split.id);
+      const [untouched] = await db
+        .select()
+        .from(lastfmTracks)
+        .where(eq(lastfmTracks.id, nilsson.track.id));
+      expect(untouched.appleMusicId).toBe(7);
+
+      const live = await reenrichAlbums(db, 1, [nilsson.split.id], false);
+      expect(live.items[0]).toMatchObject({
+        action: 'file_under_various_artists',
+        outcome: 'enriched',
+      });
+      expect((await albumOf(nilsson.track.id)).id).toBe(existing.id);
+      expect(await playAlbums(nilsson.track.id)).toEqual([existing.id, null]);
+    });
+
+    it('links a confirmed single-artist album and leaves unmatched tracks alone', async () => {
+      const wings = await enrichedEarlier('Wings', 'Jet', 'PURE MCCARTNEY');
+      const fireman = await enrichedEarlier(
+        'The Fireman',
+        'Sing the Changes',
+        'PURE MCCARTNEY'
+      );
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+          const found = String(url).includes('Jet')
+            ? [
+                song('Wings', 'Jet', 'Pure McCartney (Deluxe Edition)', {
+                  collectionArtistName: 'Paul McCartney',
+                  collectionId: 1440954858,
+                }),
+              ]
+            : [];
+          return new Response(JSON.stringify({ results: found }), {
+            headers: { 'content-type': 'application/json' },
+          });
+        })
+      );
+      const preview = await reenrichAlbums(
+        db,
+        1,
+        [wings.split.id, fireman.split.id],
+        true
+      );
+      expect(preview.items.map((item) => item.action)).toEqual([
+        'link_album',
+        'no_match',
+      ]);
+      await reenrichAlbums(db, 1, [wings.split.id, fireman.split.id], false);
+      expect((await albumOf(wings.track.id)).appleMusicId).toBe(1440954858);
+      const [kept] = await db
+        .select()
+        .from(lastfmTracks)
+        .where(eq(lastfmTracks.id, fireman.track.id));
+      expect(kept).toMatchObject({
+        appleMusicId: 7,
+        itunesEnrichedAt: '2026-10-14T00:00:00.000Z',
+      });
+    });
+
+    it('reports a cut-off past 50 tracks and survives a failed search', async () => {
+      const nilsson = await enrichedEarlier('Harry Nilsson', 'Coconut');
+      // D1 limits SQL variables per statement, so insert in chunks.
+      for (let chunk = 0; chunk < 5; chunk++)
+        await db.insert(lastfmTracks).values(
+          Array.from({ length: 10 }, (_, i) => ({
+            name: `Interlude ${chunk * 10 + i}`,
+            artistId: nilsson.artist.id,
+            albumId: nilsson.split.id,
+          }))
+        );
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+          if (String(url).includes('Coconut')) throw new Error('network');
+          return new Response(JSON.stringify({ results: [] }), {
+            headers: { 'content-type': 'application/json' },
+          });
+        })
+      );
+      const run = await reenrichAlbums(db, 1, [nilsson.split.id], false);
+      expect(run.truncated).toBe(true);
+      expect(run.items).toHaveLength(50);
+      expect(run.items[0]).toMatchObject({
+        track_id: nilsson.track.id,
+        action: 'error',
+      });
+      expect(run.items[1].action).toBe('no_match');
+    });
+
+    it('counts a move as enriched when another run stamped the track meanwhile', async () => {
+      const nilsson = await played('Harry Nilsson', 'Coconut');
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          await db
+            .update(lastfmTracks)
+            .set({ itunesEnrichedAt: '2026-10-15T00:00:00.000Z' })
+            .where(eq(lastfmTracks.id, nilsson.track.id));
+          return new Response(
+            JSON.stringify({
+              results: [soundtrack('Harry Nilsson', 'Coconut')],
+            }),
+            { headers: { 'content-type': 'application/json' } }
+          );
+        })
+      );
+      expect((await enrichBatch(db, 1)).succeeded).toBe(1);
+      expect((await albumOf(nilsson.track.id)).artist).toBe('Various Artists');
+    });
+
+    it("ignores another user's albums", async () => {
+      const nilsson = await enrichedEarlier('Harry Nilsson', 'Coconut');
+      results(soundtrack('Harry Nilsson', 'Coconut'));
+      expect(
+        (await reenrichAlbums(db, 2, [nilsson.split.id], true)).items
+      ).toEqual([]);
+    });
   });
 
   it.each([
