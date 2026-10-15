@@ -14,6 +14,7 @@ import {
   lastfmAlbumTracks,
   lastfmAlbums,
   lastfmArtists,
+  lastfmTracks,
 } from '../../db/schema/lastfm.js';
 import { setupTestDb } from '../../test-helpers.js';
 import {
@@ -307,5 +308,210 @@ describe('tracklist title identity', () => {
     });
     expect(result.status === 'matched' && result.tracks.length).toBe(2);
     vi.unstubAllGlobals();
+  });
+});
+
+describe('recovering a stored catalog id that names another release', () => {
+  let db: Database;
+  beforeAll(setupTestDb);
+  beforeEach(async () => {
+    db = createDb(env.DB);
+    await env.DB.exec(
+      'DELETE FROM lastfm_album_tracks; DELETE FROM lastfm_scrobbles; DELETE FROM lastfm_tracks; DELETE FROM lastfm_albums; DELETE FROM lastfm_artists;'
+    );
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  // Wilco's "Star Wars" was stored with the id of the "Alpha Mike Foxtrot" box.
+  async function seed() {
+    const [artist] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'Wilco' })
+      .returning();
+    const [album] = await db
+      .insert(lastfmAlbums)
+      .values({ name: 'Star Wars', artistId: artist.id, appleMusicId: 111 })
+      .returning();
+    await db.insert(lastfmTracks).values({
+      name: 'Random Name Generator',
+      artistId: artist.id,
+      albumId: album.id,
+    });
+    return album;
+  }
+  const wilco = (id: number, n: number, name: string) =>
+    song(id, n, { name, artistName: 'Wilco' });
+  const catalog = (search: unknown, searchStatus = 200) =>
+    vi.fn(async (input: string) => {
+      const url = new URL(input);
+      if (url.pathname.endsWith('/search')) return reply(search, searchStatus);
+      if (url.pathname.endsWith('/albums/111'))
+        return reply({
+          data: [
+            {
+              id: '111',
+              type: 'albums',
+              attributes: {
+                name: 'Alpha Mike Foxtrot: Rare Tracks 1994-2014',
+                artistName: 'Wilco',
+              },
+              relationships: { tracks: { data: [wilco(1, 1, 'Promising')] } },
+            },
+          ],
+        });
+      return reply({
+        data: [
+          {
+            id: '222',
+            type: 'albums',
+            attributes: {
+              name: 'Star Wars',
+              artistName: 'Wilco',
+              url: 'https://music.apple.com/us/album/star-wars/222',
+            },
+            relationships: {
+              tracks: {
+                data: [
+                  wilco(2, 1, 'EKG'),
+                  wilco(3, 2, 'More...'),
+                  wilco(4, 3, 'Random Name Generator'),
+                ],
+              },
+            },
+          },
+        ],
+      });
+    });
+  const found = {
+    results: {
+      albums: {
+        data: [
+          {
+            id: '222',
+            type: 'albums',
+            attributes: { name: 'Star Wars', artistName: 'Wilco' },
+          },
+        ],
+      },
+    },
+  };
+
+  it('stores the matching catalog album and its tracklist', async () => {
+    const album = await seed();
+    vi.stubGlobal('fetch', catalog(found));
+    expect(await syncAlbumTracklists(db, 'token', [album.id])).toEqual({
+      stored: 1,
+      skipped: 0,
+    });
+    const [row] = await db
+      .select()
+      .from(lastfmAlbums)
+      .where(eq(lastfmAlbums.id, album.id));
+    expect(row).toMatchObject({
+      appleMusicId: 222,
+      appleMusicUrl: 'https://music.apple.com/us/album/star-wars/222',
+    });
+    expect(row.tracklistSyncedAt).toBeTruthy();
+    const tracks = await db
+      .select()
+      .from(lastfmAlbumTracks)
+      .where(eq(lastfmAlbumTracks.albumId, album.id));
+    expect(tracks.map((t) => t.name).sort()).toEqual([
+      'EKG',
+      'More...',
+      'Random Name Generator',
+    ]);
+  });
+
+  it('rejects a catalog album credited to another artist', async () => {
+    const album = await seed();
+    const impostor = vi.fn(async (input: string) => {
+      const url = new URL(input);
+      if (url.pathname.endsWith('/albums/111'))
+        return reply({
+          data: [
+            {
+              id: '111',
+              type: 'albums',
+              attributes: { name: 'Alpha Mike Foxtrot', artistName: 'Wilco' },
+              relationships: { tracks: { data: [] } },
+            },
+          ],
+        });
+      if (url.pathname.endsWith('/search'))
+        return reply({
+          results: {
+            albums: {
+              data: [
+                {
+                  id: '333',
+                  type: 'albums',
+                  attributes: {
+                    name: 'Star Wars',
+                    artistName: 'A Tribute Band',
+                  },
+                },
+              ],
+            },
+          },
+        });
+      return reply({
+        data: [
+          {
+            id: '333',
+            type: 'albums',
+            attributes: {
+              name: 'Star Wars',
+              artistName: 'A Tribute Band',
+              url: 'https://music.apple.com/us/album/x/333',
+            },
+            relationships: {
+              tracks: {
+                data: [
+                  song(9, 1, {
+                    name: 'Random Name Generator',
+                    artistName: 'A Tribute Band',
+                  }),
+                ],
+              },
+            },
+          },
+        ],
+      });
+    });
+    vi.stubGlobal('fetch', impostor);
+    await syncAlbumTracklists(db, 'token', [album.id]);
+    const [kept] = await db
+      .select()
+      .from(lastfmAlbums)
+      .where(eq(lastfmAlbums.id, album.id));
+    expect(kept.appleMusicId).toBe(111);
+  });
+
+  it('keeps the stored id when the search finds nothing, and retries after a failed search', async () => {
+    const album = await seed();
+    vi.stubGlobal('fetch', catalog({ results: {} }));
+    expect(await syncAlbumTracklists(db, 'token', [album.id])).toEqual({
+      stored: 0,
+      skipped: 1,
+    });
+    const [kept] = await db
+      .select()
+      .from(lastfmAlbums)
+      .where(eq(lastfmAlbums.id, album.id));
+    expect(kept.appleMusicId).toBe(111);
+    expect(kept.tracklistSyncedAt).toBeTruthy();
+
+    await db
+      .update(lastfmAlbums)
+      .set({ tracklistSyncedAt: null })
+      .where(eq(lastfmAlbums.id, album.id));
+    vi.stubGlobal('fetch', catalog({}, 429));
+    await syncAlbumTracklists(db, 'token', [album.id]);
+    const [unstamped] = await db
+      .select()
+      .from(lastfmAlbums)
+      .where(eq(lastfmAlbums.id, album.id));
+    expect(unstamped.tracklistSyncedAt).toBeNull();
   });
 });

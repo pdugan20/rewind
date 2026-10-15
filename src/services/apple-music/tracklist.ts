@@ -14,17 +14,20 @@
  * cooled down by tracklist_synced_at like apple_music_enriched_at.
  */
 
-import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
   lastfmAlbumTracks,
   lastfmAlbums,
   lastfmArtists,
+  lastfmScrobbles,
+  lastfmTracks,
 } from '../../db/schema/lastfm.js';
 import {
   albumMatches,
   artistIdentityMatches,
 } from '../images/sources/utils.js';
+import { findCatalogAlbum, type CatalogAlbum } from './catalog-album.js';
 
 const API_ORIGIN = 'https://api.music.apple.com';
 const CATALOG_BASE = `${API_ORIGIN}/v1/catalog/us/albums`;
@@ -252,6 +255,74 @@ export async function fetchAlbumTracklist(
   return { status: 'matched', tracks };
 }
 
+/** A song played from this album, used to confirm a catalog album. */
+async function playedSong(
+  db: Database,
+  userId: number,
+  albumId: number
+): Promise<string | null> {
+  const [recorded] = await db
+    .select({ name: lastfmTracks.name })
+    .from(lastfmScrobbles)
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmTracks.id, lastfmScrobbles.trackId),
+        eq(lastfmTracks.userId, lastfmScrobbles.userId)
+      )
+    )
+    .where(
+      and(
+        eq(lastfmScrobbles.userId, userId),
+        eq(lastfmScrobbles.albumId, albumId),
+        eq(lastfmScrobbles.albumRecorded, 1)
+      )
+    )
+    .orderBy(desc(lastfmScrobbles.scrobbledAt))
+    .limit(1);
+  if (recorded) return recorded.name;
+  const [track] = await db
+    .select({ name: lastfmTracks.name })
+    .from(lastfmTracks)
+    .where(
+      and(eq(lastfmTracks.userId, userId), eq(lastfmTracks.albumId, albumId))
+    )
+    .limit(1);
+  return track?.name ?? null;
+}
+
+/**
+ * The catalog album to use when the stored Apple Music id names a different
+ * release (Wilco's "Star Wars" was stored as the "Alpha Mike Foxtrot" box).
+ * Searched by album name and confirmed by a played song on its tracklist,
+ * then held to the same title and artist identity as any stored id.
+ * 'retry' means the lookup itself failed; the album stays unstamped.
+ */
+async function recoverCatalogAlbum(
+  db: Database,
+  developerToken: string,
+  album: { id: number; name: string; artistName: string; appleMusicId: number },
+  userId: number
+): Promise<CatalogAlbum | 'retry' | null> {
+  const song = await playedSong(db, userId, album.id);
+  if (!song) return null;
+  const found = await findCatalogAlbum(developerToken, album.name, {
+    track: song,
+    artist: album.artistName,
+  });
+  if (found.status === 'rate_limited' || found.status === 'error')
+    return 'retry';
+  if (found.status !== 'found' || found.album.id === album.appleMusicId)
+    return null;
+  return tracklistTitleMatches(
+    album.name,
+    found.album.name,
+    album.artistName
+  ) && artistIdentityMatches(album.artistName, found.album.artistName)
+    ? found.album
+    : null;
+}
+
 /**
  * Store catalog tracklists for the given albums when missing or older than
  * 90 days. Bounded by the caller's id list, so a sync only spends catalog
@@ -299,20 +370,58 @@ export async function syncAlbumTracklists(
   let skipped = 0;
   for (const album of candidates) {
     if (album.appleMusicId == null) continue;
-    const result = await fetchAlbumTracklist(
-      developerToken,
-      album.appleMusicId,
-      { name: album.name, artistName: album.artistName }
-    );
+    let result = await fetchAlbumTracklist(developerToken, album.appleMusicId, {
+      name: album.name,
+      artistName: album.artistName,
+    });
     if (result.status === 'error') {
       skipped++;
       if (result.stop) break;
       continue;
     }
     const now = new Date().toISOString();
+    let corrected: CatalogAlbum | null = null;
+    if (result.status === 'no_match') {
+      const recovered = await recoverCatalogAlbum(
+        db,
+        developerToken,
+        { ...album, appleMusicId: album.appleMusicId },
+        userId
+      );
+      if (recovered === 'retry') {
+        skipped++;
+        continue;
+      }
+      if (recovered) {
+        const recheck = await fetchAlbumTracklist(
+          developerToken,
+          recovered.id,
+          {
+            name: album.name,
+            artistName: album.artistName,
+          }
+        );
+        if (recheck.status === 'error') {
+          skipped++;
+          if (recheck.stop) break;
+          continue;
+        }
+        if (recheck.status === 'matched') {
+          result = recheck;
+          corrected = recovered;
+        }
+      }
+    }
+    // Guarded on the id read above, so a concurrent change is not overwritten.
     const stamp = db
       .update(lastfmAlbums)
-      .set({ tracklistSyncedAt: now, updatedAt: now })
+      .set({
+        tracklistSyncedAt: now,
+        updatedAt: now,
+        ...(corrected
+          ? { appleMusicId: corrected.id, appleMusicUrl: corrected.url }
+          : {}),
+      })
       .where(
         and(
           eq(lastfmAlbums.id, album.id),
@@ -325,6 +434,10 @@ export async function syncAlbumTracklists(
       skipped++;
       continue;
     }
+    if (corrected)
+      console.log(
+        `[ENRICH] album ${album.id} catalog id ${album.appleMusicId} -> ${corrected.id}`
+      );
     const clear = db
       .delete(lastfmAlbumTracks)
       .where(
@@ -346,7 +459,7 @@ export async function syncAlbumTracklists(
       );
     try {
       // One atomic batch: readers never see a half-replaced tracklist.
-      await db.batch([clear, ...inserts, stamp]);
+      await db.batch([stamp, clear, ...inserts]);
       stored++;
     } catch (err) {
       // Leave this album unstamped for a later retry; keep going.
