@@ -6961,16 +6961,16 @@
         }
       }
     },
-    "/v1/listening/admin/reenrich-albums": {
+    "/v1/listening/admin/review-albums": {
       "post": {
-        "operationId": "reenrichListeningAlbums",
+        "operationId": "reviewListeningAlbums",
         "x-hidden": true,
         "tags": [
           "Listening",
           "Admin"
         ],
-        "summary": "Re-run Apple Music matching for listed albums",
-        "description": "Re-runs iTunes enrichment for the tracks on up to 20 owned albums, for plays matched before enrichment preferred the album that was played. Defaults to a dry run that reports, per track, the match and what a live run would do (file under the Various Artists album, link the album, or update only the track) without writing. A live run applies the same result; unmatched tracks keep their existing links.",
+        "summary": "Check listed albums against Apple Music",
+        "description": "Runs the album check for up to 20 owned albums, regardless of when they were created or checked: one played song is searched on iTunes, preferring the played album. When iTunes credits that album to Various Artists, its recorded plays (and tracks first seen there) move to the Various Artists album; when it confirms the album under its own artist, the catalog id is stored. Defaults to a dry run that reports each decision without writing; a live run applies the same decisions.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7001,7 +7001,7 @@
         },
         "responses": {
           "200": {
-            "description": "Preview or results per track",
+            "description": "Decision per album, and whether a live run applied it",
             "content": {
               "application/json": {
                 "schema": {
@@ -7010,29 +7010,25 @@
                     "dry_run": {
                       "type": "boolean"
                     },
-                    "truncated": {
-                      "type": "boolean",
-                      "description": "True when the albums hold more than 50 tracks; only the first 50 were checked."
-                    },
                     "items": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "track_id": {
-                            "type": "number"
-                          },
-                          "track": {
-                            "type": "string"
-                          },
-                          "artist": {
-                            "type": "string"
-                          },
                           "album_id": {
                             "type": "number"
                           },
                           "album": {
                             "type": "string"
+                          },
+                          "artist": {
+                            "type": "string"
+                          },
+                          "played_track": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "match": {
                             "type": [
@@ -7070,8 +7066,10 @@
                             "enum": [
                               "file_under_various_artists",
                               "link_album",
-                              "track_only",
+                              "already_linked",
+                              "no_album_match",
                               "no_match",
+                              "no_plays",
                               "rate_limited",
                               "error"
                             ]
@@ -7085,22 +7083,21 @@
                           "plays_moved": {
                             "type": "number"
                           },
-                          "outcome": {
-                            "type": "string",
-                            "enum": [
-                              "enriched",
-                              "no_match",
-                              "rate_limited",
-                              "error"
-                            ]
+                          "tracks_moved": {
+                            "type": "number"
+                          },
+                          "detail": {
+                            "type": "string"
+                          },
+                          "applied": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
-                          "track_id",
-                          "track",
-                          "artist",
                           "album_id",
                           "album",
+                          "artist",
+                          "played_track",
                           "match",
                           "action"
                         ]
@@ -7109,7 +7106,6 @@
                   },
                   "required": [
                     "dry_run",
-                    "truncated",
                     "items"
                   ]
                 }

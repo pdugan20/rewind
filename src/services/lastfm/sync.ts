@@ -11,12 +11,12 @@ import {
   lastfmUserStats,
   lastfmMonthlyStats,
   lastfmYearlyStats,
+  lastfmAlbumAttributionAudit,
 } from '../../db/schema/lastfm.js';
 import { syncRuns } from '../../db/schema/system.js';
 import { LastfmClient, LASTFM_PERIODS } from './client.js';
 import type { LastfmPeriod } from './client.js';
 import { normalizeScrobble } from './transforms.js';
-import { getVariousArtistsId } from './constants.js';
 import {
   hasNumberedAudiobookSignature,
   isFiltered,
@@ -221,40 +221,26 @@ async function upsertTrack(
 /**
  * Resolves the album a new play is filed under. Last.fm reports only the
  * track artist, so a song from a various-artists record arrives under a
- * per-artist album. Once iTunes enrichment has confirmed the record and moved
- * the track to its "Various Artists" album (src/services/itunes/enrich.ts),
- * later plays of the same album go there too.
+ * per-artist album. Once the album check (src/services/itunes/album-enrich.ts)
+ * has filed that exact per-artist album under the Various Artists album, its
+ * later plays go there too. Keyed on the album row (name and artist), never
+ * on the title alone: unrelated releases share titles like "Greatest Hits".
  */
 function playedAlbumResolver(db: Database) {
-  let variousArtists: Promise<number | null> | undefined;
-  return async (
-    trackId: number,
-    album: { id: number } | null,
-    albumName: string | undefined
-  ): Promise<number | null> => {
-    if (!album || !albumName) return album?.id ?? null;
-    variousArtists ??= getVariousArtistsId(db);
-    const variousArtistsId = await variousArtists;
-    if (variousArtistsId === null) return album.id;
-    const [compilation] = await db
-      .select({ id: lastfmAlbums.id })
-      .from(lastfmTracks)
-      .innerJoin(
-        lastfmAlbums,
-        and(
-          eq(lastfmAlbums.id, lastfmTracks.albumId),
-          eq(lastfmAlbums.userId, lastfmTracks.userId)
-        )
-      )
+  return async (album: { id: number } | null): Promise<number | null> => {
+    if (!album) return null;
+    const [filed] = await db
+      .select({ albumId: lastfmAlbumAttributionAudit.newAlbumId })
+      .from(lastfmAlbumAttributionAudit)
       .where(
         and(
-          eq(lastfmTracks.id, trackId),
-          eq(lastfmAlbums.name, albumName),
-          eq(lastfmAlbums.artistId, variousArtistsId)
+          eq(lastfmAlbumAttributionAudit.originalAlbumId, album.id),
+          eq(lastfmAlbumAttributionAudit.action, 'FILE_UNDER_VARIOUS_ARTISTS')
         )
       )
+      .orderBy(desc(lastfmAlbumAttributionAudit.id))
       .limit(1);
-    return compilation?.id ?? album.id;
+    return filed?.albumId ?? album.id;
   };
 }
 
@@ -696,11 +682,7 @@ export async function syncRecentScrobbles(
         if (!existingScrobble) {
           await db.insert(lastfmScrobbles).values({
             trackId,
-            albumId: await playedAlbum(
-              trackId,
-              album,
-              track.albumName ?? undefined
-            ),
+            albumId: await playedAlbum(album),
             albumRecorded: 1,
             scrobbledAt: track.scrobbledAt,
           });
@@ -1281,11 +1263,7 @@ export async function backfillScrobbles(
         if (!existingScrobble) {
           await db.insert(lastfmScrobbles).values({
             trackId,
-            albumId: await playedAlbum(
-              trackId,
-              album,
-              track.albumName ?? undefined
-            ),
+            albumId: await playedAlbum(album),
             albumRecorded: 1,
             scrobbledAt: track.scrobbledAt,
           });

@@ -43,12 +43,11 @@ import {
   type SimilarArtistEntry,
 } from '../services/lastfm/enrichment.js';
 import { backfillImages } from '../services/images/backfill.js';
+import { enrichBatch, enrichArtistsByName } from '../services/itunes/enrich.js';
 import {
-  enrichBatch,
-  enrichArtistsByName,
-  reenrichAlbums,
-  REENRICH_ALBUM_LIMIT,
-} from '../services/itunes/enrich.js';
+  reviewAlbums,
+  ALBUM_REVIEW_LIMIT,
+} from '../services/itunes/album-enrich.js';
 import { refreshArtistImageFromAppleMusicId } from '../services/images/sync-images.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
@@ -4683,23 +4682,16 @@ listening.openapi(enrichAppleMusicRoute, async (c) => {
   return c.json({ success: true, results });
 });
 
-// POST /v1/listening/admin/reenrich-albums
-const ReenrichMatch = z
-  .object({
-    album: z.string().nullable(),
-    album_artist: z.string().nullable(),
-    catalog_id: z.number().nullable(),
-  })
-  .nullable();
-const reenrichAlbumsRoute = createRoute({
+// POST /v1/listening/admin/review-albums
+const reviewAlbumsRoute = createRoute({
   method: 'post',
-  path: '/admin/reenrich-albums',
-  operationId: 'reenrichListeningAlbums',
+  path: '/admin/review-albums',
+  operationId: 'reviewListeningAlbums',
   'x-hidden': true,
   tags: ['Listening', 'Admin'],
-  summary: 'Re-run Apple Music matching for listed albums',
+  summary: 'Check listed albums against Apple Music',
   description:
-    'Re-runs iTunes enrichment for the tracks on up to 20 owned albums, for plays matched before enrichment preferred the album that was played. Defaults to a dry run that reports, per track, the match and what a live run would do (file under the Various Artists album, link the album, or update only the track) without writing. A live run applies the same result; unmatched tracks keep their existing links.',
+    'Runs the album check for up to 20 owned albums, regardless of when they were created or checked: one played song is searched on iTunes, preferring the played album. When iTunes credits that album to Various Artists, its recorded plays (and tracks first seen there) move to the Various Artists album; when it confirms the album under its own artist, the catalog id is stored. Defaults to a dry run that reports each decision without writing; a live run applies the same decisions.',
   request: {
     body: {
       content: {
@@ -4709,7 +4701,7 @@ const reenrichAlbumsRoute = createRoute({
               album_ids: z
                 .array(z.number().int().positive())
                 .min(1)
-                .max(REENRICH_ALBUM_LIMIT),
+                .max(ALBUM_REVIEW_LIMIT),
               dry_run: z.boolean().default(true),
             })
             .strict(),
@@ -4719,37 +4711,39 @@ const reenrichAlbumsRoute = createRoute({
   },
   responses: {
     200: {
-      description: 'Preview or results per track',
+      description: 'Decision per album, and whether a live run applied it',
       content: {
         'application/json': {
           schema: z.object({
             dry_run: z.boolean(),
-            truncated: z
-              .boolean()
-              .describe(
-                'True when the albums hold more than 50 tracks; only the first 50 were checked.'
-              ),
             items: z.array(
               z.object({
-                track_id: z.number(),
-                track: z.string(),
-                artist: z.string(),
                 album_id: z.number(),
                 album: z.string(),
-                match: ReenrichMatch,
+                artist: z.string(),
+                played_track: z.string().nullable(),
+                match: z
+                  .object({
+                    album: z.string().nullable(),
+                    album_artist: z.string().nullable(),
+                    catalog_id: z.number().nullable(),
+                  })
+                  .nullable(),
                 action: z.enum([
                   'file_under_various_artists',
                   'link_album',
-                  'track_only',
+                  'already_linked',
+                  'no_album_match',
                   'no_match',
+                  'no_plays',
                   'rate_limited',
                   'error',
                 ]),
                 target_album_id: z.number().nullable().optional(),
                 plays_moved: z.number().optional(),
-                outcome: z
-                  .enum(['enriched', 'no_match', 'rate_limited', 'error'])
-                  .optional(),
+                tracks_moved: z.number().optional(),
+                detail: z.string().optional(),
+                applied: z.boolean().optional(),
               })
             ),
           }),
@@ -4760,11 +4754,11 @@ const reenrichAlbumsRoute = createRoute({
   },
 });
 
-listening.openapi(reenrichAlbumsRoute, async (c) => {
+listening.openapi(reviewAlbumsRoute, async (c) => {
   const db = createDb(c.env.DB);
   const { album_ids, dry_run } = c.req.valid('json');
   return c.json(
-    await reenrichAlbums(db, c.get('userId'), [...new Set(album_ids)], dry_run)
+    await reviewAlbums(db, c.get('userId'), [...new Set(album_ids)], dry_run)
   );
 });
 
