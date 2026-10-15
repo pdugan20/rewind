@@ -2,11 +2,15 @@ import type { Database } from '../../db/client.js';
 import type { Env } from '../../types/env.js';
 import { syncAlbumTracklists } from '../apple-music/tracklist.js';
 import { enrichBatch } from '../itunes/enrich.js';
+import { enrichNewAlbums } from '../itunes/album-enrich.js';
 import { publishDiscmanSnapshot, selectRecentAlbums } from './snapshot.js';
 
 // iTunes Search allows roughly 20 requests a minute; leave headroom for the
 // daily 200-track batch and on-demand lookups.
 const NEW_TRACK_ENRICH_LIMIT = 15;
+// New albums with plays, checked against the catalog per sync (one iTunes
+// search each); together with tracks this stays under the soft rate limit.
+const NEW_ALBUM_CHECK_LIMIT = 5;
 
 /**
  * Runs after each scrobble sync. Each step is independent: a provider outage
@@ -24,6 +28,18 @@ export async function refreshDiscman(
   } catch (err) {
     console.log(
       `[ERROR] Discman track enrichment failed: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+  // Files various-artists plays under one album before the shelf is chosen.
+  try {
+    const albums = await enrichNewAlbums(db, NEW_ALBUM_CHECK_LIMIT, userId);
+    if (albums.checked)
+      console.log(
+        `[ENRICH] albums checked ${albums.checked} (filed ${albums.filed}, linked ${albums.linked})`
+      );
+  } catch (err) {
+    console.log(
+      `[ERROR] Album check failed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
   const albums = await selectRecentAlbums(db, userId);

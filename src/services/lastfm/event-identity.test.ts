@@ -8,6 +8,7 @@ import {
   lastfmTracks,
   lastfmScrobbles,
   lastfmTopTracks,
+  lastfmAlbumAttributionAudit,
 } from '../../db/schema/lastfm.js';
 import { setupTestDb, createTestApiKey } from '../../test-helpers.js';
 import {
@@ -26,6 +27,7 @@ describe('event album identity', () => {
   beforeEach(async () => {
     db = createDb(env.DB);
     for (const table of [
+      'lastfm_album_attribution_audit',
       'cd_artwork_checks',
       'cd_artwork_albums',
       'lastfm_scrobbles',
@@ -63,7 +65,7 @@ describe('event album identity', () => {
       getArtistTopTags: async () => ({ toptags: { tag: [] } }),
     } as unknown as LastfmClient;
   }
-  it('files later plays of a soundtrack song under its Various Artists album', async () => {
+  it('files later plays of an album the album check filed under Various Artists', async () => {
     const various = await upsertArtist(
       db,
       'Various Artists',
@@ -77,27 +79,60 @@ describe('event album identity', () => {
       null,
       'Various Artists'
     );
-    // Enrichment already moved this song from the per-artist album.
-    await upsertAlbum(db, 'Soundtrack', artist.id, null, 'Synthetic');
-    await db.insert(lastfmTracks).values({
-      name: 'Shared song',
-      artistId: artist.id,
-      albumId: compilation.id,
+    const split = await upsertAlbum(
+      db,
+      'Soundtrack',
+      artist.id,
+      null,
+      'Synthetic'
+    );
+    await db.insert(lastfmAlbumAttributionAudit).values({
+      originalAlbumId: split.id,
+      originalAlbumName: 'Soundtrack',
+      originalArtistId: artist.id,
+      action: 'FILE_UNDER_VARIOUS_ARTISTS',
+      newAlbumId: compilation.id,
+      newArtistId: various.id,
+    });
+    // A placeholder Various Artists album that already holds this artist's
+    // play, but was never filed from their album, attracts nothing.
+    const hits = await upsertAlbum(
+      db,
+      'Greatest Hits',
+      various.id,
+      null,
+      'Various Artists'
+    );
+    const [old] = await db
+      .insert(lastfmTracks)
+      .values({ name: 'Old song', artistId: artist.id, albumId: hits.id })
+      .returning();
+    await db.insert(lastfmScrobbles).values({
+      trackId: old.id,
+      albumId: hits.id,
+      albumRecorded: 1,
+      scrobbledAt: '2020-01-01T00:00:00.000Z',
     });
     await syncRecentScrobbles(
       db,
-      client([raw('Soundtrack', 1780000000), raw('Other release', 1780000100)])
+      client([
+        raw('Soundtrack', 1780000000),
+        raw('Greatest Hits', 1780000100),
+        raw('Other release', 1780000200),
+      ])
     );
-    const other = (await db.select().from(lastfmAlbums)).find(
-      (album) => album.name === 'Other release'
-    )!;
+    const albums = await db.select().from(lastfmAlbums);
+    const own = (name: string) =>
+      albums.find((a) => a.name === name && a.artistId === artist.id)!.id;
     const plays = await db
       .select({ albumId: lastfmScrobbles.albumId })
       .from(lastfmScrobbles)
       .orderBy(lastfmScrobbles.scrobbledAt);
     expect(plays.map((play) => play.albumId)).toEqual([
+      hits.id,
       compilation.id,
-      other.id,
+      own('Greatest Hits'),
+      own('Other release'),
     ]);
   });
   it('preserves each reported album, legacy attribution and explicit absence through sync and replay', async () => {
