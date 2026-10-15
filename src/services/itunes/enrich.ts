@@ -8,7 +8,7 @@
  * (the backfill script controls delay between batch requests).
  */
 
-import { eq, and, isNull, or, lt, sql, desc } from 'drizzle-orm';
+import { eq, and, isNull, or, lt, sql, desc, inArray, asc } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
   lastfmTracks,
@@ -184,15 +184,42 @@ async function fileUnderCompilation(
   track: { id: number; userId: number; albumId: number; albumName: string },
   result: ITunesSongResult
 ): Promise<boolean> {
+  const target = await compilationTarget(db, track, result);
+  if (!target) return false;
+  const { variousArtistsId, isFiltered } = target;
+
+  // Album identity is (name, artist). The filter decision depends on the
+  // album name, so it carries over from the per-artist album.
+  await db
+    .insert(lastfmAlbums)
+    .values({
+      userId: track.userId,
+      name: track.albumName,
+      artistId: variousArtistsId,
+      isFiltered,
+    })
+    .onConflictDoNothing();
+  return moveToCompilation(db, track, result, variousArtistsId);
+}
+
+/**
+ * The Various Artists row this track's album should move to, when the match
+ * shows it was played from a various-artists record. Reads only.
+ */
+async function compilationTarget(
+  db: Database,
+  track: { userId: number; albumId: number; albumName: string },
+  result: ITunesSongResult
+): Promise<{ variousArtistsId: number; isFiltered: number } | null> {
   if (
     result.collectionArtistName?.trim().toLowerCase() !==
       VARIOUS_ARTISTS_NAME.toLowerCase() ||
     !result.collectionName ||
     !albumMatches(track.albumName, result.collectionName)
   )
-    return false;
+    return null;
   const variousArtistsId = await variousArtistsFor(db, track.userId);
-  if (variousArtistsId === null) return false;
+  if (variousArtistsId === null) return null;
   const [current] = await db
     .select({
       artistId: lastfmAlbums.artistId,
@@ -206,19 +233,17 @@ async function fileUnderCompilation(
       )
     )
     .limit(1);
-  if (!current || current.artistId === variousArtistsId) return false;
+  if (!current || current.artistId === variousArtistsId) return null;
+  return { variousArtistsId, isFiltered: current.isFiltered ?? 0 };
+}
 
-  // Album identity is (name, artist). The filter decision depends on the
-  // album name, so it carries over from the per-artist album.
-  await db
-    .insert(lastfmAlbums)
-    .values({
-      userId: track.userId,
-      name: track.albumName,
-      artistId: variousArtistsId,
-      isFiltered: current.isFiltered ?? 0,
-    })
-    .onConflictDoNothing();
+/** Moves the track and its plays of its per-artist album to the compilation. */
+async function moveToCompilation(
+  db: Database,
+  track: { id: number; userId: number; albumId: number; albumName: string },
+  result: ITunesSongResult,
+  variousArtistsId: number
+): Promise<boolean> {
   const [compilation] = await db
     .select({ id: lastfmAlbums.id })
     .from(lastfmAlbums)
@@ -296,73 +321,69 @@ async function fileUnderCompilation(
   return true;
 }
 
+interface EnrichableTrack {
+  id: number;
+  userId: number;
+  name: string;
+  artistId: number;
+  artistName: string;
+  albumId: number | null;
+  albumName: string | null;
+}
+type EnrichOutcome = 'enriched' | 'no_match' | 'rate_limited' | 'error';
+
+/** Whether a match confirms the track's own album, so it takes the catalog id. */
+function confirmsAlbum(track: EnrichableTrack, result: ITunesSongResult) {
+  return Boolean(
+    track.albumId &&
+    track.albumName &&
+    result.collectionName &&
+    !albumMatches(track.artistName, track.albumName) &&
+    albumMatches(track.albumName, result.collectionName, track.artistName) &&
+    result.collectionId &&
+    result.collectionViewUrl
+  );
+}
+
 /**
  * Enrich a single track and its associated artist/album.
  */
 async function enrichTrack(
   db: Database,
-  track: {
-    id: number;
-    userId: number;
-    name: string;
-    artistId: number;
-    artistName: string;
-    albumId: number | null;
-    albumName: string | null;
-  }
-): Promise<'enriched' | 'no_match' | 'rate_limited' | 'error'> {
+  track: EnrichableTrack
+): Promise<EnrichOutcome> {
   try {
-    const searchResult = await searchItunes(
-      track.artistName,
-      track.name,
-      track.albumName
+    return await applyEnrichment(
+      db,
+      track,
+      await searchItunes(track.artistName, track.name, track.albumName)
     );
+  } catch (error) {
+    console.log(
+      `[ERROR] Enrichment failed for track ${track.id}: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return 'error';
+  }
+}
 
-    if (searchResult.status === 'rate_limited') {
-      return 'rate_limited';
-    }
+/** Writes one search result. Throws on storage errors; callers log them. */
+async function applyEnrichment(
+  db: Database,
+  track: EnrichableTrack,
+  searchResult: SearchResult
+): Promise<EnrichOutcome> {
+  if (searchResult.status === 'rate_limited') {
+    return 'rate_limited';
+  }
 
-    if (searchResult.status === 'error') {
-      return 'error';
-    }
+  if (searchResult.status === 'error') {
+    return 'error';
+  }
 
-    if (searchResult.status === 'no_match') {
-      await db
-        .update(lastfmTracks)
-        .set({ itunesEnrichedAt: new Date().toISOString() })
-        .where(
-          and(
-            eq(lastfmTracks.id, track.id),
-            eq(lastfmTracks.userId, track.userId),
-            eq(lastfmTracks.name, track.name),
-            eq(lastfmTracks.artistId, track.artistId),
-            isNull(lastfmTracks.itunesEnrichedAt)
-          )
-        );
-      return 'no_match';
-    }
-
-    const { result } = searchResult;
-    const now = new Date().toISOString();
-    // Before the track is marked enriched: a failed move throws to the catch
-    // below and leaves the track queued for another attempt.
-    const filedUnderCompilation =
-      track.albumId !== null && track.albumName !== null
-        ? await fileUnderCompilation(
-            db,
-            { ...track, albumId: track.albumId, albumName: track.albumName },
-            result
-          )
-        : false;
-
-    const updated = await db
+  if (searchResult.status === 'no_match') {
+    await db
       .update(lastfmTracks)
-      .set({
-        appleMusicId: result.trackId ?? null,
-        appleMusicUrl: result.trackViewUrl ?? null,
-        previewUrl: result.previewUrl ?? null,
-        itunesEnrichedAt: now,
-      })
+      .set({ itunesEnrichedAt: new Date().toISOString() })
       .where(
         and(
           eq(lastfmTracks.id, track.id),
@@ -371,65 +392,272 @@ async function enrichTrack(
           eq(lastfmTracks.artistId, track.artistId),
           isNull(lastfmTracks.itunesEnrichedAt)
         )
-      )
-      .returning({ id: lastfmTracks.id });
-    if (!updated.length) return 'no_match';
-
-    if (result.artistId && result.artistViewUrl) {
-      await db
-        .update(lastfmArtists)
-        .set({
-          appleMusicId: result.artistId,
-          appleMusicUrl: result.artistViewUrl,
-          itunesEnrichedAt: now,
-        })
-        .where(
-          and(
-            eq(lastfmArtists.id, track.artistId),
-            eq(lastfmArtists.userId, track.userId),
-            eq(lastfmArtists.name, track.artistName),
-            eq(lastfmArtists.identityConflict, 0),
-            isNull(lastfmArtists.itunesEnrichedAt)
-          )
-        );
-    }
-
-    if (
-      track.albumId &&
-      track.albumName &&
-      !filedUnderCompilation &&
-      result.collectionName &&
-      !albumMatches(track.artistName, track.albumName) &&
-      albumMatches(track.albumName, result.collectionName, track.artistName) &&
-      result.collectionId &&
-      result.collectionViewUrl
-    ) {
-      await db
-        .update(lastfmAlbums)
-        .set({
-          appleMusicId: result.collectionId,
-          appleMusicUrl: result.collectionViewUrl,
-          itunesEnrichedAt: now,
-        })
-        .where(
-          and(
-            eq(lastfmAlbums.id, track.albumId),
-            eq(lastfmAlbums.userId, track.userId),
-            eq(lastfmAlbums.name, track.albumName),
-            eq(lastfmAlbums.artistId, track.artistId),
-            eq(lastfmAlbums.identityConflict, 0),
-            isNull(lastfmAlbums.itunesEnrichedAt)
-          )
-        );
-    }
-
-    return 'enriched';
-  } catch (error) {
-    console.log(
-      `[ERROR] Enrichment failed for track ${track.id}: ${error instanceof Error ? error.message : String(error)}`
-    );
-    return 'error';
+      );
+    return 'no_match';
   }
+
+  const { result } = searchResult;
+  const now = new Date().toISOString();
+  // Before the track is marked enriched: a failed move throws to the catch
+  // below and leaves the track queued for another attempt.
+  const filedUnderCompilation =
+    track.albumId !== null && track.albumName !== null
+      ? await fileUnderCompilation(
+          db,
+          { ...track, albumId: track.albumId, albumName: track.albumName },
+          result
+        )
+      : false;
+
+  const updated = await db
+    .update(lastfmTracks)
+    .set({
+      appleMusicId: result.trackId ?? null,
+      appleMusicUrl: result.trackViewUrl ?? null,
+      previewUrl: result.previewUrl ?? null,
+      itunesEnrichedAt: now,
+    })
+    .where(
+      and(
+        eq(lastfmTracks.id, track.id),
+        eq(lastfmTracks.userId, track.userId),
+        eq(lastfmTracks.name, track.name),
+        eq(lastfmTracks.artistId, track.artistId),
+        isNull(lastfmTracks.itunesEnrichedAt)
+      )
+    )
+    .returning({ id: lastfmTracks.id });
+  // The stamp guard can miss when another run enriched the track meanwhile;
+  // a move that already happened still counts as enrichment.
+  if (!updated.length) return filedUnderCompilation ? 'enriched' : 'no_match';
+
+  if (result.artistId && result.artistViewUrl) {
+    await db
+      .update(lastfmArtists)
+      .set({
+        appleMusicId: result.artistId,
+        appleMusicUrl: result.artistViewUrl,
+        itunesEnrichedAt: now,
+      })
+      .where(
+        and(
+          eq(lastfmArtists.id, track.artistId),
+          eq(lastfmArtists.userId, track.userId),
+          eq(lastfmArtists.name, track.artistName),
+          eq(lastfmArtists.identityConflict, 0),
+          isNull(lastfmArtists.itunesEnrichedAt)
+        )
+      );
+  }
+
+  if (
+    !filedUnderCompilation &&
+    confirmsAlbum(track, result) &&
+    track.albumId &&
+    track.albumName &&
+    result.collectionId &&
+    result.collectionViewUrl
+  ) {
+    await db
+      .update(lastfmAlbums)
+      .set({
+        appleMusicId: result.collectionId,
+        appleMusicUrl: result.collectionViewUrl,
+        itunesEnrichedAt: now,
+      })
+      .where(
+        and(
+          eq(lastfmAlbums.id, track.albumId),
+          eq(lastfmAlbums.userId, track.userId),
+          eq(lastfmAlbums.name, track.albumName),
+          eq(lastfmAlbums.artistId, track.artistId),
+          eq(lastfmAlbums.identityConflict, 0),
+          isNull(lastfmAlbums.itunesEnrichedAt)
+        )
+      );
+  }
+
+  return 'enriched';
+}
+
+export interface ReenrichItem {
+  track_id: number;
+  track: string;
+  artist: string;
+  album_id: number;
+  album: string;
+  match: {
+    album: string | null;
+    album_artist: string | null;
+    catalog_id: number | null;
+  } | null;
+  /** What a live run does with this match. */
+  action:
+    | 'file_under_various_artists'
+    | 'link_album'
+    | 'track_only'
+    | 'no_match'
+    | 'rate_limited'
+    | 'error';
+  /** The existing Various Artists album, or null when a live run creates it. */
+  target_album_id?: number | null;
+  plays_moved?: number;
+  /** Live runs only. */
+  outcome?: EnrichOutcome;
+}
+
+/** Re-enrichment accepts at most this many albums and tracks per request. */
+export const REENRICH_ALBUM_LIMIT = 20;
+const REENRICH_TRACK_LIMIT = 50;
+
+/**
+ * Re-runs enrichment for the tracks on the given albums: plays looked up
+ * before matching preferred the played album never had their album checked
+ * again. The default preview searches iTunes and reports what would change
+ * without writing. A live run resets each matched track's enrichment stamp and
+ * applies the same search result the preview reported; unmatched tracks keep
+ * their existing links.
+ */
+export async function reenrichAlbums(
+  db: Database,
+  userId: number,
+  albumIds: number[],
+  dryRun: boolean
+): Promise<{ dry_run: boolean; truncated: boolean; items: ReenrichItem[] }> {
+  if (albumIds.length === 0)
+    return { dry_run: dryRun, truncated: false, items: [] };
+  const found = await db
+    .select({
+      id: lastfmTracks.id,
+      userId: lastfmTracks.userId,
+      name: lastfmTracks.name,
+      artistId: lastfmTracks.artistId,
+      artistName: lastfmArtists.name,
+      albumId: lastfmAlbums.id,
+      albumName: lastfmAlbums.name,
+      albumEnrichedAt: lastfmAlbums.itunesEnrichedAt,
+      albumConflict: lastfmAlbums.identityConflict,
+    })
+    .from(lastfmTracks)
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmTracks.artistId, lastfmArtists.id),
+        eq(lastfmTracks.userId, lastfmArtists.userId)
+      )
+    )
+    .innerJoin(
+      lastfmAlbums,
+      and(
+        eq(lastfmTracks.albumId, lastfmAlbums.id),
+        eq(lastfmTracks.userId, lastfmAlbums.userId)
+      )
+    )
+    .where(
+      and(
+        eq(lastfmTracks.userId, userId),
+        inArray(lastfmTracks.albumId, albumIds),
+        eq(lastfmTracks.isFiltered, 0),
+        eq(lastfmArtists.identityConflict, 0)
+      )
+    )
+    .orderBy(asc(lastfmTracks.albumId), asc(lastfmTracks.id))
+    .limit(REENRICH_TRACK_LIMIT + 1);
+  // Report a cut-off instead of leaving the rest out silently.
+  const truncated = found.length > REENRICH_TRACK_LIMIT;
+  const tracks = found.slice(0, REENRICH_TRACK_LIMIT);
+
+  const items: ReenrichItem[] = [];
+  let rateLimited = false;
+  for (const track of tracks) {
+    const base = {
+      track_id: track.id,
+      track: track.name,
+      artist: track.artistName,
+      album_id: track.albumId,
+      album: track.albumName,
+    };
+    if (rateLimited) {
+      items.push({ ...base, match: null, action: 'rate_limited' });
+      continue;
+    }
+    let search: SearchResult;
+    try {
+      search = await searchItunes(
+        track.artistName,
+        track.name,
+        track.albumName
+      );
+    } catch {
+      search = { status: 'error' };
+    }
+    if (search.status !== 'found') {
+      rateLimited = search.status === 'rate_limited';
+      items.push({ ...base, match: null, action: search.status });
+      continue;
+    }
+    const { result } = search;
+    const target = await compilationTarget(db, track, result);
+    const item: ReenrichItem = {
+      ...base,
+      match: {
+        album: result.collectionName ?? null,
+        album_artist: result.collectionArtistName ?? null,
+        catalog_id: result.collectionId ?? null,
+      },
+      action: target
+        ? 'file_under_various_artists'
+        : confirmsAlbum(track, result) &&
+            track.albumEnrichedAt === null &&
+            track.albumConflict === 0
+          ? 'link_album'
+          : 'track_only',
+    };
+    if (target) {
+      const [existing] = await db
+        .select({ id: lastfmAlbums.id })
+        .from(lastfmAlbums)
+        .where(
+          and(
+            eq(lastfmAlbums.userId, userId),
+            eq(lastfmAlbums.name, track.albumName),
+            eq(lastfmAlbums.artistId, target.variousArtistsId)
+          )
+        )
+        .limit(1);
+      const [plays] = await db
+        .select({ n: sql<number>`count(*)` })
+        .from(lastfmScrobbles)
+        .where(
+          and(
+            eq(lastfmScrobbles.trackId, track.id),
+            eq(lastfmScrobbles.userId, userId),
+            eq(lastfmScrobbles.albumRecorded, 1),
+            eq(lastfmScrobbles.albumId, track.albumId)
+          )
+        );
+      item.target_album_id = existing?.id ?? null;
+      item.plays_moved = Number(plays?.n ?? 0);
+    }
+    if (!dryRun) {
+      try {
+        await db
+          .update(lastfmTracks)
+          .set({ itunesEnrichedAt: null })
+          .where(
+            and(eq(lastfmTracks.id, track.id), eq(lastfmTracks.userId, userId))
+          );
+        item.outcome = await applyEnrichment(db, track, search);
+      } catch (error) {
+        console.log(
+          `[ERROR] Re-enrichment failed for track ${track.id}: ${error instanceof Error ? error.message : String(error)}`
+        );
+        item.outcome = 'error';
+      }
+    }
+    items.push(item);
+  }
+  return { dry_run: dryRun, truncated, items };
 }
 
 /**

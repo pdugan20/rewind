@@ -43,7 +43,12 @@ import {
   type SimilarArtistEntry,
 } from '../services/lastfm/enrichment.js';
 import { backfillImages } from '../services/images/backfill.js';
-import { enrichBatch, enrichArtistsByName } from '../services/itunes/enrich.js';
+import {
+  enrichBatch,
+  enrichArtistsByName,
+  reenrichAlbums,
+  REENRICH_ALBUM_LIMIT,
+} from '../services/itunes/enrich.js';
 import { refreshArtistImageFromAppleMusicId } from '../services/images/sync-images.js';
 import type { BackfillItem } from '../services/images/backfill.js';
 import { createOpenAPIApp } from '../lib/openapi.js';
@@ -4676,6 +4681,91 @@ listening.openapi(enrichAppleMusicRoute, async (c) => {
 
   const results = await enrichBatch(db, limit);
   return c.json({ success: true, results });
+});
+
+// POST /v1/listening/admin/reenrich-albums
+const ReenrichMatch = z
+  .object({
+    album: z.string().nullable(),
+    album_artist: z.string().nullable(),
+    catalog_id: z.number().nullable(),
+  })
+  .nullable();
+const reenrichAlbumsRoute = createRoute({
+  method: 'post',
+  path: '/admin/reenrich-albums',
+  operationId: 'reenrichListeningAlbums',
+  'x-hidden': true,
+  tags: ['Listening', 'Admin'],
+  summary: 'Re-run Apple Music matching for listed albums',
+  description:
+    'Re-runs iTunes enrichment for the tracks on up to 20 owned albums, for plays matched before enrichment preferred the album that was played. Defaults to a dry run that reports, per track, the match and what a live run would do (file under the Various Artists album, link the album, or update only the track) without writing. A live run applies the same result; unmatched tracks keep their existing links.',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z
+            .object({
+              album_ids: z
+                .array(z.number().int().positive())
+                .min(1)
+                .max(REENRICH_ALBUM_LIMIT),
+              dry_run: z.boolean().default(true),
+            })
+            .strict(),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Preview or results per track',
+      content: {
+        'application/json': {
+          schema: z.object({
+            dry_run: z.boolean(),
+            truncated: z
+              .boolean()
+              .describe(
+                'True when the albums hold more than 50 tracks; only the first 50 were checked.'
+              ),
+            items: z.array(
+              z.object({
+                track_id: z.number(),
+                track: z.string(),
+                artist: z.string(),
+                album_id: z.number(),
+                album: z.string(),
+                match: ReenrichMatch,
+                action: z.enum([
+                  'file_under_various_artists',
+                  'link_album',
+                  'track_only',
+                  'no_match',
+                  'rate_limited',
+                  'error',
+                ]),
+                target_album_id: z.number().nullable().optional(),
+                plays_moved: z.number().optional(),
+                outcome: z
+                  .enum(['enriched', 'no_match', 'rate_limited', 'error'])
+                  .optional(),
+              })
+            ),
+          }),
+        },
+      },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+listening.openapi(reenrichAlbumsRoute, async (c) => {
+  const db = createDb(c.env.DB);
+  const { album_ids, dry_run } = c.req.valid('json');
+  return c.json(
+    await reenrichAlbums(db, c.get('userId'), [...new Set(album_ids)], dry_run)
+  );
 });
 
 // POST /v1/listening/admin/enrich-artists
