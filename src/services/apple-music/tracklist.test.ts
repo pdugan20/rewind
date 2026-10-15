@@ -423,6 +423,65 @@ describe('recovering a stored catalog id that names another release', () => {
     ]);
   });
 
+  it('adds the artist to the search when the album name alone is crowded out', async () => {
+    const album = await seed();
+    // The live search for "Star Wars" returns only John Williams scores.
+    const score = (id: string) => ({
+      id,
+      type: 'albums',
+      attributes: {
+        name: 'Star Wars: A New Hope (Original Motion Picture Score)',
+        artistName: 'John Williams',
+        url: `https://music.apple.com/us/album/x/${id}`,
+      },
+    });
+    const base = catalog(found);
+    const crowded = vi.fn(async (input: string) => {
+      const url = new URL(input);
+      if (url.pathname.endsWith('/search'))
+        return url.searchParams.get('term') === 'Star Wars Wilco'
+          ? reply(found)
+          : reply({
+              results: { albums: { data: [score('501'), score('502')] } },
+            });
+      const id = url.pathname.split('/').pop();
+      if (id === '501' || id === '502')
+        return reply({
+          data: [
+            {
+              ...score(id),
+              relationships: {
+                tracks: {
+                  data: [
+                    song(7, 1, {
+                      name: 'Main Title',
+                      artistName: 'John Williams',
+                    }),
+                  ],
+                },
+              },
+            },
+          ],
+        });
+      return base(input);
+    });
+    vi.stubGlobal('fetch', crowded);
+    expect(await syncAlbumTracklists(db, 'token', [album.id])).toEqual({
+      stored: 1,
+      skipped: 0,
+    });
+    const [row] = await db
+      .select()
+      .from(lastfmAlbums)
+      .where(eq(lastfmAlbums.id, album.id));
+    expect(row.appleMusicId).toBe(222);
+    const terms = crowded.mock.calls
+      .map(([input]) => new URL(input))
+      .filter((url) => url.pathname.endsWith('/search'))
+      .map((url) => url.searchParams.get('term'));
+    expect(terms).toEqual(['Star Wars', 'Star Wars Wilco']);
+  });
+
   it('rejects a catalog album credited to another artist', async () => {
     const album = await seed();
     const impostor = vi.fn(async (input: string) => {

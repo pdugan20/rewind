@@ -17,6 +17,11 @@
  * (dialogue clips are credited to the actors, not the character Last.fm
  * reports), only a single candidate holding the song is accepted; ambiguity
  * decides nothing.
+ *
+ * A short or common album name can be crowded out of the search by other
+ * artists' releases ("Star Wars" returns ten John Williams scores before
+ * Wilco's album), so a search that confirms nothing is repeated once with
+ * the played artist's name added to the term.
  */
 
 import {
@@ -84,6 +89,26 @@ export async function findCatalogAlbum(
   played: { track: string; artist: string }
 ): Promise<CatalogAlbumResult> {
   const term = albumName.replace(/[:/]/g, ' ').replace(/\s+/g, ' ').trim();
+  const first = await searchAndConfirm(token, term, albumName, played);
+  const artist = played.artist
+    .replace(/[:/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (
+    first.status !== 'no_match' ||
+    !artist ||
+    term.toLowerCase().includes(artist.toLowerCase())
+  )
+    return first;
+  return searchAndConfirm(token, `${term} ${artist}`, albumName, played);
+}
+
+async function searchAndConfirm(
+  token: string,
+  term: string,
+  albumName: string,
+  played: { track: string; artist: string }
+): Promise<CatalogAlbumResult> {
   const search = await get<{
     results?: { albums?: { data?: CatalogAlbumResource[] } };
   }>(
