@@ -48,7 +48,7 @@ Note: Artist images deprecated since ~2020. All artist image URLs return placeho
 
 - `GET /v1/catalog/{storefront}/search?types=artists&term=...`
 - `GET /v1/catalog/{storefront}/artists/{id}`
-- `GET /v1/catalog/{storefront}/albums/{id}?include=tracks` -- tracklist in disc/track order with ISRC, duration, preview and song URL ([`tracklist.ts`](../../src/services/apple-music/tracklist.ts), stored in `lastfm_album_tracks`). When the stored album id names a different release (title or artist mismatch), sync looks the album up by name with the same confirmed album search as the album check, and stores the corrected id, URL and tracklist only when the result passes the same identity test; a failed lookup leaves the album to retry at the next sync
+- `GET /v1/catalog/{storefront}/albums/{id}?include=tracks` -- tracklist in disc/track order with ISRC, duration, preview and song URL ([`tracklist.ts`](../../src/services/apple-music/tracklist.ts), stored in `lastfm_album_tracks`). When the stored album id names a different release (title or artist mismatch), sync looks the album up by name with the same confirmed album search as the album check, and stores the corrected id, URL and tracklist only when the result passes the same identity test; a failed lookup leaves the album to retry at the next sync. That search repeats once with the artist name added when the album name alone confirms nothing, because a common name is crowded out by other artists releases ("Star Wars" returns only John Williams scores)
 
 ## iTunes Search/Lookup API
 
