@@ -32,7 +32,12 @@ export async function refreshDiscman(
   }
   // Files various-artists plays under one album before the shelf is chosen.
   try {
-    const albums = await enrichNewAlbums(db, NEW_ALBUM_CHECK_LIMIT, userId);
+    const albums = await enrichNewAlbums(
+      db,
+      NEW_ALBUM_CHECK_LIMIT,
+      userId,
+      env.APPLE_MUSIC_DEVELOPER_TOKEN
+    );
     if (albums.checked)
       console.log(
         `[ENRICH] albums checked ${albums.checked} (filed ${albums.filed}, linked ${albums.linked})`

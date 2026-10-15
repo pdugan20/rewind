@@ -346,7 +346,7 @@ describe('album checks', () => {
       1,
       [nilsson.split.id, stealers.split.id],
       false,
-      0
+      { paceMs: 0 }
     );
     expect(live.items.map((item) => item.action)).toEqual([
       'rate_limited',
@@ -361,5 +361,140 @@ describe('album checks', () => {
     expect((await reviewAlbums(db, 2, [nilsson.split.id], true)).items).toEqual(
       []
     );
+  });
+});
+
+describe('album checks with the Apple Music catalog', () => {
+  const TOKEN = 'developer-token';
+  const catalog = (
+    albums: Array<{
+      id: string;
+      name: string;
+      artistName: string;
+      tracks: string[];
+    }>,
+    status = 200
+  ) => {
+    const fetch = vi.fn(async (input: string) => {
+      const url = new URL(input);
+      if (status !== 200) return new Response('{}', { status });
+      if (url.pathname.endsWith('/search'))
+        return Response.json({
+          results: {
+            albums: {
+              data: albums.map(({ id, name, artistName }) => ({
+                id,
+                type: 'albums',
+                attributes: { name, artistName },
+              })),
+            },
+          },
+        });
+      const album = albums.find((a) =>
+        url.pathname.endsWith(`/albums/${a.id}`)
+      );
+      return Response.json({
+        data: album
+          ? [
+              {
+                id: album.id,
+                type: 'albums',
+                attributes: {
+                  name: album.name,
+                  artistName: album.artistName,
+                  url: `https://music.apple.com/us/album/x/${album.id}`,
+                },
+                relationships: {
+                  tracks: {
+                    data: album.tracks.map((name) => ({
+                      attributes: { name },
+                    })),
+                  },
+                },
+              },
+            ]
+          : [],
+      });
+    });
+    vi.stubGlobal('fetch', fetch);
+    return fetch;
+  };
+
+  it('files a soundtrack found by album name, skipping a candidate without the song', async () => {
+    const brown = await played('Mr. Brown', 'Madonna Speech', {
+      createdAt: BEFORE_CUTOFF,
+    });
+    catalog([
+      {
+        id: '111',
+        name: 'Reservoir Dogs (Original Motion Picture Soundtrack)',
+        artistName: 'Various Artists',
+        tracks: ['Little Green Bag'],
+      },
+      {
+        id: '1440847276',
+        name: 'Reservoir Dogs (Original Motion Picture Soundtrack)',
+        artistName: 'Various Artists',
+        tracks: ['Little Green Bag', 'Madonna Speech'],
+      },
+    ]);
+    const live = await reviewAlbums(db, 1, [brown.split.id], false, {
+      token: TOKEN,
+    });
+    expect(live.items[0]).toMatchObject({
+      played_track: 'Madonna Speech',
+      match: {
+        album: 'Reservoir Dogs (Original Motion Picture Soundtrack)',
+        album_artist: 'Various Artists',
+        catalog_id: 1440847276,
+      },
+      action: 'file_under_various_artists',
+      applied: true,
+    });
+    const various = await compilation();
+    expect(various.appleMusicUrl).toBe(
+      'https://music.apple.com/us/album/x/1440847276'
+    );
+    expect(await playAlbum(brown.track.id)).toEqual([various.id]);
+  });
+
+  it('links a split credited to another album artist', async () => {
+    const wings = await played('Wings', 'Jet', {
+      album: 'PURE MCCARTNEY',
+      createdAt: BEFORE_CUTOFF,
+      songAlbum: 'Band on the Run',
+    });
+    catalog([
+      {
+        id: '1440951787',
+        name: 'Pure McCartney (Deluxe Edition)',
+        artistName: 'Paul McCartney',
+        tracks: ['Jet', 'Dear Boy'],
+      },
+    ]);
+    const live = await reviewAlbums(db, 1, [wings.split.id], false, {
+      token: TOKEN,
+    });
+    expect(live.items[0]).toMatchObject({
+      action: 'link_album',
+      applied: true,
+    });
+    expect((await album(wings.split.id)).appleMusicId).toBe(1440951787);
+    expect(await playAlbum(wings.track.id)).toEqual([wings.split.id]);
+  });
+
+  it.each([
+    [429, { action: 'rate_limited' }],
+    [401, { action: 'error', detail: 'Apple Music HTTP 401' }],
+  ])('reports catalog status %i without writing', async (status, expected) => {
+    const brown = await played('Mr. Brown', 'Madonna Speech', {
+      createdAt: BEFORE_CUTOFF,
+    });
+    catalog([], status);
+    const live = await reviewAlbums(db, 1, [brown.split.id], false, {
+      token: TOKEN,
+    });
+    expect(live.items[0]).toMatchObject({ ...expected, applied: false });
+    expect((await album(brown.split.id)).itunesEnrichedAt).toBeNull();
   });
 });

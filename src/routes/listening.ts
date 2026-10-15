@@ -4758,7 +4758,9 @@ listening.openapi(reviewAlbumsRoute, async (c) => {
   const db = createDb(c.env.DB);
   const { album_ids, dry_run } = c.req.valid('json');
   return c.json(
-    await reviewAlbums(db, c.get('userId'), [...new Set(album_ids)], dry_run)
+    await reviewAlbums(db, c.get('userId'), [...new Set(album_ids)], dry_run, {
+      token: c.env.APPLE_MUSIC_DEVELOPER_TOKEN,
+    })
   );
 });
 
