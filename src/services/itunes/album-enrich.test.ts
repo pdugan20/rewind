@@ -366,15 +366,24 @@ describe('album checks', () => {
 
 describe('album checks with the Apple Music catalog', () => {
   const TOKEN = 'developer-token';
+  type Track = string | { name: string; artistName: string };
   const catalog = (
     albums: Array<{
       id: string;
       name: string;
       artistName: string;
-      tracks: string[];
+      tracks: Track[];
+      /** Tracks on the first page; the rest follow a `next` link. */
+      pageSize?: number;
     }>,
     status = 200
   ) => {
+    const resource = (track: Track) => ({
+      attributes:
+        typeof track === 'string'
+          ? { name: track, artistName: 'Someone' }
+          : track,
+    });
     const fetch = vi.fn(async (input: string) => {
       const url = new URL(input);
       if (status !== 200) return new Response('{}', { status });
@@ -390,9 +399,18 @@ describe('album checks with the Apple Music catalog', () => {
             },
           },
         });
+      const paged = url.pathname.match(/\/albums\/(\w+)\/tracks$/);
+      if (paged) {
+        const album = albums.find((a) => a.id === paged[1])!;
+        const offset = Number(url.searchParams.get('offset'));
+        return Response.json({
+          data: album.tracks.slice(offset).map(resource),
+        });
+      }
       const album = albums.find((a) =>
         url.pathname.endsWith(`/albums/${a.id}`)
       );
+      const size = album?.pageSize ?? album?.tracks.length ?? 0;
       return Response.json({
         data: album
           ? [
@@ -406,9 +424,12 @@ describe('album checks with the Apple Music catalog', () => {
                 },
                 relationships: {
                   tracks: {
-                    data: album.tracks.map((name) => ({
-                      attributes: { name },
-                    })),
+                    data: album.tracks.slice(0, size).map(resource),
+                    ...(size < album.tracks.length
+                      ? {
+                          next: `/v1/catalog/us/albums/${album.id}/tracks?offset=${size}`,
+                        }
+                      : {}),
                   },
                 },
               },
@@ -480,6 +501,65 @@ describe('album checks with the Apple Music catalog', () => {
       applied: true,
     });
     expect((await album(wings.split.id)).appleMusicId).toBe(1440951787);
+    expect(await playAlbum(wings.track.id)).toEqual([wings.split.id]);
+  });
+
+  it('decides nothing when two same-title albums hold the song and neither credits the played artist', async () => {
+    const brown = await played('Mr. Brown', 'Madonna Speech', {
+      createdAt: BEFORE_CUTOFF,
+    });
+    catalog([
+      {
+        id: '1',
+        name: 'Reservoir Dogs',
+        artistName: 'Various Artists',
+        tracks: ['Madonna Speech'],
+      },
+      {
+        id: '2',
+        name: 'Reservoir Dogs',
+        artistName: 'Someone Else',
+        tracks: ['Madonna Speech'],
+      },
+    ]);
+    const live = await reviewAlbums(db, 1, [brown.split.id], false, {
+      token: TOKEN,
+    });
+    expect(live.items[0]).toMatchObject({ action: 'no_match' });
+    expect(await playAlbum(brown.track.id)).toEqual([brown.split.id]);
+  });
+
+  it('prefers the album whose track credits the played artist, across tracklist pages', async () => {
+    const wings = await played('Wings', 'Jet', {
+      album: 'PURE MCCARTNEY',
+      createdAt: BEFORE_CUTOFF,
+    });
+    catalog([
+      {
+        id: '10',
+        name: 'Pure McCartney',
+        artistName: 'Various Artists',
+        tracks: [{ name: 'Jet', artistName: 'A Tribute Band' }],
+      },
+      {
+        id: '1440951787',
+        name: 'Pure McCartney (Deluxe Edition)',
+        artistName: 'Paul McCartney',
+        tracks: [
+          'Dear Boy',
+          'Heart of the Country',
+          { name: 'Jet', artistName: 'Wings' },
+        ],
+        pageSize: 2,
+      },
+    ]);
+    const live = await reviewAlbums(db, 1, [wings.split.id], false, {
+      token: TOKEN,
+    });
+    expect(live.items[0]).toMatchObject({
+      action: 'link_album',
+      match: { catalog_id: 1440951787, album_artist: 'Paul McCartney' },
+    });
     expect(await playAlbum(wings.track.id)).toEqual([wings.split.id]);
   });
 

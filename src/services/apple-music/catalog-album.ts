@@ -12,12 +12,23 @@
  *
  * A candidate counts only when its title matches the played album and the
  * played song is on its tracklist, so the album artist it reports (for
- * example "Various Artists") describes the release that was played.
+ * example "Various Artists") describes the release that was played. A
+ * candidate whose track is credited to the played artist wins. Without one
+ * (dialogue clips are credited to the actors, not the character Last.fm
+ * reports), only a single candidate holding the song is accepted; ambiguity
+ * decides nothing.
  */
 
-import { albumMatches, trackMatches } from '../images/sources/utils.js';
+import {
+  albumMatches,
+  artistIdentityMatches,
+  trackMatches,
+} from '../images/sources/utils.js';
 
-const API = 'https://api.music.apple.com/v1/catalog/us';
+const ORIGIN = 'https://api.music.apple.com';
+const API = `${ORIGIN}/v1/catalog/us`;
+/** Tracklist pages followed per album; Apple pages relationships. */
+const TRACK_PAGES = 5;
 /** Candidates whose tracklists are opened per lookup. */
 const CANDIDATES = 3;
 
@@ -34,22 +45,30 @@ export type CatalogAlbumResult =
   | { status: 'rate_limited' }
   | { status: 'error'; detail: string };
 
+interface CatalogTrack {
+  attributes?: { name?: string; artistName?: string };
+}
+interface TrackPage {
+  data?: CatalogTrack[];
+  next?: string;
+}
 interface CatalogAlbumResource {
   id?: string;
   type?: string;
   attributes?: { name?: string; artistName?: string; url?: string };
-  relationships?: {
-    tracks?: { data?: Array<{ attributes?: { name?: string } }> };
-  };
+  relationships?: { tracks?: TrackPage };
 }
 
 async function get<T>(
   path: string,
   token: string
 ): Promise<{ ok: true; body: T } | { ok: false; status: number }> {
-  const response = await fetch(`${API}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await fetch(
+    path.startsWith('/v1/') ? `${ORIGIN}${path}` : `${API}${path}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
   if (!response.ok) return { ok: false, status: response.status };
   return { ok: true, body: (await response.json()) as T };
 }
@@ -62,7 +81,7 @@ const failure = (status: number): CatalogAlbumResult =>
 export async function findCatalogAlbum(
   token: string,
   albumName: string,
-  trackName: string
+  played: { track: string; artist: string }
 ): Promise<CatalogAlbumResult> {
   const term = albumName.replace(/[:/]/g, ' ').replace(/\s+/g, ' ').trim();
   const search = await get<{
@@ -76,6 +95,7 @@ export async function findCatalogAlbum(
     (album) =>
       album.attributes?.name && albumMatches(albumName, album.attributes.name)
   );
+  const holding: Array<{ album: CatalogAlbum; byPlayedArtist: boolean }> = [];
   for (const candidate of candidates.slice(0, CANDIDATES)) {
     const detail = await get<{ data?: CatalogAlbumResource[] }>(
       `/albums/${candidate.id}?include=tracks`,
@@ -89,23 +109,41 @@ export async function findCatalogAlbum(
       !Number.isSafeInteger(id) ||
       !attrs?.name ||
       !attrs.artistName ||
-      !attrs.url ||
-      !(album?.relationships?.tracks?.data ?? []).some(
-        (track) =>
-          !!track.attributes?.name &&
-          trackMatches(trackName, track.attributes.name)
-      )
+      !attrs.url
     )
       continue;
-    return {
-      status: 'found',
+    const tracks = [...(album?.relationships?.tracks?.data ?? [])];
+    let next = album?.relationships?.tracks?.next;
+    for (let page = 1; next && page < TRACK_PAGES; page++) {
+      const more = await get<TrackPage>(next, token);
+      if (!more.ok) return failure(more.status);
+      tracks.push(...(more.body.data ?? []));
+      next = more.body.next;
+    }
+    const songs = tracks.filter(
+      (track) =>
+        !!track.attributes?.name &&
+        trackMatches(played.track, track.attributes.name)
+    );
+    if (!songs.length) continue;
+    holding.push({
       album: {
         id,
         name: attrs.name,
         artistName: attrs.artistName,
         url: attrs.url,
       },
-    };
+      byPlayedArtist: songs.some(
+        (track) =>
+          !!track.attributes?.artistName &&
+          artistIdentityMatches(played.artist, track.attributes.artistName)
+      ),
+    });
   }
-  return { status: 'no_match' };
+  const chosen =
+    holding.find((candidate) => candidate.byPlayedArtist) ??
+    (holding.length === 1 ? holding[0] : undefined);
+  return chosen
+    ? { status: 'found', album: chosen.album }
+    : { status: 'no_match' };
 }

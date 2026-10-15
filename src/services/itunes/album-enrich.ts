@@ -125,7 +125,7 @@ async function findPlayedRelease(
   token: string | undefined
 ): Promise<SearchResult> {
   if (token) {
-    const catalog = await findCatalogAlbum(token, albumName, played.track);
+    const catalog = await findCatalogAlbum(token, albumName, played);
     if (catalog.status !== 'found') return catalog;
     return {
       status: 'found',
