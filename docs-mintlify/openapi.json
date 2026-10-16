@@ -1450,6 +1450,10 @@
             "type": "string",
             "example": "ticketclub.com"
           },
+          "subject": {
+            "type": "string",
+            "example": "Mariners"
+          },
           "refetch_missing_body": {
             "type": "boolean",
             "default": true
@@ -1465,6 +1469,10 @@
             "default": false
           },
           "force_update_loaded": {
+            "type": "boolean",
+            "default": false
+          },
+          "reload_linked": {
             "type": "boolean",
             "default": false
           }
