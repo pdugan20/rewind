@@ -27,6 +27,10 @@ export default defineConfig(async () => ({
         compatibilityDate: '2026-07-29',
         bindings: {
           OPENAI_API_KEY: 'synthetic-artwork-test-key',
+          // A local .dev.vars supplies the real token, which sends tests that
+          // expect no catalog provider to Apple Music. Tests that exercise the
+          // provider pass a synthetic token themselves.
+          APPLE_MUSIC_DEVELOPER_TOKEN: '',
           TEST_MIGRATIONS: await readD1Migrations(
             `${import.meta.dirname}/migrations`
           ),
