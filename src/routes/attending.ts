@@ -397,20 +397,7 @@ attending.openapi(eventsRoute, async (c) => {
     .offset(offset);
 
   const eventIds = rows.map((r) => r.attended_events.id);
-  const tickets = eventIds.length
-    ? await db
-        .select()
-        .from(attendedEventTickets)
-        .where(
-          sql`${attendedEventTickets.eventId} IN (${sql.join(eventIds, sql`, `)})`
-        )
-    : [];
-  const ticketsByEvent = new Map<number, typeof tickets>();
-  for (const t of tickets) {
-    const existing = ticketsByEvent.get(t.eventId) ?? [];
-    existing.push(t);
-    ticketsByEvent.set(t.eventId, existing);
-  }
+  const ticketsByEvent = await loadTicketsByEvent(db, eventIds);
 
   const parsedEvents = rows.map((r) => ({
     row: r,
@@ -454,18 +441,7 @@ attending.openapi(eventsRoute, async (c) => {
             capacity: v.capacity,
           }
         : null,
-      tickets: (ticketsByEvent.get(e.id) ?? []).map((t) => ({
-        id: t.id,
-        vendor: t.vendor,
-        order_id: t.orderId,
-        section: t.section,
-        row: t.row,
-        seat: t.seat,
-        quantity: t.quantity,
-        total_price_cents: t.totalPriceCents,
-        currency: t.currency,
-        purchased_at: t.purchasedAt,
-      })),
+      tickets: ticketsByEvent.get(e.id) ?? [],
     };
   });
 
@@ -704,6 +680,10 @@ attending.openapi(seasonRoute, async (c) => {
 
   let wins = 0;
   let losses = 0;
+  const ticketsByEvent = await loadTicketsByEvent(
+    db,
+    parsed.map(({ row }) => row.attended_events.id)
+  );
   const data = parsed.map(({ row: r, eventData: ed }) => {
     const e = r.attended_events;
     const v = r.venues;
@@ -741,7 +721,7 @@ attending.openapi(seasonRoute, async (c) => {
             capacity: v.capacity,
           }
         : null,
-      tickets: [],
+      tickets: ticketsByEvent.get(e.id) ?? [],
     };
   });
 
@@ -1712,3 +1692,46 @@ attending.openapi(yearInReviewRoute, async (c) => {
 });
 
 export default attending;
+
+/**
+ * Tickets for a page of events, keyed by event id, in the public
+ * AttendedEvent ticket shape. Chunked so a large page stays under D1's
+ * bound-parameter limit.
+ */
+async function loadTicketsByEvent(
+  db: ReturnType<typeof createDb>,
+  eventIds: number[]
+) {
+  const byEvent = new Map<number, Array<ReturnType<typeof publicTicket>>>();
+  for (let i = 0; i < eventIds.length; i += 90) {
+    const chunk = eventIds.slice(i, i + 90);
+    const rows = await db
+      .select()
+      .from(attendedEventTickets)
+      .where(
+        sql`${attendedEventTickets.eventId} IN (${sql.join(chunk, sql`, `)})`
+      )
+      .orderBy(asc(attendedEventTickets.id));
+    for (const t of rows) {
+      const list = byEvent.get(t.eventId) ?? [];
+      list.push(publicTicket(t));
+      byEvent.set(t.eventId, list);
+    }
+  }
+  return byEvent;
+}
+
+function publicTicket(t: typeof attendedEventTickets.$inferSelect) {
+  return {
+    id: t.id,
+    vendor: t.vendor,
+    order_id: t.orderId,
+    section: t.section,
+    row: t.row,
+    seat: t.seat,
+    quantity: t.quantity,
+    total_price_cents: t.totalPriceCents,
+    currency: t.currency,
+    purchased_at: t.purchasedAt,
+  };
+}

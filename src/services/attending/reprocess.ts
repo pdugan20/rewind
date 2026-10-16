@@ -37,6 +37,7 @@ import { parseEventbriteHtml } from './parse-eventbrite.js';
 
 export interface ReprocessOptions {
   vendor?: string; // domain match (e.g. 'ticketclub.com')
+  subject?: string; // case-insensitive subject substring (e.g. 'Mariners')
   refetchMissingBody?: boolean; // re-pull from Gmail when body_text/html absent
   limit?: number;
   dryRun?: boolean;
@@ -48,6 +49,10 @@ export interface ReprocessOptions {
   // the actual game line. Idempotent: re-running won't degrade good
   // titles since the new parse won't differ.
   forceUpdateLoaded?: boolean;
+  // When true, source rows already linked to an event go back through
+  // enrich+load (instead of the title-only force path), so an improved
+  // parser can fill seat fields on their tickets and re-date the event.
+  reloadLinked?: boolean;
 }
 
 export interface ReprocessResult {
@@ -66,10 +71,12 @@ export async function reprocessPendingSources(
 ): Promise<ReprocessResult> {
   const {
     vendor,
+    subject,
     refetchMissingBody = true,
     limit = 1000,
     dryRun = false,
     forceUpdateLoaded = false,
+    reloadLinked = false,
   } = opts;
   const result: ReprocessResult = {
     scanned: 0,
@@ -86,6 +93,9 @@ export async function reprocessPendingSources(
   const vendorClause = vendor
     ? sql`lower(json_extract(${attendedEventSources.rawData}, '$.from')) LIKE ${`%${vendor.toLowerCase()}%`}`
     : undefined;
+  const subjectClause = subject
+    ? sql`lower(json_extract(${attendedEventSources.rawData}, '$.subject')) LIKE ${`%${subject.toLowerCase()}%`}`
+    : undefined;
 
   const pending = await db
     .select()
@@ -94,8 +104,11 @@ export async function reprocessPendingSources(
       and(
         eq(attendedEventSources.userId, 1),
         eq(attendedEventSources.sourceType, 'gmail'),
-        forceUpdateLoaded ? undefined : isNull(attendedEventSources.eventId),
-        vendorClause
+        forceUpdateLoaded || reloadLinked
+          ? undefined
+          : isNull(attendedEventSources.eventId),
+        vendorClause,
+        subjectClause
       )
     )
     .limit(limit);
@@ -128,10 +141,20 @@ export async function reprocessPendingSources(
     const hasUsefulHtml =
       typeof raw.body_html === 'string' && raw.body_html.length > 0;
     const hasUsefulText = textLen >= 200;
-    if (refetchMissingBody && !hasUsefulHtml && !hasUsefulText) {
+    // Stored HTML is compacted and capped, which can cut off the seat
+    // block at the end of long transfer emails. A body at the cap is
+    // treated as truncated, and the parse below uses the full fetch.
+    const looksTruncated =
+      hasUsefulHtml && (raw.body_html as string).length >= 23900;
+    let fullHtml: string | null = null;
+    if (
+      refetchMissingBody &&
+      ((!hasUsefulHtml && !hasUsefulText) || looksTruncated)
+    ) {
       try {
         if (!accessToken) accessToken = await getGoogleAccessToken(db, env);
         const msg = await getGmailMessage(accessToken, row.sourceRef);
+        fullHtml = msg.bodyHtml ?? null;
         raw.body_text = msg.bodyText ? msg.bodyText.slice(0, 12000) : null;
         raw.body_html = msg.bodyHtml
           ? compactHtmlForStorage(msg.bodyHtml)
@@ -161,7 +184,7 @@ export async function reprocessPendingSources(
 
     // Re-parse with current parsers, vendor-specific dispatch.
     const senderVendor = inferVendorFromSender(senderRaw || undefined);
-    const html = (raw.body_html as string) ?? '';
+    const html = fullHtml ?? (raw.body_html as string) ?? '';
     const text = (raw.body_text as string) ?? '';
 
     let reservations = parseEventReservationFromHtml(html, senderVendor) ?? [];
@@ -173,7 +196,8 @@ export async function reprocessPendingSources(
       } else if (senderVendor === 'ticketmaster') {
         reservations =
           parseTicketmasterHtml(
-            html,
+            // Older transfer rows were stored as text/plain only.
+            html || text,
             row.sourceRef,
             (raw.internal_date as string) ?? null
           ) ?? [];
@@ -198,7 +222,7 @@ export async function reprocessPendingSources(
     // event lacks. Overwrite title (and re-infer event_type from the
     // new title via the enricher). No new event row created — we
     // update in place, leave tickets/performers untouched.
-    if (forceUpdateLoaded && row.eventId != null) {
+    if (forceUpdateLoaded && !reloadLinked && row.eventId != null) {
       const newTitle = reservations[0].event_name;
       const hasVersus =
         newTitle != null && / vs\.? /i.test(newTitle) && newTitle.length > 5;

@@ -161,3 +161,71 @@ describe('parseTicketmasterDate', () => {
     expect(parseTicketmasterDate('Some venue')).toBeNull();
   });
 });
+
+describe('parseTicketmasterHtml — seats', () => {
+  it('reads the inline seat on a modern order email', () => {
+    const html =
+      '<p>You Got the Tickets</p><p>Order # 31-36900/SEA</p>' +
+      '<p>Seattle Mariners vs. Houston Astros</p>' +
+      '<p>Sat · Apr 11, 2026 · 6:40 PM</p>' +
+      '<p>T-Mobile Park — Seattle, Washington</p>' +
+      '<p>Sec 346, Row 12, Seat 6</p>';
+    expect(parseTicketmasterHtml(html, 'ref')?.[0]).toMatchObject({
+      reservation_number: '31-36900/SEA',
+      section: '346',
+      row: '12',
+      seat: '6',
+    });
+  });
+
+  it('reads every seat on a team-branded transfer notice', () => {
+    const html =
+      '<p>Accept by Wed • May 01, 2024 • 02:10 PM</p>' +
+      '<h2>Transferred Tickets (2)</h2>' +
+      '<p>05/01/2024 Mariners vs. Atlanta Braves</p>' +
+      '<p>Wed • May 01, 2024 • 12:40 PM</p>' +
+      '<p>T-Mobile Park Seattle, WA</p>' +
+      '<p>Sec 107, Row 28, Seat 1</p><p>Sec 107, Row 28, Seat 2</p>' +
+      // The email repeats the block for its mobile layout.
+      '<p>05/01/2024 Mariners vs. Atlanta Braves</p>' +
+      '<p>Sec 107, Row 28, Seat 1</p><p>Sec 107, Row 28, Seat 2</p>';
+    const parsed = parseTicketmasterHtml(html, 'msg1');
+    expect(parsed).toHaveLength(2);
+    expect(parsed?.[0]).toMatchObject({
+      event_name: 'Mariners vs. Atlanta Braves',
+      event_start: '2024-05-01T12:40',
+      venue_name: 'T-Mobile Park',
+      section: '107',
+      row: '28',
+      seat: '1',
+    });
+    expect(parsed?.map((r) => r.reservation_number)).toEqual([
+      'tm-team-transfer-msg1-107-28-1',
+      'tm-team-transfer-msg1-107-28-2',
+    ]);
+  });
+  it('reads the short-date team transfer layout', () => {
+    const html =
+      '<p>Transferred Ticket</p><p>(4)</p>' +
+      '<p>6/14/25 Mariners vs. Cleveland Guardians</p>' +
+      '<p>Sat • Jun 14, 2025 • 06:40 PM</p>' +
+      '<p>T-Mobile Park • Seattle, WA</p>' +
+      '<p>Sec 191, Row 5, Seat 17</p><p>Sec 191, Row 5, Seat 18</p>';
+    const parsed = parseTicketmasterHtml(html, 'msg3');
+    expect(parsed?.map((r) => r.seat)).toEqual(['17', '18']);
+    expect(parsed?.[0]).toMatchObject({
+      event_start: '2025-06-14T18:40',
+      venue_name: 'T-Mobile Park',
+      section: '191',
+      row: '5',
+    });
+  });
+
+  it('skips a team transfer without a game line', () => {
+    const html =
+      '<h2>Transferred Tickets (3)</h2>' +
+      '<p>MLB All-Star Game presented by Mastercard</p>' +
+      '<p>Sec 316, Row 11, Seat 21</p>';
+    expect(parseTicketmasterHtml(html, 'msg2')).toBeNull();
+  });
+});
