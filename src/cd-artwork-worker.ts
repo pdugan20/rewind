@@ -417,7 +417,9 @@ app.post(`${admin}/webp-backfill`, async (c) => {
     status: string;
   }> = [];
   for (const [canonicalHash, { album_ids }] of byHash) {
-    const prepared = await readStoredWebpVariant(c.env, canonicalHash);
+    // Only a delivery (v2) variant counts: an earlier lossless one is
+    // re-prepared so the backfill brings every album to the smaller file.
+    const prepared = await readStoredWebpVariant(c.env, canonicalHash, 2);
     const status = prepared
       ? 'already_prepared'
       : body.dry_run
@@ -970,7 +972,7 @@ export class CdArtworkWorkflow extends WorkflowEntrypoint<
     const { jobId, userId } = event.payload;
     if (event.payload.variantOnly) {
       return step.do(
-        'prepare-accepted-lossless-webp-v1',
+        'prepare-accepted-webp-v2',
         { retries: { limit: 1, delay: '10 seconds' }, timeout: '2 minutes' },
         () => prepareAcceptedWebpVariant(this.env, jobId, userId)
       );
@@ -1006,7 +1008,7 @@ export class CdArtworkWorkflow extends WorkflowEntrypoint<
       if (published.candidateHash) {
         try {
           await step.do(
-            'prepare-accepted-lossless-webp-v1',
+            'prepare-accepted-webp-v2',
             {
               retries: { limit: 1, delay: '10 seconds' },
               timeout: '2 minutes',

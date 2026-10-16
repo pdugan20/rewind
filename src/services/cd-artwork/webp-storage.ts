@@ -2,20 +2,32 @@ import type { ArtworkEnv } from './types.js';
 import { sha256 } from './types.js';
 import { validateCandidate } from './registration.js';
 import {
-  createLosslessWebp,
+  createDeliveryWebp,
   isStoredWebpVariant,
   WEBP_VARIANT_DIMENSION,
   type StoredWebpVariant,
 } from './webp-variant.js';
 
 const VARIANT_PREFIX = 'listening/cd-artwork-variants/';
+/** Variants prepared now; version 1 (lossless) descriptors are still read. */
+const CURRENT_VERSION = 2;
+type VariantVersion = StoredWebpVariant['version'];
 const verifiedVariantEtags = new Map<string, { etag: string; until: number }>();
 const VERIFIED_VARIANT_TTL_MS = 60_000;
 const VERIFIED_VARIANT_CACHE_SIZE = 64;
 const canonicalKey = (hash: string) => `listening/cd-artwork/${hash}.png`;
-const metadataKey = (hash: string) => `${VARIANT_PREFIX}${hash}.json`;
-const variantIndexKey = (hash: string) =>
-  `${VARIANT_PREFIX}by-hash/${hash}.json`;
+// Each version keeps its own descriptor for a canonical image, so preparing a
+// delivery variant never overwrites (or depends on) an earlier lossless one.
+const metadataKey = (hash: string, version: VariantVersion) =>
+  version === 1
+    ? `${VARIANT_PREFIX}${hash}.json`
+    : `${VARIANT_PREFIX}v${version}/${hash}.json`;
+// Indexed by the variant's own hash, per version: the delivery encode can be
+// byte-identical to an earlier lossless one, and each must stay verifiable.
+const variantIndexKey = (hash: string, version: VariantVersion) =>
+  version === 1
+    ? `${VARIANT_PREFIX}by-hash/${hash}.json`
+    : `${VARIANT_PREFIX}by-hash/v${version}/${hash}.json`;
 const variantKey = (hash: string) => `${VARIANT_PREFIX}${hash}.webp`;
 
 interface VariantCheck {
@@ -85,7 +97,11 @@ export async function prepareAcceptedWebpVariant(
 ): Promise<StoredWebpVariant | null> {
   if (!/^[a-f0-9]{64}$/.test(canonicalHash)) return null;
   if (!(await acceptedCandidate(env, canonicalHash, userId))) return null;
-  const existing = await readStoredWebpVariant(env, canonicalHash);
+  const existing = await readStoredWebpVariant(
+    env,
+    canonicalHash,
+    CURRENT_VERSION
+  );
   if (existing) return existing;
 
   const canonical = await env.IMAGES.get(canonicalKey(canonicalHash));
@@ -95,7 +111,7 @@ export async function prepareAcceptedWebpVariant(
   if ((await sha256(png)) !== canonicalHash || !validateCandidate(png).pass)
     return null;
 
-  const webp = await createLosslessWebp(png);
+  const webp = await createDeliveryWebp(png);
   if (webp.byteLength >= png.byteLength) return null;
   const variantHash = await sha256(webp);
   const stored: StoredWebpVariant = {
@@ -105,7 +121,7 @@ export async function prepareAcceptedWebpVariant(
     width: WEBP_VARIANT_DIMENSION,
     height: WEBP_VARIANT_DIMENSION,
     bytes: webp.byteLength,
-    version: 1,
+    version: CURRENT_VERSION,
   };
 
   // A withdrawal/rejection during encoding must not publish new public metadata.
@@ -131,40 +147,81 @@ export async function prepareAcceptedWebpVariant(
       variantHash
   )
     return null;
-  await env.IMAGES.put(metadataKey(canonicalHash), JSON.stringify(stored), {
-    httpMetadata: {
-      contentType: 'application/json',
-      cacheControl: 'private, no-store',
-    },
-    onlyIf: { etagDoesNotMatch: '*' },
-  });
-  await env.IMAGES.put(variantIndexKey(variantHash), JSON.stringify(stored), {
-    httpMetadata: {
-      contentType: 'application/json',
-      cacheControl: 'private, no-store',
-    },
-    onlyIf: { etagDoesNotMatch: '*' },
-  });
-  return readStoredWebpVariant(env, canonicalHash);
+  await env.IMAGES.put(
+    metadataKey(canonicalHash, CURRENT_VERSION),
+    JSON.stringify(stored),
+    {
+      httpMetadata: {
+        contentType: 'application/json',
+        cacheControl: 'private, no-store',
+      },
+      onlyIf: { etagDoesNotMatch: '*' },
+    }
+  );
+  await env.IMAGES.put(
+    variantIndexKey(variantHash, CURRENT_VERSION),
+    JSON.stringify(stored),
+    {
+      httpMetadata: {
+        contentType: 'application/json',
+        cacheControl: 'private, no-store',
+      },
+      onlyIf: { etagDoesNotMatch: '*' },
+    }
+  );
+  return readStoredWebpVariant(env, canonicalHash, CURRENT_VERSION);
 }
 
+/**
+ * The verified variant to advertise: the delivery (v2) variant when one is
+ * prepared, else the earlier lossless one. Pass a version to read only that.
+ */
 export async function readStoredWebpVariant(
   env: ArtworkEnv,
-  canonicalHash: string
-) {
+  canonicalHash: string,
+  only?: VariantVersion
+): Promise<StoredWebpVariant | null> {
   // Two storage rounds instead of four: the descriptor with its verification
   // records, then the index with the object's headers. The manifest has a
-  // 500 ms budget, and sequential reads regularly overran it.
-  const [metadata, checks] = await Promise.all([
-    env.IMAGES.get(metadataKey(canonicalHash)),
+  // 500 ms budget, and sequential reads regularly overran it. Both versions'
+  // descriptors are read in the first round.
+  const versions: VariantVersion[] = only ? [only] : [2, 1];
+  const [checks, ...metadata] = await Promise.all([
     variantChecks(env, canonicalHash),
+    ...versions.map((version) =>
+      env.IMAGES.get(metadataKey(canonicalHash, version))
+    ),
   ]);
+  for (const [index, version] of versions.entries()) {
+    const verified = await verifyStoredWebpVariant(
+      env,
+      canonicalHash,
+      version,
+      metadata[index],
+      checks
+    );
+    if (verified) return verified;
+  }
+  return null;
+}
+
+async function verifyStoredWebpVariant(
+  env: ArtworkEnv,
+  canonicalHash: string,
+  version: VariantVersion,
+  metadata: R2ObjectBody | null,
+  checks: VariantCheck[]
+) {
   if (!metadata || metadata.size > 1024) return null;
   try {
     const descriptor = JSON.parse(await metadata.text()) as unknown;
-    if (!isStoredWebpVariant(descriptor, canonicalHash)) return null;
+    if (
+      !isStoredWebpVariant(descriptor, canonicalHash) ||
+      descriptor.version !== version
+    )
+      return null;
     const [index, object] = await Promise.all([
-      env.IMAGES.get(variantIndexKey(descriptor.sha256)),
+      env.IMAGES.get(variantIndexKey(descriptor.sha256, version)),
       env.IMAGES.head(variantKey(descriptor.sha256)),
     ]);
     if (!index || index.size > 1024) return null;
@@ -246,7 +303,19 @@ export async function readStoredWebpVariant(
 
 export async function readWebpVariantByHash(env: ArtworkEnv, hash: string) {
   if (!/^[a-f0-9]{64}$/.test(hash)) return null;
-  const index = await env.IMAGES.get(variantIndexKey(hash));
+  for (const version of [2, 1] as const) {
+    const found = await readWebpVariantVersion(env, hash, version);
+    if (found) return found;
+  }
+  return null;
+}
+
+async function readWebpVariantVersion(
+  env: ArtworkEnv,
+  hash: string,
+  version: VariantVersion
+) {
+  const index = await env.IMAGES.get(variantIndexKey(hash, version));
   if (!index || index.size > 1024) return null;
   try {
     const descriptor = JSON.parse(await index.text()) as unknown;
@@ -257,9 +326,10 @@ export async function readWebpVariantByHash(env: ArtworkEnv, hash: string) {
       )
     )
       return null;
-    if (descriptor.sha256 !== hash) return null;
+    if (descriptor.sha256 !== hash || descriptor.version !== version)
+      return null;
     const metadata = await env.IMAGES.get(
-      metadataKey(descriptor.canonical_hash)
+      metadataKey(descriptor.canonical_hash, descriptor.version)
     );
     if (!metadata || metadata.size > 1024) return null;
     const canonicalDescriptor = JSON.parse(await metadata.text()) as unknown;
@@ -313,7 +383,7 @@ export async function dispatchWebpVariant(
     !(await acceptedCandidate(env, canonicalHash, userId))
   )
     return 'not_accepted';
-  const workflowId = `webp-v1-${canonicalHash}`;
+  const workflowId = `webp-v${CURRENT_VERSION}-${canonicalHash}`;
   try {
     await env.CD_WORKFLOW.create({
       id: workflowId,
@@ -338,7 +408,7 @@ export async function dispatchWebpVariant(
   }
 
   // One deterministic recovery instance is the lifetime retry ceiling per hash.
-  const recoveryId = `webp-v1-r1-${canonicalHash}`;
+  const recoveryId = `webp-v${CURRENT_VERSION}-r1-${canonicalHash}`;
   try {
     await env.CD_WORKFLOW.create({
       id: recoveryId,
