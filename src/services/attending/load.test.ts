@@ -135,6 +135,30 @@ describe('loadCanonicalEvent', () => {
     expect(updateCall).toBeTruthy();
   });
 
+  it('moves a matched sports row onto the game date on update', async () => {
+    const db = makeDbStub({ existing: { id: 209 } });
+    await loadCanonicalEvent(
+      { ...baseCanonical, event_date: '2026-05-16' },
+      [],
+      [],
+      db as never
+    );
+    const updateCall = db._calls.find((c) => c.op === 'update');
+    expect(updateCall?.values).toMatchObject({ eventDate: '2026-05-16' });
+  });
+
+  it('leaves the date alone for unmatched events on update', async () => {
+    const db = makeDbStub({ existing: { id: 42 } });
+    await loadCanonicalEvent(
+      { ...baseCanonical, external_source: null, external_id: null },
+      [],
+      [],
+      db as never
+    );
+    const updateCall = db._calls.find((c) => c.op === 'update');
+    expect(updateCall?.values).not.toHaveProperty('eventDate');
+  });
+
   it('inserts ticket rows when reservations supplied', async () => {
     const db = makeDbStub();
     const tickets = [

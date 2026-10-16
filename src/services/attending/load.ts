@@ -132,6 +132,10 @@ export async function loadCanonicalEvent(
           ? {
               title: canonical.title,
               subtitle: canonical.subtitle,
+              // The matched game owns the date; without this a row
+              // created from a mis-dated source keeps the wrong day even
+              // after later sources resolve it to the right game.
+              eventDate: canonical.event_date,
             }
           : {}),
         updatedAt: now,

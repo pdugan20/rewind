@@ -4,6 +4,7 @@ import {
   stripVenueSuffix,
   formatSportsTitle,
   formatSportsSubtitle,
+  canonicalGameTiming,
 } from './enrich.js';
 import type { SportsGameMatch } from '../sports/types.js';
 
@@ -138,3 +139,42 @@ function makeMatch(opts: {
     away_is_winner: null,
   };
 }
+
+describe('canonicalGameTiming', () => {
+  const game = {
+    game_date: '2026-05-16',
+    game_datetime_utc: '2026-05-16T23:15:00Z',
+  };
+
+  it('keeps a complete local start on the game day', () => {
+    expect(canonicalGameTiming(game, '2026-05-16T16:15:00-07:00')).toEqual({
+      event_date: '2026-05-16',
+      event_datetime: '2026-05-16T16:15:00-07:00',
+    });
+  });
+
+  it('replaces a yearless vendor start with the scheduled start', () => {
+    expect(
+      canonicalGameTiming(
+        { game_date: '2025-08-08', game_datetime_utc: '2025-08-09T01:40:00Z' },
+        '08-08T18:40'
+      )
+    ).toEqual({
+      event_date: '2025-08-08',
+      event_datetime: '2025-08-09T01:40:00Z',
+    });
+  });
+
+  it('replaces a start from another day or year', () => {
+    expect(canonicalGameTiming(game, '2021-05-16T13:10')).toEqual({
+      event_date: '2026-05-16',
+      event_datetime: '2026-05-16T23:15:00Z',
+    });
+  });
+
+  it('uses the scheduled start when the source has none', () => {
+    expect(canonicalGameTiming(game, null).event_datetime).toBe(
+      '2026-05-16T23:15:00Z'
+    );
+  });
+});

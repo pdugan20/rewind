@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import {
   attendedEvents,
   attendedEventPlayers,
+  attendedEventTickets,
   players,
   venues,
 } from '../db/schema/attending.js';
@@ -22,6 +23,7 @@ describe('attending - Tier 1 filter additions', () => {
 
   beforeEach(async () => {
     const db = drizzle(env.DB);
+    await db.delete(attendedEventTickets);
     await db.delete(attendedEventPlayers);
     await db.delete(attendedEvents);
     await db.delete(players);
@@ -468,6 +470,59 @@ describe('attending - Tier 1 filter additions', () => {
       expect(body.league).toBe('ncaaf');
       expect(body.appearances).toHaveLength(1);
       expect(body.appearances[0].final_score).toBe('14-26');
+    });
+  });
+
+  describe('GET /v1/attending/seasons/{league}/{season}', () => {
+    it('returns each game with its tickets', async () => {
+      const db = drizzle(env.DB);
+      const now = new Date().toISOString();
+      const [game] = await db
+        .insert(attendedEvents)
+        .values({
+          userId: 1,
+          category: 'sports',
+          eventType: 'mlb_game',
+          eventDate: '2026-05-16',
+          title: 'Seattle Mariners vs San Diego Padres',
+          eventData: JSON.stringify({
+            league: 'mlb',
+            season: 2026,
+            home_team: { id: 136, name: 'Seattle Mariners' },
+            away_team: { id: 135, name: 'San Diego Padres' },
+            my_team_won: false,
+          }),
+          attended: 1,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning({ id: attendedEvents.id });
+      await db.insert(attendedEventTickets).values({
+        userId: 1,
+        eventId: game.id,
+        vendor: 'seatgeek',
+        orderId: '6P2-TEST',
+        section: '111',
+        row: '39',
+        seat: '3',
+        sourceType: 'gmail',
+        createdAt: now,
+      });
+
+      const res = await SELF.fetch(
+        'https://test/v1/attending/seasons/mlb/2026',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: Array<{
+          tickets: Array<{ section: string; row: string; seat: string }>;
+        }>;
+      };
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].tickets).toMatchObject([
+        { section: '111', row: '39', seat: '3' },
+      ]);
     });
   });
 });

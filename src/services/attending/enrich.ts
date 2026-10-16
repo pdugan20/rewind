@@ -320,6 +320,8 @@ export async function enrichCandidate(
   // sports match.
   let canonicalTitle: string | null = null;
   let canonicalSubtitle: string | null = null;
+  let eventDate = input.event_date;
+  let eventDatetime = input.event_datetime;
 
   if (category === 'sports') {
     const { match, myTeamSide } = await enrichSports(
@@ -348,6 +350,8 @@ export async function enrichCandidate(
       // see in the UI when we already know the actual matchup.
       canonicalTitle = formatSportsTitle(match);
       canonicalSubtitle = formatSportsSubtitle(match);
+      ({ event_date: eventDate, event_datetime: eventDatetime } =
+        canonicalGameTiming(match, input.event_datetime));
     } else {
       // Sports event with no match — keep low confidence so review
       // surfaces it.
@@ -378,8 +382,8 @@ export async function enrichCandidate(
   return {
     category,
     event_type,
-    event_date: input.event_date,
-    event_datetime: input.event_datetime,
+    event_date: eventDate,
+    event_datetime: eventDatetime,
     title: canonicalTitle ?? input.title ?? '(untitled)',
     subtitle: canonicalSubtitle,
     venue_id: venueId,
@@ -397,6 +401,30 @@ export async function enrichCandidate(
  * Used as the event title in place of whatever the source (calendar
  * entry, email subject) provided.
  */
+/**
+ * Once a source resolves to a real game, the game owns the date. The
+ * official date is venue-local and authoritative; a source timestamp is
+ * kept only when it is a complete ISO datetime on that same day (a
+ * calendar entry's local start). Partial vendor strings such as
+ * SeatGeek's yearless "08-08T18:40", or a timestamp from another day,
+ * give way to the game's scheduled start.
+ */
+export function canonicalGameTiming(
+  match: Pick<SportsGameMatch, 'game_date' | 'game_datetime_utc'>,
+  sourceDatetime: string | null
+): { event_date: string; event_datetime: string | null } {
+  const keepSource =
+    sourceDatetime != null &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(sourceDatetime) &&
+    sourceDatetime.slice(0, 10) === match.game_date;
+  return {
+    event_date: match.game_date,
+    event_datetime: keepSource
+      ? sourceDatetime
+      : (match.game_datetime_utc ?? sourceDatetime),
+  };
+}
+
 export function formatSportsTitle(match: SportsGameMatch): string {
   return `${match.home_team.name} vs ${match.away_team.name}`;
 }
