@@ -200,10 +200,22 @@ describe('parseTicketmasterHtml — seats', () => {
       seat: '1',
     });
     expect(parsed?.map((r) => r.reservation_number)).toEqual([
-      'tm-team-transfer-msg1-107-28-1',
-      'tm-team-transfer-msg1-107-28-2',
+      'tm-team-transfer-20240501-107-28-1',
+      'tm-team-transfer-20240501-107-28-2',
     ]);
   });
+  it('gives every notice for the same seat one reservation number', () => {
+    const notice =
+      '<h2>Transferred Tickets (1)</h2>' +
+      '<p>05/10/2024 Mariners vs. Oakland Athletics</p>' +
+      '<p>Fri • May 10, 2024 • 06:40 PM</p>' +
+      '<p>T-Mobile Park Seattle, WA</p>' +
+      '<p>Sec 345, Row 14, Seat 20</p>';
+    expect(parseTicketmasterHtml(notice, 'offer')?.[0].reservation_number).toBe(
+      parseTicketmasterHtml(notice, 'accepted')?.[0].reservation_number
+    );
+  });
+
   it('reads the short-date team transfer layout', () => {
     const html =
       '<p>Transferred Ticket</p><p>(4)</p>' +
