@@ -44,6 +44,7 @@ import {
   prepareAcceptedWebpVariant,
   readStoredWebpVariant,
   readWebpVariantByHash,
+  variantChecksFor,
 } from './services/cd-artwork/webp-storage.js';
 import {
   reviewedMasterSchema,
@@ -106,6 +107,14 @@ const app = new Hono<{ Bindings: Env & ArtworkEnv }>();
 app.notFound((c) => c.json({ error: 'Not found', status: 404 }, 404));
 const read = '/v1/listening/cd-artwork',
   admin = '/v1/admin/cd-artwork';
+/** Concurrent variant lookups in one manifest (see artworkSnapshotWithVariants). */
+const VARIANT_LOOKUPS = 3;
+/**
+ * How long a manifest waits for optional WebP variants before answering with
+ * what it has. Twenty verified lookups fit with room to spare; the Discman's
+ * server allows this request 2.5 s and caches the answer for a minute.
+ */
+const VARIANT_BUDGET_MS = 1000;
 async function artworkSnapshotWithVariants(
   env: ArtworkEnv,
   albumIds: number[],
@@ -124,19 +133,39 @@ async function artworkSnapshotWithVariants(
   // PNG publication is authoritative. Optional WebP reads must not delay the
   // entire manifest beyond a consumer's deadline and hide valid artwork.
   const data = [...snapshot.data];
+  // One query for every disc's verification records; each lookup then spends
+  // its storage reads on the variant alone.
+  const checks = variantChecksFor(
+    env,
+    snapshot.data.flatMap((artwork) => (artwork.sha256 ? [artwork.sha256] : []))
+  );
   let next = 0;
+  // Look up variants in the order the albums were requested; the snapshot
+  // comes back in database order.
+  const position = new Map(albumIds.map((id, index) => [id, index]));
+  const order = snapshot.data
+    .map((_, index) => index)
+    .sort(
+      (a, b) =>
+        (position.get(snapshot.data[a].album_id) ?? Infinity) -
+        (position.get(snapshot.data[b].album_id) ?? Infinity)
+    );
   const projectNext = async () => {
+    const records = await checks;
     while (!expired) {
-      const index = next++;
-      if (index >= snapshot.data.length) return;
+      if (next >= order.length) return;
+      const index = order[next++];
       const artwork = snapshot.data[index];
       if (!artwork.sha256) {
         data[index] = artwork;
         continue;
       }
-      const variant = await readStoredWebpVariant(env, artwork.sha256).catch(
-        () => null
-      );
+      const variant = await readStoredWebpVariant(
+        env,
+        artwork.sha256,
+        undefined,
+        records.get(artwork.sha256) ?? []
+      ).catch(() => null);
       if (expired) return;
       if (!variant) {
         data[index] = artwork;
@@ -157,9 +186,16 @@ async function artworkSnapshotWithVariants(
       };
     }
   };
-  // At most 20 albums per request; each lookup is a few small metadata reads.
+  // A Worker holds at most six storage connections at once, and a lookup uses
+  // up to two. Three lookups at a time keep the queue empty and finish discs
+  // in the order requested, so the first discs a consumer shows are the first
+  // to get their variants. Starting all twenty at once queued every read and
+  // ran out the budget for most of them.
   const variants = Promise.all(
-    Array.from({ length: snapshot.data.length }, projectNext)
+    Array.from(
+      { length: Math.min(VARIANT_LOOKUPS, snapshot.data.length) },
+      projectNext
+    )
   );
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -169,7 +205,7 @@ async function artworkSnapshotWithVariants(
         timer = setTimeout(() => {
           expired = true;
           resolve();
-        }, 500);
+        }, VARIANT_BUDGET_MS);
       }),
     ]);
   } finally {

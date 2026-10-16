@@ -35,6 +35,8 @@ interface VariantCheck {
   etag: string;
   bytes: number;
 }
+/** Verification records kept per canonical image, newest first. */
+const CHECKS_PER_IMAGE = 8;
 
 /**
  * Storage ETags that this canonical image's variants were last hashed under.
@@ -46,7 +48,7 @@ async function variantChecks(
 ): Promise<VariantCheck[]> {
   try {
     const { results } = await env.DB.prepare(
-      'SELECT variant_sha256,etag,bytes FROM cd_artwork_variant_checks WHERE canonical_hash=? ORDER BY verified_at DESC LIMIT 8'
+      `SELECT variant_sha256,etag,bytes FROM cd_artwork_variant_checks WHERE canonical_hash=? ORDER BY verified_at DESC LIMIT ${CHECKS_PER_IMAGE}`
     )
       .bind(canonicalHash)
       .all<VariantCheck>();
@@ -54,6 +56,36 @@ async function variantChecks(
   } catch {
     return [];
   }
+}
+
+/**
+ * The verification records for a whole manifest in one query, so its variant
+ * lookups don't each spend a database round trip. Missing images map to none.
+ */
+export async function variantChecksFor(
+  env: ArtworkEnv,
+  canonicalHashes: readonly string[]
+): Promise<Map<string, VariantCheck[]>> {
+  const hashes = [
+    ...new Set(canonicalHashes.filter((hash) => /^[a-f0-9]{64}$/.test(hash))),
+  ];
+  const checks = new Map<string, VariantCheck[]>();
+  if (!hashes.length) return checks;
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT canonical_hash,variant_sha256,etag,bytes FROM cd_artwork_variant_checks WHERE canonical_hash IN (${hashes.map(() => '?').join(',')}) ORDER BY verified_at DESC`
+    )
+      .bind(...hashes)
+      .all<VariantCheck & { canonical_hash: string }>();
+    for (const { canonical_hash, ...check } of results ?? []) {
+      const list = checks.get(canonical_hash) ?? [];
+      if (list.length < CHECKS_PER_IMAGE) list.push(check);
+      checks.set(canonical_hash, list);
+    }
+  } catch {
+    // Without records, each variant is verified by downloading it instead.
+  }
+  return checks;
 }
 
 async function recordVerified(
@@ -175,34 +207,42 @@ export async function prepareAcceptedWebpVariant(
 /**
  * The verified variant to advertise: the delivery (v2) variant when one is
  * prepared, else the earlier lossless one. Pass a version to read only that.
+ * A manifest passes the image's verification records from variantChecksFor.
  */
 export async function readStoredWebpVariant(
   env: ArtworkEnv,
   canonicalHash: string,
-  only?: VariantVersion
+  only?: VariantVersion,
+  knownChecks?: VariantCheck[]
 ): Promise<StoredWebpVariant | null> {
-  // Two storage rounds instead of four: the descriptor with its verification
-  // records, then the index with the object's headers. The manifest has a
-  // 500 ms budget, and sequential reads regularly overran it. Both versions'
-  // descriptors are read in the first round.
-  const versions: VariantVersion[] = only ? [only] : [2, 1];
-  const [checks, ...metadata] = await Promise.all([
-    variantChecks(env, canonicalHash),
-    ...versions.map((version) =>
-      env.IMAGES.get(metadataKey(canonicalHash, version))
-    ),
-  ]);
-  for (const [index, version] of versions.entries()) {
+  // Two storage rounds: the descriptor (with its verification records), then
+  // the index with the object's headers. The lossless descriptor is read only
+  // when no delivery variant verifies: a Worker holds at most six storage
+  // connections at once, and a manifest's lookups share them, so a read that
+  // is usually discarded delays every other disc's lookup.
+  const checks = knownChecks
+    ? Promise.resolve(knownChecks)
+    : variantChecks(env, canonicalHash);
+  for (const version of only ? [only] : ([2, 1] as const)) {
+    const [records, metadata] = await Promise.all([
+      checks,
+      env.IMAGES.get(metadataKey(canonicalHash, version)),
+    ]);
     const verified = await verifyStoredWebpVariant(
       env,
       canonicalHash,
       version,
-      metadata[index],
-      checks
+      metadata,
+      records
     );
     if (verified) return verified;
   }
   return null;
+}
+
+/** Releases an R2 body that won't be read, so it doesn't hold a connection. */
+function discard(object: R2ObjectBody | null) {
+  if (object && !object.bodyUsed) void object.body.cancel().catch(() => {});
 }
 
 async function verifyStoredWebpVariant(
@@ -212,7 +252,10 @@ async function verifyStoredWebpVariant(
   metadata: R2ObjectBody | null,
   checks: VariantCheck[]
 ) {
-  if (!metadata || metadata.size > 1024) return null;
+  if (!metadata || metadata.size > 1024) {
+    discard(metadata);
+    return null;
+  }
   try {
     const descriptor = JSON.parse(await metadata.text()) as unknown;
     if (
@@ -224,7 +267,10 @@ async function verifyStoredWebpVariant(
       env.IMAGES.get(variantIndexKey(descriptor.sha256, version)),
       env.IMAGES.head(variantKey(descriptor.sha256)),
     ]);
-    if (!index || index.size > 1024) return null;
+    if (!index || index.size > 1024) {
+      discard(index);
+      return null;
+    }
     const indexed = JSON.parse(await index.text()) as unknown;
     if (
       !isStoredWebpVariant(indexed, canonicalHash) ||
