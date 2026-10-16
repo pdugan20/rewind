@@ -58,7 +58,7 @@ export function parseTicketmasterHtml(
   // Tickets"): a "Transferred Tickets (N)" block listing the game and one
   // "Sec X, Row Y, Seat Z" line per ticket, with a four-digit year.
   if (/Transferred Tickets?\s*\(\d+\)/i.test(text)) {
-    return parseTeamTransfer(text, sourceRef);
+    return parseTeamTransfer(text);
   }
 
   // Order number anchor — present in both layouts.
@@ -206,10 +206,7 @@ function seatLines(
  * game date is read from after the dated game line. One reservation per
  * seat, with a stable per-seat number so reprocessing stays idempotent.
  */
-function parseTeamTransfer(
-  text: string,
-  sourceRef: string | undefined
-): ParsedReservation[] | null {
+function parseTeamTransfer(text: string): ParsedReservation[] | null {
   const game = text.match(
     /(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})\s+([^\n]*?\bvs\.?\s[^\n]+?)(?=\s*\n|\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b)/
   );
@@ -232,7 +229,10 @@ function parseTeamTransfer(
       ?.trim() ?? null;
   const seats = seatLines(after);
   if (seats.length === 0) return null;
-  const ref = sourceRef ?? `${year}${month}${day}`;
+  // The offer, "View and Save" and "Transfer Went Through" emails all list
+  // the same seats, so the number is keyed on game and seat, not on the
+  // email: every notice for a seat resolves to one ticket row.
+  const ref = `${year}${month}${day}`;
   return seats.map((s) => ({
     vendor: 'ticketmaster' as Vendor,
     reservation_number: `tm-team-transfer-${ref}-${s.section}-${s.row}-${s.seat ?? 'x'}`,
