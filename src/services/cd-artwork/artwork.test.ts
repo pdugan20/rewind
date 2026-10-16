@@ -348,7 +348,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     // The response is bounded well before this fires, so it is still served
     // while storage stalls; releasing later lets the background lookups that
     // the request helper waits on finish instead of deadlocking it.
-    const releaseTimer = setTimeout(() => release!(), 1500);
+    const releaseTimer = setTimeout(() => release!(), 2500);
     try {
       const response = await request(`${read}/albums?ids=1`, readKey);
       expect(response.status).toBe(200);
