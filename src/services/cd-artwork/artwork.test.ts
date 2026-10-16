@@ -120,12 +120,17 @@ async function candidate(id: string, userId = 1, albumId = 1) {
     .first<Job>())!;
 }
 let readKey: string, adminKey: string, otherKey: string;
+const edgeCache = () => (caches as unknown as { default: Cache }).default;
 beforeAll(async () => {
   await applyD1Migrations(runtime.DB, runtime.TEST_MIGRATIONS);
 });
 beforeEach(async () => {
   vi.restoreAllMocks();
   clearAuthCache();
+  // The edge cache outlives each test and fixtures share image bytes, so tests
+  // read storage unless they opt into the cache.
+  vi.spyOn(edgeCache(), 'match').mockResolvedValue(undefined);
+  vi.spyOn(edgeCache(), 'put').mockResolvedValue(undefined);
   await runtime.DB.exec(
     'DELETE FROM cd_artwork_checks; DELETE FROM cd_artwork_events; DELETE FROM cd_artwork_albums; DELETE FROM cd_artwork_jobs; DELETE FROM lastfm_scrobbles; DELETE FROM lastfm_tracks; DELETE FROM lastfm_albums; DELETE FROM lastfm_artists; DELETE FROM api_keys;'
   );
@@ -462,7 +467,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     );
     expect(repeated).toEqual(stored);
     await runtime.IMAGES.delete(
-      `listening/cd-artwork-variants/by-hash/v2/${stored!.sha256}.json`
+      `listening/cd-artwork-variants/by-hash/v3/${stored!.sha256}.json`
     );
     const recoveredIndex = await prepareAcceptedWebpVariant(
       runtime,
@@ -470,7 +475,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       1
     );
     expect(recoveredIndex).toEqual(stored);
-    const indexKey = `listening/cd-artwork-variants/by-hash/v2/${stored!.sha256}.json`;
+    const indexKey = `listening/cd-artwork-variants/by-hash/v3/${stored!.sha256}.json`;
     await runtime.IMAGES.put(
       indexKey,
       JSON.stringify({ ...stored, bytes: stored!.bytes + 1 }),
@@ -486,7 +491,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     await runtime.IMAGES.put(indexKey, JSON.stringify(stored), {
       httpMetadata: { contentType: 'application/json' },
     });
-    const metadataKey = `listening/cd-artwork-variants/v2/${job.candidate_hash}.json`;
+    const metadataKey = `listening/cd-artwork-variants/v3/${job.candidate_hash}.json`;
     await runtime.IMAGES.put(
       metadataKey,
       JSON.stringify({ ...stored, bytes: stored!.bytes + 1 }),
@@ -527,7 +532,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       format: 'webp',
       width: 1024,
       height: 1024,
-      version: 2,
+      version: 3,
     });
     expect(stored!.bytes).toBeLessThan(canonicalBefore.byteLength);
     const snapshot = (await (
@@ -612,7 +617,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     };
     const prefix = 'listening/cd-artwork-variants/';
     await Promise.all([
-      runtime.IMAGES.delete(`${prefix}v2/${canonicalHash}.json`),
+      runtime.IMAGES.delete(`${prefix}v3/${canonicalHash}.json`),
       runtime.IMAGES.put(`${prefix}${losslessHash}.webp`, lossless, {
         httpMetadata: { contentType: 'image/webp' },
       }),
@@ -643,13 +648,46 @@ describe('authorization, publication and accepted-state preservation', () => {
       canonicalHash,
       1
     );
-    expect(delivery?.version).toBe(2);
+    expect(delivery?.version).toBe(3);
     expect(delivery!.bytes).toBeLessThanOrEqual(lossless.byteLength);
     if (delivery!.sha256 !== losslessHash)
       expect(await advertised()).toBe(delivery!.sha256);
     expect(
       (await request(`${read}/assets/${delivery!.sha256}.webp`, readKey)).status
     ).toBe(200);
+  });
+  it('serves cached artwork from the edge after withdrawal until it is purged', async () => {
+    vi.mocked(edgeCache().match).mockRestore();
+    vi.mocked(edgeCache().put).mockRestore();
+    const job = await candidate('c'.repeat(64));
+    await reviewJob(runtime, job.id, 1, 'accepted', false, 'synthetic-test');
+    const url = `https://api.rewind.rest${read}/assets/${job.candidate_hash}.png`;
+    await edgeCache().delete(url);
+    // A miss is not cached: the image still unpublished elsewhere returns 404.
+    const missing = `https://api.rewind.rest${read}/assets/${'d'.repeat(64)}.png`;
+    expect((await request(`${read}/assets/${'d'.repeat(64)}.png`)).status).toBe(
+      404
+    );
+    expect(await edgeCache().match(missing)).toBeUndefined();
+
+    const first = await request(`${read}/assets/${job.candidate_hash}.png`);
+    expect(first.status).toBe(200);
+    const original = new Uint8Array(await first.arrayBuffer());
+    expect(await edgeCache().match(url)).toBeDefined();
+
+    // Rejected, the image is no longer published, but the cached copy lingers.
+    await reviewJob(runtime, job.id, 1, 'rejected', false, 'synthetic-test');
+    const get = vi.spyOn(runtime.IMAGES, 'get');
+    const cached = await request(`${read}/assets/${job.candidate_hash}.png`);
+    expect(cached.status).toBe(200);
+    expect(new Uint8Array(await cached.arrayBuffer())).toEqual(original);
+    expect(get).not.toHaveBeenCalled();
+
+    // Purged, it is served from storage again, which no longer publishes it.
+    await edgeCache().delete(url);
+    expect(
+      (await request(`${read}/assets/${job.candidate_hash}.png`)).status
+    ).toBe(404);
   });
   it('does not serve a verified variant after its accepted job is rejected', async () => {
     const job = await candidate('5'.repeat(64));
@@ -670,8 +708,8 @@ describe('authorization, publication and accepted-state preservation', () => {
     const job = await candidate('6'.repeat(64));
     await reviewJob(runtime, job.id, 1, 'accepted', false, 'synthetic-test');
     const canonicalHash = job.candidate_hash!;
-    const baseId = `webp-v2-${canonicalHash}`;
-    const recoveryId = `webp-v2-r1-${canonicalHash}`;
+    const baseId = `webp-v3-${canonicalHash}`;
+    const recoveryId = `webp-v3-r1-${canonicalHash}`;
     const fakeWorkflow = (
       state: 'running' | 'complete' | 'errored',
       unknown = false
@@ -736,7 +774,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     const variantHash = first.candidate_hash!;
     await Promise.all([
       runtime.IMAGES.delete(
-        `listening/cd-artwork-variants/v2/${variantHash}.json`
+        `listening/cd-artwork-variants/v3/${variantHash}.json`
       ),
       runtime.IMAGES.delete(
         `listening/cd-artwork-variants/by-hash/${variantHash}.json`
@@ -809,7 +847,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       ((await repeated.json()) as { items: Array<{ status: string }> }).items[0]
         .status
     ).toBe('already_active');
-    expect(starts).toEqual([`webp-v2-${first.candidate_hash}`]);
+    expect(starts).toEqual([`webp-v3-${first.candidate_hash}`]);
     await prepareAcceptedWebpVariant(runtime, variantHash, 1);
     const prepared = await request(
       `${admin}/webp-backfill`,
@@ -821,7 +859,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       ((await prepared.json()) as { items: Array<{ status: string }> }).items[0]
         .status
     ).toBe('already_prepared');
-    expect(starts).toEqual([`webp-v2-${first.candidate_hash}`]);
+    expect(starts).toEqual([`webp-v3-${first.candidate_hash}`]);
   });
   it('requires admin auth and owned IDs, and skips hidden or rejected assets', async () => {
     const hidden = await candidate('9'.repeat(64));

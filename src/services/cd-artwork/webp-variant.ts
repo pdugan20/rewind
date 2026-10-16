@@ -14,9 +14,13 @@ const DIMENSION = 1024;
  */
 const DELIVERY_QUALITY = 95;
 /**
- * Minimum PSNR of visible RGB (weighted by alpha) against the PNG. Real disc
- * art measured about 43.5 dB at quality 95; an encode below this floor falls
- * back to the verified lossless encode.
+ * Minimum PSNR of visible RGB (weighted by alpha) against the PNG, measured
+ * over 2×2 blocks: the Discman draws the 1024 px texture at about 600 device
+ * pixels, so that is the scale an error is seen at. Per pixel, printed
+ * halftone screens score 37–39 dB at quality 95 while looking identical, and
+ * fell back to lossless encodes three to four times larger. Real disc art
+ * measures 43.5–48 dB at this scale; an encode below the floor falls back to
+ * the verified lossless encode.
  */
 const MIN_DELIVERY_PSNR = 40;
 let codecInit: Promise<void> | undefined;
@@ -32,8 +36,11 @@ export type WebpVariant = {
 
 export type StoredWebpVariant = Omit<WebpVariant, 'image_url'> & {
   canonical_hash: string;
-  /** 1: lossless. 2: delivery (lossy with exact alpha, or lossless fallback). */
-  version: 1 | 2;
+  /**
+   * 1: lossless. 2: delivery (lossy with exact alpha, or lossless fallback),
+   * judged per pixel. 3: delivery judged at display scale.
+   */
+  version: 1 | 2 | 3;
 };
 
 async function initializeCodecs() {
@@ -145,26 +152,51 @@ export async function createDeliveryWebp(png: Uint8Array) {
     decoded.data.byteLength !== rgba.byteLength
   )
     throw new Error('variant_dimensions_invalid');
-  let squaredError = 0;
-  let samples = 0;
-  for (let i = 0; i < rgba.length; i += 4) {
-    if (decoded.data[i + 3] !== rgba[i + 3])
-      throw new Error('variant_alpha_changed');
-    const alpha = rgba[i + 3];
-    if (!alpha) continue;
-    for (let c = 0; c < 3; c++) {
-      // A half-transparent pixel shows half its error.
-      const error = ((decoded.data[i + c] - rgba[i + c]) * alpha) / 255;
-      squaredError += error * error;
-      samples++;
-    }
-  }
-  const psnr = squaredError
-    ? 10 * Math.log10((255 * 255 * samples) / squaredError)
-    : Infinity;
-  if (psnr < MIN_DELIVERY_PSNR) return createLosslessWebp(png);
+  for (let i = 3; i < rgba.length; i += 4)
+    if (decoded.data[i] !== rgba[i]) throw new Error('variant_alpha_changed');
+  if (displayPsnr(rgba, decoded.data) < MIN_DELIVERY_PSNR)
+    return createLosslessWebp(png);
   const lossless = await createLosslessWebp(png);
   return lossless.byteLength < encoded.byteLength ? lossless : encoded;
+}
+
+/**
+ * PSNR of visible RGB over 2×2 blocks. Each block's colour is its
+ * alpha-weighted mean, and its error counts in proportion to its coverage, so
+ * a half-transparent edge shows half its error.
+ */
+function displayPsnr(
+  source: Uint8Array,
+  decoded: Uint8Array | Uint8ClampedArray
+) {
+  let squaredError = 0;
+  let samples = 0;
+  for (let y = 0; y < DIMENSION; y += 2)
+    for (let x = 0; x < DIMENSION; x += 2) {
+      let coverage = 0;
+      const error = [0, 0, 0];
+      for (const i of [
+        (y * DIMENSION + x) * 4,
+        (y * DIMENSION + x + 1) * 4,
+        ((y + 1) * DIMENSION + x) * 4,
+        ((y + 1) * DIMENSION + x + 1) * 4,
+      ]) {
+        const alpha = source[i + 3];
+        coverage += alpha;
+        for (let c = 0; c < 3; c++)
+          error[c] += (decoded[i + c] - source[i + c]) * alpha;
+      }
+      if (!coverage) continue;
+      for (let c = 0; c < 3; c++) {
+        // Mean error of the block's colour, scaled by how visible it is.
+        const shown = error[c] / (4 * 255);
+        squaredError += shown * shown;
+        samples++;
+      }
+    }
+  return squaredError
+    ? 10 * Math.log10((255 * 255 * samples) / squaredError)
+    : Infinity;
 }
 
 export function isStoredWebpVariant(
@@ -174,7 +206,7 @@ export function isStoredWebpVariant(
   if (!value || typeof value !== 'object') return false;
   const variant = value as Partial<StoredWebpVariant>;
   return (
-    (variant.version === 1 || variant.version === 2) &&
+    (variant.version === 1 || variant.version === 2 || variant.version === 3) &&
     typeof variant.canonical_hash === 'string' &&
     /^[a-f0-9]{64}$/.test(variant.canonical_hash) &&
     variant.canonical_hash === canonicalHash &&

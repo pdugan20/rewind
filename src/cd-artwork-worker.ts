@@ -40,6 +40,7 @@ import {
 import { generateOnce, processRaw } from './services/cd-artwork/generation.js';
 import { reviewJob, importCandidate } from './services/cd-artwork/review.js';
 import {
+  CURRENT_VERSION,
   dispatchWebpVariant,
   prepareAcceptedWebpVariant,
   readStoredWebpVariant,
@@ -264,6 +265,31 @@ const background =
       // Without an execution context the lookups simply end with the request.
     }
   };
+/**
+ * Artwork assets are content-addressed and immutable, so after the first
+ * request in a Cloudflare location its edge cache serves them without the
+ * Worker reading (and, for variants, hashing) storage, which took 0.4–0.8 s per
+ * image. Only successful responses are cached. A withdrawn image stays cached
+ * at the edge until it is purged; manifests stop advertising it at once.
+ */
+async function edgeCached(
+  c: {
+    req: { url: string };
+    executionCtx: { waitUntil(work: Promise<unknown>): void };
+  },
+  load: () => Promise<Response | null>
+) {
+  const url = new URL(c.req.url);
+  const key = new Request(`${url.origin}${url.pathname}`);
+  // The project's DOM lib types CacheStorage without Workers' default cache.
+  const cache = (caches as unknown as { default: Cache }).default;
+  const hit = await cache.match(key).catch(() => undefined);
+  if (hit) return hit;
+  const response = await load();
+  if (response?.ok)
+    background(c)(cache.put(key, response.clone()).catch(() => {}));
+  return response;
+}
 app.get(`${read}/albums`, async (c) => {
   const ids = z
     .array(z.coerce.number().int().positive())
@@ -303,17 +329,20 @@ app.get(`${read}/albums/:id`, async (c) => {
   );
 });
 app.get(`${read}/fallback/assets/:file`, async (c) => {
-  const asset = await readFallbackAsset(c.env, c.req.param('file'));
-  if (!asset) return c.notFound();
-  return new Response(asset.bytes, {
-    headers: {
-      'Content-Type': asset.mime,
-      'Cache-Control': 'public, max-age=31536000, immutable',
-      'Access-Control-Allow-Origin': '*',
-      'X-Content-Type-Options': 'nosniff',
-      ETag: `"${asset.sha256}"`,
-    },
+  const response = await edgeCached(c, async () => {
+    const asset = await readFallbackAsset(c.env, c.req.param('file'));
+    if (!asset) return null;
+    return new Response(asset.bytes, {
+      headers: {
+        'Content-Type': asset.mime,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options': 'nosniff',
+        ETag: `"${asset.sha256}"`,
+      },
+    });
   });
+  return response ?? c.notFound();
 });
 app.post(`${admin}/fallback`, async (c) => {
   const bytes = await boundedBytes(
@@ -382,11 +411,20 @@ app.post(`${admin}/fallback`, async (c) => {
   );
 });
 app.get(`${read}/assets/:file`, async (c) => {
-  const file = c.req.param('file');
+  const response = await edgeCached(c, () =>
+    artworkAsset(c.env, c.req.param('file'))
+  );
+  return response ?? c.notFound();
+});
+/** A published disc image: a delivery WebP by its own hash, or a PNG. */
+async function artworkAsset(
+  env: Env & ArtworkEnv,
+  file: string
+): Promise<Response | null> {
   if (/^[a-f0-9]{64}\.webp$/.test(file)) {
     const hash = file.slice(0, 64);
-    const variant = await readWebpVariantByHash(c.env, hash);
-    if (!variant) return c.notFound();
+    const variant = await readWebpVariantByHash(env, hash);
+    if (!variant) return null;
     return new Response(variant.bytes, {
       headers: {
         'Content-Type': 'image/webp',
@@ -397,16 +435,16 @@ app.get(`${read}/assets/:file`, async (c) => {
       },
     });
   }
-  if (!/^[a-f0-9]{64}\.png$/.test(file)) return c.notFound();
+  if (!/^[a-f0-9]{64}\.png$/.test(file)) return null;
   const h = file.slice(0, 64);
-  const approved = await c.env.DB.prepare(
+  const approved = await env.DB.prepare(
     "SELECT id FROM cd_artwork_jobs WHERE candidate_hash=? AND state='accepted' LIMIT 1"
   )
     .bind(h)
     .first();
-  if (!approved) return c.notFound();
-  const object = await c.env.IMAGES.get(`listening/cd-artwork/${file}`);
-  if (!object) return c.notFound();
+  if (!approved) return null;
+  const object = await env.IMAGES.get(`listening/cd-artwork/${file}`);
+  if (!object) return null;
   return new Response(object.body, {
     headers: {
       'Content-Type': 'image/png',
@@ -416,7 +454,7 @@ app.get(`${read}/assets/:file`, async (c) => {
       ETag: `"${h}"`,
     },
   });
-});
+}
 app.get(`${admin}/identities`, async (c) => {
   const rows = await c.env.DB.prepare(
     "SELECT album_id,NULLIF(release_id,'') AS release_id,CASE WHEN release_id='' THEN NULL ELSE medium_position END AS medium_position,discovery_outcome,last_checked_at,next_check,active_job,pinned FROM cd_artwork_albums WHERE user_id=? ORDER BY album_id DESC LIMIT 25"
@@ -455,7 +493,11 @@ app.post(`${admin}/webp-backfill`, async (c) => {
   for (const [canonicalHash, { album_ids }] of byHash) {
     // Only a delivery (v2) variant counts: an earlier lossless one is
     // re-prepared so the backfill brings every album to the smaller file.
-    const prepared = await readStoredWebpVariant(c.env, canonicalHash, 2);
+    const prepared = await readStoredWebpVariant(
+      c.env,
+      canonicalHash,
+      CURRENT_VERSION
+    );
     const status = prepared
       ? 'already_prepared'
       : body.dry_run

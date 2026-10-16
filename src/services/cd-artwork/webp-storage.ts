@@ -9,9 +9,11 @@ import {
 } from './webp-variant.js';
 
 const VARIANT_PREFIX = 'listening/cd-artwork-variants/';
-/** Variants prepared now; version 1 (lossless) descriptors are still read. */
-const CURRENT_VERSION = 2;
+/** Variants prepared now; earlier versions' descriptors are still read. */
+export const CURRENT_VERSION = 3;
 type VariantVersion = StoredWebpVariant['version'];
+/** Newest first: the version a manifest advertises when several verify. */
+const READ_ORDER = [3, 2, 1] as const satisfies readonly VariantVersion[];
 const verifiedVariantEtags = new Map<string, { etag: string; until: number }>();
 const VERIFIED_VARIANT_TTL_MS = 60_000;
 const VERIFIED_VARIANT_CACHE_SIZE = 64;
@@ -205,8 +207,8 @@ export async function prepareAcceptedWebpVariant(
 }
 
 /**
- * The verified variant to advertise: the delivery (v2) variant when one is
- * prepared, else the earlier lossless one. Pass a version to read only that.
+ * The verified variant to advertise: the newest prepared delivery variant,
+ * else an earlier one. Pass a version to read only that.
  * A manifest passes the image's verification records from variantChecksFor.
  */
 export async function readStoredWebpVariant(
@@ -216,14 +218,14 @@ export async function readStoredWebpVariant(
   knownChecks?: VariantCheck[]
 ): Promise<StoredWebpVariant | null> {
   // Two storage rounds: the descriptor (with its verification records), then
-  // the index with the object's headers. The lossless descriptor is read only
-  // when no delivery variant verifies: a Worker holds at most six storage
-  // connections at once, and a manifest's lookups share them, so a read that
-  // is usually discarded delays every other disc's lookup.
+  // the index with the object's headers. Older descriptors are read only when
+  // no newer variant verifies: a Worker holds at most six storage connections
+  // at once, and a manifest's lookups share them, so a read that is usually
+  // discarded delays every other disc's lookup.
   const checks = knownChecks
     ? Promise.resolve(knownChecks)
     : variantChecks(env, canonicalHash);
-  for (const version of only ? [only] : ([2, 1] as const)) {
+  for (const version of only ? [only] : READ_ORDER) {
     const [records, metadata] = await Promise.all([
       checks,
       env.IMAGES.get(metadataKey(canonicalHash, version)),
@@ -349,7 +351,7 @@ async function verifyStoredWebpVariant(
 
 export async function readWebpVariantByHash(env: ArtworkEnv, hash: string) {
   if (!/^[a-f0-9]{64}$/.test(hash)) return null;
-  for (const version of [2, 1] as const) {
+  for (const version of READ_ORDER) {
     const found = await readWebpVariantVersion(env, hash, version);
     if (found) return found;
   }
