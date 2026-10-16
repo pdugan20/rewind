@@ -1,5 +1,36 @@
 # Accepted artwork WebP variants
 
+## Delivery variants — version 2
+
+Version 2 replaces the lossless variant as the one the producer prepares.
+The lossless files were still about 0.6–0.8 MB per disc, and most discs had
+none, so the Discman downloaded 1.3–1.6 MB PNGs and its side discs arrived
+after the player. A version 2 variant is lossy WebP at quality 95 with a
+lossless alpha plane (`alpha_quality` 100, `exact`, sharp YUV). After
+encoding, the producer decodes it, requires every alpha byte to match the
+PNG, and requires visible RGB (weighted by alpha) to stay at or above 40 dB
+PSNR; real disc art measured about 43.5 dB. Below the floor it uses the exact
+lossless encode instead, and it keeps whichever verified encode is smaller,
+so flat or graphic art is never larger than before. On the current
+collection that is about 130–200 KB per disc, roughly a tenth of the PNG. At
+the Discman's 2× display size, rendered discs were indistinguishable from the
+PNG, including fine rim lettering.
+
+Each version has its own descriptor and index keys
+(`cd-artwork-variants/v2/<canonical>.json` and
+`cd-artwork-variants/by-hash/v2/<variant>.json`); the WebP object stays keyed
+by its own hash, so identical bytes are shared. Snapshots advertise the
+version 2 variant when it verifies and otherwise the earlier lossless one, so
+albums keep a WebP during the rollout. The asset route accepts either.
+Version 2 Workflows use `webp-v2-<canonical>` and `webp-v2-r1-<canonical>`,
+so albums with a completed version 1 Workflow can be prepared again. The
+backfill reports `already_prepared` only for version 2, and otherwise follows
+the procedure below. Consumers need no change: the descriptor fields and URL
+shape are the same.
+
+The rest of this page describes version 1, the lossless variant. Its
+fidelity statements apply to version 1 files only.
+
 Accepted 1024×1024 PNG artwork remains the canonical asset. A variant is
 optional metadata stored in private R2 beside a separate, hash-addressed
 `image/webp` object. The producer uses libwebp's lossless and exact modes, then

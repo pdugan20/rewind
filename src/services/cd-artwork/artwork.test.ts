@@ -24,6 +24,7 @@ import {
 import { generateOnce, processRaw } from './generation.js';
 import { prepareCandidate } from './registration.js';
 import { reviewJob } from './review.js';
+import { createLosslessWebp } from './webp-variant.js';
 import {
   dispatchWebpVariant,
   prepareAcceptedWebpVariant,
@@ -461,7 +462,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     );
     expect(repeated).toEqual(stored);
     await runtime.IMAGES.delete(
-      `listening/cd-artwork-variants/by-hash/${stored!.sha256}.json`
+      `listening/cd-artwork-variants/by-hash/v2/${stored!.sha256}.json`
     );
     const recoveredIndex = await prepareAcceptedWebpVariant(
       runtime,
@@ -469,7 +470,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       1
     );
     expect(recoveredIndex).toEqual(stored);
-    const indexKey = `listening/cd-artwork-variants/by-hash/${stored!.sha256}.json`;
+    const indexKey = `listening/cd-artwork-variants/by-hash/v2/${stored!.sha256}.json`;
     await runtime.IMAGES.put(
       indexKey,
       JSON.stringify({ ...stored, bytes: stored!.bytes + 1 }),
@@ -485,7 +486,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     await runtime.IMAGES.put(indexKey, JSON.stringify(stored), {
       httpMetadata: { contentType: 'application/json' },
     });
-    const metadataKey = `listening/cd-artwork-variants/${job.candidate_hash}.json`;
+    const metadataKey = `listening/cd-artwork-variants/v2/${job.candidate_hash}.json`;
     await runtime.IMAGES.put(
       metadataKey,
       JSON.stringify({ ...stored, bytes: stored!.bytes + 1 }),
@@ -526,7 +527,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       format: 'webp',
       width: 1024,
       height: 1024,
-      version: 1,
+      version: 2,
     });
     expect(stored!.bytes).toBeLessThan(canonicalBefore.byteLength);
     const snapshot = (await (
@@ -588,6 +589,68 @@ describe('authorization, publication and accepted-state preservation', () => {
         .status
     ).toBe(200);
   });
+  it('keeps advertising an earlier lossless variant until a delivery variant is prepared', async () => {
+    const job = await candidate('b'.repeat(64));
+    await reviewJob(runtime, job.id, 1, 'accepted', true, 'synthetic-test');
+    const canonicalHash = job.candidate_hash!;
+    const png = new Uint8Array(
+      await (await runtime.IMAGES.get(
+        `listening/cd-artwork/${canonicalHash}.png`
+      ))!.arrayBuffer()
+    );
+    // A version 1 (lossless) variant as the earlier producer stored it.
+    const lossless = await createLosslessWebp(png);
+    const losslessHash = await sha256(lossless);
+    const v1 = {
+      canonical_hash: canonicalHash,
+      sha256: losslessHash,
+      format: 'webp',
+      width: 1024,
+      height: 1024,
+      bytes: lossless.byteLength,
+      version: 1,
+    };
+    const prefix = 'listening/cd-artwork-variants/';
+    await Promise.all([
+      runtime.IMAGES.delete(`${prefix}v2/${canonicalHash}.json`),
+      runtime.IMAGES.put(`${prefix}${losslessHash}.webp`, lossless, {
+        httpMetadata: { contentType: 'image/webp' },
+      }),
+      runtime.IMAGES.put(
+        `${prefix}by-hash/${losslessHash}.json`,
+        JSON.stringify(v1),
+        {
+          httpMetadata: { contentType: 'application/json' },
+        }
+      ),
+      runtime.IMAGES.put(`${prefix}${canonicalHash}.json`, JSON.stringify(v1), {
+        httpMetadata: { contentType: 'application/json' },
+      }),
+    ]);
+    const advertised = async () =>
+      (
+        (await (await request(`${read}/albums?ids=1`, readKey)).json()) as {
+          data: Array<{ variants?: Array<{ sha256: string }> }>;
+        }
+      ).data[0].variants?.[0]?.sha256;
+    expect(await advertised()).toBe(losslessHash);
+    expect(
+      (await request(`${read}/assets/${losslessHash}.webp`, readKey)).status
+    ).toBe(200);
+
+    const delivery = await prepareAcceptedWebpVariant(
+      runtime,
+      canonicalHash,
+      1
+    );
+    expect(delivery?.version).toBe(2);
+    expect(delivery!.bytes).toBeLessThanOrEqual(lossless.byteLength);
+    if (delivery!.sha256 !== losslessHash)
+      expect(await advertised()).toBe(delivery!.sha256);
+    expect(
+      (await request(`${read}/assets/${delivery!.sha256}.webp`, readKey)).status
+    ).toBe(200);
+  });
   it('does not serve a verified variant after its accepted job is rejected', async () => {
     const job = await candidate('5'.repeat(64));
     await reviewJob(runtime, job.id, 1, 'accepted', false, 'synthetic-test');
@@ -607,8 +670,8 @@ describe('authorization, publication and accepted-state preservation', () => {
     const job = await candidate('6'.repeat(64));
     await reviewJob(runtime, job.id, 1, 'accepted', false, 'synthetic-test');
     const canonicalHash = job.candidate_hash!;
-    const baseId = `webp-v1-${canonicalHash}`;
-    const recoveryId = `webp-v1-r1-${canonicalHash}`;
+    const baseId = `webp-v2-${canonicalHash}`;
+    const recoveryId = `webp-v2-r1-${canonicalHash}`;
     const fakeWorkflow = (
       state: 'running' | 'complete' | 'errored',
       unknown = false
@@ -673,7 +736,7 @@ describe('authorization, publication and accepted-state preservation', () => {
     const variantHash = first.candidate_hash!;
     await Promise.all([
       runtime.IMAGES.delete(
-        `listening/cd-artwork-variants/${variantHash}.json`
+        `listening/cd-artwork-variants/v2/${variantHash}.json`
       ),
       runtime.IMAGES.delete(
         `listening/cd-artwork-variants/by-hash/${variantHash}.json`
@@ -746,7 +809,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       ((await repeated.json()) as { items: Array<{ status: string }> }).items[0]
         .status
     ).toBe('already_active');
-    expect(starts).toEqual([`webp-v1-${first.candidate_hash}`]);
+    expect(starts).toEqual([`webp-v2-${first.candidate_hash}`]);
     await prepareAcceptedWebpVariant(runtime, variantHash, 1);
     const prepared = await request(
       `${admin}/webp-backfill`,
@@ -758,7 +821,7 @@ describe('authorization, publication and accepted-state preservation', () => {
       ((await prepared.json()) as { items: Array<{ status: string }> }).items[0]
         .status
     ).toBe('already_prepared');
-    expect(starts).toEqual([`webp-v1-${first.candidate_hash}`]);
+    expect(starts).toEqual([`webp-v2-${first.candidate_hash}`]);
   });
   it('requires admin auth and owned IDs, and skips hidden or rejected assets', async () => {
     const hidden = await candidate('9'.repeat(64));

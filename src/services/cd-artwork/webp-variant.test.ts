@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { encode as encodePng } from 'fast-png';
-import { createLosslessWebp } from './webp-variant.js';
+import { createDeliveryWebp, createLosslessWebp } from './webp-variant.js';
 import decodeWebp, { init as initWebpDecoder } from '@jsquash/webp/decode.js';
 import decoderWasm from '@jsquash/webp/codec/dec/webp_dec.wasm';
 
@@ -62,6 +62,81 @@ describe('lossless WebP preparation', () => {
     });
     await expect(createLosslessWebp(png)).rejects.toThrow(
       'canonical_depth_invalid'
+    );
+  });
+});
+
+describe('delivery WebP preparation', () => {
+  async function decoded(webp: Uint8Array) {
+    await initWebpDecoder(decoderWasm);
+    const image = await decodeWebp(webp.buffer as ArrayBuffer);
+    return new Uint8Array(
+      image.data.buffer,
+      image.data.byteOffset,
+      image.data.byteLength
+    );
+  }
+
+  it('encodes smooth artwork lossily with every alpha byte intact', async () => {
+    // A disc: soft gradients, an opaque body, a transparent hole and outside,
+    // and an antialiased edge.
+    const pixels = new Uint8Array(1024 * 1024 * 4);
+    for (let y = 0; y < 1024; y++)
+      for (let x = 0; x < 1024; x++) {
+        const i = (y * 1024 + x) * 4;
+        const r = Math.hypot(x - 511.5, y - 511.5);
+        // Photographic grain: a few levels of deterministic noise.
+        const grain = ((((x * 73856093) ^ (y * 19349663)) >>> 0) % 9) - 4;
+        pixels[i] = 120 + Math.round(80 * Math.sin(x / 90)) + grain;
+        pixels[i + 1] = 90 + Math.round(60 * Math.cos(y / 70)) + grain;
+        pixels[i + 2] = Math.round((x + y) / 8) + grain + 4;
+        pixels[i + 3] = Math.round(
+          255 *
+            Math.min(1, Math.max(0, 500 - r)) *
+            Math.min(1, Math.max(0, r - 60))
+        );
+      }
+    const png = encodePng({ width: 1024, height: 1024, data: pixels });
+    const [delivery, lossless] = await Promise.all([
+      createDeliveryWebp(png),
+      createLosslessWebp(png),
+    ]);
+    // Grain makes the lossy encode the smaller one, so it is the one chosen.
+    expect(delivery.byteLength).toBeLessThan(lossless.byteLength);
+    const actual = await decoded(delivery);
+    let squared = 0;
+    let samples = 0;
+    let alphaChanged = -1;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (alphaChanged < 0 && actual[i + 3] !== pixels[i + 3]) alphaChanged = i;
+      const alpha = pixels[i + 3];
+      if (!alpha) continue;
+      for (let c = 0; c < 3; c++) {
+        const error = ((actual[i + c] - pixels[i + c]) * alpha) / 255;
+        squared += error * error;
+        samples++;
+      }
+    }
+    expect(alphaChanged).toBe(-1);
+    expect(10 * Math.log10((255 * 255 * samples) / squared)).toBeGreaterThan(
+      40
+    );
+  });
+
+  it('falls back to the exact lossless encode when lossy RGB would fall below the floor', async () => {
+    // Per-pixel noise defeats lossy coding at any useful quality.
+    const pixels = new Uint8Array(1024 * 1024 * 4);
+    for (let i = 0; i < pixels.length; i += 4) {
+      const pixel = i / 4;
+      pixels[i] = (pixel * 97) % 251;
+      pixels[i + 1] = (pixel * 7919) % 253;
+      pixels[i + 2] = (pixel * 104729) % 255;
+      pixels[i + 3] = 255;
+    }
+    const png = encodePng({ width: 1024, height: 1024, data: pixels });
+    const actual = await decoded(await createDeliveryWebp(png));
+    expect(actual.findIndex((value, index) => value !== pixels[index])).toBe(
+      -1
     );
   });
 });

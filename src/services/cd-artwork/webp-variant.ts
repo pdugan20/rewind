@@ -7,6 +7,18 @@ import decoderWasm from '@jsquash/webp/codec/dec/webp_dec.wasm';
 const MAX_CANONICAL_BYTES = 8 * 1024 * 1024;
 const MAX_VARIANT_BYTES = 8 * 1024 * 1024;
 const DIMENSION = 1024;
+/**
+ * Delivery encodes are lossy at this quality with a lossless alpha plane. At
+ * the Discman's display size, quality 95 renders indistinguishably from the
+ * PNG (fine disc lettering included) at roughly a tenth of its bytes.
+ */
+const DELIVERY_QUALITY = 95;
+/**
+ * Minimum PSNR of visible RGB (weighted by alpha) against the PNG. Real disc
+ * art measured about 43.5 dB at quality 95; an encode below this floor falls
+ * back to the verified lossless encode.
+ */
+const MIN_DELIVERY_PSNR = 40;
 let codecInit: Promise<void> | undefined;
 
 export type WebpVariant = {
@@ -20,7 +32,8 @@ export type WebpVariant = {
 
 export type StoredWebpVariant = Omit<WebpVariant, 'image_url'> & {
   canonical_hash: string;
-  version: 1;
+  /** 1: lossless. 2: delivery (lossy with exact alpha, or lossless fallback). */
+  version: 1 | 2;
 };
 
 async function initializeCodecs() {
@@ -94,6 +107,66 @@ export async function createLosslessWebp(png: Uint8Array) {
   return encoded;
 }
 
+/**
+ * The delivery variant: lossy RGB with every alpha byte preserved, verified
+ * after decoding. The exact lossless encode is used instead when visible RGB
+ * would drop below MIN_DELIVERY_PSNR, or when it is smaller (flat or
+ * graphic art), so a delivery variant is never larger than the lossless one.
+ */
+export async function createDeliveryWebp(png: Uint8Array) {
+  if (png.byteLength === 0 || png.byteLength > MAX_CANONICAL_BYTES)
+    throw new Error('canonical_size_invalid');
+  const rgba = toRgba(png);
+  await initializeCodecs();
+  const encoded = new Uint8Array(
+    await encodeWebp(
+      {
+        data: new Uint8ClampedArray(rgba),
+        width: DIMENSION,
+        height: DIMENSION,
+        colorSpace: 'srgb',
+      },
+      {
+        quality: DELIVERY_QUALITY,
+        alpha_quality: 100,
+        alpha_compression: 1,
+        exact: 1,
+        use_sharp_yuv: 1,
+        method: 4,
+      }
+    )
+  );
+  if (encoded.byteLength === 0 || encoded.byteLength > MAX_VARIANT_BYTES)
+    throw new Error('variant_size_invalid');
+  const decoded = await decodeWebp(encoded.buffer as ArrayBuffer);
+  if (
+    decoded.width !== DIMENSION ||
+    decoded.height !== DIMENSION ||
+    decoded.data.byteLength !== rgba.byteLength
+  )
+    throw new Error('variant_dimensions_invalid');
+  let squaredError = 0;
+  let samples = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    if (decoded.data[i + 3] !== rgba[i + 3])
+      throw new Error('variant_alpha_changed');
+    const alpha = rgba[i + 3];
+    if (!alpha) continue;
+    for (let c = 0; c < 3; c++) {
+      // A half-transparent pixel shows half its error.
+      const error = ((decoded.data[i + c] - rgba[i + c]) * alpha) / 255;
+      squaredError += error * error;
+      samples++;
+    }
+  }
+  const psnr = squaredError
+    ? 10 * Math.log10((255 * 255 * samples) / squaredError)
+    : Infinity;
+  if (psnr < MIN_DELIVERY_PSNR) return createLosslessWebp(png);
+  const lossless = await createLosslessWebp(png);
+  return lossless.byteLength < encoded.byteLength ? lossless : encoded;
+}
+
 export function isStoredWebpVariant(
   value: unknown,
   canonicalHash: string
@@ -101,7 +174,7 @@ export function isStoredWebpVariant(
   if (!value || typeof value !== 'object') return false;
   const variant = value as Partial<StoredWebpVariant>;
   return (
-    variant.version === 1 &&
+    (variant.version === 1 || variant.version === 2) &&
     typeof variant.canonical_hash === 'string' &&
     /^[a-f0-9]{64}$/.test(variant.canonical_hash) &&
     variant.canonical_hash === canonicalHash &&
