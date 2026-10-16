@@ -123,6 +123,37 @@ describe('delivery WebP preparation', () => {
     );
   });
 
+  it('encodes a printed halftone lossily, judging its error at display scale', async () => {
+    // A four-pixel dot screen with scanner grain over a smooth tone, like a
+    // printed disc photo. At quality 95 this scores about 35 dB per pixel,
+    // below the floor, but about 44 dB over the 2x2 blocks the texture is
+    // drawn at, so the lossy encode (about half the lossless bytes) is kept.
+    const pixels = new Uint8Array(1024 * 1024 * 4);
+    for (let y = 0; y < 1024; y++)
+      for (let x = 0; x < 1024; x++) {
+        const i = (y * 1024 + x) * 4;
+        const tone =
+          60 + Math.round(40 * Math.sin(x / 120) * Math.cos(y / 150));
+        const grain = ((((x * 73856093) ^ (y * 19349663)) >>> 0) % 7) - 3;
+        const dot = Math.round(
+          20 * Math.sin((Math.PI * x) / 2) * Math.sin((Math.PI * y) / 2)
+        );
+        pixels[i] = tone + 40 + dot + grain;
+        pixels[i + 1] = tone + dot + grain;
+        pixels[i + 2] = tone + 70 + dot + grain;
+        pixels[i + 3] = 255;
+      }
+    const png = encodePng({ width: 1024, height: 1024, data: pixels });
+    const [delivery, lossless] = await Promise.all([
+      createDeliveryWebp(png),
+      createLosslessWebp(png),
+    ]);
+    expect(delivery.byteLength).toBeLessThan(lossless.byteLength * 0.6);
+    const actual = await decoded(delivery);
+    expect(
+      actual.findIndex((value, index) => value !== pixels[index])
+    ).not.toBe(-1);
+  });
   it('falls back to the exact lossless encode when lossy RGB would fall below the floor', async () => {
     // Per-pixel noise defeats lossy coding at any useful quality.
     const pixels = new Uint8Array(1024 * 1024 * 4);
