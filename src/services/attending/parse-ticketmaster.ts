@@ -54,6 +54,13 @@ export function parseTicketmasterHtml(
     return parseTicketmasterTransfer(text, sourceRef, messageDate);
   }
 
+  // Team-branded transfer notice (Mariners Fancare "X Just Sent You N
+  // Tickets"): a "Transferred Tickets (N)" block listing the game and one
+  // "Sec X, Row Y, Seat Z" line per ticket, with a four-digit year.
+  if (/Transferred Tickets?\s*\(\d+\)/i.test(text)) {
+    return parseTeamTransfer(text, sourceRef);
+  }
+
   // Order number anchor — present in both layouts.
   const orderNumber =
     matchSimple(text, /Order\s*#\s*([A-Z0-9][A-Z0-9-/]+)/i) ??
@@ -67,8 +74,11 @@ export function parseTicketmasterHtml(
     text,
     /\d+\s+(?:[A-Z][A-Za-z\s]*?\s)?ticket\(s\)\s+in\s+Section\s+([^\n]+?)(?:[,.]|$|\n)/i
   );
-  const section = sectionInline ?? matchLineAfterAnchor(text, 'Section');
-  const row = matchLineAfterAnchor(text, 'Row');
+  // Modern order emails print the seat inline: "Sec 346, Row 12, Seat 6".
+  const seatLine = seatLines(text)[0];
+  const section =
+    sectionInline ?? seatLine?.section ?? matchLineAfterAnchor(text, 'Section');
+  const row = seatLine?.row ?? matchLineAfterAnchor(text, 'Row');
 
   // Total — Order Summary block typically has $XXX.XX on next line.
   const total =
@@ -159,11 +169,86 @@ export function parseTicketmasterHtml(
       venue_address: venueLine,
       section,
       row,
-      seat: null,
+      seat: seatLine?.seat ?? null,
       total_price_cents: totalCents,
       currency: 'USD',
     },
   ];
+}
+
+/** Every distinct "Sec X, Row Y, Seat Z" line, in order of appearance. */
+function seatLines(
+  text: string
+): Array<{ section: string; row: string; seat: string | null }> {
+  const seen = new Set<string>();
+  const out: Array<{ section: string; row: string; seat: string | null }> = [];
+  const re =
+    /\bSec(?:tion)?\.?\s+([A-Za-z0-9][A-Za-z0-9 ]{0,30}?)\s*,\s*Row\s+([A-Za-z0-9]{1,6})(?:\s*,\s*Seats?\s+([A-Za-z0-9-]{1,8}))?/gi;
+  for (const m of text.matchAll(re)) {
+    const key = `${m[1]}|${m[2]}|${m[3] ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ section: m[1].trim(), row: m[2], seat: m[3] ?? null });
+  }
+  return out;
+}
+
+/**
+ * Parse a team-branded Ticketmaster transfer notice. Body shape (real
+ * example, Mariners Fancare):
+ *   Transferred Tickets (2)
+ *   05/01/2024 Mariners vs. Atlanta Braves
+ *   Wed • May 01, 2024 • 12:40 PM
+ *   T-Mobile Park Seattle, WA
+ *   Sec 107, Row 28, Seat 1
+ *   Sec 107, Row 28, Seat 2
+ * An earlier "Accept by <date>" line uses the same date shape, so the
+ * game date is read from after the dated game line. One reservation per
+ * seat, with a stable per-seat number so reprocessing stays idempotent.
+ */
+function parseTeamTransfer(
+  text: string,
+  sourceRef: string | undefined
+): ParsedReservation[] | null {
+  const game = text.match(
+    /(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})\s+([^\n]*?\bvs\.?\s[^\n]+?)(?=\s*\n|\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b)/
+  );
+  if (!game || game.index == null) return null;
+  const month = game[1].padStart(2, '0');
+  const day = game[2].padStart(2, '0');
+  const year = game[3].length === 2 ? `20${game[3]}` : game[3];
+  const eventName = game[4];
+  const after = text.slice(game.index + game[0].length);
+  const time = after.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  let eventStart = `${year}-${month}-${day}`;
+  if (time) {
+    let hour = parseInt(time[1], 10) % 12;
+    if (/pm/i.test(time[3])) hour += 12;
+    eventStart += `T${String(hour).padStart(2, '0')}:${time[2]}`;
+  }
+  const venue =
+    after
+      .match(/\n\s*([^\n]*?\b(?:Park|Field|Stadium|Arena|Center)\b[^\n]*)/)?.[1]
+      ?.trim() ?? null;
+  const seats = seatLines(after);
+  if (seats.length === 0) return null;
+  const ref = sourceRef ?? `${year}${month}${day}`;
+  return seats.map((s) => ({
+    vendor: 'ticketmaster' as Vendor,
+    reservation_number: `tm-team-transfer-${ref}-${s.section}-${s.row}-${s.seat ?? 'x'}`,
+    event_name: eventName.trim(),
+    event_start: eventStart,
+    venue_name: venue
+      ? (venue.match(/^(.*?\b(?:Park|Field|Stadium|Arena|Center))\b/)?.[1] ??
+        cleanVenueName(venue))
+      : null,
+    venue_address: venue,
+    section: s.section,
+    row: s.row,
+    seat: s.seat,
+    total_price_cents: null,
+    currency: 'USD',
+  }));
 }
 
 /**

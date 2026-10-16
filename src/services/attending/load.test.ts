@@ -78,6 +78,14 @@ function makeDbStub(
                 },
               };
             },
+            onConflictDoUpdate() {
+              return {
+                returning() {
+                  const id = nextId++;
+                  return Promise.resolve([{ id, eventId: id }]);
+                },
+              };
+            },
           };
         },
       };

@@ -222,8 +222,15 @@ export async function loadCanonicalEvent(
         sourceType: 'gmail',
         createdAt: now,
       })
-      .onConflictDoNothing({
+      // A repeated order fills seat fields an earlier, weaker parse left
+      // blank; it never overwrites a recorded seat.
+      .onConflictDoUpdate({
         target: [attendedEventTickets.vendor, attendedEventTickets.orderId],
+        set: {
+          section: sql`coalesce(${attendedEventTickets.section}, excluded.section)`,
+          row: sql`coalesce(${attendedEventTickets.row}, excluded.row)`,
+          seat: sql`coalesce(${attendedEventTickets.seat}, excluded.seat)`,
+        },
       })
       .returning({ id: attendedEventTickets.id });
     if (result.length > 0) ticketInserts++;

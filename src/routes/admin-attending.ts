@@ -491,10 +491,12 @@ adminAttending.openapi(manualImportRoute, async (c) => {
 const ReprocessBody = z
   .object({
     vendor: z.string().optional().openapi({ example: 'ticketclub.com' }),
+    subject: z.string().optional().openapi({ example: 'Mariners' }),
     refetch_missing_body: z.boolean().optional().default(true),
     limit: z.number().int().min(1).max(2000).optional().default(1000),
     dry_run: z.boolean().optional().default(false),
     force_update_loaded: z.boolean().optional().default(false),
+    reload_linked: z.boolean().optional().default(false),
   })
   .openapi('AttendingReprocessBody');
 
@@ -540,10 +542,12 @@ adminAttending.openapi(reprocessRoute, async (c) => {
   const db = createDb(c.env.DB);
   type ReprocessOpts = {
     vendor?: string;
+    subject?: string;
     refetch_missing_body?: boolean;
     limit?: number;
     dry_run?: boolean;
     force_update_loaded?: boolean;
+    reload_linked?: boolean;
   };
   const body: ReprocessOpts = await c.req
     .json<ReprocessOpts>()
@@ -552,10 +556,12 @@ adminAttending.openapi(reprocessRoute, async (c) => {
   try {
     const result = await reprocessPendingSources(db, c.env, {
       vendor: body.vendor,
+      subject: body.subject,
       refetchMissingBody: body.refetch_missing_body ?? true,
       limit: body.limit ?? 1000,
       dryRun: body.dry_run ?? false,
       forceUpdateLoaded: body.force_update_loaded ?? false,
+      reloadLinked: body.reload_linked ?? false,
     });
     return c.json({
       status: 'completed' as const,
