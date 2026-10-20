@@ -3,6 +3,7 @@ import { now } from './types.js';
 import { ArtworkError, resolveSource } from './sources.js';
 import { ownedAlbum, enqueue, dispatch, getPendingAutomatic } from './store.js';
 import { selectAutomaticSource } from './selection.js';
+import { DISCOVERY_POLICY } from './discovery-policy.js';
 
 export interface DiscoveryCheck {
   id: number;
@@ -155,20 +156,26 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
       error instanceof ArtworkError && error.code === 'catalog_identity_changed'
         ? 'catalog_changed'
         : error instanceof ArtworkError &&
-            [
-              'edition_identity_mismatch',
-              'catalog_identity_unresolved',
-              'cover_identity_unverified',
-              'cover_identity_ambiguous',
-              'cover_track_mismatch',
-            ].includes(error.code)
-          ? 'identity_required'
-          : error instanceof ArtworkError && error.status === 422
-            ? 'source_unavailable'
-            : 'error';
+            error.code === 'catalog_identity_conflict'
+          ? 'identity_conflict'
+          : error instanceof ArtworkError &&
+              [
+                'edition_identity_mismatch',
+                'catalog_identity_unresolved',
+                'cover_identity_unverified',
+                'cover_identity_ambiguous',
+                'cover_track_mismatch',
+              ].includes(error.code)
+            ? 'identity_required'
+            : error instanceof ArtworkError && error.status === 422
+              ? 'source_unavailable'
+              : 'error';
     evidence = {
       outcome,
       code: error instanceof ArtworkError ? error.code : 'provider_unavailable',
+      ...(error instanceof ArtworkError && error.sourceAttempts
+        ? { source_attempts: error.sourceAttempts }
+        : {}),
     };
     if (outcome === 'catalog_changed') retryAfter = 60;
     if (outcome === 'error')
@@ -183,7 +190,10 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
   )
     .bind(
       outcome,
-      JSON.stringify(evidence),
+      JSON.stringify({
+        ...(evidence as Record<string, unknown>),
+        discovery_policy: DISCOVERY_POLICY,
+      }),
       now(),
       new Date(Date.now() + Math.max(WEEK, retryAfter * 1000)).toISOString(),
       row.user_id,

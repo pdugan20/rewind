@@ -21,6 +21,10 @@ import {
   approvedArtwork,
 } from './store.js';
 import { selectAutomaticSource, verifiedCover } from './selection.js';
+import { scheduledArtwork } from './scheduler.js';
+import { DISCOVERY_POLICY } from './discovery-policy.js';
+import { createDb } from '../../db/client.js';
+import { publishDiscmanSnapshot } from '../discman/snapshot.js';
 import { ArtworkError } from './sources.js';
 import { checkListeningArtwork } from './discovery.js';
 import { generateOnce, processRaw } from './generation.js';
@@ -2530,4 +2534,228 @@ it('uses real legacy play evidence only for the explicitly queued historical rep
       'SELECT COUNT(*) n FROM cd_artwork_jobs WHERE automatic=1'
     ).first())!.n
   ).toBe(1);
+});
+
+it('selects the largest usable scan of a verified single CD and excludes other media labels', async () => {
+  await play();
+  const fetcher = providers({ retail: true });
+  const original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation(async (url, init) => {
+    if (String(url).includes('coverartarchive.org/release/'))
+      return Response.json({
+        images: [
+          {
+            id: 1,
+            approved: true,
+            types: ['Medium'],
+            image: 'https://coverartarchive.org/small.png',
+          },
+          {
+            id: 2,
+            approved: true,
+            types: ['Medium'],
+            image: 'https://coverartarchive.org/synthetic.png',
+          },
+          {
+            id: 3,
+            approved: true,
+            types: ['Medium'],
+            comment: 'Disc 2',
+            image: 'https://coverartarchive.org/other.png',
+          },
+          {
+            id: 4,
+            approved: true,
+            types: ['Medium', 'Matrix/Runout'],
+            image: 'https://coverartarchive.org/matrix.png',
+          },
+        ],
+      });
+    if (String(url).endsWith('small.png'))
+      return new Response(
+        new Uint8Array(
+          png({
+            width: 700,
+            height: 700,
+            data: new Uint8Array(700 * 700 * 4).fill(255),
+          })
+        )
+      );
+    return original(url, init);
+  });
+  const source = await selectAutomaticSource(
+    runtime,
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1),
+    RELEASE,
+    1
+  );
+  expect(source.selectedImageId).toBe('2');
+  expect(source.discovery.scan_selection).toMatchObject({
+    inspected: ['1', '2'],
+    selected: '2',
+  });
+  expect(
+    fetcher.mock.calls.some(([url]) => /other.png|matrix.png/.test(String(url)))
+  ).toBe(false);
+});
+
+it('an unresolved MusicBrainz name does not block an independently verified catalog cover', async () => {
+  await play();
+  await runtime.DB.prepare(
+    'UPDATE lastfm_albums SET mbid=?,apple_music_id=NULL WHERE id=1'
+  )
+    .bind(RELEASE)
+    .run();
+  const fetcher = providers();
+  const original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation(async (url, init) => {
+    if (String(url).includes('musicbrainz.org')) {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      return Response.json({
+        id: RELEASE,
+        title: 'Synthetic album',
+        'release-group': { id: GROUP },
+        'artist-credit': [{ name: 'Different artist' }],
+      });
+    }
+    return original(url, init);
+  });
+  const source = await selectAutomaticSource(
+    runtime,
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1),
+    '',
+    1
+  );
+  expect(source.sourceKind).toBe('cover');
+  expect(source.discovery).toMatchObject({
+    album_artist_verified: true,
+    observed_track_verified: true,
+    discovery_policy: DISCOVERY_POLICY,
+  });
+  expect(source.discovery.source_attempts).toContainEqual({
+    source: 'musicbrainz_disc',
+    outcome: 'unavailable',
+    code: 'catalog_identity_unresolved',
+  });
+});
+
+it('scheduled policy recovery follows discovery, validation and publication into the shelf without an album reset', async () => {
+  await runtime.DB.prepare(
+    'UPDATE lastfm_albums SET mbid=?,apple_music_id=NULL WHERE id=1'
+  )
+    .bind(RELEASE)
+    .run();
+  await play();
+  // A completed pre-policy failure is the input; no injected source or accepted job.
+  await runtime.DB.exec(
+    "UPDATE cd_artwork_checks SET completed_at='2026-01-01',outcome='identity_required'; UPDATE cd_artwork_albums SET discovery_outcome='identity_required',discovery_evidence='{\"code\":\"catalog_identity_unresolved\"}',last_checked_at='2026-01-01',next_check='2099-01-01';"
+  );
+  const fetcher = providers({ retail: true });
+  const original = fetcher.getMockImplementation()!;
+  const metadata = {
+    id: RELEASE,
+    title: 'Synthetic album',
+    status: 'Official',
+    'release-group': { id: GROUP },
+    media: [{ format: 'CD', position: 1 }],
+    'artist-credit': [{ name: 'Sýnthetic‐artist' }],
+  };
+  fetcher.mockImplementation(async (url, init) => {
+    const u = String(url);
+    if (u.includes('musicbrainz.org')) {
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1;'
+      );
+      return Response.json(
+        u.includes('/release/?') ? { count: 1, releases: [metadata] } : metadata
+      );
+    }
+    if (u === 'https://coverartarchive.org/release/' + RELEASE)
+      return Response.json({
+        images: [
+          {
+            id: 11,
+            approved: true,
+            types: ['Medium'],
+            image: 'https://coverartarchive.org/unavailable.png',
+          },
+          {
+            id: 12,
+            approved: true,
+            types: ['Medium'],
+            image: 'https://coverartarchive.org/synthetic.png',
+          },
+        ],
+      });
+    if (u.endsWith('unavailable.png'))
+      return new Response(null, { status: 404 });
+    return original(url, init);
+  });
+  const create = vi.fn(async () => ({}));
+  const target = {
+    ...withKey(),
+    CD_DISCOVERY: {
+      create,
+      get: vi.fn(async () => ({ status: async () => ({ status: 'running' }) })),
+    },
+    CD_WORKFLOW: { create },
+  } as unknown as ArtworkEnv;
+  expect(
+    (await publishDiscmanSnapshot(createDb(runtime.DB), 1)).albums
+  ).toEqual([]);
+  await scheduledArtwork(target);
+  const check = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
+  ).first<{ id: number }>())!;
+  expect((await checkListeningArtwork(target, check.id)).outcome).toBe(
+    'generation_queued'
+  );
+  const job = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_jobs'
+  ).first<{ id: string }>())!;
+  const step = {
+    do: async (
+      _name: string,
+      _options: unknown,
+      action: () => Promise<unknown>
+    ) => action(),
+  } as unknown as WorkflowStep;
+  await CdArtworkWorkflow.prototype.run.call(
+    { env: target } as unknown as CdArtworkWorkflow,
+    { payload: { jobId: job.id, userId: 1 } } as WorkflowEvent<{
+      jobId: string;
+      userId: number;
+    }>,
+    step
+  );
+  expect((await getJob(target, job.id, 1))?.state).toBe('accepted');
+  const shelf = await publishDiscmanSnapshot(createDb(runtime.DB), 1);
+  expect(shelf.albums.map((album) => album.id)).toEqual([1]);
+  const jobsBefore = await runtime.DB.prepare(
+    'SELECT COUNT(*) AS n FROM cd_artwork_jobs'
+  ).first();
+  const callsBefore = fetcher.mock.calls.length;
+  await scheduledArtwork(target);
+  await play();
+  await scheduledArtwork(target);
+  expect(
+    await runtime.DB.prepare(
+      'SELECT COUNT(*) AS n FROM cd_artwork_jobs'
+    ).first()
+  ).toEqual(jobsBefore);
+  expect(fetcher.mock.calls.length).toBe(callsBefore);
+  expect(
+    await runtime.DB.prepare(
+      'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
+    ).first()
+  ).toBeNull();
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).includes('/images/edits'))
+  ).toHaveLength(0);
 });

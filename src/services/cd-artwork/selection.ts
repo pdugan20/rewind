@@ -12,11 +12,9 @@ import {
   type CatalogAlbum,
 } from './sources.js';
 import { prepareAudioDbArtwork } from './audiodb.js';
-import {
-  albumMatches,
-  artistIdentityMatches,
-  trackMatches,
-} from '../images/sources/utils.js';
+import { artworkArtistMatches as artistIdentityMatches } from './identity.js';
+import { DISCOVERY_POLICY } from './discovery-policy.js';
+import { albumMatches, trackMatches } from '../images/sources/utils.js';
 
 export interface SelectedSource {
   request: JobRequest;
@@ -464,43 +462,84 @@ export async function selectAutomaticSource(
       : undefined;
   };
   const fallbackCover = async () => {
-    const candidate =
-      cover ??
-      verified ??
-      (await verifiedCover(
-        env,
-        albumId,
-        userId,
-        album,
-        allowLegacy,
-        releaseId || undefined
-      ));
-    const image =
-      candidate.preparedBytes && candidate.preparedMime
-        ? { bytes: candidate.preparedBytes, mime: candidate.preparedMime }
-        : await downloadImage(candidate.sourceUrl);
-    if (!(await usable(image.bytes)))
-      throw new ArtworkError('artwork_sources_exhausted', 422);
-    return {
-      ...candidate,
-      preparedBytes: image.bytes,
-      preparedMime: image.mime,
-      renderRetry: await renderRetry(image.bytes),
-    };
+    try {
+      const candidate =
+        cover ??
+        verified ??
+        (await verifiedCover(
+          env,
+          albumId,
+          userId,
+          album,
+          allowLegacy,
+          releaseId || undefined
+        ));
+      const image =
+        candidate.preparedBytes && candidate.preparedMime
+          ? { bytes: candidate.preparedBytes, mime: candidate.preparedMime }
+          : await downloadImage(candidate.sourceUrl);
+      if (!(await usable(image.bytes)))
+        throw new ArtworkError('artwork_sources_exhausted', 422);
+      return {
+        ...candidate,
+        preparedBytes: image.bytes,
+        preparedMime: image.mime,
+        renderRetry: await renderRetry(image.bytes),
+      };
+    } catch (error) {
+      if (error instanceof ArtworkError)
+        error.sourceAttempts = [
+          ...attempts,
+          { source: 'cover', outcome: 'unavailable', code: error.code },
+        ];
+      throw error;
+    }
   };
   const audioDbGroups = new Set<string>();
   // A stored Apple binding is independent identity evidence, not permission
   // to ignore contradictory metadata when a retail scan happens to exist.
-  const verified = album.apple_music_id
-    ? await verifiedCover(
+  const attempts: Array<{ source: string; outcome: string; code?: string }> =
+    [];
+  let verified: SelectedSource | null = null;
+  if (album.apple_music_id) {
+    try {
+      verified = await verifiedCover(
         env,
         albumId,
         userId,
         album,
         allowLegacy,
         releaseId || undefined
+      );
+    } catch (error) {
+      // An unavailable provider may be tried independently. Contradictory
+      // stored identity evidence must still stop publication from any source.
+      if (
+        !(error instanceof ArtworkError) ||
+        ![429, 503].includes(error.status)
       )
-    : null;
+        throw error;
+      attempts.push({
+        source: 'apple',
+        outcome: 'unavailable',
+        code: error.code,
+      });
+    }
+  }
+  const evidenced = (source: SelectedSource): SelectedSource => ({
+    ...source,
+    discovery: {
+      ...source.discovery,
+      discovery_policy: DISCOVERY_POLICY,
+      source_attempts: [
+        ...attempts,
+        {
+          source: source.sourceKind === 'retail' ? 'disc_scan' : 'cover',
+          outcome: 'selected',
+        },
+      ],
+    },
+  });
   const retailAlbum = verified?.discovery.catalog_title
     ? { ...album, name: String(verified.discovery.catalog_title) }
     : album;
@@ -534,6 +573,8 @@ export async function selectAutomaticSource(
         remembered.set(candidate.release_id, candidate);
   }
   let cover: SelectedSource | null = null;
+  let stage = 'musicbrainz_disc';
+  let pendingRetail: ArtworkError | undefined;
   try {
     let releases = [
       ...new Set([...(releaseId ? [releaseId] : []), ...remembered.keys()]),
@@ -588,30 +629,98 @@ export async function selectAutomaticSource(
       try {
         found = await resolveSource(env, request, retailAlbum, true);
       } catch (error) {
-        if (previous && error instanceof ArtworkError && error.status === 422)
+        if (
+          previous &&
+          error instanceof ArtworkError &&
+          error.status === 422 &&
+          error.code !== 'catalog_identity_conflict'
+        )
           continue;
         throw error;
       }
-      const images = found.discovery.images.filter((i) => i.approved);
-      const selectedImage =
-        (previous?.image_id
-          ? images.find((image) => image.id === previous.image_id)
-          : undefined) ?? (images.length === 1 ? images[0] : undefined);
-      if (found.discovery.outcome === 'found' && selectedImage) {
-        request.image_id = selectedImage.id;
-        const downloaded = await usableSource(selectedImage.url);
-        if (downloaded && (await usable(downloaded.bytes)))
-          return {
-            preparedBytes: downloaded.bytes,
-            preparedMime: downloaded.mime,
-            renderRetry: await renderRetry(downloaded.bytes),
+      const images = found.discovery.images.filter((image) => {
+        const labelled = image.comment?.match(
+          /\b(?:cd|disc|disk|medium)\s*[-#:]?\s*(\d+)/i
+        );
+        return (
+          image.approved &&
+          !image.types.some((type) =>
+            ['Matrix/Runout', 'Other'].includes(type)
+          ) &&
+          (!labelled || Number(labelled[1]) === request.medium_position)
+        );
+      });
+      if (found.discovery.outcome === 'found') {
+        // These are scans of one verified physical medium, not competing album
+        // identities. Inspect a bounded stable set and prefer resolution.
+        const ordered = [...images]
+          .sort(
+            (a, b) =>
+              Number(b.id === previous?.image_id) -
+                Number(a.id === previous?.image_id) ||
+              a.id.localeCompare(b.id, 'en', { numeric: true })
+          )
+          .slice(0, 3);
+        const scans: Array<{
+          image: (typeof images)[number];
+          bytes: Uint8Array;
+          mime: string;
+          area: number;
+        }> = [];
+        for (const image of ordered) {
+          let downloaded;
+          try {
+            downloaded = await usableSource(image.url);
+          } catch (error) {
+            if (
+              !(error instanceof ArtworkError) ||
+              ![429, 503].includes(error.status)
+            )
+              throw error;
+            pendingRetail = error;
+            attempts.push({
+              source: 'disc_scan',
+              outcome: 'provider_pending',
+              code: error.code,
+            });
+            continue;
+          }
+          if (!downloaded || !(await usable(downloaded.bytes))) continue;
+          const pixels = readPixels(downloaded.bytes);
+          scans.push({
+            image,
+            ...downloaded,
+            area: pixels.width * pixels.height,
+          });
+        }
+        scans.sort(
+          (a, b) =>
+            b.area - a.area ||
+            a.image.id.localeCompare(b.image.id, 'en', { numeric: true })
+        );
+        const chosen = scans[0];
+        if (chosen) {
+          request.image_id = chosen.image.id;
+          return evidenced({
             ...found,
-            sourceUrl: selectedImage.url,
+            preparedBytes: chosen.bytes,
+            preparedMime: chosen.mime,
+            renderRetry: await renderRetry(chosen.bytes),
+            sourceUrl: chosen.image.url,
             sourceKind: 'retail',
             identityType: 'representative_release',
-            selectedImageId: selectedImage.id,
+            selectedImageId: chosen.image.id,
             request,
-          };
+            discovery: {
+              ...found.discovery,
+              scan_selection: {
+                rule: 'verified_single_medium_largest_usable_scan',
+                inspected: ordered.map((image) => image.id),
+                selected: chosen.image.id,
+              },
+            },
+          });
+        }
       }
       const groupId = found.discovery.release_group_id;
       if (
@@ -638,7 +747,7 @@ export async function selectAutomaticSource(
             medium_position: release === releaseId ? mediumPosition : 1,
             source_kind: 'retail',
           };
-          return {
+          return evidenced({
             request,
             sourceUrl: candidate.sourceUrl,
             preparedBytes: candidate.bytes,
@@ -658,7 +767,7 @@ export async function selectAutomaticSource(
                 requires_automatic_visual_verification: true,
               },
             },
-          };
+          });
         }
       }
       if (found.discovery.covers.length === 1) {
@@ -678,28 +787,59 @@ export async function selectAutomaticSource(
           };
       }
     }
-    return await fallbackCover();
+    if (pendingRetail) throw pendingRetail;
+    attempts.push({ source: 'musicbrainz_disc', outcome: 'not_found' });
+    stage = 'cover';
+    return evidenced(await fallbackCover());
   } catch (error) {
-    if (!(error instanceof ArtworkError) || ![429, 503].includes(error.status))
+    if (stage === 'cover') throw error;
+    if (
+      !(error instanceof ArtworkError) ||
+      (!['catalog_identity_unresolved', 'edition_medium_ambiguous'].includes(
+        error.code
+      ) &&
+        ![429, 503].includes(error.status))
+    ) {
+      if (error instanceof ArtworkError && !error.sourceAttempts)
+        error.sourceAttempts = [
+          ...attempts,
+          {
+            source: 'musicbrainz_disc',
+            outcome: 'unavailable',
+            code: error.code,
+          },
+        ];
       throw error;
+    }
+    attempts.push({
+      source: 'musicbrainz_disc',
+      outcome: 'unavailable',
+      code: error.code,
+    });
     // Available cover evidence can produce a design while retail discovery is
     // pending. Retain the outage and retry; never record retail art as absent.
     const fallback = await fallbackCover();
-    return {
+    return evidenced({
       ...fallback,
-      retailRetryAfter: error.retryAfter,
+      ...([429, 503].includes(error.status)
+        ? { retailRetryAfter: error.retryAfter }
+        : {}),
       ...(error.code === 'discovery_busy'
         ? { retailRetryKind: 'capacity' as const }
         : {}),
       discovery: {
         ...fallback.discovery,
-        outcome: 'retail_provider_pending',
-        retail_retry_after: error.retryAfter,
+        outcome: [429, 503].includes(error.status)
+          ? 'retail_provider_pending'
+          : 'cover_found',
+        ...([429, 503].includes(error.status)
+          ? { retail_retry_after: error.retryAfter }
+          : {}),
         ...(error.code.startsWith('audiodb_')
           ? { audiodb: { outcome: 'provider_pending', code: error.code } }
           : {}),
       },
-    };
+    });
   }
 }
 

@@ -1,7 +1,9 @@
 import type { ArtworkEnv, JobRequest } from './types.js';
 import { albumMatches } from '../images/sources/utils.js';
+import { artworkArtistMatches } from './identity.js';
 
 export class ArtworkError extends Error {
+  sourceAttempts?: Array<{ source: string; outcome: string; code?: string }>;
   constructor(
     public code: string,
     public status = 422,
@@ -65,6 +67,8 @@ export async function downloadImage(
     const r = await fetch(u, {
       redirect: 'manual',
       signal: AbortSignal.timeout(30000),
+    }).catch(() => {
+      throw new ArtworkError('source_fetch_failed', 503);
     });
     if ([301, 302, 303, 307, 308].includes(r.status)) {
       const location = r.headers.get('location');
@@ -96,7 +100,7 @@ interface Release {
   media: Array<{ format: string; position: number }>;
   'artist-credit': Array<{
     name: string;
-    artist?: { id?: string; name: string };
+    artist?: { id?: string; name: string; aliases?: Array<{ name: string }> };
   }>;
 }
 /** Resolve title aliases only from a bound catalog entity and its artist.
@@ -131,7 +135,8 @@ export async function catalogIdentityProof(
       env,
       `https://musicbrainz.org/ws/2/release-group/${id}?inc=artist-credits&fmt=json`
     );
-  if (!record?.title || !artistIdentityMatches(album, record)) return null;
+  if (!record?.title || !(await artistIdentityMatches(env, album, record)))
+    return null;
   const group = record['release-group'] ?? record;
   const title = group.title || record.title;
   const alias = album.name.match(/^(.*?)\s*\(([^()]+)\)$/);
@@ -170,9 +175,14 @@ async function catalogGroup(
   if (release) {
     if (
       album &&
-      ((release.title &&
-        !albumMatches(album.name, release.title, album.artist)) ||
-        (release['artist-credit'] && !artistIdentityMatches(album, release)))
+      release.title &&
+      !albumMatches(album.name, release.title, album.artist)
+    )
+      throw new ArtworkError('catalog_identity_conflict');
+    if (
+      album &&
+      release['artist-credit'] &&
+      !(await artistIdentityMatches(env, album, release))
     )
       throw new ArtworkError('catalog_identity_unresolved');
     if (!release['release-group']?.id)
@@ -186,21 +196,57 @@ async function catalogGroup(
   if (!group?.id) throw new ArtworkError('catalog_identity_unresolved');
   if (
     album &&
-    ((group.title && !albumMatches(album.name, group.title, album.artist)) ||
-      (group['artist-credit'] && !artistIdentityMatches(album, group)))
+    group.title &&
+    !albumMatches(album.name, group.title, album.artist)
+  )
+    throw new ArtworkError('catalog_identity_conflict');
+  if (
+    album &&
+    group['artist-credit'] &&
+    !(await artistIdentityMatches(env, album, group))
   )
     throw new ArtworkError('catalog_identity_unresolved');
   return group.id;
 }
-function artistIdentityMatches(album: CatalogAlbum, release: Release) {
-  return release['artist-credit']?.some(
-    (credit) =>
-      normalize(credit.artist?.name ?? credit.name) ===
-        normalize(album.artist) &&
-      (!album.artist_mbid ||
-        !uuid.test(album.artist_mbid) ||
-        credit.artist?.id?.toLowerCase() === album.artist_mbid.toLowerCase())
-  );
+async function artistIdentityMatches(
+  env: ArtworkEnv,
+  album: CatalogAlbum,
+  release: Release
+) {
+  const credits = release['artist-credit'] ?? [];
+  if (album.artist_mbid && uuid.test(album.artist_mbid)) {
+    // A known identity is authoritative even when a display name changes.
+    const matched = credits.some(
+      (credit) =>
+        credit.artist?.id?.toLowerCase() === album.artist_mbid!.toLowerCase()
+    );
+    if (!matched && credits.some((credit) => credit.artist?.id))
+      throw new ArtworkError('catalog_identity_conflict');
+    return matched;
+  }
+  for (const credit of credits) {
+    if (
+      [credit.name, credit.artist?.name].some(
+        (name) => name && artworkArtistMatches(album.artist, name)
+      )
+    )
+      return true;
+    const id = credit.artist?.id;
+    if (!id || !uuid.test(id)) continue;
+    // Aliases are trusted only on the exact provider entity credited here.
+    const artist = await providerJson<{
+      id: string;
+      aliases?: Array<{ name: string }>;
+    }>(env, `https://musicbrainz.org/ws/2/artist/${id}?inc=aliases&fmt=json`);
+    if (
+      artist?.id?.toLowerCase() === id.toLowerCase() &&
+      artist.aliases?.some((alias) =>
+        artworkArtistMatches(album.artist, alias.name)
+      )
+    )
+      return true;
+  }
+  return false;
 }
 interface ArchiveImage {
   id: string | number;
@@ -259,6 +305,8 @@ export async function providerJson<T>(
         : {}),
     },
     signal: AbortSignal.timeout(15000),
+  }).catch(() => {
+    throw new ArtworkError('discovery_provider_error', 503);
   });
   if (r.status === 404) return null;
   if (!r.ok) {
@@ -274,9 +322,13 @@ export async function providerJson<T>(
       Math.max(3600, seconds || 0)
     );
   }
-  return JSON.parse(
-    new TextDecoder().decode(await boundedBytes(r, 2 * 1024 * 1024))
-  ) as T;
+  try {
+    return JSON.parse(
+      new TextDecoder().decode(await boundedBytes(r, 2 * 1024 * 1024))
+    ) as T;
+  } catch {
+    throw new ArtworkError('discovery_provider_error', 503);
+  }
 }
 export async function resolveSource(
   env: ArtworkEnv,
@@ -292,7 +344,7 @@ export async function resolveSource(
   if (
     !release ||
     !albumMatches(album.name, release.title) ||
-    !artistIdentityMatches(album, release)
+    !(await artistIdentityMatches(env, album, release))
   )
     throw new ArtworkError('edition_identity_mismatch');
   if (
@@ -332,6 +384,8 @@ export async function resolveSource(
       id: String(i.id),
       url: i.image.replace(/^http:/, 'https:'),
       approved: !!i.approved,
+      comment: i.comment ?? null,
+      types: i.types,
     })),
     scope: 'representative release; not proof of owned pressing',
   };
@@ -409,23 +463,35 @@ export async function resolveEditionCandidates(
     env,
     `https://musicbrainz.org/ws/2/release/?query=${encodeURIComponent(query)}&fmt=json&limit=10`
   );
-  const candidates = (result?.releases ?? [])
-    .filter(
-      (r) =>
-        albumMatches(album.name, r.title) &&
-        r.status === 'Official' &&
-        artistIdentityMatches(album, r) &&
-        (!group || r['release-group']?.id === group)
-    )
-    .map((r) => ({
-      release_id: r.id,
-      release_group_id: r['release-group']?.id ?? null,
-      title: r.title,
-      country: r.country ?? null,
-      date: r.date ?? null,
-      identity_type: 'representative_release',
-      requires_medium_verification: true,
-    }));
+  const matching: NonNullable<typeof result>['releases'] = [];
+  for (const r of result?.releases ?? []) {
+    if (
+      albumMatches(album.name, r.title) &&
+      r.status === 'Official' &&
+      (!group || r['release-group']?.id === group)
+    ) {
+      // Search may include homonymous artists; reject those candidates without
+      // discarding a separately matching candidate from the same response.
+      try {
+        if (await artistIdentityMatches(env, album, r)) matching.push(r);
+      } catch (error) {
+        if (
+          !(error instanceof ArtworkError) ||
+          error.code !== 'catalog_identity_conflict'
+        )
+          throw error;
+      }
+    }
+  }
+  const candidates = matching.map((r) => ({
+    release_id: r.id,
+    release_group_id: r['release-group']?.id ?? null,
+    title: r.title,
+    country: r.country ?? null,
+    date: r.date ?? null,
+    identity_type: 'representative_release',
+    requires_medium_verification: true,
+  }));
   return {
     group_verified: !!group,
     results_truncated:

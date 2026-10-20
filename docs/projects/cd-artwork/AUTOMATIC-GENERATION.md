@@ -51,3 +51,7 @@ recovery, source and verifier retry ceilings, and publication protections remain
 Owner control reads return `daily_limit: null`; writes reject the retired field.
 No migration or usage reset was required. The current Worker release is recorded
 in [Pipeline repair](./PIPELINE-REPAIR.md).
+
+## Discovery recovery revision
+
+The local [discovery and policy recovery revision](./DISCOVERY-RECOVERY.md) improves artist identity evidence, independent provider fallback, selection among scans of a verified medium, and bounded scheduled retries of completed source failures after a discovery-policy change. It preserves accepted artwork and review holds. Source verification and production exposure remain separate; see that record for the release gates.

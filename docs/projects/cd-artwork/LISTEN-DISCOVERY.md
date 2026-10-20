@@ -4,7 +4,7 @@ Execution mode: proportional inline implementation — one backend repository, t
 
 ## Delivery contract
 
-A new persisted listening event admits one background metadata check for a known CD edition lacking approved retail disc artwork when its cooldown expires. Listening sync must not wait for artwork providers. Duplicate plays, overlapping dispatch and lost responses must not duplicate work. Cooldown expiry must not independently schedule another check. Pending work must survive partial sync failure and permit bounded recovery.
+A new persisted listening event admits one background metadata check for a known CD edition lacking approved retail disc artwork when its cooldown expires. Listening sync must not wait for artwork providers. Duplicate plays, overlapping dispatch and lost responses must not duplicate work. Cooldown expiry alone must not independently schedule another check. The policy-recovery revision may reconsider a completed source failure once after relevant discovery logic changes; see [Artwork discovery and policy recovery](./DISCOVERY-RECOVERY.md). Pending work must survive partial sync failure and permit bounded recovery.
 
 Unknown editions remain identity holds. In the original discovery-only mode, discovery never generates, accepts or activates artwork, changes history, or publishes an npm version. Migration 0049 adds opt-in automatic processing as described in AUTOMATIC-GENERATION.md; the discovery-only behavior remains available when that switch is off. Existing artwork APIs and the portfolio integration remain compatible.
 
