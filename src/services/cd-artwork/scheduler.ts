@@ -2,6 +2,7 @@ import type { ArtworkEnv, Job } from './types.js';
 import { dispatch } from './store.js';
 import { recoverListeningChecks } from './discovery.js';
 import { recoverOutdatedArtwork } from './reprocessing.js';
+import { recoverDiscoveryFailures } from './discovery-recovery.js';
 
 /** Recovery only: admitted work and established artwork from older policies.
  * No listening-library enrollment or unsolicited historical backfill. */
@@ -25,5 +26,6 @@ export async function scheduledArtwork(env: ArtworkEnv) {
     }
   }
   await recoverOutdatedArtwork(env);
+  await recoverDiscoveryFailures(env);
   await recoverListeningChecks(env);
 }

@@ -4,6 +4,7 @@ import {
   resolveSource,
   resolveEditionCandidates,
   providerJson,
+  catalogIdentityProof,
 } from './sources.js';
 import type { ArtworkEnv } from './types.js';
 const runtime = env as typeof env & ArtworkEnv;
@@ -101,7 +102,7 @@ it('rejects a different MusicBrainz artist with an identical display name', asyn
   const fetcher = mock({ artist: foreignGroup });
   await expect(
     resolveSource(runtime, input, album, true)
-  ).rejects.toMatchObject({ code: 'edition_identity_mismatch' });
+  ).rejects.toMatchObject({ code: 'catalog_identity_conflict' });
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
 it('defers a provider rate limit without interpreting it as the other entity namespace', async () => {
@@ -165,3 +166,89 @@ it('busy callers do not reserve unused provider slots or wait an hour for local 
   ).toBe(future);
   expect(fetcher).not.toHaveBeenCalled();
 });
+
+it.each(['canonical', 'credit', 'alias', 'bound_id'])(
+  'matches verified artist evidence through %s without changing the stored identity',
+  async (mode) => {
+    const metadata = release();
+    metadata['artist-credit'] = [
+      {
+        name: mode === 'credit' ? 'SÝNTHETIC' : 'Different credit',
+        artist: {
+          id: artistId,
+          name: mode === 'canonical' ? 'SÝNTHETIC' : 'Different name',
+        },
+      },
+    ];
+    const fetcher = vi.fn(async (url: string) => {
+      await runtime.DB.prepare(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+      ).run();
+      if (String(url).includes('/artist/'))
+        return Response.json({
+          id: artistId,
+          aliases: [{ name: 'Synthetic' }],
+        });
+      if (String(url).includes('coverartarchive'))
+        return Response.json({ images: [] });
+      return Response.json(metadata);
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const result = await resolveSource(
+      runtime,
+      input,
+      { ...album, artist_mbid: mode === 'bound_id' ? artistId : null },
+      true
+    );
+    expect(result.discovery.medium_verified).toBe(true);
+    expect(
+      fetcher.mock.calls.some(([url]) => String(url).includes('/artist/'))
+    ).toBe(mode === 'alias');
+  }
+);
+
+it('does not accept aliases returned for another provider identity', async () => {
+  const metadata = release();
+  metadata['artist-credit'][0].artist.name = 'Different name';
+  metadata['artist-credit'][0].name = 'Different credit';
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      await runtime.DB.prepare(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+      ).run();
+      return Response.json(
+        String(url).includes('/artist/')
+          ? { id: foreignGroup, aliases: [{ name: 'Synthetic' }] }
+          : metadata
+      );
+    })
+  );
+  await expect(
+    resolveSource(runtime, input, { ...album, artist_mbid: null }, true)
+  ).rejects.toMatchObject({ code: 'edition_identity_mismatch' });
+});
+
+it('a bound artist contradiction remains a hard failure when requesting optional album proof', async () => {
+  mock({ artist: foreignGroup });
+  await expect(
+    catalogIdentityProof(runtime, { ...album, mbid: sourceId })
+  ).rejects.toMatchObject({ code: 'catalog_identity_conflict' });
+});
+
+it.each(['network', 'malformed'])(
+  'keeps a %s provider failure retryable instead of declaring identity or artwork absent',
+  async (mode) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        if (mode === 'network')
+          throw new TypeError('Synthetic network interruption');
+        return new Response('not-json');
+      })
+    );
+    await expect(
+      providerJson(runtime, 'https://musicbrainz.org/ws/2/release/' + sourceId)
+    ).rejects.toMatchObject({ code: 'discovery_provider_error', status: 503 });
+  }
+);

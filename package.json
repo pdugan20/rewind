@@ -48,7 +48,7 @@
     "docs:links": "cd docs-mintlify && mint broken-links --check-anchors --check-redirects",
     "docs:gen-mcp": "tsx scripts/gen-mcp-reference.ts",
     "prepare": "husky",
-    "test:cd-artwork": "vitest run -c vitest.cd-artwork.config.ts && node --test scripts/cd-artwork/pipeline.test.mjs",
+    "test:cd-artwork": "vitest run -c vitest.cd-artwork.config.ts && node --test scripts/cd-artwork/pipeline.test.mjs scripts/cd-artwork/build.test.mjs",
     "build:cd-artwork": "wrangler deploy -c wrangler.cd-artwork.jsonc --dry-run",
     "docs:check": "node scripts/check-docs.mjs && tsx scripts/gen-mcp-reference.ts --check",
     "test:docs": "node --import tsx --test scripts/check-docs.test.mjs scripts/apex-routing.test.mjs",

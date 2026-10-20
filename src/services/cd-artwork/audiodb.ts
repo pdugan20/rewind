@@ -1,6 +1,7 @@
 import type { ArtworkEnv } from './types.js';
 import { sha256 } from './types.js';
 import { albumMatches } from '../images/sources/utils.js';
+import { artworkArtistMatches } from './identity.js';
 import {
   ArtworkError,
   boundedBytes,
@@ -95,7 +96,7 @@ async function exactAlbum(
       row.strAlbum &&
       row.strArtist &&
       normalize(row.strAlbum) === normalize(album.name) &&
-      normalize(row.strArtist) === normalize(album.artist) &&
+      artworkArtistMatches(row.strArtist, album.artist) &&
       boundGroup?.toLowerCase() === groupId.toLowerCase() &&
       row.strAlbumCDart
     );
@@ -106,7 +107,7 @@ async function exactAlbum(
         row.strAlbum &&
         row.strArtist &&
         albumMatches(album.name, row.strAlbum, album.artist) &&
-        normalize(row.strArtist) === normalize(album.artist) &&
+        artworkArtistMatches(row.strArtist, album.artist) &&
         (
           row.strMusicBrainzReleaseGroupID ?? row.strMusicBrainzID
         )?.toLowerCase() !== groupId.toLowerCase()
