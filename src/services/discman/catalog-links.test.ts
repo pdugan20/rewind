@@ -14,6 +14,7 @@ import {
   lastfmAlbumTracks,
   lastfmAlbums,
   lastfmArtists,
+  lastfmScrobbles,
   lastfmTracks,
 } from '../../db/schema/lastfm.js';
 import { setupTestDb } from '../../test-helpers.js';
@@ -108,6 +109,47 @@ describe('linkShelfAlbums', () => {
       appleMusicUrl: 'https://music.apple.com/us/album/x/1440941951',
       tracklistSyncedAt: null,
     });
+  });
+
+  it('tries an earlier song when the latest play is missing from the catalog', async () => {
+    const album = await seed();
+    const [{ id: matchId }] = await db.select().from(lastfmTracks);
+    const [bonus] = await db
+      .insert(lastfmTracks)
+      .values({
+        name: 'Bonus Track',
+        artistId: album.artistId,
+        albumId: album.id,
+      })
+      .returning();
+    const play = (trackId: number, minute: number) => ({
+      trackId,
+      albumId: album.id,
+      albumRecorded: 1,
+      scrobbledAt: new Date(Date.UTC(2026, 9, 1, 0, minute)).toISOString(),
+    });
+    await db
+      .insert(lastfmScrobbles)
+      .values([play(matchId, 1), play(bonus.id, 2), play(bonus.id, 3)]);
+    const catalog = catalogWith(
+      catalogAlbum('1440941951', 'Collide With The Sky', 'Pierce the Veil')
+    );
+    const fetch = vi.fn(async (input: string) =>
+      new URL(input).searchParams.get('term')?.includes('Bonus')
+        ? reply({ results: {} })
+        : catalog(input)
+    );
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkShelfAlbums(db, 'token', [album.id])).toEqual({
+      checked: 1,
+      linked: 1,
+    });
+    expect((await read(album.id)).appleMusicId).toBe(1440941951);
+    const terms = fetch.mock.calls.map(([url]) =>
+      new URL(url).searchParams.get('term')
+    );
+    expect(terms[0]).toContain('Bonus');
+    expect(terms.some((term) => term?.includes('Match'))).toBe(true);
   });
 
   it('leaves a release credited to another artist and waits before retrying', async () => {

@@ -12,7 +12,7 @@ import {
   type CatalogAlbum,
 } from './sources.js';
 import { prepareAudioDbArtwork } from './audiodb.js';
-import { artworkArtistMatches as artistIdentityMatches } from './identity.js';
+import { artworkArtistMatches } from './identity.js';
 import { DISCOVERY_POLICY } from './discovery-policy.js';
 import { albumMatches, trackMatches } from '../images/sources/utils.js';
 
@@ -215,7 +215,7 @@ export async function verifiedCover(
     if (
       !collection?.artistName ||
       !collection.collectionName ||
-      !artistIdentityMatches(album.artist, collection.artistName) ||
+      !artworkArtistMatches(album.artist, collection.artistName) ||
       !(await titleMatches(collection.collectionName))
     )
       return { collection: null, trackVerified: false };
@@ -297,7 +297,7 @@ export async function verifiedCover(
         candidate.collectionId &&
         candidate.collectionName &&
         candidate.artistName &&
-        artistIdentityMatches(album.artist, candidate.artistName) &&
+        artworkArtistMatches(album.artist, candidate.artistName) &&
         (await titleMatches(candidate.collectionName))
       )
         candidates.push(candidate);
