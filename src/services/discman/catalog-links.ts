@@ -18,13 +18,15 @@ import {
   lastfmArtists,
 } from '../../db/schema/lastfm.js';
 import { catalogGet } from '../apple-music/catalog-album.js';
-import { playedSong } from '../apple-music/played-song.js';
+import { playedSongs } from '../apple-music/played-song.js';
 import { resolveCatalogAlbum } from '../apple-music/resolve-album.js';
 import { artistIdentityMatches } from '../images/sources/utils.js';
 import { variousArtistsFor } from '../itunes/enrich.js';
 import { VARIOUS_ARTISTS_NAME } from '../lastfm/constants.js';
 
 const LINK_RETRY_DAYS = 7;
+/** Played songs tried per album; a bonus track can be missing from Apple's edition. */
+const LINK_SONGS = 3;
 
 /**
  * Link the listed albums that have no catalog id. The matched release must be
@@ -85,14 +87,27 @@ export async function linkShelfAlbums(
       isNull(lastfmAlbums.appleMusicId),
       eq(lastfmAlbums.appleMusicPinned, 0)
     );
-    const song = await playedSong(db, userId, album.id);
-    const found = song
-      ? await resolveCatalogAlbum(token, {
-          album: album.name,
-          track: song.track,
-          artist: song.artist,
-        })
-      : ({ status: 'no_match' } as const);
+    let found: Awaited<ReturnType<typeof resolveCatalogAlbum>> = {
+      status: 'no_match',
+    };
+    let credited = false;
+    // The latest play may be a song the catalog edition lacks; another
+    // played song can still identify the album.
+    for (const song of await playedSongs(db, userId, album.id, LINK_SONGS)) {
+      found = await resolveCatalogAlbum(token, {
+        album: album.name,
+        track: song.track,
+        artist: song.artist,
+      });
+      if (found.status === 'rate_limited' || found.status === 'error') break;
+      credited =
+        found.status === 'found' &&
+        (album.artistId === variousArtistsId
+          ? found.album.artistName.trim().toLowerCase() ===
+            VARIOUS_ARTISTS_NAME.toLowerCase()
+          : artistIdentityMatches(album.artistName, found.album.artistName));
+      if (credited) break;
+    }
     if (found.status === 'rate_limited') break;
     if (found.status === 'error') {
       console.log(
@@ -101,12 +116,6 @@ export async function linkShelfAlbums(
       continue;
     }
     totals.checked++;
-    const credited =
-      found.status === 'found' &&
-      (album.artistId === variousArtistsId
-        ? found.album.artistName.trim().toLowerCase() ===
-          VARIOUS_ARTISTS_NAME.toLowerCase()
-        : artistIdentityMatches(album.artistName, found.album.artistName));
     if (found.status === 'found' && credited) {
       const linked = await db
         .update(lastfmAlbums)

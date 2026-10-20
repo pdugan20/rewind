@@ -3,6 +3,7 @@ import {
   cleanArtistName,
   cleanAlbumName,
   artistMatches,
+  artistIdentityMatches,
   albumMatches,
   trackMatches,
 } from './utils.js';
@@ -122,6 +123,18 @@ describe('artistMatches', () => {
     expect(artistMatches('Simon & Garfunkel', 'Simon and Garfunkel')).toBe(
       true
     );
+  });
+});
+
+describe('artistIdentityMatches', () => {
+  it('folds stylized accents that catalogs add to plain names', () => {
+    expect(artistIdentityMatches('JAY-Z', 'JAŸ-Z')).toBe(true);
+    expect(artistIdentityMatches('Bjork', 'Björk')).toBe(true);
+    expect(artistMatches('JAY-Z', 'JAŸ-Z')).toBe(true);
+  });
+  it('still requires the same artist', () => {
+    expect(artistIdentityMatches('JAY-Z', 'Jay Rock')).toBe(false);
+    expect(artistIdentityMatches('JAY-Z', 'JAŸ-Z & Kanye West')).toBe(false);
   });
 });
 

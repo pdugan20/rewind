@@ -98,6 +98,20 @@ function stripThe(s: string): string {
 }
 
 /**
+ * Removes combining accents. Catalogs stylize names that Last.fm stores
+ * plainly: Apple credits JAY-Z as "JAŸ-Z". Every artist identity check, for
+ * Apple Music matching and for disc artwork, folds accents with this.
+ */
+export function foldAccents(value: string): string {
+  return value.normalize('NFKD').replace(/\p{M}/gu, '');
+}
+
+/** An artist name as the Apple Music and iTunes checks compare it. */
+function artistKey(name: string): string {
+  return stripThe(normalize(foldAccents(cleanArtistName(name))));
+}
+
+/**
  * Check if a returned artist name is a reasonable match for the requested one.
  * The returned name must start with the requested name (after normalization
  * and "the" stripping). This allows "The Animals Retrospective" to match
@@ -106,8 +120,8 @@ function stripThe(s: string): string {
  * start with "Buddy Holly".
  */
 export function artistMatches(requested: string, returned: string): boolean {
-  const req = stripThe(normalize(cleanArtistName(requested)));
-  const ret = stripThe(normalize(cleanArtistName(returned)));
+  const req = artistKey(requested);
+  const ret = artistKey(returned);
   if (!req || !ret) return false;
   if (req === ret) return true;
   // Returned must start with requested at a word boundary
@@ -126,8 +140,8 @@ export function artistIdentityMatches(
   requested: string,
   returned: string
 ): boolean {
-  const req = stripThe(normalize(cleanArtistName(requested)));
-  const ret = stripThe(normalize(cleanArtistName(returned)));
+  const req = artistKey(requested);
+  const ret = artistKey(returned);
   return !!req && req === ret;
 }
 

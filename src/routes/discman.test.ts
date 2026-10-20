@@ -57,6 +57,8 @@ describe('GET /v1/listening/discman', () => {
     filtered?: string[];
     albumFiltered?: boolean;
     appleMusicId?: number;
+    /** Apple previews for the played songs; on by default. */
+    previews?: boolean;
     /** Disc art state; the shelf only lists albums with accepted art. */
     artwork?: 'accepted' | 'pending' | 'hidden' | 'none';
   }) {
@@ -93,7 +95,8 @@ describe('GET /v1/listening/discman', () => {
           name,
           artistId,
           albumId: album.id,
-          previewUrl: PREVIEW(tracks.size + 100),
+          previewUrl:
+            options.previews === false ? null : PREVIEW(tracks.size + 100),
           isFiltered: options.filtered?.includes(name) ? 1 : 0,
         })
         .returning();
@@ -199,6 +202,26 @@ describe('GET /v1/listening/discman', () => {
       'Live Through This',
       'Pinkerton',
     ]);
+  });
+
+  it('leaves out albums with no preview and fills the shelf from older ones', async () => {
+    for (let i = 0; i < 13; i++)
+      await seedAlbum({
+        artist: `Artist ${i}`,
+        album: `Album ${i}`,
+        plays: ['A'],
+      });
+    // The newest album has disc art, but none of its songs has a preview.
+    await seedAlbum({
+      artist: 'JAY-Z',
+      album: 'The Blueprint',
+      plays: ['Breathe Easy', 'Takeover'],
+      previews: false,
+    });
+    const snapshot = await buildDiscmanSnapshot(db, 1);
+    expect(snapshot.albums.map((a) => a.name)).toEqual(
+      Array.from({ length: 12 }, (_, i) => `Album ${12 - i}`)
+    );
   });
 
   it('publishes an empty shelf when no album has accepted disc art', async () => {

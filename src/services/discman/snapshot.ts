@@ -39,6 +39,14 @@ const SCAN_BATCH_SIZE = 500;
 // own album) can push the 12th much further back. The cap bounds that scan,
 // and the scan also ends once every album with art has been found.
 const SCAN_LIMIT = 20000;
+/**
+ * The shelf only publishes albums a visitor can hear, and whether an album
+ * has a preview is known only after its catalog link and tracklist sync,
+ * which run on the selected albums. Selecting twice the shelf leaves room
+ * for albums still waiting on a preview; both steps skip albums they checked
+ * recently, so the extra candidates cost little.
+ */
+export const DISCMAN_CANDIDATE_LIMIT = DISCMAN_ALBUM_LIMIT * 2;
 
 interface ScanRow {
   scrobbleId: number;
@@ -78,12 +86,13 @@ async function albumsWithArtwork(
 
 /**
  * Newest-first distinct albums with accepted disc art, skipping filtered
- * tracks, albums and artists.
+ * tracks, albums and artists. These are shelf candidates; the snapshot keeps
+ * the ones with a preview.
  */
 export async function selectRecentAlbums(
   db: Database,
   userId: number,
-  limit = DISCMAN_ALBUM_LIMIT
+  limit = DISCMAN_CANDIDATE_LIMIT
 ): Promise<SelectedAlbum[]> {
   const withArtwork = await albumsWithArtwork(db, userId);
   const wanted = Math.min(limit, withArtwork.size);
@@ -349,6 +358,7 @@ export async function buildDiscmanSnapshot(
   const albumsById = new Map(albumRows.map((row) => [row.id, row]));
   const albums: DiscmanAlbum[] = [];
   for (const { albumId, lastPlayedAt } of selected) {
+    if (albums.length === DISCMAN_ALBUM_LIMIT) break;
     const album = albumsById.get(albumId);
     if (!album) continue;
     const plays = played.filter((row) => row.album_id === albumId);
@@ -411,6 +421,9 @@ export async function buildDiscmanSnapshot(
       // order for album-wise listening.
       tracks = audiblePlays.map((row, index) => playedToTrack(row, index + 1));
     }
+    // A disc with nothing to play stays off the shelf until a preview is
+    // found; the next newest candidate takes its place.
+    if (!tracks.some((track) => track.preview_url)) continue;
 
     const candidate: DiscmanAlbum = {
       id: album.id,
