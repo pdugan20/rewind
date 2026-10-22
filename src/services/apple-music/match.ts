@@ -13,7 +13,74 @@ import {
   albumMatches,
   comparableTitle,
   trackMatches,
+  artistIdentityMatches,
 } from '../images/sources/utils.js';
+
+/** Credits are sets of named participants, not interchangeable artist IDs. */
+export function recordingCreditsMatch(
+  played: string,
+  credited: string
+): boolean {
+  if (artistIdentityMatches(played, credited)) return true;
+  const parts = (value: string) =>
+    value
+      .split(
+        /\s*(?:,|&|\band\b|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b|\bx\b)\s*/i
+      )
+      .filter(Boolean);
+  const wanted = parts(played),
+    actual = parts(credited);
+  // An abbreviated joint credit can share its last surname: "Ada & Ben Vale".
+  // It is accepted only when those complete names occur in the catalog credit.
+  const surname =
+    wanted.length === 2 &&
+    /^\S+\s+\S+$/.test(wanted[1]) &&
+    !/^the\s/i.test(wanted[1])
+      ? wanted[1].split(/\s+/).at(-1)
+      : null;
+  return (
+    wanted.length > 0 &&
+    wanted.every((p) =>
+      actual.some(
+        (a) =>
+          artistIdentityMatches(p, a) ||
+          (!!surname &&
+            /^\S+$/.test(p) &&
+            artistIdentityMatches(`${p} ${surname}`, a))
+      )
+    )
+  );
+}
+
+/** Feature credits do not change the recording; live/remix qualifiers do. */
+const BRACKET_FEATURE = /\s*[([](?:feat\.?|ft\.?|featuring)\s+([^)\]]+)[)\]]/i;
+const INLINE_FEATURE =
+  /\s+(?:feat\.?|ft\.?|featuring)\s+(.+?)(?=\s+(?:[-–—]\s*|[([])|$)/i;
+function withoutFeatures(title: string): string {
+  return title.replace(BRACKET_FEATURE, '').replace(INLINE_FEATURE, '').trim();
+}
+
+/** Only a verified live album permits a missing live qualifier on a play. */
+export function albumSongMatches(
+  played: string,
+  catalog: string,
+  album: string
+): boolean {
+  if (songTitleMatches(played, catalog)) return true;
+  if (
+    !/(?:[([]live(?:\s+[^)\]]+)?[)\]]|\blive\s+(?:at|from)\b|\bunplugged\b)/i.test(
+      album
+    ) ||
+    /\b(?:live|remix|mix|acoustic|instrumental|demo|edit)\b/i.test(played)
+  )
+    return false;
+  const live = catalog.match(/\s*[([]live(?:\s+[^)\]]+)?[)\]]\s*$/i);
+  return (
+    !!live &&
+    !/\b(?:remix|mix|acoustic|instrumental|demo|edit)\b/i.test(live[0]) &&
+    songTitleMatches(played, catalog.slice(0, live.index))
+  );
+}
 
 // Words that name a packaging of the same recordings. Recording variants such
 // as instrumental, acoustic, remix, sped-up or re-recorded ("Taylor's
@@ -142,6 +209,25 @@ const sameSet = (a: string[], b: string[]) =>
  * titles carry the same numbers and the same variant words.
  */
 export function songTitleMatches(played: string, catalog: string): boolean {
+  const feature = (title: string) =>
+    (title.match(BRACKET_FEATURE) ?? title.match(INLINE_FEATURE))?.[1]?.trim();
+  const playedFeature = feature(played),
+    catalogFeature = feature(catalog);
+  if (
+    playedFeature &&
+    catalogFeature &&
+    (!recordingCreditsMatch(playedFeature, catalogFeature) ||
+      !recordingCreditsMatch(catalogFeature, playedFeature))
+  )
+    return false;
+  played = withoutFeatures(played);
+  catalog = withoutFeatures(catalog);
+  const performance = (title: string) =>
+    title.match(/\s*[([]live(?:\s+[^)\]]+)?[)\]]\s*$/i)?.[0];
+  const pLive = performance(played),
+    cLive = performance(catalog);
+  if (pLive && cLive && comparableTitle(pLive) !== comparableTitle(cLive))
+    return false;
   if (trackMatches(played, catalog)) return true;
   const a = comparableTitle(played);
   const b = comparableTitle(catalog);

@@ -51,6 +51,15 @@ uncertain generation permits a new-listen status check after one hour; it does
 not authorize another paid submission. Repair the cause and explicitly replay
 the owned album through the existing automatic endpoint when necessary.
 
+An active, visible accepted asset takes precedence over a failed upgrade when
+projecting album readiness. Manual activation updates that projection too.
+Reconciliation repairs both historical accepted completions and terminal
+failures, without submitting generation. A failed upgrade still establishes
+the one-hour new-listen check window and retains its job diagnostics. Hidden
+and review-held assets are not declared ready. Album filings preserve retired
+source-job history under `album_reassigned` rather than moving artwork jobs
+to another album.
+
 - `POST /jobs/:id/recover` reprocesses stored raw output. It never submits to OpenAI.
 - `POST /jobs/:id/raw` uploads an existing provider-output PNG for a previously submitted uncertain job whose raw evidence was not persisted. It cannot overwrite different immutable raw bytes or an existing candidate.
 - The Image API's synchronous edit response has no guaranteed recovery endpoint after a lost response. If neither provider output nor private raw bytes are recoverable, the uncertain job stays held. A new paid attempt requires a separately explicit new job; it is never an automatic timeout retry.

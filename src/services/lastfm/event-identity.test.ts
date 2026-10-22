@@ -65,76 +65,79 @@ describe('event album identity', () => {
       getArtistTopTags: async () => ({ toptags: { tag: [] } }),
     } as unknown as LastfmClient;
   }
-  it('files later plays of an album the album check filed under Various Artists', async () => {
-    const various = await upsertArtist(
-      db,
-      'Various Artists',
-      '89ad4ac3-39f7-470e-963a-56509c546377'
-    );
-    const artist = await upsertArtist(db, 'Synthetic', null);
-    const compilation = await upsertAlbum(
-      db,
-      'Soundtrack',
-      various.id,
-      null,
-      'Various Artists'
-    );
-    const split = await upsertAlbum(
-      db,
-      'Soundtrack',
-      artist.id,
-      null,
-      'Synthetic'
-    );
-    await db.insert(lastfmAlbumAttributionAudit).values({
-      originalAlbumId: split.id,
-      originalAlbumName: 'Soundtrack',
-      originalArtistId: artist.id,
-      action: 'FILE_UNDER_VARIOUS_ARTISTS',
-      newAlbumId: compilation.id,
-      newArtistId: various.id,
-    });
-    // A placeholder Various Artists album that already holds this artist's
-    // play, but was never filed from their album, attracts nothing.
-    const hits = await upsertAlbum(
-      db,
-      'Greatest Hits',
-      various.id,
-      null,
-      'Various Artists'
-    );
-    const [old] = await db
-      .insert(lastfmTracks)
-      .values({ name: 'Old song', artistId: artist.id, albumId: hits.id })
-      .returning();
-    await db.insert(lastfmScrobbles).values({
-      trackId: old.id,
-      albumId: hits.id,
-      albumRecorded: 1,
-      scrobbledAt: '2020-01-01T00:00:00.000Z',
-    });
-    await syncRecentScrobbles(
-      db,
-      client([
-        raw('Soundtrack', 1780000000),
-        raw('Greatest Hits', 1780000100),
-        raw('Other release', 1780000200),
-      ])
-    );
-    const albums = await db.select().from(lastfmAlbums);
-    const own = (name: string) =>
-      albums.find((a) => a.name === name && a.artistId === artist.id)!.id;
-    const plays = await db
-      .select({ albumId: lastfmScrobbles.albumId })
-      .from(lastfmScrobbles)
-      .orderBy(lastfmScrobbles.scrobbledAt);
-    expect(plays.map((play) => play.albumId)).toEqual([
-      hits.id,
-      compilation.id,
-      own('Greatest Hits'),
-      own('Other release'),
-    ]);
-  });
+  it.each(['FILE_UNDER_VARIOUS_ARTISTS', 'FILE_UNDER_ALBUM_ARTIST'])(
+    'files later plays using verified album attribution %s',
+    async (action) => {
+      const various = await upsertArtist(
+        db,
+        'Various Artists',
+        '89ad4ac3-39f7-470e-963a-56509c546377'
+      );
+      const artist = await upsertArtist(db, 'Synthetic', null);
+      const compilation = await upsertAlbum(
+        db,
+        'Soundtrack',
+        various.id,
+        null,
+        'Various Artists'
+      );
+      const split = await upsertAlbum(
+        db,
+        'Soundtrack',
+        artist.id,
+        null,
+        'Synthetic'
+      );
+      await db.insert(lastfmAlbumAttributionAudit).values({
+        originalAlbumId: split.id,
+        originalAlbumName: 'Soundtrack',
+        originalArtistId: artist.id,
+        action,
+        newAlbumId: compilation.id,
+        newArtistId: various.id,
+      });
+      // A placeholder Various Artists album that already holds this artist's
+      // play, but was never filed from their album, attracts nothing.
+      const hits = await upsertAlbum(
+        db,
+        'Greatest Hits',
+        various.id,
+        null,
+        'Various Artists'
+      );
+      const [old] = await db
+        .insert(lastfmTracks)
+        .values({ name: 'Old song', artistId: artist.id, albumId: hits.id })
+        .returning();
+      await db.insert(lastfmScrobbles).values({
+        trackId: old.id,
+        albumId: hits.id,
+        albumRecorded: 1,
+        scrobbledAt: '2020-01-01T00:00:00.000Z',
+      });
+      await syncRecentScrobbles(
+        db,
+        client([
+          raw('Soundtrack', 1780000000),
+          raw('Greatest Hits', 1780000100),
+          raw('Other release', 1780000200),
+        ])
+      );
+      const albums = await db.select().from(lastfmAlbums);
+      const own = (name: string) =>
+        albums.find((a) => a.name === name && a.artistId === artist.id)!.id;
+      const plays = await db
+        .select({ albumId: lastfmScrobbles.albumId })
+        .from(lastfmScrobbles)
+        .orderBy(lastfmScrobbles.scrobbledAt);
+      expect(plays.map((play) => play.albumId)).toEqual([
+        hits.id,
+        compilation.id,
+        own('Greatest Hits'),
+        own('Other release'),
+      ]);
+    }
+  );
   it('preserves each reported album, legacy attribution and explicit absence through sync and replay', async () => {
     const artist = await upsertArtist(db, 'Synthetic', null);
     const original = await upsertAlbum(

@@ -9,6 +9,7 @@ import {
   lastfmTracks,
 } from '../db/schema/lastfm.js';
 import { setCache } from '../lib/cache.js';
+import { hasVerifiedAlbumAttribution } from '../services/apple-music/album-attribution.js';
 
 const DOMAINS = [
   'listening',
@@ -263,7 +264,9 @@ system.openapi(syncHealthRoute, async (c) => {
     })
     .from(lastfmTracks)
     .innerJoin(lastfmAlbums, eq(lastfmTracks.albumId, lastfmAlbums.id))
-    .where(sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId}`);
+    .where(
+      sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId} AND NOT ${hasVerifiedAlbumAttribution()}`
+    );
 
   return c.json({
     status: 'ok' as const,

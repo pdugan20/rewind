@@ -17,6 +17,18 @@ Scrobbles sync every 15 minutes. Browse every endpoint in the [API reference](/a
 
 Use [recent albums](/api-reference/listening/recently-played-albums) for unique albums ordered by their newest scrobble, with artist metadata and artwork. Use [all year summaries](/api-reference/listening/all-year-summaries) to browse listening totals by year.
 
+Album matching confirms a played song on the catalog release. Featured credits
+can differ in the song title; live recordings still require a matching live
+album or performance qualifier. Verified recording credits can establish an
+album's compilation or collaboration credit without merging the artists.
+An audited album filing carries forward to later plays of that same source
+album, preserving recording artists and plays of other releases.
+
+Recent catalog links are checked independently of disc-art availability, so
+an existing link to the wrong release can be repaired too. Pins, exclusions
+and conflicting identities remain protected. This does not enroll historical
+listening for artwork generation.
+
 ## Time periods
 
 Top list endpoints accept a `period` parameter:

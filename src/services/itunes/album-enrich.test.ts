@@ -520,7 +520,7 @@ describe('album checks with the Apple Music catalog', () => {
     expect(await playAlbum(brown.track.id)).toEqual([various.id]);
   });
 
-  it('links a split credited to another album artist', async () => {
+  it('holds a different album credit without verified recording credits', async () => {
     const wings = await played('Wings', 'Jet', {
       album: 'PURE MCCARTNEY',
       createdAt: BEFORE_CUTOFF,
@@ -538,10 +538,10 @@ describe('album checks with the Apple Music catalog', () => {
       token: TOKEN,
     });
     expect(live.items[0]).toMatchObject({
-      action: 'link_album',
-      applied: true,
+      action: 'no_album_match',
+      applied: false,
     });
-    expect((await album(wings.split.id)).appleMusicId).toBe(1440951787);
+    expect((await album(wings.split.id)).appleMusicId).toBeNull();
     expect(await playAlbum(wings.track.id)).toEqual([wings.split.id]);
   });
 
@@ -598,10 +598,14 @@ describe('album checks with the Apple Music catalog', () => {
       token: TOKEN,
     });
     expect(live.items[0]).toMatchObject({
-      action: 'link_album',
+      action: 'file_under_album_artist',
       match: { catalog_id: 1440951787, album_artist: 'Paul McCartney' },
     });
-    expect(await playAlbum(wings.track.id)).toEqual([wings.split.id]);
+    const target = (await db.select().from(lastfmAlbums)).find(
+      (a) => a.appleMusicId === 1440951787
+    );
+    expect(target?.artistId).not.toBe(wings.artist.id);
+    expect(await playAlbum(wings.track.id)).toEqual([target!.id]);
   });
 
   it.each([

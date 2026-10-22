@@ -175,7 +175,7 @@ describe('linkShelfAlbums', () => {
     expect(terms.some((term) => term?.includes('Match'))).toBe(true);
   });
 
-  it('leaves a release credited to another artist and waits before retrying', async () => {
+  it('files a verified recording under its different album artist', async () => {
     const album = await seed();
     const fetch = catalogWith(
       catalogAlbum('77', 'Collide With The Sky', 'Various Artists')
@@ -183,11 +183,15 @@ describe('linkShelfAlbums', () => {
     vi.stubGlobal('fetch', fetch);
     expect(await linkShelfAlbums(db, 'token', [album.id])).toEqual({
       checked: 1,
-      linked: 0,
+      linked: 1,
     });
     const row = await read(album.id);
     expect(row.appleMusicId).toBeNull();
-    expect(row.catalogLinkCheckedAt).toBeTruthy();
+    const target = (await db.select().from(lastfmAlbums)).find(
+      (a) => a.appleMusicId === 77
+    );
+    expect(target).toBeTruthy();
+    expect((await db.select().from(lastfmTracks))[0].albumId).toBe(target!.id);
     fetch.mockClear();
     await linkShelfAlbums(db, 'token', [album.id]);
     expect(fetch).not.toHaveBeenCalled();
@@ -455,7 +459,10 @@ describe('linkRecentAlbums', () => {
     const rows = await Promise.all([
       recentAlbum('cooldown', { catalogLinkCheckedAt: daysAgo(0.25) }),
       recentAlbum('pinned', { appleMusicPinned: 1 }),
-      recentAlbum('linked', { appleMusicId: 99 }),
+      recentAlbum('linked', {
+        appleMusicId: 99,
+        catalogLinkCheckedAt: daysAgo(0.25),
+      }),
       recentAlbum('filtered', { isFiltered: 1 }),
       recentAlbum('conflict', { identityConflict: 1 }),
       recentAlbum('artist-filtered', {}, { isFiltered: 1 }),
@@ -603,7 +610,7 @@ describe('linkRecentAlbums', () => {
       expect((await read(album.id)).catalogLinkCheckedAt).toBeNull();
   });
 
-  it('rejects a different catalog album artist and holds the miss for one day', async () => {
+  it('files a collaboration under its verified expanded album credit', async () => {
     const row = await recentAlbum('wrong-credit');
     const catalog = vi.fn(async (input: string) => {
       const song = {
@@ -631,10 +638,20 @@ describe('linkRecentAlbums', () => {
     vi.stubGlobal('fetch', catalog);
     expect(await linkRecentAlbums(db, 'token')).toEqual({
       checked: 1,
-      linked: 0,
+      linked: 1,
     });
     expect((await read(row.album.id)).appleMusicId).toBeNull();
-    expect((await read(row.album.id)).catalogLinkCheckedAt).toBeTruthy();
+    const target = (await db.select().from(lastfmAlbums)).find(
+      (a) => a.appleMusicId === 999
+    );
+    expect(target).toBeTruthy();
+    expect((await db.select().from(lastfmScrobbles))[0].albumId).toBe(
+      target!.id
+    );
+    await db
+      .update(lastfmAlbums)
+      .set({ catalogLinkCheckedAt: daysAgo(0) })
+      .where(eq(lastfmAlbums.id, target!.id));
     catalog.mockClear();
     await linkRecentAlbums(db, 'token');
     expect(catalog).not.toHaveBeenCalled();
@@ -665,5 +682,94 @@ describe('linkRecentAlbums', () => {
       expect((await read(row.album.id)).appleMusicId).toBeNull();
       expect((await read(row.album.id)).catalogLinkCheckedAt).toBeNull();
     }
+  });
+});
+
+describe('recent binding validation', () => {
+  it('repairs an existing wrong release without requiring disc art', async () => {
+    const row = await recentAlbum('incorrect-binding', {
+      appleMusicId: 55,
+      appleMusicUrl: 'https://music.apple.com/us/album/wrong/55',
+    });
+    const search = syntheticCatalog([row]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string) =>
+        new URL(input).pathname.endsWith('/albums/55')
+          ? reply({
+              data: [catalogAlbum('55', 'Different Release', row.artist.name)],
+            })
+          : search(input)
+      )
+    );
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 1,
+      linked: 1,
+    });
+    expect((await read(row.album.id)).appleMusicId).toBe(100000 + row.album.id);
+    expect(
+      await env.DB.prepare('SELECT COUNT(*) n FROM cd_artwork_jobs').first('n')
+    ).toBe(0);
+  });
+  it('validates an existing correct release without resetting its tracklist', async () => {
+    const stamp = '2026-10-01T00:00:00Z';
+    const row = await recentAlbum('valid-binding', {
+      appleMusicId: 55,
+      appleMusicUrl: 'https://music.apple.com/us/album/valid/55',
+      tracklistSyncedAt: stamp,
+    });
+    const fetch = vi.fn(async () =>
+      reply({ data: [catalogAlbum('55', row.album.name, row.artist.name)] })
+    );
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 1,
+      linked: 0,
+    });
+    expect((await read(row.album.id)).tracklistSyncedAt).toBe(stamp);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  it('retains a binding and its retry eligibility during a provider outage', async () => {
+    const row = await recentAlbum('temporary-outage', {
+      appleMusicId: 55,
+      appleMusicUrl: 'https://music.apple.com/us/album/valid/55',
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => reply({}, 503))
+    );
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 0,
+      linked: 0,
+    });
+    expect(await read(row.album.id)).toMatchObject({
+      appleMusicId: 55,
+      catalogLinkCheckedAt: null,
+    });
+  });
+});
+
+it('removes a proven wrong binding when no replacement can be confirmed', async () => {
+  const row = await recentAlbum('invalid-no-replacement', {
+    appleMusicId: 55,
+    appleMusicUrl: 'https://music.apple.com/us/album/wrong/55',
+  });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: string) =>
+      new URL(input).pathname.endsWith('/albums/55')
+        ? reply({
+            data: [catalogAlbum('55', 'Different Release', row.artist.name)],
+          })
+        : reply({ results: {} })
+    )
+  );
+  expect(await linkRecentAlbums(db, 'token')).toEqual({
+    checked: 1,
+    linked: 0,
+  });
+  expect(await read(row.album.id)).toMatchObject({
+    appleMusicId: null,
+    appleMusicUrl: null,
   });
 });

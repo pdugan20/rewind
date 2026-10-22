@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, isNull } from 'drizzle-orm';
+import { eq, and, desc, sql, isNull, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
   lastfmArtists,
@@ -241,7 +241,11 @@ function playedAlbumResolver(db: Database) {
       .where(
         and(
           eq(lastfmAlbumAttributionAudit.originalAlbumId, album.id),
-          eq(lastfmAlbumAttributionAudit.action, 'FILE_UNDER_VARIOUS_ARTISTS')
+          inArray(lastfmAlbumAttributionAudit.action, [
+            'FILE_UNDER_VARIOUS_ARTISTS',
+            'FILE_UNDER_ALBUM_ARTIST',
+          ]),
+          sql`EXISTS(SELECT 1 FROM lastfm_albums source JOIN lastfm_albums target ON target.user_id=source.user_id WHERE source.id=${album.id} AND source.artist_id=${lastfmAlbumAttributionAudit.originalArtistId} AND source.name=${lastfmAlbumAttributionAudit.originalAlbumName} AND target.id=${lastfmAlbumAttributionAudit.newAlbumId})`
         )
       )
       .orderBy(desc(lastfmAlbumAttributionAudit.id))

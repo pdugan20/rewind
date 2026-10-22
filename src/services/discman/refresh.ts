@@ -5,6 +5,7 @@ import { enrichBatch } from '../itunes/enrich.js';
 import { enrichNewAlbums } from '../itunes/album-enrich.js';
 import { linkRecentAlbums, linkShelfAlbums } from './catalog-links.js';
 import { publishDiscmanSnapshot, selectRecentAlbums } from './snapshot.js';
+import { sql } from 'drizzle-orm';
 
 // iTunes Search allows roughly 20 requests a minute; leave headroom for the
 // daily 200-track batch and on-demand lookups.
@@ -21,7 +22,12 @@ export async function refreshDiscman(
   db: Database,
   env: Pick<Env, 'APPLE_MUSIC_DEVELOPER_TOKEN'>,
   userId = 1
-): Promise<void> {
+): Promise<boolean> {
+  const pending = () =>
+    db.get<{ id: number | null }>(
+      sql`SELECT MAX(id) id FROM cd_artwork_checks WHERE user_id=${userId} AND completed_at IS NULL`
+    );
+  const before = (await pending())?.id ?? 0;
   // Newest unenriched tracks first, so a just-played song gets its preview
   // and its album's Apple Music id within one sync instead of the next day.
   try {
@@ -105,4 +111,5 @@ export async function refreshDiscman(
     }
   }
   await publishDiscmanSnapshot(db, userId, albums);
+  return ((await pending())?.id ?? 0) > before;
 }

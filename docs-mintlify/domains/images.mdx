@@ -88,3 +88,12 @@ that preparation. Artwork admin jobs report bounded provider error details and
 the next retry time. Known rate-limit rejections retry with backoff; rejected or
 uncertain generation remains held for diagnosis rather than appearing queued
 indefinitely.
+
+Active accepted artwork reports ready after automatic or manual activation.
+Bounded reconciliation also repairs historical successful statuses; failed
+upgrade jobs retain their own diagnostics while existing accepted art stays
+available. Hidden or review-held artwork is not declared ready.
+
+Discman uses catalog previews for the selected release. A played-song fallback
+is used only when its Apple Music URL identifies that same catalog album;
+an unrelated release's preview is withheld.

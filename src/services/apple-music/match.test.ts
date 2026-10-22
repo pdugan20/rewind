@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   releaseMatchRank,
+  albumSongMatches,
+  recordingCreditsMatch,
   releaseTitleMatches,
   songTitleMatches,
 } from './match.js';
@@ -86,4 +88,87 @@ describe('releaseMatchRank', () => {
     );
     expect(releaseMatchRank('Star Wars', 'Sun Sun Sun', 'Wilco')).toBe(0);
   });
+});
+
+describe('recording metadata variants', () => {
+  it.each([
+    ['Horizon', 'Horizon (feat. Guest Artist)', true],
+    ['Horizon ft. Guest Artist', 'Horizon', true],
+    ['Horizon (feat. Guest A)', 'Horizon (feat. Guest B)', false],
+    ['Horizon (Remix)', 'Horizon', false],
+    ['Horizon (Instrumental)', 'Horizon', false],
+    ['Horizon 2', 'Horizon', false],
+  ])(
+    'compares %s with %s without losing recording identity',
+    (a, b, expected) => {
+      expect(songTitleMatches(a, b)).toBe(expected);
+    }
+  );
+  it.each([
+    ['Concert Session (Live)', 'Horizon', 'Horizon (Live at the Hall)', true],
+    ['MTV Unplugged', 'Horizon', 'Horizon (Live MTV Unplugged)', true],
+    ['Studio Session', 'Horizon', 'Horizon (Live at the Hall)', false],
+    ['Live Through This', 'Horizon', 'Horizon (Live)', false],
+    [
+      'Concert Session (Live)',
+      'Horizon (Live at Venue A)',
+      'Horizon (Live at Venue B)',
+      false,
+    ],
+    ['Concert Session (Live)', 'Horizon', 'Horizon (Live Remix)', false],
+    ['Concert Session (Live)', 'Horizon (Remix)', 'Horizon (Live)', false],
+  ])(
+    'uses verified album context %s for track confirmation',
+    (album, a, b, expected) => {
+      expect(albumSongMatches(a, b, album)).toBe(expected);
+    }
+  );
+  it.each([
+    ['Ada and Ben Vale', 'Ada Vale & Ben Vale', true],
+    ['Ada and Ben Vale', 'Ada Smith & Ben Vale', false],
+    ['Ensemble A', 'Ensemble A & Ensemble B', true],
+    ['Ensemble A & Ensemble B', 'Ensemble A', false],
+    ['Unknown', 'Known Artist', false],
+  ])('checks complete recording credit participants', (a, b, expected) => {
+    expect(recordingCreditsMatch(a, b)).toBe(expected);
+  });
+});
+
+it.each(['Live', 'Remix', 'Instrumental'])(
+  'retains a %s qualifier after an inline featured credit',
+  (qualifier) => {
+    expect(
+      songTitleMatches(
+        `Distant Horizon feat. Guest (${qualifier})`,
+        'Distant Horizon'
+      )
+    ).toBe(false);
+    expect(
+      songTitleMatches(
+        `Distant Horizon feat. Guest - ${qualifier}`,
+        'Distant Horizon'
+      )
+    ).toBe(false);
+    expect(
+      songTitleMatches(
+        `Distant Horizon (feat. Guest) (${qualifier})`,
+        `Distant Horizon (${qualifier})`
+      )
+    ).toBe(true);
+  }
+);
+
+it('compares live performance qualifiers after removing a trailing feature credit', () => {
+  expect(
+    songTitleMatches(
+      'Distant Horizon (Live at Venue A) feat. Guest',
+      'Distant Horizon (Live at Venue B)'
+    )
+  ).toBe(false);
+  expect(
+    songTitleMatches(
+      'Distant Horizon (Live at Venue A) feat. Guest',
+      'Distant Horizon (Live at Venue A)'
+    )
+  ).toBe(true);
 });

@@ -189,3 +189,53 @@ it('protected albums do not starve the bounded status repair batch', async () =>
     )?.n
   ).toBe(20);
 });
+
+it('reconciles historical accepted and manually recovered artwork without another request', async () => {
+  await job('manual', 'accepted');
+  await runtime.DB.exec(
+    "UPDATE cd_artwork_jobs SET automatic=0,candidate_hash='accepted-hash',error_code=NULL WHERE id='manual'; UPDATE cd_artwork_albums SET active_job='manual',discovery_outcome='generation_failed',discovery_evidence='{\"generation_error_code\":\"provider_http_400\"}';"
+  );
+  const fetcher = vi.spyOn(globalThis, 'fetch');
+  await reconcileGenerationStatuses(runtime);
+  expect((await outcome())?.discovery_outcome).toBe('artwork_ready');
+  expect(
+    await runtime.DB.prepare(
+      "SELECT json_extract(discovery_evidence,'$.generation_error_code') code FROM cd_artwork_albums"
+    ).first('code')
+  ).toBeNull();
+  expect(fetcher).not.toHaveBeenCalled();
+});
+it('failed upgrades cannot hide accepted active artwork or change the failure job history', async () => {
+  await job('accepted', 'accepted');
+  await runtime.DB.exec(
+    "UPDATE cd_artwork_jobs SET candidate_hash='accepted-hash' WHERE id='accepted'; UPDATE cd_artwork_albums SET active_job='accepted';"
+  );
+  await job('upgrade', 'provider_failed');
+  await runtime.DB.exec(
+    "UPDATE cd_artwork_jobs SET expected_active_job='accepted' WHERE id='upgrade';"
+  );
+  await syncGenerationStatus(runtime, 'upgrade', 1);
+  expect((await outcome())?.discovery_outcome).toBe('artwork_ready');
+  expect(Date.parse((await outcome())!.next_check)).toBeLessThan(
+    Date.now() + 2 * 3600000
+  );
+  expect(
+    await runtime.DB.prepare(
+      "SELECT state FROM cd_artwork_jobs WHERE id='upgrade'"
+    ).first('state')
+  ).toBe('provider_failed');
+});
+it.each(['hidden_job', 'review_hold'])(
+  'does not declare hidden or held artwork ready: %s',
+  async (field) => {
+    await job('accepted', 'accepted');
+    await runtime.DB.exec(
+      "UPDATE cd_artwork_jobs SET candidate_hash='accepted-hash' WHERE id='accepted'; UPDATE cd_artwork_albums SET active_job='accepted';"
+    );
+    await runtime.DB.prepare(`UPDATE cd_artwork_albums SET ${field}=?`)
+      .bind(field === 'hidden_job' ? 'accepted' : 1)
+      .run();
+    await reconcileGenerationStatuses(runtime);
+    expect((await outcome())?.discovery_outcome).toBe('generation_queued');
+  }
+);

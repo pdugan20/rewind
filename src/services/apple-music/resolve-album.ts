@@ -32,7 +32,11 @@ import {
   type CatalogAlbumResult,
 } from './catalog-album.js';
 import { comparableTitle } from '../images/sources/utils.js';
-import { releaseMatchRank, songTitleMatches } from './match.js';
+import {
+  releaseMatchRank,
+  albumSongMatches,
+  recordingCreditsMatch,
+} from './match.js';
 
 /** One play: its song, the song's artist, and the album Last.fm reported. */
 interface PlayedSong {
@@ -67,10 +71,7 @@ const ISRCS_LISTED = 2;
 
 /** Whether a catalog credit names the played artist, alone or with others. */
 function creditsArtist(played: string, credited: string): boolean {
-  if (artistIdentityMatches(played, credited)) return true;
-  return credited
-    .split(/\s*(?:,|&|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b|\bx\b)\s*/i)
-    .some((part) => !!part && artistIdentityMatches(played, part));
+  return recordingCreditsMatch(played, credited);
 }
 
 interface Candidate {
@@ -112,7 +113,17 @@ export async function resolveCatalogAlbum(
   const isPlayedSong = (song: SongResource) =>
     !!song.attributes?.name &&
     !!song.attributes.artistName &&
-    songTitleMatches(played.track, song.attributes.name) &&
+    albumSongMatches(
+      played.track,
+      song.attributes.name,
+      releaseMatchRank(
+        played.album,
+        song.attributes.albumName ?? '',
+        played.artist
+      ) > 0
+        ? song.attributes.albumName!
+        : ''
+    ) &&
     creditsArtist(played.artist, song.attributes.artistName);
 
   const albumTerm = played.album
@@ -160,8 +171,9 @@ export async function resolveCatalogAlbum(
       );
       if (!opened.ok) return catalogFailure(opened.status);
       for (const song of opened.body.data ?? [])
-        for (const album of song.relationships?.albums?.data ?? [])
-          consider(album);
+        if (isPlayedSong(song))
+          for (const album of song.relationships?.albums?.data ?? [])
+            consider(album);
     }
     if (candidates.size) break;
   }
@@ -205,5 +217,11 @@ function choose(
         Number(artistIdentityMatches(played.artist, a.album.artistName)) ||
       a.order - b.order
   );
-  return { status: 'found', album: top[0].album };
+  return {
+    status: 'found',
+    album: top[0].album,
+    ...(!artistIdentityMatches(played.artist, top[0].album.artistName)
+      ? { trackArtistVerified: true }
+      : {}),
+  };
 }
