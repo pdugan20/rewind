@@ -9,14 +9,13 @@
  * recorded plays, search one played song on iTunes, preferring the played
  * album, and then
  *
- * - when iTunes credits that album to Various Artists, move every play
- *   recorded on it (and tracks first seen there) to the album credited to the
- *   canonical Various Artists row;
+ * - when the catalog verifies a different album credit, file the recorded
+ *   plays under that album artist through a guarded, audited mapping;
  * - when iTunes confirms the album under its own artist, store the catalog id;
  * - otherwise record that the album was checked.
  *
- * Only the Various Artists row may hold other artists' tracks; albums credited
- * to another artist keep the track artist (docs/projects/album-attribution-repair).
+ * Recording artists remain intact. Cross-credit albums require played-track
+ * proof; see docs/projects/album-attribution-repair for the filing contract.
  */
 
 import { and, desc, eq, gte, inArray, isNull, ne, sql } from 'drizzle-orm';

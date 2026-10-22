@@ -187,6 +187,97 @@ it('rechecks protections inside the filing transaction', async () => {
   ).toBe(0);
 });
 
+it.each([
+  ['album name', "UPDATE lastfm_albums SET name='Changed release' WHERE id=?"],
+  [
+    'album identity',
+    "UPDATE lastfm_albums SET mbid='changed-identity' WHERE id=?",
+  ],
+  ['album pin', 'UPDATE lastfm_albums SET apple_music_pinned=1 WHERE id=?'],
+  ['album exclusion', 'UPDATE lastfm_albums SET is_filtered=1 WHERE id=?'],
+  ['album conflict', 'UPDATE lastfm_albums SET identity_conflict=1 WHERE id=?'],
+  ['artist name', "UPDATE lastfm_artists SET name='Changed credit' WHERE id=?"],
+  [
+    'artist identity',
+    "UPDATE lastfm_artists SET mbid='changed-identity' WHERE id=?",
+  ],
+  ['artist exclusion', 'UPDATE lastfm_artists SET is_filtered=1 WHERE id=?'],
+  [
+    'artist conflict',
+    'UPDATE lastfm_artists SET identity_conflict=1 WHERE id=?',
+  ],
+])(
+  'rejects an unbound destination after a concurrent %s change',
+  async (_, mutation) => {
+    const s = await seed();
+    const [artist] = await db
+      .insert(lastfmArtists)
+      .values({ name: catalog.artistName })
+      .returning();
+    const [target] = await db
+      .insert(lastfmAlbums)
+      .values({ name: catalog.name, artistId: artist.id })
+      .returning();
+    const prepare = db.$client.prepare.bind(db.$client);
+    let injected = false;
+    vi.spyOn(db.$client, 'prepare').mockImplementation((query) => {
+      const statement = prepare(query);
+      if (query.startsWith('update "lastfm_albums" set "apple_music_id"')) {
+        const bind = statement.bind.bind(statement);
+        vi.spyOn(statement, 'bind').mockImplementation((...params) => {
+          const bound = bind(...params);
+          const raw = bound.raw.bind(bound);
+          vi.spyOn(bound, 'raw').mockImplementation(async (...args) => {
+            injected = true;
+            await prepare(mutation)
+              .bind(mutation.includes('lastfm_artists') ? artist.id : target.id)
+              .run();
+            return raw(...args);
+          });
+          return bound;
+        });
+      }
+      return statement;
+    });
+    expect(
+      await fileUnderCatalogArtist(db, 1, s.source.id, catalog, true)
+    ).toBeNull();
+    expect(injected).toBe(true);
+    expect(
+      (
+        await db
+          .select()
+          .from(lastfmAlbums)
+          .where(eq(lastfmAlbums.id, target.id))
+      )[0].appleMusicId
+    ).toBeNull();
+    expect((await db.select().from(lastfmScrobbles))[0].albumId).toBe(
+      s.source.id
+    );
+    expect(
+      await env.DB.prepare(
+        'SELECT COUNT(*) n FROM lastfm_album_attribution_audit'
+      ).first('n')
+    ).toBe(0);
+  }
+);
+
+it('binds and reuses an unchanged destination shell', async () => {
+  const s = await seed();
+  const [artist] = await db
+    .insert(lastfmArtists)
+    .values({ name: catalog.artistName })
+    .returning();
+  const [target] = await db
+    .insert(lastfmAlbums)
+    .values({ name: catalog.name, artistId: artist.id })
+    .returning();
+  expect(
+    await fileUnderCatalogArtist(db, 1, s.source.id, catalog, true)
+  ).toEqual({ albumId: target.id, changed: true });
+  expect((await db.select().from(lastfmScrobbles))[0].albumId).toBe(target.id);
+});
+
 it.each(['Another Album Ensemble', 'Various Artists'])(
   'claims one canonical destination even when a competing credit is %s',
   async (competingArtist) => {
