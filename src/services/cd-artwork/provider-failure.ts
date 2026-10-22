@@ -12,12 +12,30 @@ export interface ProviderFailure {
   retry_at: string | null;
 }
 
+/** Private operator detail; never included in the admin job projection. */
+export function providerDiagnosticMessage(
+  value: unknown,
+  secret: string,
+  prompt: string
+): string | null {
+  if (typeof value !== 'string') return null;
+  let message = value;
+  for (const privateValue of [secret, prompt])
+    if (privateValue) message = message.split(privateValue).join('[redacted]');
+  return message
+    .replace(/(?:sk-|rw_)[A-Za-z0-9_-]+/g, '[redacted]')
+    .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [redacted]')
+    .replace(/https?:\/\/[^\s"']+/gi, '[url]')
+    .slice(0, 500);
+}
+
 /** Retain diagnostic symbols, never echoed prompts, images, messages or keys. */
 export async function readProviderFailure(
   response: Response,
   attempt: number,
-  stamp = Date.now()
-): Promise<ProviderFailure> {
+  stamp = Date.now(),
+  privateInputs = { secret: '', prompt: '' }
+): Promise<ProviderFailure & { private_message: string | null }> {
   let error: Record<string, unknown> = {};
   try {
     const body = JSON.parse(
@@ -54,6 +72,11 @@ export async function readProviderFailure(
       /^req_[a-zA-Z0-9_-]{1,100}$/
     ),
     attempt,
+    private_message: providerDiagnosticMessage(
+      error.message,
+      privateInputs.secret,
+      privateInputs.prompt
+    ),
     retry_at: retryable
       ? new Date(
           stamp + Math.max(60000 * 2 ** (attempt - 1), retryMs || 0)

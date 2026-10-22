@@ -39,8 +39,11 @@ errors, and uncertain submissions do not enter that retry path. Delays longer
 than a day remain held for operator attention.
 
 Admin job summaries include `provider_error`: HTTP status, bounded code/type/
-parameter symbols, request ID, attempt and next retry time. Provider messages,
-request bodies and credentials are not retained in this diagnostic field.
+parameter symbols, request ID, attempt and next retry time. This diagnostic
+field excludes provider messages, request bodies and credentials. Private job
+provenance retains at most 500 characters of provider message for operator
+diagnosis, with the configured key, input prompt, key-shaped strings, Bearer
+values and URLs redacted; it is not returned by job summaries.
 Discovery reflects generation failure, uncertainty, pending retries or review
 instead of leaving a failed job marked queued. Existing stale queue statuses
 are reconciled in bounded batches without submitting generation. A failed or

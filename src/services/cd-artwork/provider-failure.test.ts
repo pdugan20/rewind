@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import type { ArtworkEnv } from './types.js';
 import {
   readProviderFailure,
+  providerDiagnosticMessage,
   syncGenerationStatus,
   reconcileGenerationStatuses,
 } from './provider-failure.js';
@@ -61,6 +62,7 @@ it('retains only bounded diagnostic symbols even for malformed error bodies', as
     param: 'image[0]',
     request_id: 'req_synthetic',
     attempt: 1,
+    private_message: 'sensitive input',
     retry_at: null,
   });
   const malformed = await readProviderFailure(
@@ -74,6 +76,18 @@ it('retains only bounded diagnostic symbols even for malformed error bodies', as
     1
   );
   expect(oversized.retry_at).toBeNull();
+});
+
+it('bounds private operator detail and removes credentials, URLs and the input prompt', () => {
+  const detail = providerDiagnosticMessage(
+    'Invalid size. private-secret public test prompt sk-testkey123 rw_admin123 Bearer private-token https://example.com/?token=secret',
+    'private-secret',
+    'public test prompt'
+  );
+  expect(detail).toBe(
+    'Invalid size. [redacted] [redacted] [redacted] [redacted] Bearer [redacted] [url]'
+  );
+  expect(providerDiagnosticMessage('x'.repeat(1000), '', '')?.length).toBe(500);
 });
 it('honors HTTP-date retry headers and holds excessive delays', async () => {
   const stamp = Date.parse('2026-01-01T00:00:00Z');

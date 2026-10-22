@@ -1037,7 +1037,9 @@ describe('preflight, provider persistence and immutable revisions', () => {
         retry_at: null,
       },
     });
-    expect(saved.provenance).not.toContain('private prompt');
+    expect(publicJob(saved).provider_error).not.toHaveProperty(
+      'private_message'
+    );
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 

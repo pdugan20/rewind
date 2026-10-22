@@ -194,8 +194,14 @@ export async function generateOnce(
       signal: AbortSignal.timeout(240000),
     });
     if (!r.ok) {
-      const failure = await readProviderFailure(r, provenance.providerAttempts);
+      const { private_message, ...failure } = await readProviderFailure(
+        r,
+        provenance.providerAttempts,
+        Date.now(),
+        { secret: env.OPENAI_API_KEY, prompt: provenance.prompt }
+      );
       provenance.providerFailure = failure;
+      provenance.providerDiagnosticMessage = private_message;
       const state = failure.retry_at
         ? 'queued'
         : r.status >= 500 || r.status === 408
@@ -260,6 +266,7 @@ export async function generateOnce(
         : null;
     provenance.providerRequestId = r.headers.get('x-request-id');
     provenance.providerFailure = null;
+    provenance.providerDiagnosticMessage = null;
     provenance.rawHash = await sha256(bytes);
     provenance.usage = usage ?? null;
     provenance.calculatedUsd = cost;
