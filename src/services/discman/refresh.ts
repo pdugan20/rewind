@@ -3,7 +3,7 @@ import type { Env } from '../../types/env.js';
 import { syncAlbumTracklists } from '../apple-music/tracklist.js';
 import { enrichBatch } from '../itunes/enrich.js';
 import { enrichNewAlbums } from '../itunes/album-enrich.js';
-import { linkShelfAlbums } from './catalog-links.js';
+import { linkRecentAlbums, linkShelfAlbums } from './catalog-links.js';
 import { publishDiscmanSnapshot, selectRecentAlbums } from './snapshot.js';
 
 // iTunes Search allows roughly 20 requests a minute; leave headroom for the
@@ -47,6 +47,24 @@ export async function refreshDiscman(
     console.log(
       `[ERROR] Album check failed: ${err instanceof Error ? err.message : String(err)}`
     );
+  }
+  // Ordinary recent albums need catalog links even without generated disc art.
+  if (env.APPLE_MUSIC_DEVELOPER_TOKEN) {
+    try {
+      const links = await linkRecentAlbums(
+        db,
+        env.APPLE_MUSIC_DEVELOPER_TOKEN,
+        userId
+      );
+      if (links.checked)
+        console.log(
+          `[ENRICH] recent albums linked ${links.linked}/${links.checked}`
+        );
+    } catch (err) {
+      console.log(
+        `[ERROR] Recent album linking failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
   const albums = await selectRecentAlbums(db, userId);
   if (env.APPLE_MUSIC_DEVELOPER_TOKEN) {

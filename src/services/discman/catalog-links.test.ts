@@ -20,6 +20,7 @@ import {
 import { setupTestDb } from '../../test-helpers.js';
 import { syncAlbumTracklists } from '../apple-music/tracklist.js';
 import {
+  linkRecentAlbums,
   linkShelfAlbums,
   pinCatalogAlbum,
   unresolvedAlbums,
@@ -65,7 +66,7 @@ beforeAll(setupTestDb);
 beforeEach(async () => {
   db = createDb(env.DB);
   await env.DB.exec(
-    'DELETE FROM lastfm_album_tracks; DELETE FROM lastfm_scrobbles; DELETE FROM lastfm_tracks; DELETE FROM lastfm_albums; DELETE FROM lastfm_artists;'
+    'DELETE FROM cd_artwork_albums; DELETE FROM cd_artwork_jobs; DELETE FROM lastfm_album_tracks; DELETE FROM lastfm_scrobbles; DELETE FROM lastfm_tracks; DELETE FROM lastfm_albums; DELETE FROM lastfm_artists;'
   );
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -92,6 +93,28 @@ const read = async (id: number) =>
   (await db.select().from(lastfmAlbums).where(eq(lastfmAlbums.id, id)))[0];
 
 describe('linkShelfAlbums', () => {
+  it('leaves an existing URL-only catalog selection untouched', async () => {
+    const album = await seed();
+    const url = 'https://music.apple.com/us/album/existing/123';
+    await db
+      .update(lastfmAlbums)
+      .set({ appleMusicUrl: url })
+      .where(eq(lastfmAlbums.id, album.id));
+    const fetcher = vi.spyOn(globalThis, 'fetch');
+    expect(await linkShelfAlbums(db, 'token', [album.id])).toEqual({
+      checked: 0,
+      linked: 0,
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(
+      (
+        await db
+          .select()
+          .from(lastfmAlbums)
+          .where(eq(lastfmAlbums.id, album.id))
+      )[0].appleMusicUrl
+    ).toBe(url);
+  });
   it('links an unlinked album from a song played on it', async () => {
     const album = await seed({ tracklistSyncedAt: '2026-01-01T00:00:00.000Z' });
     vi.stubGlobal(
@@ -314,5 +337,333 @@ describe('unresolvedAlbums', () => {
       [b.id, 1690693404],
       [a.id, null],
     ]);
+  });
+});
+
+// Synthetic catalog and plays, with no generated artwork jobs or shelf admission.
+async function recentAlbum(
+  suffix: string,
+  values: Partial<typeof lastfmAlbums.$inferInsert> = {},
+  artistValues: Partial<typeof lastfmArtists.$inferInsert> = {},
+  playValues: Partial<typeof lastfmScrobbles.$inferInsert> = {}
+) {
+  const userId = values.userId ?? 1;
+  const [artist] = await db
+    .insert(lastfmArtists)
+    .values({
+      name: `Synthetic Artist ${suffix}`,
+      userId,
+      ...artistValues,
+    })
+    .returning();
+  const [album] = await db
+    .insert(lastfmAlbums)
+    .values({
+      name: `Synthetic Album ${suffix}`,
+      artistId: artist.id,
+      userId,
+      ...values,
+    })
+    .returning();
+  const [track] = await db
+    .insert(lastfmTracks)
+    .values({
+      name: `Synthetic Song ${suffix}`,
+      artistId: artist.id,
+      albumId: album.id,
+      userId,
+    })
+    .returning();
+  await db.insert(lastfmScrobbles).values({
+    trackId: track.id,
+    albumId: album.id,
+    albumRecorded: 1,
+    userId,
+    scrobbledAt: new Date().toISOString(),
+    ...playValues,
+  });
+  return { album, artist, track };
+}
+
+function syntheticCatalog(rows: Awaited<ReturnType<typeof recentAlbum>>[]) {
+  return vi.fn(async (input: string) => {
+    const url = new URL(input);
+    const row = rows.find(
+      ({ track }) =>
+        url.searchParams.get('term')?.includes(track.name) ||
+        url.searchParams.get('ids') === String(track.id)
+    );
+    const songs = row
+      ? [
+          {
+            id: String(row.track.id),
+            type: 'songs',
+            attributes: {
+              name: row.track.name,
+              artistName: row.artist.name,
+              albumName: row.album.name,
+            },
+            relationships: {
+              albums: {
+                data: [
+                  catalogAlbum(
+                    String(100000 + row.album.id),
+                    row.album.name,
+                    row.artist.name
+                  ),
+                ],
+              },
+            },
+          },
+        ]
+      : [];
+    return reply(
+      url.pathname.endsWith('/search')
+        ? { results: { songs: { data: songs } } }
+        : { data: songs }
+    );
+  });
+}
+
+const daysAgo = (days: number) =>
+  new Date(Date.now() - days * 86400000).toISOString();
+
+describe('linkRecentAlbums', () => {
+  it('links cover-only recent albums and retries older misses without the shelf cooldown', async () => {
+    const row = await recentAlbum('cover-only', {
+      name: '4:44',
+      imageKey: 'synthetic/cover.jpg',
+      itunesEnrichedAt: daysAgo(3),
+      catalogLinkCheckedAt: daysAgo(2),
+    });
+    const fetch = syntheticCatalog([row]);
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 1,
+      linked: 1,
+    });
+    expect(await read(row.album.id)).toMatchObject({
+      appleMusicId: 100000 + row.album.id,
+      appleMusicUrl: `https://music.apple.com/us/album/x/${100000 + row.album.id}`,
+    });
+    fetch.mockClear();
+    await linkRecentAlbums(db, 'token');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('skips cooldowns, pins, linked rows, filters, conflicts and other owners', async () => {
+    const rows = await Promise.all([
+      recentAlbum('cooldown', { catalogLinkCheckedAt: daysAgo(0.25) }),
+      recentAlbum('pinned', { appleMusicPinned: 1 }),
+      recentAlbum('linked', { appleMusicId: 99 }),
+      recentAlbum('filtered', { isFiltered: 1 }),
+      recentAlbum('conflict', { identityConflict: 1 }),
+      recentAlbum('artist-filtered', {}, { isFiltered: 1 }),
+      recentAlbum('artist-conflict', {}, { identityConflict: 1 }),
+      recentAlbum('other-owner', { userId: 2 }),
+      recentAlbum('foreign-artist', {}, { userId: 2 }),
+      recentAlbum('stale', {}, {}, { scrobbledAt: daysAgo(31) }),
+      recentAlbum('absent-album', {}, {}, { albumId: null }),
+    ]);
+    const fetch = syntheticCatalog(rows);
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 0,
+      linked: 0,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect((await read(rows[7].album.id)).appleMusicId).toBeNull();
+  });
+
+  it('uses the recorded album rather than the track default and supports legacy plays', async () => {
+    const wrong = await recentAlbum('default', {}, {}, { albumId: null });
+    const recorded = await recentAlbum('recorded');
+    await db
+      .update(lastfmTracks)
+      .set({ albumId: wrong.album.id })
+      .where(eq(lastfmTracks.id, recorded.track.id));
+    const legacy = await recentAlbum(
+      'legacy',
+      {},
+      {},
+      { albumRecorded: 0, albumId: null }
+    );
+    vi.stubGlobal('fetch', syntheticCatalog([wrong, recorded, legacy]));
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 2,
+      linked: 2,
+    });
+    expect((await read(wrong.album.id)).appleMusicId).toBeNull();
+    expect((await read(recorded.album.id)).appleMusicId).toBeTruthy();
+    expect((await read(legacy.album.id)).appleMusicId).toBeTruthy();
+  });
+
+  it('bounds attempts to five distinct albums and advances past checked misses', async () => {
+    const rows = [];
+    for (let i = 0; i < 7; i++) rows.push(await recentAlbum(String(i)));
+    const fetch = vi.fn(async () => reply({ results: {} }));
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 5,
+      linked: 0,
+    });
+    // One song per album: two song searches and two album searches per miss.
+    expect(fetch).toHaveBeenCalledTimes(20);
+    expect((await read(rows[0].album.id)).catalogLinkCheckedAt).toBeNull();
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 2,
+      linked: 0,
+    });
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 0,
+      linked: 0,
+    });
+  });
+
+  it.each([429, 503])('leaves HTTP %i failures retryable', async (status) => {
+    const row = await recentAlbum('failure');
+    const fetch = vi.fn(async () => reply({}, status));
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 0,
+      linked: 0,
+    });
+    expect((await read(row.album.id)).catalogLinkCheckedAt).toBeNull();
+    vi.stubGlobal('fetch', syntheticCatalog([row]));
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 1,
+      linked: 1,
+    });
+  });
+
+  it('rejects a song found on a different release than the stored album', async () => {
+    const row = await recentAlbum('stored-release');
+    const fetch = syntheticCatalog([
+      {
+        ...row,
+        album: { ...row.album, name: 'Synthetic Different Release' },
+      },
+    ]);
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 1,
+      linked: 0,
+    });
+    expect((await read(row.album.id)).appleMusicId).toBeNull();
+    expect((await read(row.album.id)).catalogLinkCheckedAt).toBeTruthy();
+  });
+
+  it('caps song fallback at three attempts per album and then applies cooldown', async () => {
+    const row = await recentAlbum('song-cap');
+    for (let i = 0; i < 4; i++) {
+      const [track] = await db
+        .insert(lastfmTracks)
+        .values({
+          name: `Synthetic Extra Song ${i}`,
+          artistId: row.artist.id,
+          albumId: row.album.id,
+        })
+        .returning();
+      await db.insert(lastfmScrobbles).values({
+        trackId: track.id,
+        albumId: row.album.id,
+        albumRecorded: 1,
+        scrobbledAt: new Date().toISOString(),
+      });
+    }
+    const fetch = vi.fn(async () => reply({ results: {} }));
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 1,
+      linked: 0,
+    });
+    // Each of three songs makes two song searches and two album searches.
+    expect(fetch).toHaveBeenCalledTimes(12);
+    fetch.mockClear();
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 0,
+      linked: 0,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('stops the batch on rate limits without stamping unattempted albums', async () => {
+    const rows = [
+      await recentAlbum('rate-first'),
+      await recentAlbum('rate-latest'),
+    ];
+    const fetch = vi.fn(async () => reply({}, 429));
+    vi.stubGlobal('fetch', fetch);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 0,
+      linked: 0,
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+    for (const { album } of rows)
+      expect((await read(album.id)).catalogLinkCheckedAt).toBeNull();
+  });
+
+  it('rejects a different catalog album artist and holds the miss for one day', async () => {
+    const row = await recentAlbum('wrong-credit');
+    const catalog = vi.fn(async (input: string) => {
+      const song = {
+        id: '900',
+        type: 'songs',
+        attributes: {
+          name: row.track.name,
+          artistName: row.artist.name,
+          albumName: row.album.name,
+        },
+        relationships: {
+          albums: {
+            data: [
+              catalogAlbum('999', row.album.name, 'Synthetic Other Artist'),
+            ],
+          },
+        },
+      };
+      return reply(
+        new URL(input).pathname.endsWith('/search')
+          ? { results: { songs: { data: [song] } } }
+          : { data: [song] }
+      );
+    });
+    vi.stubGlobal('fetch', catalog);
+    expect(await linkRecentAlbums(db, 'token')).toEqual({
+      checked: 1,
+      linked: 0,
+    });
+    expect((await read(row.album.id)).appleMusicId).toBeNull();
+    expect((await read(row.album.id)).catalogLinkCheckedAt).toBeTruthy();
+    catalog.mockClear();
+    await linkRecentAlbums(db, 'token');
+    expect(catalog).not.toHaveBeenCalled();
+  });
+
+  it('rechecks pin, filter and conflict safety after a catalog request', async () => {
+    for (const patch of [
+      { appleMusicPinned: 1 },
+      { isFiltered: 1 },
+      { identityConflict: 1 },
+    ]) {
+      const row = await recentAlbum(JSON.stringify(patch));
+      const catalog = syntheticCatalog([row]);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: string) => {
+          await db
+            .update(lastfmAlbums)
+            .set(patch)
+            .where(eq(lastfmAlbums.id, row.album.id));
+          return catalog(input);
+        })
+      );
+      expect(await linkRecentAlbums(db, 'token')).toEqual({
+        checked: 1,
+        linked: 0,
+      });
+      expect((await read(row.album.id)).appleMusicId).toBeNull();
+      expect((await read(row.album.id)).catalogLinkCheckedAt).toBeNull();
+    }
   });
 });

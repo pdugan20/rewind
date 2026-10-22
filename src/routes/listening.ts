@@ -1,5 +1,7 @@
 import { albumTrackHistory, artistAlbumHistory } from '../lib/album-history.js';
 import { scrobbleAlbumId, latestTrackAlbumId } from '../lib/scrobble-album.js';
+import { artistNameKey } from '../services/lastfm/artist-identity.js';
+import { catalogAlbumIdFromUrl } from '../services/apple-music/catalog-album.js';
 import { createRoute, z } from '@hono/zod-openapi';
 import {
   eq,
@@ -598,7 +600,7 @@ const recentAlbumsRoute = createRoute({
   tags: ['Listening'],
   summary: 'Recently played albums',
   description:
-    'Returns unique recently played albums ordered by their newest scrobble. Reads at most 200 recent scrobbles.',
+    'Returns unique recently played albums ordered by their newest scrobble. Artist spelling aliases share one entry when album names match and their MusicBrainz and catalog identities do not conflict. Distinct release qualifiers remain separate. Reads at most 200 recent scrobbles.',
   request: {
     query: z.object({
       limit: z.coerce.number().int().min(1).max(20).optional().default(10),
@@ -2017,6 +2019,13 @@ type RecentAlbumScanRow = {
   albumFiltered: number | null;
   artistId: number | null;
   artistName: string | null;
+  artistFiltered: number | null;
+  artistMbid: string | null;
+  artistCatalogId: number | null;
+  albumMbid: string | null;
+  catalogId: number | null;
+  artistConflict: number | null;
+  albumConflict: number | null;
 };
 
 listening.openapi(recentAlbumsRoute, async (c) => {
@@ -2034,12 +2043,19 @@ listening.openapi(recentAlbumsRoute, async (c) => {
       albumAppleMusicUrl: string | null;
       artistId: number;
       artistName: string;
+      artistMbid: string | null;
+      artistCatalogId: number | null;
+      albumMbid: string | null;
+      catalogId: number | null;
+      artistConflict: number | null;
+      albumConflict: number | null;
+      albumIds: number[];
     }
   >();
   let inspected = 0;
   let cursor: { at: string; id: number } | null = null;
 
-  while (selected.size < limit && inspected < RECENT_ALBUM_SCAN_LIMIT) {
+  while (inspected < RECENT_ALBUM_SCAN_LIMIT) {
     const take = Math.min(
       RECENT_ALBUM_BATCH_SIZE,
       RECENT_ALBUM_SCAN_LIMIT - inspected
@@ -2059,6 +2075,13 @@ listening.openapi(recentAlbumsRoute, async (c) => {
         albumFiltered: lastfmAlbums.isFiltered,
         artistId: lastfmArtists.id,
         artistName: lastfmArtists.name,
+        artistFiltered: lastfmArtists.isFiltered,
+        artistMbid: lastfmArtists.mbid,
+        artistCatalogId: lastfmArtists.appleMusicId,
+        albumMbid: lastfmAlbums.mbid,
+        catalogId: lastfmAlbums.appleMusicId,
+        artistConflict: lastfmArtists.identityConflict,
+        albumConflict: lastfmAlbums.identityConflict,
       })
       .from(lastfmScrobbles)
       .innerJoin(
@@ -2076,22 +2099,63 @@ listening.openapi(recentAlbumsRoute, async (c) => {
           eq(lastfmAlbums.userId, lastfmScrobbles.userId)
         )
       )
-      .leftJoin(lastfmArtists, eq(lastfmAlbums.artistId, lastfmArtists.id))
+      .leftJoin(
+        lastfmArtists,
+        and(
+          eq(lastfmAlbums.artistId, lastfmArtists.id),
+          eq(lastfmArtists.userId, lastfmScrobbles.userId)
+        )
+      )
       .where(cursorCondition)
       .orderBy(desc(lastfmScrobbles.scrobbledAt), desc(lastfmScrobbles.id))
       .limit(take);
     if (rows.length === 0) break;
     inspected += rows.length;
     for (const row of rows) {
+      const urlId = catalogAlbumIdFromUrl(row.albumAppleMusicUrl);
+      if (row.catalogId !== null && urlId !== null && row.catalogId !== urlId)
+        row.albumConflict = 1;
+      row.catalogId ??= urlId;
       if (
         row.trackFiltered !== 1 &&
         row.albumFiltered !== 1 &&
+        row.artistFiltered !== 1 &&
         row.albumId !== null &&
         row.albumName !== null &&
         row.artistId !== null &&
-        row.artistName !== null &&
-        !selected.has(row.albumId)
+        row.artistName !== null
       ) {
+        const conflict = (
+          a: string | number | null,
+          b: string | number | null
+        ) => a !== null && b !== null && a !== b;
+        const previous = [...selected.values()].find(
+          (item) =>
+            item.albumId === row.albumId ||
+            (!item.artistConflict &&
+              !row.artistConflict &&
+              !item.albumConflict &&
+              !row.albumConflict &&
+              artistNameKey(item.artistName) ===
+                artistNameKey(row.artistName!) &&
+              item.albumName.trim().toLowerCase() ===
+                row.albumName!.trim().toLowerCase() &&
+              !conflict(item.artistMbid, row.artistMbid) &&
+              !conflict(item.artistCatalogId, row.artistCatalogId) &&
+              !conflict(item.albumMbid, row.albumMbid) &&
+              !conflict(item.catalogId, row.catalogId))
+        );
+        if (previous) {
+          if (!previous.albumIds.includes(row.albumId))
+            previous.albumIds.push(row.albumId);
+          previous.albumAppleMusicUrl ??= row.albumAppleMusicUrl;
+          previous.artistMbid ??= row.artistMbid;
+          previous.artistCatalogId ??= row.artistCatalogId;
+          previous.albumMbid ??= row.albumMbid;
+          previous.catalogId ??= row.catalogId;
+          continue;
+        }
+        if (selected.size === limit) continue;
         selected.set(row.albumId, {
           scrobbleId: row.scrobbleId,
           scrobbledAt: row.scrobbledAt,
@@ -2101,8 +2165,14 @@ listening.openapi(recentAlbumsRoute, async (c) => {
           albumAppleMusicUrl: row.albumAppleMusicUrl,
           artistId: row.artistId,
           artistName: row.artistName,
+          artistMbid: row.artistMbid,
+          artistCatalogId: row.artistCatalogId,
+          albumMbid: row.albumMbid,
+          catalogId: row.catalogId,
+          artistConflict: row.artistConflict,
+          albumConflict: row.albumConflict,
+          albumIds: [row.albumId],
         });
-        if (selected.size === limit) break;
       }
     }
     const last = rows.at(-1)!;
@@ -2114,7 +2184,9 @@ listening.openapi(recentAlbumsRoute, async (c) => {
     db,
     'listening',
     'albums',
-    [...selected.keys()].map(String)
+    [...selected.values()].flatMap((row) => row.albumIds.map(String)),
+    'medium',
+    c.get('userId')
   );
   return c.json({
     data: [...selected.values()].map((row) => ({
@@ -2123,7 +2195,9 @@ listening.openapi(recentAlbumsRoute, async (c) => {
         name: row.albumName,
         url: row.albumUrl,
         apple_music_url: row.albumAppleMusicUrl,
-        image: imageMap.get(String(row.albumId)) ?? null,
+        image:
+          row.albumIds.map((id) => imageMap.get(String(id))).find(Boolean) ??
+          null,
       },
       artist: { id: row.artistId, name: row.artistName },
       last_scrobbled_at: row.scrobbledAt,

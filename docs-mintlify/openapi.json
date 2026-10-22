@@ -3067,7 +3067,7 @@
           "Listening"
         ],
         "summary": "Recently played albums",
-        "description": "Returns unique recently played albums ordered by their newest scrobble. Reads at most 200 recent scrobbles.",
+        "description": "Returns unique recently played albums ordered by their newest scrobble. Artist spelling aliases share one entry when album names match and their MusicBrainz and catalog identities do not conflict. Distinct release qualifiers remain separate. Reads at most 200 recent scrobbles.",
         "parameters": [
           {
             "schema": {

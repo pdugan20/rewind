@@ -1,3 +1,9 @@
 ---
 openapi: get /v1/listening/recent/albums
 ---
+
+Spelling aliases for the same artist and album appear once, at the position of
+their newest play. Existing artwork and catalog links from compatible aliases
+are retained. Different release qualifiers and conflicting MusicBrainz or
+catalog identities stay separate. This groups the response without merging or
+deleting stored listening history.

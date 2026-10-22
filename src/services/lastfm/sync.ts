@@ -28,6 +28,7 @@ import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import { cleanArtistName } from '../images/sources/utils.js';
 import { scrobbleAlbumId } from '../../lib/scrobble-album.js';
 import { resolveGenre } from './genres.js';
+import { findArtistByName } from './artist-identity.js';
 
 // Exported so the album-attribution-repair test suite can assert the
 // MBID-first lookup behavior — anchors the canonical Various Artists
@@ -54,11 +55,16 @@ export async function upsertArtist(
       .limit(1);
   }
   if (!existing) {
+    // Keep the common ingestion path indexed; spelling-alias resolution is
+    // only needed when this exact stored spelling is absent.
     [existing] = await db
       .select({ id: lastfmArtists.id, isFiltered: lastfmArtists.isFiltered })
       .from(lastfmArtists)
       .where(and(eq(lastfmArtists.userId, 1), eq(lastfmArtists.name, name)))
       .limit(1);
+  }
+  if (!existing) {
+    existing = await findArtistByName(db, name, 1, mbid);
   }
 
   if (existing) {
