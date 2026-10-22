@@ -6,6 +6,7 @@ import { buildCdnUrl } from '../images/presets.js';
 import type { Env } from '../../types/env.js';
 import type { MusicCard, MovieCard } from './schema.js';
 import { isPublicMusic, LATELY_OWNER_ID } from './policy.js';
+import { findArtistByName } from '../lastfm/artist-identity.js';
 
 const RecentTracks = z.object({
   recenttracks: z.object({
@@ -87,8 +88,18 @@ export async function musicCard(
     })
   )
     return null;
-  // Resolve artwork for the reported album, never another release of this song.
-  const row = await db
+  // Ingestion strips guest credits; resolve that same owner-scoped identity
+  // before looking up the reported album, never another release of the song.
+  const artist = await findArtistByName(
+    createDb(db),
+    item.artist,
+    LATELY_OWNER_ID
+  );
+  if (artist?.isFiltered) return null;
+  // Never truncate aliases before checking their track/album exclusions.
+  if (artist && artist.aliasIds.length > 40) return null;
+  const aliases = artist && !artist.identityConflict ? artist.aliasIds : [];
+  const { results } = await db
     .prepare(
       `SELECT t.id AS track_id, al.id AS album_id,
     al.name AS album_name, a.is_filtered AS artist_filtered,
@@ -96,19 +107,27 @@ export async function musicCard(
     FROM lastfm_artists a
     LEFT JOIN lastfm_tracks t ON t.artist_id = a.id AND t.name = ? AND t.user_id = ?
     LEFT JOIN lastfm_albums al ON al.artist_id = a.id AND al.name = ? AND al.user_id = ?
-    WHERE a.name = ? AND a.user_id = ? LIMIT 1`
+    WHERE a.id IN (${aliases.length ? aliases.map(() => '?').join(',') : 'NULL'}) AND a.user_id = ?
+    ORDER BY al.id IS NULL, t.id IS NULL, a.id, al.id`
     )
     .bind(
       item.name,
       LATELY_OWNER_ID,
       item.album,
       LATELY_OWNER_ID,
-      item.artist,
+      ...aliases,
       LATELY_OWNER_ID
     )
-    .first<MusicMetadata>();
-  if (row?.artist_filtered || row?.track_filtered || row?.album_filtered)
+    .all<MusicMetadata>();
+  // Check all compatible credits before selecting artwork. A row with a
+  // cover must not hide a filtered track or album recorded under an alias.
+  if (
+    results.some(
+      (row) => row.artist_filtered || row.track_filtered || row.album_filtered
+    )
+  )
     return null;
+  const row = results[0];
   const album = row?.album_name ?? item.album;
   if (
     !isPublicMusic(item.name, album) ||

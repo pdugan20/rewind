@@ -116,6 +116,13 @@ describe('syncRecentScrobbles audiobook filtering', () => {
       name: 'Historical chapter',
       artistId: historicalArtist.id,
     });
+    // Preserve coverage of legacy duplicates now that ingestion no longer
+    // creates another artist merely because Unicode casing differs.
+    await db.insert(lastfmArtists).values({
+      userId: 1,
+      name: 'Émile Zola',
+      mbid: 'zola-mbid',
+    });
     const [otherUserArtist] = await db
       .insert(lastfmArtists)
       .values({ userId: 2, name: 'émile zola', mbid: 'zola-mbid' })
@@ -219,7 +226,8 @@ describe('syncRecentScrobbles audiobook filtering', () => {
           table === lastfmAlbums ||
           table === lastfmTracks
       );
-      expect(listeningCascadeUpdates).toHaveLength(9);
+      // Nine cascade updates plus the pre-existing MBID row's metadata refresh.
+      expect(listeningCascadeUpdates).toHaveLength(10);
       expect(logSpy).toHaveBeenCalledWith(
         '[SYNC] Auto-filtered 1 audiobook artist'
       );
@@ -743,5 +751,37 @@ describe('upsertArtist - MBID-first lookup', () => {
       .from(lastfmArtists)
       .where(eq(lastfmArtists.mbid, VARIOUS_ARTISTS_MBID));
     expect(rows).toHaveLength(1);
+  });
+
+  it('reuses one artist and album for case, hyphen and featured-credit variants', async () => {
+    const first = await upsertArtist(db, 'Test‐Artist', null);
+    const album = await upsertAlbum(
+      db,
+      'Synthetic Album',
+      first.id,
+      null,
+      'Test‐Artist'
+    );
+    for (const name of [
+      'TEST‐ARTIST',
+      'Test-Artist feat. Guest',
+      'test‑artist',
+    ]) {
+      const artist = await upsertArtist(db, name, null);
+      expect(artist).toMatchObject({ id: first.id, isNew: false });
+      expect(
+        await upsertAlbum(db, 'Synthetic Album', artist.id, null, name)
+      ).toMatchObject({ id: album.id, isNew: false });
+    }
+    expect(await db.select().from(lastfmArtists)).toHaveLength(1);
+    expect(await db.select().from(lastfmAlbums)).toHaveLength(1);
+  });
+
+  it('does not reuse another owner or a normalized alias with a different MBID', async () => {
+    await db.insert(lastfmArtists).values({ name: 'test‐artist', userId: 2 });
+    const old = await upsertArtist(db, 'Test-Artist', 'identity-one');
+    const distinct = await upsertArtist(db, 'TEST‐ARTIST', 'identity-two');
+    expect(distinct.isNew).toBe(true);
+    expect(distinct.id).not.toBe(old.id);
   });
 });

@@ -578,6 +578,7 @@ describe('listening routes', () => {
 
     async function seedActivity(options: {
       artist: string;
+      exactArtist?: boolean;
       album?: string;
       albumFiltered?: boolean;
       trackFiltered?: boolean;
@@ -592,7 +593,9 @@ describe('listening routes', () => {
         .insert(lastfmArtists)
         .values({
           userId: 1,
-          name: `${options.artist}-${sequence++}`,
+          name: options.exactArtist
+            ? options.artist
+            : `${options.artist}-${sequence++}`,
           isFiltered: 0,
           createdAt: stamp,
           updatedAt: stamp,
@@ -707,6 +710,153 @@ describe('listening routes', () => {
       expect(body.data[1].album.url).toBeNull();
       expect(body.data[1].album.apple_music_url).toBeNull();
       expect(body.data[1].album.image).toBeNull();
+    });
+
+    it('collapses case and hyphen aliases while retaining newest order and existing catalog metadata', async () => {
+      const older = await seedActivity({
+        artist: 'TEST-ARTIST',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        appleMusicUrl: 'https://music.apple.com/us/album/synthetic/123',
+        withImage: true,
+        plays: [{ track: 'First Song', at: '2026-07-21T00:01:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'Test‐Artist',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        plays: [{ track: 'Second Song', at: '2026-07-21T00:03:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'Other Artist',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        plays: [{ track: 'Other Song', at: '2026-07-21T00:02:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'Test-Artist',
+        exactArtist: true,
+        album: 'Synthetic Album (Live)',
+        plays: [{ track: 'Live Song', at: '2026-07-21T00:00:00.000Z' }],
+      });
+      const body = (await (
+        await authFetch('/v1/listening/recent/albums?limit=3')
+      ).json()) as any;
+      expect(body.data).toHaveLength(3);
+      expect(body.data[0]).toMatchObject({
+        album: {
+          name: 'Synthetic Album',
+          apple_music_url: 'https://music.apple.com/us/album/synthetic/123',
+        },
+        last_scrobbled_at: '2026-07-21T00:03:00.000Z',
+      });
+      expect(body.data[0].album.image.cdn_url).toContain(
+        `/albums/${older!.id}/`
+      );
+      expect(body.data[1].artist.name).toBe('Other Artist');
+      expect(body.data[2].album.name).toBe('Synthetic Album (Live)');
+    });
+
+    it('does not collapse spelling aliases with contradictory artist identities', async () => {
+      await seedActivity({
+        artist: 'Test‐Artist',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        plays: [{ track: 'First Song', at: '2026-07-21T00:01:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'TEST-ARTIST',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        plays: [{ track: 'Second Song', at: '2026-07-21T00:02:00.000Z' }],
+      });
+      await env.DB.prepare(
+        "UPDATE lastfm_artists SET mbid = CASE WHEN name = 'Test‐Artist' THEN 'identity-one' ELSE 'identity-two' END"
+      ).run();
+      const body = (await (
+        await authFetch('/v1/listening/recent/albums')
+      ).json()) as any;
+      expect(body.data).toHaveLength(2);
+    });
+
+    it('does not collapse aliases with different known artist catalog IDs', async () => {
+      await seedActivity({
+        artist: 'Test‐Artist',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        plays: [{ track: 'One', at: '2026-07-21T00:01:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'TEST-ARTIST',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        plays: [{ track: 'Two', at: '2026-07-21T00:02:00.000Z' }],
+      });
+      await env.DB.prepare(
+        "UPDATE lastfm_artists SET apple_music_id = CASE WHEN name = 'Test‐Artist' THEN 100 ELSE 200 END"
+      ).run();
+      const body = (await (
+        await authFetch('/v1/listening/recent/albums')
+      ).json()) as any;
+      expect(body.data).toHaveLength(2);
+    });
+
+    it('keeps releases with conflicting catalog URLs or IDs separate', async () => {
+      const older = await seedActivity({
+        artist: 'TEST-ARTIST',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        appleMusicUrl: 'https://music.apple.com/us/album/synthetic/123',
+        plays: [{ track: 'One', at: '2026-07-21T00:01:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'Test‐Artist',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        appleMusicUrl: 'https://music.apple.com/us/album/synthetic/456',
+        plays: [{ track: 'Two', at: '2026-07-21T00:02:00.000Z' }],
+      });
+      const read = async () =>
+        (await (await authFetch('/v1/listening/recent/albums')).json()) as any;
+      expect((await read()).data).toHaveLength(2);
+      await env.DB.prepare(
+        'UPDATE lastfm_albums SET apple_music_url = NULL, apple_music_id = 123 WHERE id = ?'
+      )
+        .bind(older!.id)
+        .run();
+      expect((await read()).data).toHaveLength(2);
+    });
+
+    it('retains compatible metadata past the first scan batch after the tile limit is filled', async () => {
+      const older = await seedActivity({
+        artist: 'TEST-ARTIST',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        appleMusicUrl: 'https://music.apple.com/us/album/synthetic/123',
+        withImage: true,
+        plays: [{ track: 'Old Song', at: '2026-07-20T00:00:00.000Z' }],
+      });
+      await seedActivity({
+        artist: 'Test‐Artist',
+        exactArtist: true,
+        album: 'Synthetic Album',
+        plays: Array.from({ length: 55 }, (_, i) => ({
+          track: 'Recent Song',
+          at: new Date(
+            Date.parse('2026-07-21T00:00:00.000Z') + i * 1000
+          ).toISOString(),
+        })),
+      });
+      const body = (await (
+        await authFetch('/v1/listening/recent/albums?limit=1')
+      ).json()) as any;
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].album.apple_music_url).toBe(
+        'https://music.apple.com/us/album/synthetic/123'
+      );
+      expect(body.data[0].album.image.cdn_url).toContain(
+        `/albums/${older!.id}/`
+      );
     });
 
     it('uses descending scrobble id for timestamp ties', async () => {

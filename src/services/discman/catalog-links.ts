@@ -1,5 +1,5 @@
 /**
- * Catalog links for shelf albums.
+ * Catalog links for shelf and recently played albums.
  *
  * An album with no Apple Music id has no catalog tracklist, so the player can
  * only list the songs played from it, without previews. Track enrichment
@@ -10,13 +10,16 @@
  * right id by hand, and automatic matching never replaces a pin.
  */
 
-import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
   lastfmAlbumTracks,
   lastfmAlbums,
   lastfmArtists,
+  lastfmScrobbles,
+  lastfmTracks,
 } from '../../db/schema/lastfm.js';
+import { scrobbleAlbumId } from '../../lib/scrobble-album.js';
 import { catalogGet } from '../apple-music/catalog-album.js';
 import { playedSongs } from '../apple-music/played-song.js';
 import { resolveCatalogAlbum } from '../apple-music/resolve-album.js';
@@ -25,6 +28,90 @@ import { variousArtistsFor } from '../itunes/enrich.js';
 import { VARIOUS_ARTISTS_NAME } from '../lastfm/constants.js';
 
 const LINK_RETRY_DAYS = 7;
+// Recent links serve ordinary album rails too, independently of disc art.
+const RECENT_LINK_LIMIT = 5;
+const RECENT_LINK_RETRY_DAYS = 1;
+const RECENT_PLAY_DAYS = 30;
+
+const eligibleAlbum = (userId: number) =>
+  and(
+    eq(lastfmAlbums.userId, userId),
+    isNull(lastfmAlbums.appleMusicId),
+    // A URL-only record already has a selected catalog release. Automatic
+    // missing-link repair must not overwrite that metadata or a concurrent edit.
+    or(isNull(lastfmAlbums.appleMusicUrl), eq(lastfmAlbums.appleMusicUrl, '')),
+    eq(lastfmAlbums.appleMusicPinned, 0),
+    eq(lastfmAlbums.identityConflict, 0),
+    eq(lastfmAlbums.isFiltered, 0),
+    sql`EXISTS (SELECT 1 FROM ${lastfmArtists} a
+      WHERE a.id = ${lastfmAlbums.artistId} AND a.user_id = ${lastfmAlbums.userId}
+        AND a.identity_conflict = 0 AND a.is_filtered = 0)`
+  );
+
+const retryDue = (days: number) =>
+  or(
+    isNull(lastfmAlbums.catalogLinkCheckedAt),
+    lt(
+      lastfmAlbums.catalogLinkCheckedAt,
+      sql.raw(`strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${days} days')`)
+    )
+  );
+
+/** At most five recent, eligible albums per refresh, newest play first. */
+export async function linkRecentAlbums(
+  db: Database,
+  token: string,
+  userId = 1
+): Promise<{ checked: number; linked: number }> {
+  const albums = await db
+    .select({ id: lastfmAlbums.id })
+    .from(lastfmScrobbles)
+    .innerJoin(
+      lastfmTracks,
+      and(
+        eq(lastfmTracks.id, lastfmScrobbles.trackId),
+        eq(lastfmTracks.userId, lastfmScrobbles.userId)
+      )
+    )
+    .innerJoin(
+      lastfmAlbums,
+      and(
+        eq(lastfmAlbums.id, scrobbleAlbumId),
+        eq(lastfmAlbums.userId, lastfmScrobbles.userId)
+      )
+    )
+    .innerJoin(
+      lastfmArtists,
+      and(
+        eq(lastfmArtists.id, lastfmTracks.artistId),
+        eq(lastfmArtists.userId, lastfmTracks.userId)
+      )
+    )
+    .where(
+      and(
+        eq(lastfmScrobbles.userId, userId),
+        eq(lastfmTracks.isFiltered, 0),
+        eq(lastfmArtists.isFiltered, 0),
+        eq(lastfmArtists.identityConflict, 0),
+        eligibleAlbum(userId),
+        retryDue(RECENT_LINK_RETRY_DAYS),
+        sql`${lastfmScrobbles.scrobbledAt} >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${sql.raw(String(RECENT_PLAY_DAYS))} days')`
+      )
+    )
+    .groupBy(lastfmAlbums.id)
+    .orderBy(
+      desc(sql`MAX(${lastfmScrobbles.scrobbledAt})`),
+      desc(lastfmAlbums.id)
+    )
+    .limit(RECENT_LINK_LIMIT);
+  return linkAlbums(
+    db,
+    token,
+    albums.map((album) => album.id),
+    userId,
+    RECENT_LINK_RETRY_DAYS
+  );
+}
 /** Played songs tried per album; a bonus track can be missing from Apple's edition. */
 const LINK_SONGS = 3;
 
@@ -39,6 +126,16 @@ export async function linkShelfAlbums(
   token: string,
   albumIds: number[],
   userId = 1
+): Promise<{ checked: number; linked: number }> {
+  return linkAlbums(db, token, albumIds, userId, LINK_RETRY_DAYS);
+}
+
+async function linkAlbums(
+  db: Database,
+  token: string,
+  albumIds: number[],
+  userId: number,
+  retryDays: number
 ): Promise<{ checked: number; linked: number }> {
   const totals = { checked: 0, linked: 0 };
   if (albumIds.length === 0) return totals;
@@ -59,34 +156,19 @@ export async function linkShelfAlbums(
     )
     .where(
       and(
-        eq(lastfmAlbums.userId, userId),
+        eligibleAlbum(userId),
         inArray(lastfmAlbums.id, albumIds),
-        isNull(lastfmAlbums.appleMusicId),
-        eq(lastfmAlbums.appleMusicPinned, 0),
-        eq(lastfmAlbums.identityConflict, 0),
-        eq(lastfmAlbums.isFiltered, 0),
-        or(
-          isNull(lastfmAlbums.catalogLinkCheckedAt),
-          lt(
-            lastfmAlbums.catalogLinkCheckedAt,
-            sql.raw(
-              `strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${LINK_RETRY_DAYS} days')`
-            )
-          )
-        )
+        retryDue(retryDays)
       )
     );
   if (albums.length === 0) return totals;
   const variousArtistsId = await variousArtistsFor(db, userId);
 
+  const order = new Map(albumIds.map((id, index) => [id, index]));
+  albums.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
   for (const album of albums) {
     const now = new Date().toISOString();
-    const unlinked = and(
-      eq(lastfmAlbums.id, album.id),
-      eq(lastfmAlbums.userId, userId),
-      isNull(lastfmAlbums.appleMusicId),
-      eq(lastfmAlbums.appleMusicPinned, 0)
-    );
+    const unlinked = and(eq(lastfmAlbums.id, album.id), eligibleAlbum(userId));
     let found: Awaited<ReturnType<typeof resolveCatalogAlbum>> = {
       status: 'no_match',
     };

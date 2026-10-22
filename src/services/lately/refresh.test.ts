@@ -29,6 +29,9 @@ import type { Env } from '../../types/env.js';
 import { refreshLately } from './refresh.js';
 import { LatelySnapshot, type Snapshot } from './schema.js';
 import { LEASE_MS, movieExclusions } from './policy.js';
+import { musicCard } from './candidates.js';
+import { eq } from 'drizzle-orm';
+import { loadFilters } from '../lastfm/filters.js';
 
 const db = createDb(env.DB);
 const testEnv = {
@@ -141,8 +144,192 @@ describe('prepared Lately refresh', () => {
     await db.delete(lastfmAlbums);
     await db.delete(lastfmArtists);
     await db.delete(lastfmFilters);
+    await loadFilters(db);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it('keeps Unicode artist exclusions effective for exact and case-variant credits', async () => {
+    const { artist, album, track } = await seedMusic();
+    await db
+      .update(lastfmArtists)
+      .set({ name: 'Ólafur Test', isFiltered: 1 })
+      .where(eq(lastfmArtists.id, artist.id));
+    for (const credit of ['Ólafur Test', 'ólafur test feat. Guest']) {
+      expect(
+        await musicCard(env.DB, {
+          name: track.name,
+          artist: credit,
+          album: album.name,
+          scrobbled_at: new Date(base).toISOString(),
+        })
+      ).toBeNull();
+    }
+  });
+
+  it('keeps exclusions on an exact legacy guest credit', async () => {
+    const { artist, album, track } = await seedMusic();
+    await db
+      .update(lastfmArtists)
+      .set({
+        name: 'Test Artist feat. Guest',
+        isFiltered: 1,
+        identityConflict: 1,
+      })
+      .where(eq(lastfmArtists.id, artist.id));
+    expect(
+      await musicCard(env.DB, {
+        name: track.name,
+        artist: 'Test Artist feat. Guest',
+        album: album.name,
+        scrobbled_at: new Date(base).toISOString(),
+      })
+    ).toBeNull();
+  });
+
+  it('does not replace an excluded conflicted exact artist with a clean alias', async () => {
+    await db.insert(lastfmArtists).values({ name: 'TEST-ARTIST', userId: 1 });
+    const { artist, album, track } = await seedMusic();
+    await db
+      .update(lastfmArtists)
+      .set({
+        name: 'Test‐Artist',
+        mbid: 'identity-one',
+        identityConflict: 1,
+        isFiltered: 1,
+      })
+      .where(eq(lastfmArtists.id, artist.id));
+    for (const credit of ['Test‐Artist', 'test‐artist feat. Guest']) {
+      expect(
+        await musicCard(env.DB, {
+          name: track.name,
+          artist: credit,
+          album: album.name,
+          scrobbled_at: new Date(base).toISOString(),
+        })
+      ).toBeNull();
+    }
+  });
+
+  it('fails closed when aliases exceed the metadata exclusion scan bound', async () => {
+    const { artist, album, track } = await seedMusic();
+    const name = 'testartist';
+    await db
+      .update(lastfmArtists)
+      .set({ name })
+      .where(eq(lastfmArtists.id, artist.id));
+    let lastAliasId = artist.id;
+    for (let mask = 1; mask <= 40; mask++) {
+      const [alias] = await db
+        .insert(lastfmArtists)
+        .values({
+          name: [...name]
+            .map((letter, i) =>
+              mask & (1 << i) ? letter.toUpperCase() : letter
+            )
+            .join(''),
+          userId: 1,
+        })
+        .returning();
+      lastAliasId = alias.id;
+    }
+    await db.insert(lastfmTracks).values({
+      name: track.name,
+      artistId: lastAliasId,
+      userId: 1,
+      isFiltered: 1,
+    });
+    expect(
+      await musicCard(env.DB, {
+        name: track.name,
+        artist: name,
+        album: album.name,
+        scrobbled_at: new Date(base).toISOString(),
+      })
+    ).toBeNull();
+  });
+
+  it.each(['track', 'album'])(
+    'does not let artwork on an alias hide a filtered %s',
+    async (kind) => {
+      const { artist, album, track } = await seedMusic();
+      await db
+        .update(lastfmArtists)
+        .set({ name: 'TEST-ARTIST' })
+        .where(eq(lastfmArtists.id, artist.id));
+      const [alias] = await db
+        .insert(lastfmArtists)
+        .values({ name: 'Test‐Artist', userId: 1 })
+        .returning();
+      if (kind === 'track')
+        await db.insert(lastfmTracks).values({
+          name: track.name,
+          artistId: alias.id,
+          userId: 1,
+          isFiltered: 1,
+        });
+      else
+        await db.insert(lastfmAlbums).values({
+          name: album.name,
+          artistId: alias.id,
+          userId: 1,
+          isFiltered: 1,
+        });
+      expect(
+        await musicCard(env.DB, {
+          name: track.name,
+          artist: 'Test‐Artist feat. Guest',
+          album: album.name,
+          scrobbled_at: new Date(base).toISOString(),
+        })
+      ).toBeNull();
+    }
+  );
+
+  it('finds the reported album artwork despite artist case, hyphens and guest credits', async () => {
+    // An older spelling alias need not own this particular album.
+    await db.insert(lastfmArtists).values({ name: 'TEST-ARTIST', userId: 1 });
+    const { artist, album, track } = await seedMusic();
+    await db
+      .update(lastfmArtists)
+      .set({ name: 'Test‐Artist' })
+      .where(eq(lastfmArtists.id, artist.id));
+    const item = {
+      name: track.name,
+      artist: 'TEST-ARTIST feat. Guest',
+      album: album.name,
+      scrobbled_at: new Date(base).toISOString(),
+    };
+    const card = await musicCard(env.DB, item);
+    expect(card?.track_id).toBe(track.id);
+    expect(card?.image?.cdn_url).toContain(`/albums/${album.id}/`);
+    expect(card?.artist).toBe(item.artist);
+    const otherRelease = await musicCard(env.DB, {
+      ...item,
+      album: 'Another Release',
+    });
+    expect(otherRelease?.image).toBeNull();
+    await db
+      .update(lastfmArtists)
+      .set({ isFiltered: 1 })
+      .where(eq(lastfmArtists.id, artist.id));
+    expect(await musicCard(env.DB, item)).toBeNull();
+  });
+
+  it('does not borrow normalized artwork from another owner', async () => {
+    const { artist, album, track } = await seedMusic('Foreign Song', true, 2);
+    await db
+      .update(lastfmArtists)
+      .set({ name: 'TEST-ARTIST' })
+      .where(eq(lastfmArtists.id, artist.id));
+    const card = await musicCard(env.DB, {
+      name: track.name,
+      artist: 'Test‐Artist feat. Guest',
+      album: album.name,
+      scrobbled_at: new Date(base).toISOString(),
+    });
+    expect(card?.track_id).toBeNull();
+    expect(card?.image).toBeNull();
+  });
 
   it('bounds and validates exclusion configuration before querying', () => {
     expect(movieExclusions('2, 1,2')).toEqual([1, 2]);

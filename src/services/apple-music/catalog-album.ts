@@ -32,6 +32,29 @@ const TRACK_PAGES = 5;
 /** Candidates whose tracklists are opened per lookup. */
 const CANDIDATES = 3;
 
+/** A stored URL can identify a release even before its numeric ID is backfilled. */
+export function catalogAlbumIdFromUrl(value: string | null): number | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== 'https:' ||
+      url.hostname !== 'music.apple.com' ||
+      url.username ||
+      url.password ||
+      url.port
+    )
+      return null;
+    const match = url.pathname.match(
+      /^\/[a-z]{2}\/album\/(?:[^/]+\/)?(\d+)\/?$/
+    );
+    const id = Number(match?.[1]);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface CatalogAlbum {
   id: number;
   name: string;
