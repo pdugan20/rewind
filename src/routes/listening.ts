@@ -4770,7 +4770,7 @@ const reviewAlbumsRoute = createRoute({
   tags: ['Listening', 'Admin'],
   summary: 'Check listed albums against Apple Music',
   description:
-    'Runs the album check for up to 20 owned albums, regardless of when they were created or checked: one played song is searched on iTunes, preferring the played album. When iTunes credits that album to Various Artists, its recorded plays (and tracks first seen there) move to the Various Artists album; when it confirms the album under its own artist, the catalog id is stored. Defaults to a dry run that reports each decision without writing; a live run applies the same decisions.',
+    'Checks up to 20 owned albums using a played song and the catalog release. Verified recording credits can file an album under its catalog album artist, preserving recording artists and other-album plays in an audited mapping. Existing wrong catalog links can be corrected; pins, exclusions and conflicting identities remain protected. Defaults to a dry run; live requests apply the reported decisions without enrolling historical artwork.',
   request: {
     body: {
       content: {
@@ -4810,6 +4810,7 @@ const reviewAlbumsRoute = createRoute({
                   .nullable(),
                 action: z.enum([
                   'file_under_various_artists',
+                  'file_under_album_artist',
                   'link_album',
                   'already_linked',
                   'no_album_match',

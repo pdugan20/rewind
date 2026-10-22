@@ -2732,10 +2732,10 @@ it('an unresolved MusicBrainz name does not block an independently verified cata
 it('scheduled policy recovery follows discovery, validation and publication into the shelf without an album reset', async () => {
   // The shelf lists only albums a visitor can hear.
   await runtime.DB.prepare(
-    "UPDATE lastfm_tracks SET preview_url='https://audio-ssl.itunes.apple.com/1.m4a' WHERE id=1"
+    "UPDATE lastfm_tracks SET preview_url='https://audio-ssl.itunes.apple.com/1.m4a',apple_music_url='https://music.apple.com/us/album/synthetic/1?i=10' WHERE id=1"
   ).run();
   await runtime.DB.prepare(
-    'UPDATE lastfm_albums SET mbid=?,apple_music_id=NULL WHERE id=1'
+    "UPDATE lastfm_albums SET mbid=?,apple_music_id=NULL,apple_music_url='https://music.apple.com/us/album/synthetic/1' WHERE id=1"
   )
     .bind(RELEASE)
     .run();

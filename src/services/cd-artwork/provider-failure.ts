@@ -86,11 +86,39 @@ export async function readProviderFailure(
 }
 
 /** Project the latest generation's real state without changing active artwork. */
+export async function syncAcceptedArtworkStatus(
+  env: ArtworkEnv,
+  albumId: number,
+  userId: number
+): Promise<boolean> {
+  const active = await env.DB.prepare(
+    "SELECT j.id FROM cd_artwork_albums c JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE c.user_id=? AND c.album_id=? AND j.state='accepted' AND j.candidate_hash IS NOT NULL AND c.hidden_job IS NOT c.active_job AND c.review_hold=0"
+  )
+    .bind(userId, albumId)
+    .first<{ id: string }>();
+  if (!active) return false;
+  const result = await env.DB.prepare(
+    `UPDATE cd_artwork_albums SET discovery_outcome='artwork_ready',discovery_evidence=json_set(json_remove(discovery_evidence,'$.generation_error_code'),'$.generation_job_id',?),
+    next_check=CASE WHEN pinned=0 AND EXISTS(SELECT 1 FROM cd_artwork_jobs failed WHERE failed.user_id=cd_artwork_albums.user_id AND failed.album_id=cd_artwork_albums.album_id AND failed.automatic=1 AND failed.expected_active_job=cd_artwork_albums.active_job AND failed.state IN ('provider_failed','provider_unknown') AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs newer WHERE newer.user_id=failed.user_id AND newer.album_id=failed.album_id AND newer.automatic=1 AND newer.rowid>failed.rowid)) THEN strftime('%Y-%m-%dT%H:%M:%fZ','now','+1 hour') ELSE next_check END
+    WHERE user_id=? AND album_id=? AND active_job=? AND hidden_job IS NOT active_job AND review_hold=0 AND EXISTS(SELECT 1 FROM cd_artwork_jobs j WHERE j.id=active_job AND j.user_id=cd_artwork_albums.user_id AND j.album_id=cd_artwork_albums.album_id AND j.state='accepted' AND j.candidate_hash IS NOT NULL)`
+  )
+    .bind(active.id, userId, albumId, active.id)
+    .run();
+  return result.meta.changes === 1;
+}
+
 export async function syncGenerationStatus(
   env: ArtworkEnv,
   id: string,
   userId: number
 ) {
+  const job = await env.DB.prepare(
+    'SELECT album_id FROM cd_artwork_jobs WHERE id=? AND user_id=?'
+  )
+    .bind(id, userId)
+    .first<{ album_id: number }>();
+  if (!job || (await syncAcceptedArtworkStatus(env, job.album_id, userId)))
+    return;
   await env.DB.prepare(
     `UPDATE cd_artwork_albums AS c SET
     discovery_outcome=CASE j.state
@@ -118,6 +146,11 @@ export async function syncGenerationStatus(
 
 /** Repair only status on already-admitted failures; never enqueue or pay. */
 export async function reconcileGenerationStatuses(env: ArtworkEnv) {
+  const accepted = await env.DB.prepare(
+    "SELECT c.album_id,c.user_id FROM cd_artwork_albums c JOIN cd_artwork_jobs j ON j.id=c.active_job AND j.user_id=c.user_id AND j.album_id=c.album_id WHERE j.state='accepted' AND j.candidate_hash IS NOT NULL AND c.hidden_job IS NOT c.active_job AND c.review_hold=0 AND c.discovery_outcome IS NOT 'artwork_ready' ORDER BY j.updated_at DESC LIMIT 20"
+  ).all<{ album_id: number; user_id: number }>();
+  for (const row of accepted.results)
+    await syncAcceptedArtworkStatus(env, row.album_id, row.user_id);
   const rows = await env.DB.prepare(
     `SELECT j.id,j.user_id FROM cd_artwork_jobs j
     JOIN cd_artwork_albums c ON c.album_id=j.album_id AND c.user_id=j.user_id

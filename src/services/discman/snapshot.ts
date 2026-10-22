@@ -23,6 +23,7 @@ import { images } from '../../db/schema/system.js';
 import { scrobbleAlbumId } from '../../lib/scrobble-album.js';
 import { buildCdnUrl } from '../images/presets.js';
 import { trackMatches } from '../images/sources/utils.js';
+import { catalogAlbumIdFromUrl } from '../apple-music/catalog-album.js';
 import {
   DISCMAN_ALBUM_LIMIT,
   DiscmanAlbum as DiscmanAlbumSchema,
@@ -278,7 +279,11 @@ function playedTracks(db: Database, userId: number, albumIds: number[]) {
   `);
 }
 
-function playedToTrack(played: PlayedTrack, position: number): DiscmanTrack {
+function playedToTrack(
+  played: PlayedTrack,
+  position: number,
+  catalogId: number | null
+): DiscmanTrack {
   return {
     position,
     disc_number: null,
@@ -288,7 +293,11 @@ function playedToTrack(played: PlayedTrack, position: number): DiscmanTrack {
     isrc: null,
     apple_music_id: played.apple_music_id,
     apple_music_url: appleMusicUrl(played.apple_music_url),
-    preview_url: previewUrl(played.preview_url),
+    preview_url:
+      catalogId !== null &&
+      catalogAlbumIdFromUrl(played.apple_music_url) === catalogId
+        ? previewUrl(played.preview_url)
+        : null,
     track_id: played.track_id,
     play_count: Number(played.play_count),
     last_played_at: played.last_played_at,
@@ -361,6 +370,8 @@ export async function buildDiscmanSnapshot(
     if (albums.length === DISCMAN_ALBUM_LIMIT) break;
     const album = albumsById.get(albumId);
     if (!album) continue;
+    const catalogId =
+      album.appleMusicId ?? catalogAlbumIdFromUrl(album.appleMusicUrl);
     const plays = played.filter((row) => row.album_id === albumId);
     const catalog = catalogRows.filter((row) => row.albumId === albumId);
     const filteredPlays = plays.filter((row) => row.is_filtered === 1);
@@ -409,7 +420,10 @@ export async function buildDiscmanSnapshot(
           apple_music_url: appleMusicUrl(row.appleMusicUrl),
           preview_url:
             previewUrl(row.previewUrl) ??
-            previewUrl(match?.preview_url ?? null),
+            (catalogId !== null &&
+            catalogAlbumIdFromUrl(match?.apple_music_url ?? null) === catalogId
+              ? previewUrl(match?.preview_url ?? null)
+              : null),
           track_id: match?.track_id ?? null,
           play_count: match ? Number(match.play_count) : 0,
           last_played_at: match?.last_played_at ?? null,
@@ -419,7 +433,9 @@ export async function buildDiscmanSnapshot(
       source = 'listens';
       // Track ids grow as songs are first heard, which approximates album
       // order for album-wise listening.
-      tracks = audiblePlays.map((row, index) => playedToTrack(row, index + 1));
+      tracks = audiblePlays.map((row, index) =>
+        playedToTrack(row, index + 1, catalogId)
+      );
     }
     // A disc with nothing to play stays off the shelf until a preview is
     // found; the next newest candidate takes its place.

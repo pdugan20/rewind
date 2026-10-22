@@ -23,7 +23,11 @@ import { scrobbleAlbumId } from '../../lib/scrobble-album.js';
 import { catalogGet } from '../apple-music/catalog-album.js';
 import { playedSongs } from '../apple-music/played-song.js';
 import { resolveCatalogAlbum } from '../apple-music/resolve-album.js';
+import { resolveOwnedCatalogAlbum } from '../apple-music/resolve-owned-album.js';
 import { artistIdentityMatches } from '../images/sources/utils.js';
+import { releaseTitleMatches } from '../apple-music/match.js';
+import { fileUnderCatalogArtist } from '../apple-music/album-attribution.js';
+import { enrollForDiscArt } from '../itunes/album-enrich.js';
 import { variousArtistsFor } from '../itunes/enrich.js';
 import { VARIOUS_ARTISTS_NAME } from '../lastfm/constants.js';
 
@@ -33,13 +37,22 @@ const RECENT_LINK_LIMIT = 5;
 const RECENT_LINK_RETRY_DAYS = 1;
 const RECENT_PLAY_DAYS = 30;
 
-const eligibleAlbum = (userId: number) =>
+const eligibleAlbum = (userId: number, validateExisting = false) =>
   and(
     eq(lastfmAlbums.userId, userId),
-    isNull(lastfmAlbums.appleMusicId),
+    validateExisting ? undefined : isNull(lastfmAlbums.appleMusicId),
     // A URL-only record already has a selected catalog release. Automatic
     // missing-link repair must not overwrite that metadata or a concurrent edit.
-    or(isNull(lastfmAlbums.appleMusicUrl), eq(lastfmAlbums.appleMusicUrl, '')),
+    validateExisting
+      ? or(
+          sql`${lastfmAlbums.appleMusicId} IS NOT NULL`,
+          isNull(lastfmAlbums.appleMusicUrl),
+          eq(lastfmAlbums.appleMusicUrl, '')
+        )
+      : or(
+          isNull(lastfmAlbums.appleMusicUrl),
+          eq(lastfmAlbums.appleMusicUrl, '')
+        ),
     eq(lastfmAlbums.appleMusicPinned, 0),
     eq(lastfmAlbums.identityConflict, 0),
     eq(lastfmAlbums.isFiltered, 0),
@@ -93,7 +106,7 @@ export async function linkRecentAlbums(
         eq(lastfmTracks.isFiltered, 0),
         eq(lastfmArtists.isFiltered, 0),
         eq(lastfmArtists.identityConflict, 0),
-        eligibleAlbum(userId),
+        eligibleAlbum(userId, true),
         retryDue(RECENT_LINK_RETRY_DAYS),
         sql`${lastfmScrobbles.scrobbledAt} >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${sql.raw(String(RECENT_PLAY_DAYS))} days')`
       )
@@ -109,7 +122,8 @@ export async function linkRecentAlbums(
     token,
     albums.map((album) => album.id),
     userId,
-    RECENT_LINK_RETRY_DAYS
+    RECENT_LINK_RETRY_DAYS,
+    true
   );
 }
 /** Played songs tried per album; a bonus track can be missing from Apple's edition. */
@@ -135,7 +149,8 @@ async function linkAlbums(
   token: string,
   albumIds: number[],
   userId: number,
-  retryDays: number
+  retryDays: number,
+  validateExisting = false
 ): Promise<{ checked: number; linked: number }> {
   const totals = { checked: 0, linked: 0 };
   if (albumIds.length === 0) return totals;
@@ -145,6 +160,7 @@ async function linkAlbums(
       name: lastfmAlbums.name,
       artistId: lastfmAlbums.artistId,
       artistName: lastfmArtists.name,
+      catalogId: lastfmAlbums.appleMusicId,
     })
     .from(lastfmAlbums)
     .innerJoin(
@@ -156,7 +172,7 @@ async function linkAlbums(
     )
     .where(
       and(
-        eligibleAlbum(userId),
+        eligibleAlbum(userId, validateExisting),
         inArray(lastfmAlbums.id, albumIds),
         retryDue(retryDays)
       )
@@ -168,15 +184,58 @@ async function linkAlbums(
   albums.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
   for (const album of albums) {
     const now = new Date().toISOString();
-    const unlinked = and(eq(lastfmAlbums.id, album.id), eligibleAlbum(userId));
+    const unlinked = and(
+      eq(lastfmAlbums.id, album.id),
+      eligibleAlbum(userId, validateExisting),
+      sql`${lastfmAlbums.appleMusicId} IS ${album.catalogId}`
+    );
     let found: Awaited<ReturnType<typeof resolveCatalogAlbum>> = {
       status: 'no_match',
     };
     let credited = false;
+    let invalidBinding = false;
+    if (validateExisting && album.catalogId) {
+      const stored = await catalogGet<{
+        data?: Array<{
+          id: string;
+          attributes?: { name: string; artistName: string; url: string };
+        }>;
+      }>(`/albums/${album.catalogId}`, token);
+      if (!stored.ok && stored.status !== 404) {
+        if ([401, 403, 429].includes(stored.status)) break;
+        continue;
+      }
+      const attrs = stored.ok
+        ? stored.body.data?.find((a) => a.id === String(album.catalogId))
+            ?.attributes
+        : undefined;
+      invalidBinding =
+        (!stored.ok && stored.status === 404) ||
+        (!!attrs &&
+          !releaseTitleMatches(album.name, attrs.name, album.artistName));
+      if (
+        attrs &&
+        releaseTitleMatches(album.name, attrs.name, album.artistName) &&
+        artistIdentityMatches(album.artistName, attrs.artistName)
+      ) {
+        found = {
+          status: 'found',
+          album: {
+            id: album.catalogId,
+            name: attrs.name,
+            artistName: attrs.artistName,
+            url: attrs.url,
+          },
+        };
+        credited = true;
+      }
+    }
     // The latest play may be a song the catalog edition lacks; another
     // played song can still identify the album.
-    for (const song of await playedSongs(db, userId, album.id, LINK_SONGS)) {
-      found = await resolveCatalogAlbum(token, {
+    for (const song of credited
+      ? []
+      : await playedSongs(db, userId, album.id, LINK_SONGS)) {
+      found = await resolveOwnedCatalogAlbum(db, token, userId, album.id, {
         album: album.name,
         track: song.track,
         artist: song.artist,
@@ -187,7 +246,8 @@ async function linkAlbums(
         (album.artistId === variousArtistsId
           ? found.album.artistName.trim().toLowerCase() ===
             VARIOUS_ARTISTS_NAME.toLowerCase()
-          : artistIdentityMatches(album.artistName, found.album.artistName));
+          : artistIdentityMatches(album.artistName, found.album.artistName) ||
+            found.trackArtistVerified === true);
       if (credited) break;
     }
     if (found.status === 'rate_limited') break;
@@ -199,6 +259,20 @@ async function linkAlbums(
     }
     totals.checked++;
     if (found.status === 'found' && credited) {
+      const attribution = await fileUnderCatalogArtist(
+        db,
+        userId,
+        album.id,
+        found.album,
+        !!found.trackArtistVerified
+      );
+      if (attribution?.changed && attribution.albumId) {
+        await enrollForDiscArt(db, userId, attribution.albumId);
+        totals.linked++;
+        continue;
+      }
+      if (!artistIdentityMatches(album.artistName, found.album.artistName))
+        continue;
       const linked = await db
         .update(lastfmAlbums)
         .set({
@@ -206,7 +280,8 @@ async function linkAlbums(
           appleMusicUrl: found.album.url,
           catalogLinkCheckedAt: now,
           // Fetch its tracklist in this refresh.
-          tracklistSyncedAt: null,
+          tracklistSyncedAt:
+            found.album.id === album.catalogId ? undefined : null,
           // Marks the album checked, so track enrichment keeps this id.
           itunesEnrichedAt: sql`COALESCE(${lastfmAlbums.itunesEnrichedAt}, ${now})`,
           updatedAt: now,
@@ -214,11 +289,47 @@ async function linkAlbums(
         .where(unlinked)
         .returning({ id: lastfmAlbums.id });
       if (linked.length) {
-        totals.linked++;
+        await enrollForDiscArt(db, userId, album.id);
+        if (found.album.id !== album.catalogId) {
+          totals.linked++;
+          await db
+            .delete(lastfmAlbumTracks)
+            .where(
+              and(
+                eq(lastfmAlbumTracks.userId, userId),
+                eq(lastfmAlbumTracks.albumId, album.id),
+                sql`EXISTS(SELECT 1 FROM lastfm_albums a WHERE a.id=${album.id} AND a.user_id=${userId} AND a.apple_music_id=${found.album.id} AND a.tracklist_synced_at IS NULL)`
+              )
+            );
+        }
         console.log(
           `[ENRICH] album ${album.id} linked to catalog ${found.album.id}`
         );
       }
+      continue;
+    }
+    if (invalidBinding) {
+      await db.batch([
+        db
+          .update(lastfmAlbums)
+          .set({
+            appleMusicId: null,
+            appleMusicUrl: null,
+            tracklistSyncedAt: null,
+            catalogLinkCheckedAt: now,
+            updatedAt: now,
+          })
+          .where(unlinked),
+        db
+          .delete(lastfmAlbumTracks)
+          .where(
+            and(
+              eq(lastfmAlbumTracks.userId, userId),
+              eq(lastfmAlbumTracks.albumId, album.id),
+              sql`EXISTS(SELECT 1 FROM lastfm_albums a WHERE a.id=${album.id} AND a.user_id=${userId} AND a.apple_music_id IS NULL AND a.catalog_link_checked_at=${now})`
+            )
+          ),
+      ]);
       continue;
     }
     await db

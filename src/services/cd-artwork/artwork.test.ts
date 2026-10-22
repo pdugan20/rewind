@@ -309,6 +309,11 @@ describe('authorization, publication and accepted-state preservation', () => {
     ).toBe(404);
     expect(await approvedArtwork(runtime, [1], 1)).toEqual([]);
     await reviewJob(runtime, job.id, 1, 'accepted', true, 'synthetic-test');
+    expect(
+      await runtime.DB.prepare(
+        'SELECT discovery_outcome FROM cd_artwork_albums WHERE user_id=1 AND album_id=1'
+      ).first('discovery_outcome')
+    ).toBe('artwork_ready');
     const attachment = await approvedArtwork(runtime, [1], 1);
     expect(attachment).toHaveLength(1);
     expect(attachment[0].sha256).toBe(job.candidate_hash);

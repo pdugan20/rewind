@@ -23,7 +23,11 @@
  */
 
 import { artistIdentityMatches } from '../images/sources/utils.js';
-import { releaseTitleMatches, songTitleMatches } from './match.js';
+import {
+  releaseTitleMatches,
+  albumSongMatches,
+  recordingCreditsMatch,
+} from './match.js';
 
 const ORIGIN = 'https://api.music.apple.com';
 const API = `${ORIGIN}/v1/catalog/us`;
@@ -63,7 +67,7 @@ export interface CatalogAlbum {
 }
 
 export type CatalogAlbumResult =
-  | { status: 'found'; album: CatalogAlbum }
+  | { status: 'found'; album: CatalogAlbum; trackArtistVerified?: boolean }
   | { status: 'no_match' }
   | { status: 'rate_limited' }
   | { status: 'error'; detail: string };
@@ -100,6 +104,60 @@ export const catalogFailure = (status: number): CatalogAlbumResult =>
   status === 429
     ? { status: 'rate_limited' }
     : { status: 'error', detail: `Apple Music HTTP ${status}` };
+
+/** Reuse an existing edition only after its own tracklist confirms the play. */
+export async function confirmCatalogAlbum(
+  token: string,
+  id: number,
+  played: { album: string; track: string; artist: string }
+): Promise<CatalogAlbumResult> {
+  const detail = await catalogGet<{ data?: CatalogAlbumResource[] }>(
+    `/albums/${id}?include=tracks`,
+    token
+  );
+  if (!detail.ok)
+    return detail.status === 404
+      ? { status: 'no_match' }
+      : catalogFailure(detail.status);
+  const album = detail.body.data?.find((a) => a.id === String(id));
+  const attrs = album?.attributes;
+  if (
+    !attrs?.name ||
+    !attrs.artistName ||
+    !attrs.url ||
+    !releaseTitleMatches(played.album, attrs.name, played.artist)
+  )
+    return { status: 'no_match' };
+  let page = album?.relationships?.tracks;
+  for (let n = 0; page && n < TRACK_PAGES; n++) {
+    if (
+      page.data?.some(
+        (t) =>
+          !!t.attributes?.name &&
+          !!t.attributes.artistName &&
+          albumSongMatches(played.track, t.attributes.name, attrs.name!) &&
+          recordingCreditsMatch(played.artist, t.attributes.artistName)
+      )
+    )
+      return {
+        status: 'found',
+        album: {
+          id,
+          name: attrs.name,
+          artistName: attrs.artistName,
+          url: attrs.url,
+        },
+        ...(!artistIdentityMatches(played.artist, attrs.artistName)
+          ? { trackArtistVerified: true }
+          : {}),
+      };
+    if (!page.next?.startsWith('/v1/')) break;
+    const more = await catalogGet<TrackPage>(page.next, token);
+    if (!more.ok) return catalogFailure(more.status);
+    page = more.body;
+  }
+  return { status: 'no_match' };
+}
 
 export async function findCatalogAlbum(
   token: string,
@@ -167,7 +225,7 @@ async function searchAndConfirm(
     const songs = tracks.filter(
       (track) =>
         !!track.attributes?.name &&
-        songTitleMatches(played.track, track.attributes.name)
+        albumSongMatches(played.track, track.attributes.name, attrs.name!)
     );
     if (!songs.length) continue;
     holding.push({
@@ -180,7 +238,7 @@ async function searchAndConfirm(
       byPlayedArtist: songs.some(
         (track) =>
           !!track.attributes?.artistName &&
-          artistIdentityMatches(played.artist, track.attributes.artistName)
+          recordingCreditsMatch(played.artist, track.attributes.artistName)
       ),
     });
   }
@@ -188,6 +246,13 @@ async function searchAndConfirm(
     holding.find((candidate) => candidate.byPlayedArtist) ??
     (holding.length === 1 ? holding[0] : undefined);
   return chosen
-    ? { status: 'found', album: chosen.album }
+    ? {
+        status: 'found',
+        album: chosen.album,
+        ...(chosen.byPlayedArtist &&
+        !artistIdentityMatches(played.artist, chosen.album.artistName)
+          ? { trackArtistVerified: true }
+          : {}),
+      }
     : { status: 'no_match' };
 }

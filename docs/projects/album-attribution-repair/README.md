@@ -1,5 +1,19 @@
 # Album attribution repair
 
+## Current verified album-credit filing
+
+Album rows remain keyed by name and artist. Catalog matching can now file a
+source album under a different album credit when the catalog confirms the
+played recording and its artist on that release. This handles compilations
+and collaborations without treating recording artists as aliases or merging
+unrelated same-title albums. `FILE_UNDER_ALBUM_ARTIST` records the exact
+source/destination; a competing destination is held for explicit review.
+Pins, exclusions, conflicting identities and existing source artwork remain
+protected. Other-album plays and recording artist identities stay intact.
+Later plays reuse the recorded filing. Historical artwork enrollment is not
+backfilled by this operation. The earlier phases below document the original
+Various Artists repair, not permission to replay its old migration checklist.
+
 ## Background
 
 The portfolio "Lately" card on patdugan.me shows a music-note placeholder instead

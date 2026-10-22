@@ -5,6 +5,7 @@ import { getJob } from './store.js';
 import { refreshReviewHold } from './feedback.js';
 import { artworkMetadata } from './metadata.js';
 import { validateCandidate } from './registration.js';
+import { syncAcceptedArtworkStatus } from './provider-failure.js';
 export async function reviewJob(
   env: ArtworkEnv,
   id: string,
@@ -168,6 +169,7 @@ export async function reviewJob(
       .first<{ active_job: string | null }>();
     if (active?.active_job !== id)
       throw new ArtworkError('activation_conflict', 409);
+    await syncAcceptedArtworkStatus(env, job.album_id, userId);
   }
   return result;
 }

@@ -9,29 +9,32 @@
  * recorded plays, search one played song on iTunes, preferring the played
  * album, and then
  *
- * - when iTunes credits that album to Various Artists, move every play
- *   recorded on it (and tracks first seen there) to the album credited to the
- *   canonical Various Artists row;
+ * - when the catalog verifies a different album credit, file the recorded
+ *   plays under that album artist through a guarded, audited mapping;
  * - when iTunes confirms the album under its own artist, store the catalog id;
  * - otherwise record that the album was checked.
  *
- * Only the Various Artists row may hold other artists' tracks; albums credited
- * to another artist keep the track artist (docs/projects/album-attribution-repair).
+ * Recording artists remain intact. Cross-credit albums require played-track
+ * proof; see docs/projects/album-attribution-repair for the filing contract.
  */
 
 import { and, desc, eq, gte, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import {
-  lastfmAlbumAttributionAudit,
+  lastfmAlbumTracks,
   lastfmAlbums,
   lastfmArtists,
   lastfmScrobbles,
   lastfmTracks,
 } from '../../db/schema/lastfm.js';
-import { albumMatches } from '../images/sources/utils.js';
+import {
+  albumMatches,
+  artistIdentityMatches,
+} from '../images/sources/utils.js';
+import { fileUnderCatalogArtist } from '../apple-music/album-attribution.js';
 import { releaseTitleMatches } from '../apple-music/match.js';
 import { VARIOUS_ARTISTS_NAME } from '../lastfm/constants.js';
-import { resolveCatalogAlbum } from '../apple-music/resolve-album.js';
+import { resolveOwnedCatalogAlbum } from '../apple-music/resolve-owned-album.js';
 import {
   searchItunes,
   variousArtistsFor,
@@ -51,6 +54,7 @@ export const FILED_UNDER_VARIOUS_ARTISTS = 'FILE_UNDER_VARIOUS_ARTISTS';
 
 export type AlbumAction =
   | 'file_under_various_artists'
+  | 'file_under_album_artist'
   | 'link_album'
   | 'already_linked'
   | 'no_album_match'
@@ -90,6 +94,9 @@ interface AlbumRow {
   isFiltered: number | null;
   appleMusicId: number | null;
   pinned: number;
+  albumConflict: number;
+  artistConflict: number;
+  artistFiltered: number | null;
 }
 
 interface AlbumPlan {
@@ -107,6 +114,9 @@ const albumColumns = {
   isFiltered: lastfmAlbums.isFiltered,
   appleMusicId: lastfmAlbums.appleMusicId,
   pinned: lastfmAlbums.appleMusicPinned,
+  albumConflict: lastfmAlbums.identityConflict,
+  artistConflict: lastfmArtists.identityConflict,
+  artistFiltered: lastfmArtists.isFiltered,
 };
 
 const recordedOn = (userId: number, albumId: number) =>
@@ -125,10 +135,13 @@ const recordedOn = (userId: number, albumId: number) =>
 async function findPlayedRelease(
   played: { artist: string; track: string },
   albumName: string,
-  token: string | undefined
+  token: string | undefined,
+  db: Database,
+  userId: number,
+  albumId: number
 ): Promise<SearchResult> {
   if (token) {
-    const catalog = await resolveCatalogAlbum(token, {
+    const catalog = await resolveOwnedCatalogAlbum(db, token, userId, albumId, {
       album: albumName,
       track: played.track,
       artist: played.artist,
@@ -141,6 +154,7 @@ async function findPlayedRelease(
         collectionName: catalog.album.name,
         collectionArtistName: catalog.album.artistName,
         collectionViewUrl: catalog.album.url,
+        catalogTrackArtistVerified: catalog.trackArtistVerified,
       },
     };
   }
@@ -168,6 +182,22 @@ async function planAlbum(
     artist: album.artistName,
   };
   const variousArtistsId = await variousArtistsFor(db, album.userId);
+  if (
+    album.isFiltered ||
+    album.artistFiltered ||
+    album.albumConflict ||
+    album.artistConflict
+  )
+    return {
+      item: {
+        ...base,
+        played_track: null,
+        match: null,
+        action: 'no_album_match',
+        detail: 'Protected identity or exclusion',
+      },
+      variousArtistsId,
+    };
   // A pinned catalog id was set by hand; leave the album as it is.
   if (album.pinned === 1)
     return {
@@ -179,7 +209,7 @@ async function planAlbum(
       },
       variousArtistsId,
     };
-  const [played] = await db
+  let [played] = await db
     .select({ track: lastfmTracks.name, artist: lastfmArtists.name })
     .from(lastfmScrobbles)
     .innerJoin(
@@ -199,6 +229,34 @@ async function planAlbum(
     .where(recordedOn(album.userId, album.id))
     .orderBy(desc(lastfmScrobbles.scrobbledAt))
     .limit(1);
+  if (!played) {
+    [played] = await db
+      .select({ track: lastfmTracks.name, artist: lastfmArtists.name })
+      .from(lastfmTracks)
+      .innerJoin(
+        lastfmArtists,
+        and(
+          eq(lastfmArtists.id, lastfmTracks.artistId),
+          eq(lastfmArtists.userId, lastfmTracks.userId)
+        )
+      )
+      .innerJoin(
+        lastfmScrobbles,
+        and(
+          eq(lastfmScrobbles.trackId, lastfmTracks.id),
+          eq(lastfmScrobbles.userId, lastfmTracks.userId)
+        )
+      )
+      .where(
+        and(
+          eq(lastfmTracks.userId, album.userId),
+          eq(lastfmTracks.albumId, album.id),
+          eq(lastfmScrobbles.albumRecorded, 0)
+        )
+      )
+      .orderBy(desc(lastfmScrobbles.scrobbledAt))
+      .limit(1);
+  }
   if (!played)
     return {
       item: { ...base, played_track: null, match: null, action: 'no_plays' },
@@ -207,7 +265,14 @@ async function planAlbum(
 
   let search: SearchResult;
   try {
-    search = await findPlayedRelease(played, album.name, token);
+    search = await findPlayedRelease(
+      played,
+      album.name,
+      token,
+      db,
+      album.userId,
+      album.id
+    );
   } catch (error) {
     search = {
       status: 'error',
@@ -279,6 +344,38 @@ async function planAlbum(
     item.tracks_moved = Number(tracks?.n ?? 0);
   } else if (
     playedThisAlbum &&
+    result.collectionId &&
+    result.collectionName &&
+    result.collectionArtistName &&
+    result.collectionViewUrl
+  ) {
+    const attribution = await fileUnderCatalogArtist(
+      db,
+      album.userId,
+      album.id,
+      {
+        id: result.collectionId,
+        name: result.collectionName,
+        artistName: result.collectionArtistName,
+        url: result.collectionViewUrl,
+      },
+      !!result.catalogTrackArtistVerified,
+      true
+    );
+    if (attribution?.changed) {
+      item.action = 'file_under_album_artist';
+      item.target_album_id = attribution.albumId;
+    } else if (
+      attribution &&
+      artistIdentityMatches(album.artistName, result.collectionArtistName)
+    ) {
+      item.action =
+        album.appleMusicId === result.collectionId
+          ? 'already_linked'
+          : 'link_album';
+    }
+  } else if (
+    playedThisAlbum &&
     !albumMatches(album.artistName, album.name) &&
     result.collectionId &&
     result.collectionViewUrl
@@ -301,78 +398,36 @@ async function applyAlbumPlan(
     .where(
       and(eq(lastfmAlbums.id, album.id), eq(lastfmAlbums.userId, album.userId))
     );
-  const { item, result, variousArtistsId } = plan;
+  const { item, result } = plan;
   switch (item.action) {
-    case 'file_under_various_artists': {
-      if (!result || variousArtistsId === null) return false;
-      // Album identity is (name, artist); the filter decision depends on the
-      // album name, so it carries over from the per-artist album.
-      await db
-        .insert(lastfmAlbums)
-        .values({
-          userId: album.userId,
-          name: album.name,
-          artistId: variousArtistsId,
-          isFiltered: album.isFiltered ?? 0,
-        })
-        .onConflictDoNothing();
-      const [compilation] = await db
-        .select({ id: lastfmAlbums.id })
-        .from(lastfmAlbums)
-        .where(
-          and(
-            eq(lastfmAlbums.userId, album.userId),
-            eq(lastfmAlbums.name, album.name),
-            eq(lastfmAlbums.artistId, variousArtistsId)
-          )
-        )
-        .limit(1);
-      if (!compilation) return false;
-      await db.batch([
-        // Sync reads this to file later plays of this album the same way.
-        db.insert(lastfmAlbumAttributionAudit).values({
-          originalAlbumId: album.id,
-          originalAlbumName: album.name,
-          originalArtistId: album.artistId,
-          action: FILED_UNDER_VARIOUS_ARTISTS,
-          newAlbumId: compilation.id,
-          newArtistId: variousArtistsId,
-          tracksMoved: item.tracks_moved ?? 0,
-          notes: `iTunes: ${result.collectionName ?? ''} by ${result.collectionArtistName ?? ''} (${result.collectionId ?? 'no id'})`,
-        }),
-        db
-          .update(lastfmScrobbles)
-          .set({ albumId: compilation.id })
-          .where(recordedOn(album.userId, album.id)),
-        db
-          .update(lastfmTracks)
-          .set({ albumId: compilation.id, updatedAt: now })
-          .where(
-            and(
-              eq(lastfmTracks.userId, album.userId),
-              eq(lastfmTracks.albumId, album.id)
-            )
-          ),
-        ...(result.collectionId && result.collectionViewUrl
-          ? [
-              db
-                .update(lastfmAlbums)
-                .set({
-                  appleMusicId: result.collectionId,
-                  appleMusicUrl: result.collectionViewUrl,
-                })
-                .where(
-                  and(
-                    eq(lastfmAlbums.id, compilation.id),
-                    eq(lastfmAlbums.userId, album.userId),
-                    isNull(lastfmAlbums.appleMusicId)
-                  )
-                ),
-            ]
-          : []),
-        stamp,
-      ]);
-      await enrollForDiscArt(db, album.userId, compilation.id);
+    case 'file_under_various_artists':
+    case 'file_under_album_artist': {
+      if (
+        !result?.collectionId ||
+        !result.collectionName ||
+        !result.collectionArtistName ||
+        !result.collectionViewUrl
+      )
+        return false;
+      const filed = await fileUnderCatalogArtist(
+        db,
+        album.userId,
+        album.id,
+        {
+          id: result.collectionId,
+          name: result.collectionName,
+          artistName: result.collectionArtistName,
+          url: result.collectionViewUrl,
+        },
+        !!result.catalogTrackArtistVerified,
+        false,
+        item.action === 'file_under_various_artists'
+          ? 'FILE_UNDER_VARIOUS_ARTISTS'
+          : 'FILE_UNDER_ALBUM_ARTIST'
+      );
+      if (!filed?.changed || !filed.albumId) return false;
+      await stamp;
+      await enrollForDiscArt(db, album.userId, filed.albumId);
       return true;
     }
     case 'link_album': {
@@ -383,16 +438,31 @@ async function applyAlbumPlan(
           appleMusicId: result.collectionId,
           appleMusicUrl: result.collectionViewUrl,
           itunesEnrichedAt: now,
+          catalogLinkCheckedAt: now,
+          tracklistSyncedAt: null,
         })
         .where(
           and(
             eq(lastfmAlbums.id, album.id),
             eq(lastfmAlbums.userId, album.userId),
             eq(lastfmAlbums.identityConflict, 0),
-            isNull(lastfmAlbums.appleMusicId)
+            eq(lastfmAlbums.appleMusicPinned, 0),
+            eq(lastfmAlbums.isFiltered, 0),
+            sql`${lastfmAlbums.appleMusicId} IS ${album.appleMusicId}`
           )
         )
         .returning({ id: lastfmAlbums.id });
+      if (linked.length && album.appleMusicId !== result.collectionId)
+        await db
+          .delete(lastfmAlbumTracks)
+          .where(
+            and(
+              eq(lastfmAlbumTracks.userId, album.userId),
+              eq(lastfmAlbumTracks.albumId, album.id),
+              sql`EXISTS(SELECT 1 FROM lastfm_albums a WHERE a.id=${album.id} AND a.user_id=${album.userId} AND a.apple_music_id=${result.collectionId} AND a.tracklist_synced_at IS NULL)`
+            )
+          );
+      if (linked.length) await enrollForDiscArt(db, album.userId, album.id);
       return linked.length > 0;
     }
     case 'already_linked':
@@ -416,7 +486,11 @@ async function applyAlbumPlan(
  * not pinned or held for review, not checked recently, and no accepted retail
  * art. Its next play would do this too, so a failure is only logged.
  */
-async function enrollForDiscArt(db: Database, userId: number, albumId: number) {
+export async function enrollForDiscArt(
+  db: Database,
+  userId: number,
+  albumId: number
+) {
   // A play the listen trigger would act on: recorded on this album, of an
   // unfiltered track, since enrollment began.
   const eligiblePlay = sql`SELECT 1 FROM lastfm_scrobbles s
@@ -502,7 +576,12 @@ export async function enrichNewAlbums(
     try {
       const changed = await applyAlbumPlan(db, album, plan);
       totals.checked++;
-      if (changed && plan.item.action === 'file_under_various_artists')
+      if (
+        changed &&
+        ['file_under_various_artists', 'file_under_album_artist'].includes(
+          plan.item.action
+        )
+      )
         totals.filed++;
       if (changed && plan.item.action === 'link_album') totals.linked++;
     } catch (error) {

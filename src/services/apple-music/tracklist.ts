@@ -25,7 +25,7 @@ import { artistIdentityMatches } from '../images/sources/utils.js';
 import type { CatalogAlbum } from './catalog-album.js';
 import { releaseTitleMatches } from './match.js';
 import { playedSong } from './played-song.js';
-import { resolveCatalogAlbum } from './resolve-album.js';
+import { resolveOwnedCatalogAlbum } from './resolve-owned-album.js';
 
 export { tracklistTitleMatches } from './match.js';
 
@@ -239,11 +239,17 @@ async function recoverCatalogAlbum(
 ): Promise<CatalogAlbum | 'retry' | null> {
   const song = await playedSong(db, userId, album.id);
   if (!song) return null;
-  const found = await resolveCatalogAlbum(developerToken, {
-    album: album.name,
-    track: song.track,
-    artist: song.artist,
-  });
+  const found = await resolveOwnedCatalogAlbum(
+    db,
+    developerToken,
+    userId,
+    album.id,
+    {
+      album: album.name,
+      track: song.track,
+      artist: song.artist,
+    }
+  );
   if (found.status === 'rate_limited' || found.status === 'error')
     return 'retry';
   if (found.status !== 'found' || found.album.id === album.appleMusicId)

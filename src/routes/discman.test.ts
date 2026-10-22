@@ -82,7 +82,7 @@ describe('GET /v1/listening/discman', () => {
         name: options.album,
         artistId,
         appleMusicId: options.appleMusicId ?? null,
-        appleMusicUrl: 'https://music.apple.com/us/album/1',
+        appleMusicUrl: `https://music.apple.com/us/album/${options.appleMusicId ?? 1}`,
         isFiltered: options.albumFiltered ? 1 : 0,
       })
       .returning();
@@ -95,6 +95,7 @@ describe('GET /v1/listening/discman', () => {
           name,
           artistId,
           albumId: album.id,
+          appleMusicUrl: `https://music.apple.com/us/album/${options.appleMusicId ?? 1}?i=${tracks.size + 100}`,
           previewUrl:
             options.previews === false ? null : PREVIEW(tracks.size + 100),
           isFiltered: options.filtered?.includes(name) ? 1 : 0,
@@ -112,6 +113,30 @@ describe('GET /v1/listening/discman', () => {
     await attachArtwork(album.id, options.artwork ?? 'accepted');
     return album;
   }
+
+  it('withholds a fallback preview that belongs to a different release', async () => {
+    const album = await seedAlbum({
+      artist: 'Synthetic Ensemble',
+      album: 'Concert Recording (Live)',
+      appleMusicId: 501,
+      plays: ['Shared Song'],
+    });
+    await db
+      .update(lastfmTracks)
+      .set({
+        appleMusicUrl:
+          'https://music.apple.com/us/album/greatest-hits/999?i=100',
+      })
+      .where(eq(lastfmTracks.albumId, album.id));
+    expect((await buildDiscmanSnapshot(db, 1)).albums).toHaveLength(0);
+    await db
+      .update(lastfmTracks)
+      .set({
+        appleMusicUrl: 'https://music.apple.com/us/album/concert/501?i=100',
+      })
+      .where(eq(lastfmTracks.albumId, album.id));
+    expect((await buildDiscmanSnapshot(db, 1)).albums).toHaveLength(1);
+  });
 
   async function attachArtwork(
     albumId: number,

@@ -24,7 +24,10 @@ import adminSync from './routes/admin-sync.js';
 import adminReindex from './routes/admin-reindex.js';
 import adminAttending from './routes/admin-attending.js';
 import { LastfmClient } from './services/lastfm/client.js';
-import { afterListeningSync } from './lib/artwork-notify.js';
+import {
+  afterListeningSync,
+  notifyArtworkDiscovery,
+} from './lib/artwork-notify.js';
 import discman from './routes/discman.js';
 import { refreshDiscman } from './services/discman/refresh.js';
 import { syncListening } from './services/lastfm/sync.js';
@@ -178,7 +181,10 @@ export default {
                 )
               )
             )
-            .then(() => refreshDiscman(db, env))
+            .then(async () => {
+              if (await refreshDiscman(db, env))
+                notifyArtworkDiscovery(env, ctx);
+            })
             .catch((err) =>
               console.log(
                 `[ERROR] Scrobble sync cron failed: ${err instanceof Error ? err.message : String(err)}`
@@ -272,6 +278,8 @@ export default {
               const { getVariousArtistsId } =
                 await import('./services/lastfm/constants.js');
               const vaId = await getVariousArtistsId(db);
+              const { hasVerifiedAlbumAttribution } =
+                await import('./services/apple-music/album-attribution.js');
               const [row] = await db
                 .select({ n: sql<number>`count(*)` })
                 .from(lastfmTracks)
@@ -281,8 +289,8 @@ export default {
                 )
                 .where(
                   vaId === null
-                    ? sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId}`
-                    : sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId} AND ${lastfmAlbums.artistId} != ${vaId}`
+                    ? sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId} AND NOT ${hasVerifiedAlbumAttribution()}`
+                    : sql`${lastfmTracks.artistId} != ${lastfmAlbums.artistId} AND ${lastfmAlbums.artistId} != ${vaId} AND NOT ${hasVerifiedAlbumAttribution()}`
                 );
               const mismatch = Number(row?.n ?? 0);
               if (mismatch > 0) {

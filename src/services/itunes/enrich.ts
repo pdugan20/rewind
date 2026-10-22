@@ -37,6 +37,8 @@ const ITUNES_RETRY_INTERVAL =
   "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')";
 
 export interface ITunesSongResult {
+  /** Catalog tracklist confirmed the played recording and its credit. */
+  catalogTrackArtistVerified?: boolean;
   trackId?: number;
   trackName?: string;
   trackViewUrl?: string;
