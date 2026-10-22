@@ -204,10 +204,14 @@ export async function fileUnderCatalogArtist(
         and(
           eq(lastfmAlbums.id, target.id),
           eq(lastfmAlbums.userId, userId),
+          eq(lastfmAlbums.name, target.name),
+          eq(lastfmAlbums.artistId, target.artistId),
+          sql`${lastfmAlbums.mbid} IS ${target.mbid}`,
           eq(lastfmAlbums.appleMusicPinned, 0),
           eq(lastfmAlbums.identityConflict, 0),
           eq(lastfmAlbums.isFiltered, 0),
-          sql`${lastfmAlbums.appleMusicId} IS NULL`
+          sql`${lastfmAlbums.appleMusicId} IS NULL`,
+          sql`EXISTS(SELECT 1 FROM lastfm_artists r WHERE r.id=${target.artistId} AND r.user_id=${userId} AND r.name=${targetArtist?.name ?? catalog.artistName} AND r.mbid IS ${targetArtist?.mbid ?? null} AND r.identity_conflict=0 AND r.is_filtered=0)`
         )
       )
       .returning();
