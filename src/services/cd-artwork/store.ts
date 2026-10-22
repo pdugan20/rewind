@@ -254,9 +254,12 @@ export async function dispatch(env: ArtworkEnv, job: Job, recover = false) {
     }
   }
 }
-export async function claimSubmission(env: ArtworkEnv, job: Job) {
+export async function claimGenerationSubmission(
+  env: ArtworkEnv,
+  job: Job
+): Promise<{ token: string; attempt: number } | null> {
   const token = crypto.randomUUID();
-  const stamp = now();
+  const stamp = new Date(Date.now()).toISOString();
   const day = stamp.slice(0, 10);
   // D1 batches are transactional. The unique token makes the usage statement
   // depend on this attempt's successful claim, even for simultaneous retries.
@@ -264,22 +267,26 @@ export async function claimSubmission(env: ArtworkEnv, job: Job) {
   // Sync cannot introduce a conflict between identity validation and reservation.
   const [claimed, usage] = await env.DB.batch([
     env.DB.prepare(
-      "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=?,submission_claim=? WHERE id=? AND user_id=? AND state='queued' AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_jobs.album_id AND a.user_id=cd_artwork_jobs.user_id AND a.identity_conflict=0 AND r.identity_conflict=0 AND (automatic=0 OR (a.is_filtered=0 AND r.is_filtered=0 AND a.name=json_extract(provenance,'$.catalogIdentity.name') AND r.name=json_extract(provenance,'$.catalogIdentity.artist') AND a.mbid IS json_extract(provenance,'$.catalogIdentity.mbid') AND r.mbid IS json_extract(provenance,'$.catalogIdentity.artist_mbid') AND a.apple_music_id IS json_extract(provenance,'$.catalogIdentity.apple_music_id') AND EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.pinned=0 AND c.review_hold=0 AND c.active_job IS cd_artwork_jobs.expected_active_job AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs prior WHERE prior.id=c.active_job AND prior.user_id=c.user_id AND prior.album_id=c.album_id AND prior.state='accepted' AND json_extract(prior.input,'$.source_kind')='retail')) AND (SELECT automatic_enabled FROM cd_artwork_control WHERE id=1)=1))) RETURNING id"
-    ).bind(stamp, stamp, token, job.id, job.user_id),
+      "UPDATE cd_artwork_jobs SET state='submitted',submitted_at=?,updated_at=?,submission_claim=?,provenance=json_set(provenance,'$.providerAttempts',COALESCE(json_extract(provenance,'$.providerAttempts'),0)+1) WHERE id=? AND user_id=? AND state='queued' AND COALESCE(json_extract(provenance,'$.providerAttempts'),0)<3 AND COALESCE(json_extract(provenance,'$.providerFailure.retry_at'),'')<=? AND EXISTS(SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id WHERE a.id=cd_artwork_jobs.album_id AND a.user_id=cd_artwork_jobs.user_id AND a.identity_conflict=0 AND r.identity_conflict=0 AND (automatic=0 OR (a.is_filtered=0 AND r.is_filtered=0 AND a.name=json_extract(provenance,'$.catalogIdentity.name') AND r.name=json_extract(provenance,'$.catalogIdentity.artist') AND a.mbid IS json_extract(provenance,'$.catalogIdentity.mbid') AND r.mbid IS json_extract(provenance,'$.catalogIdentity.artist_mbid') AND a.apple_music_id IS json_extract(provenance,'$.catalogIdentity.apple_music_id') AND EXISTS(SELECT 1 FROM cd_artwork_albums c WHERE c.user_id=cd_artwork_jobs.user_id AND c.album_id=cd_artwork_jobs.album_id AND c.pinned=0 AND c.review_hold=0 AND c.active_job IS cd_artwork_jobs.expected_active_job AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs prior WHERE prior.id=c.active_job AND prior.user_id=c.user_id AND prior.album_id=c.album_id AND prior.state='accepted' AND json_extract(prior.input,'$.source_kind')='retail')) AND (SELECT automatic_enabled FROM cd_artwork_control WHERE id=1)=1))) RETURNING id,provenance"
+    ).bind(stamp, stamp, token, job.id, job.user_id, stamp),
     env.DB.prepare(
       "UPDATE cd_artwork_control SET budget_day=?,submitted_count=CASE WHEN budget_day=? THEN submitted_count+1 ELSE 1 END WHERE id=1 AND enabled=1 AND EXISTS(SELECT 1 FROM cd_artwork_jobs WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?) RETURNING id"
     ).bind(day, day, job.id, job.user_id, token),
   ]);
-  if (!claimed.results.length) return false;
+  if (!claimed.results.length) return null;
   if (!usage.results.length) {
     await env.DB.prepare(
-      "UPDATE cd_artwork_jobs SET state='queued',submitted_at=NULL,submission_claim=NULL,updated_at=? WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?"
+      "UPDATE cd_artwork_jobs SET state='queued',submitted_at=NULL,submission_claim=NULL,provenance=json_set(provenance,'$.providerAttempts',MAX(0,COALESCE(json_extract(provenance,'$.providerAttempts'),1)-1)),updated_at=? WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?"
     )
       .bind(now(), job.id, job.user_id, token)
       .run();
-    return false;
+    return null;
   }
-  return true;
+  const claimedRow = claimed.results[0] as { provenance: string };
+  return { token, attempt: JSON.parse(claimedRow.provenance).providerAttempts };
+}
+export async function claimSubmission(env: ArtworkEnv, job: Job) {
+  return !!(await claimGenerationSubmission(env, job));
 }
 export function publicJob(job: Job) {
   const provenance = JSON.parse(job.provenance) as Record<string, unknown>;
@@ -291,6 +298,7 @@ export function publicJob(job: Job) {
     source_hash: job.source_hash,
     candidate_hash: job.candidate_hash,
     error_code: job.error_code,
+    provider_error: provenance.providerFailure ?? null,
     submitted_at: job.submitted_at,
     updated_at: job.updated_at,
     model:

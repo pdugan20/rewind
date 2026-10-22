@@ -4,6 +4,7 @@ import { ArtworkError, resolveSource } from './sources.js';
 import { ownedAlbum, enqueue, dispatch, getPendingAutomatic } from './store.js';
 import { selectAutomaticSource } from './selection.js';
 import { DISCOVERY_POLICY } from './discovery-policy.js';
+import { syncGenerationStatus } from './provider-failure.js';
 
 export interface DiscoveryCheck {
   id: number;
@@ -71,6 +72,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     evidence: unknown,
     retryAfter = 0,
     capacityRetry = false;
+  let generationJobId: string | undefined;
   try {
     const album = await ownedAlbum(env, row.album_id, row.user_id);
     const control = await env.DB.prepare(
@@ -127,6 +129,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
           }
         );
         await dispatch(env, result.job);
+        generationJobId = result.job.id;
         outcome =
           'blocked' in result && result.blocked
             ? 'generation_pending'
@@ -201,6 +204,15 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
       row.id
     )
     .run();
+  if (generationJobId) {
+    await syncGenerationStatus(env, generationJobId, row.user_id);
+    const stored = await env.DB.prepare(
+      'SELECT discovery_outcome FROM cd_artwork_albums WHERE user_id=? AND album_id=?'
+    )
+      .bind(row.user_id, row.album_id)
+      .first<{ discovery_outcome: string }>();
+    outcome = stored?.discovery_outcome ?? outcome;
+  }
   if (!retryAfter) await finishCheck(env, row, outcome);
   return {
     outcome,

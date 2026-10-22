@@ -8,6 +8,10 @@ import {
 } from './services/cd-artwork/gallery.js';
 import { selectAutomaticSource } from './services/cd-artwork/selection.js';
 import { publishAutomatic } from './services/cd-artwork/automatic.js';
+import {
+  GENERATION_ATTEMPTS,
+  syncGenerationStatus,
+} from './services/cd-artwork/provider-failure.js';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { z } from 'zod';
@@ -1055,17 +1059,40 @@ export class CdArtworkWorkflow extends WorkflowEntrypoint<
         () => prepareAcceptedWebpVariant(this.env, jobId, userId)
       );
     }
-    const result = await step.do(
+    let result = await step.do(
       'submit-once-and-persist-raw',
       { retries: { limit: 0, delay: '1 second' }, timeout: '5 minutes' },
       () => generateOnce(this.env, jobId, userId)
     );
-    if (!result.rawKey) return { state: 'held_or_unavailable' };
+    for (
+      let retry = 1;
+      result.retryAfter && retry < GENERATION_ATTEMPTS;
+      retry++
+    ) {
+      await step.sleep(
+        `generation-rate-limit-${retry}`,
+        result.retryAfter * 1000
+      );
+      result = await step.do(
+        `retry-known-rejection-${retry}`,
+        { retries: { limit: 0, delay: '1 second' }, timeout: '5 minutes' },
+        () => generateOnce(this.env, jobId, userId)
+      );
+    }
+    if (!result.rawKey) {
+      await syncGenerationStatus(this.env, jobId, userId);
+      return {
+        state:
+          (await getJob(this.env, jobId, userId))?.state ??
+          'held_or_unavailable',
+      };
+    }
     const registered = await step.do(
       'register-material-and-persist-candidate',
       { retries: { limit: 2, delay: '10 seconds' }, timeout: '4 minutes' },
       () => processRaw(this.env, jobId, userId)
     );
+    await syncGenerationStatus(this.env, jobId, userId);
     const job = await getJob(this.env, jobId, userId);
     if (job?.automatic && !registered.candidateHash) {
       await step.do(
@@ -1083,6 +1110,7 @@ export class CdArtworkWorkflow extends WorkflowEntrypoint<
         { retries: { limit: 2, delay: '10 seconds' }, timeout: '1 minute' },
         () => publishAutomatic(this.env, jobId, userId)
       );
+      await syncGenerationStatus(this.env, jobId, userId);
       if (published.candidateHash) {
         try {
           await step.do(

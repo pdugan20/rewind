@@ -35,9 +35,12 @@ test('discovery edits preserve deployed renderer deduplication while pixel edits
       );
     };
     const baseline = await build();
-    assert.match(
+    assert.equal(
       baseline,
-      /9f312830a7484ada1472df9a52ac5e92e54bf09f9dae31c52df76f8904686e92/
+      await fs.readFile(
+        path.join(root, 'src/services/cd-artwork/processor-version.ts'),
+        'utf8'
+      )
     );
     for (const file of [
       'discovery.ts',

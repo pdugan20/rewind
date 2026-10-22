@@ -8,16 +8,20 @@ import { artworkMetadata } from './metadata.js';
 import type { ArtworkEnv, JobInput } from './types.js';
 import { MODEL, now, sha256 } from './types.js';
 import { boundedBytes, ArtworkError } from './sources.js';
-import { getJob, claimSubmission } from './store.js';
+import { getJob, claimGenerationSubmission } from './store.js';
 import { prepareCandidate } from './registration.js';
 import { normalizeRetail, RENDER_STRATEGY } from './rendering.js';
+import {
+  readProviderFailure,
+  syncGenerationStatus,
+} from './provider-failure.js';
 
 const rawKey = (userId: number, id: string) => `jobs/${userId}/${id}/raw.png`;
 export async function generateOnce(
   env: ArtworkEnv,
   id: string,
   userId: number
-) {
+): Promise<{ rawKey: string | null; retryAfter?: number }> {
   const job = await getJob(env, id, userId);
   if (!job) throw Error('job_not_found');
   if (job.automatic) {
@@ -95,6 +99,12 @@ export async function generateOnce(
   if ((await sha256(sourceBytes)) !== job.source_hash)
     throw Error('source_integrity_failed');
   const provenance = JSON.parse(job.provenance);
+  const retryAt = Date.parse(provenance.providerFailure?.retry_at ?? '');
+  if (job.state === 'queued' && retryAt > Date.now())
+    return {
+      rawKey: null,
+      retryAfter: Math.ceil((retryAt - Date.now()) / 1000),
+    };
   if (
     job.automatic &&
     !provenance.renderRetry &&
@@ -156,15 +166,17 @@ export async function generateOnce(
     'image[]',
     new File([guide], 'geometry-reference.png', { type: 'image/png' })
   );
-  if (!(await claimSubmission(env, job))) return { rawKey: null };
+  const claim = await claimGenerationSubmission(env, job);
+  if (!claim) return { rawKey: null };
+  provenance.providerAttempts = claim.attempt;
   const control = await env.DB.prepare(
     'SELECT enabled FROM cd_artwork_control WHERE id=1'
   ).first<{ enabled: number }>();
   if (!control?.enabled) {
     await env.DB.batch([
       env.DB.prepare(
-        "UPDATE cd_artwork_jobs SET state='queued',submitted_at=NULL,updated_at=? WHERE id=? AND user_id=? AND state='submitted'"
-      ).bind(now(), id, userId),
+        "UPDATE cd_artwork_jobs SET state='queued',submitted_at=NULL,provenance=json_set(provenance,'$.providerAttempts',MAX(0,COALESCE(json_extract(provenance,'$.providerAttempts'),1)-1)),updated_at=? WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?"
+      ).bind(now(), id, userId, claim.token),
       env.DB.prepare(
         'UPDATE cd_artwork_control SET submitted_count=MAX(0,submitted_count-1) WHERE id=1 AND budget_day=?'
       ).bind(now().slice(0, 10)),
@@ -182,18 +194,38 @@ export async function generateOnce(
       signal: AbortSignal.timeout(240000),
     });
     if (!r.ok) {
+      const failure = await readProviderFailure(r, provenance.providerAttempts);
+      provenance.providerFailure = failure;
+      const state = failure.retry_at
+        ? 'queued'
+        : r.status >= 500 || r.status === 408
+          ? 'provider_unknown'
+          : 'provider_failed';
       await env.DB.prepare(
-        "UPDATE cd_artwork_jobs SET state=?,error_code=?,updated_at=? WHERE id=? AND user_id=? AND state='submitted'"
+        "UPDATE cd_artwork_jobs SET state=?,error_code=?,provenance=?,updated_at=? WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?"
       )
         .bind(
-          r.status >= 500 ? 'provider_unknown' : 'provider_failed',
+          state,
           `provider_http_${r.status}`,
+          JSON.stringify(provenance),
           now(),
           id,
-          userId
+          userId,
+          claim.token
         )
         .run();
-      return { rawKey: null };
+      await syncGenerationStatus(env, id, userId);
+      return {
+        rawKey: null,
+        ...(failure.retry_at
+          ? {
+              retryAfter: Math.max(
+                1,
+                Math.ceil((Date.parse(failure.retry_at) - Date.now()) / 1000)
+              ),
+            }
+          : {}),
+      };
     }
     const response = JSON.parse(
       new TextDecoder().decode(await boundedBytes(r, 24 * 1024 * 1024))
@@ -227,24 +259,26 @@ export async function generateOnce(
           1e6
         : null;
     provenance.providerRequestId = r.headers.get('x-request-id');
+    provenance.providerFailure = null;
     provenance.rawHash = await sha256(bytes);
     provenance.usage = usage ?? null;
     provenance.calculatedUsd = cost;
     provenance.model = MODEL;
     await env.DB.prepare(
-      'UPDATE cd_artwork_jobs SET raw_key=?,provenance=?,error_code=NULL,updated_at=? WHERE id=? AND user_id=?'
+      "UPDATE cd_artwork_jobs SET raw_key=?,provenance=?,error_code=NULL,updated_at=? WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?"
     )
-      .bind(key, JSON.stringify(provenance), now(), id, userId)
+      .bind(key, JSON.stringify(provenance), now(), id, userId, claim.token)
       .run();
     return { rawKey: key };
   } catch {
     // A network/storage timeout cannot establish whether OpenAI charged. Keep
     // the existing submission claimed; recovering never pays a duplicate.
     await env.DB.prepare(
-      "UPDATE cd_artwork_jobs SET state='provider_unknown',error_code='provider_outcome_unknown',updated_at=? WHERE id=? AND user_id=? AND state='submitted'"
+      "UPDATE cd_artwork_jobs SET state='provider_unknown',error_code='provider_outcome_unknown',updated_at=? WHERE id=? AND user_id=? AND state='submitted' AND submission_claim=?"
     )
-      .bind(now(), id, userId)
+      .bind(now(), id, userId, claim.token)
       .run();
+    await syncGenerationStatus(env, id, userId);
     return { rawKey: (await env.ARTWORK.head(key)) ? key : null };
   }
 }
