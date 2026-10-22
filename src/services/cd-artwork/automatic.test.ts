@@ -28,6 +28,7 @@ import { publishDiscmanSnapshot } from '../discman/snapshot.js';
 import { ArtworkError } from './sources.js';
 import { checkListeningArtwork } from './discovery.js';
 import { generateOnce, processRaw } from './generation.js';
+import { syncGenerationStatus } from './provider-failure.js';
 import { publishAutomatic } from './automatic.js';
 import { queueArtworkReprocessing, queueRenderRetry } from './reprocessing.js';
 import { saveFeedback, feedbackSchema } from './feedback.js';
@@ -284,6 +285,89 @@ async function selected(retail = false) {
 }
 const withKey = () =>
   ({ ...runtime, OPENAI_API_KEY: 'synthetic-test-key' }) as ArtworkEnv;
+
+it('a fast generation rejection cannot be overwritten by discovery queue status', async () => {
+  providers();
+  await play();
+  const check = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
+  ).first<{ id: number }>())!;
+  const target = {
+    ...runtime,
+    CD_WORKFLOW: {
+      create: vi.fn(async ({ id }: { id: string }) => {
+        await runtime.DB.prepare(
+          "UPDATE cd_artwork_jobs SET state='provider_failed',error_code='provider_http_400' WHERE id=?"
+        )
+          .bind(id)
+          .run();
+        await syncGenerationStatus(runtime, id, 1);
+        return {};
+      }),
+    },
+  } as unknown as ArtworkEnv;
+  expect((await checkListeningArtwork(target, check.id)).outcome).toBe(
+    'generation_failed'
+  );
+  const row = await runtime.DB.prepare(
+    'SELECT discovery_outcome,next_check FROM cd_artwork_albums WHERE album_id=1 AND user_id=1'
+  ).first<{ discovery_outcome: string; next_check: string }>();
+  expect(row?.discovery_outcome).toBe('generation_failed');
+  expect(Date.parse(row!.next_check)).toBeLessThan(Date.now() + 2 * 3600000);
+});
+
+it('the generation Workflow sleeps before known rate-limit retries and reports the final failure', async () => {
+  const fetcher = providers();
+  const target = withKey();
+  const job = await selected();
+  let stamp = Date.now();
+  vi.spyOn(Date, 'now').mockImplementation(() => stamp);
+  fetcher.mockClear();
+  fetcher.mockImplementation(async (url) => {
+    expect(String(url)).toContain('/images/edits');
+    return Response.json(
+      { error: { code: 'rate_limit_exceeded' } },
+      { status: 429, headers: { 'retry-after': '180' } }
+    );
+  });
+  const step = {
+    do: vi.fn(
+      async (
+        _name: string,
+        _options: unknown,
+        action: () => Promise<unknown>
+      ) => action()
+    ),
+    sleep: vi.fn(async (_name: string, ms: number) => {
+      stamp += ms;
+    }),
+  } as unknown as WorkflowStep;
+  expect(
+    await CdArtworkWorkflow.prototype.run.call(
+      { env: target } as unknown as CdArtworkWorkflow,
+      { payload: { jobId: job.id, userId: 1 } } as WorkflowEvent<{
+        jobId: string;
+        userId: number;
+      }>,
+      step
+    )
+  ).toEqual({ state: 'provider_failed' });
+  expect(step.sleep).toHaveBeenCalledTimes(2);
+  expect(step.sleep).toHaveBeenNthCalledWith(
+    1,
+    'generation-rate-limit-1',
+    180000
+  );
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(
+    (
+      await runtime.DB.prepare(
+        'SELECT discovery_outcome FROM cd_artwork_albums WHERE album_id=1 AND user_id=1'
+      ).first<{ discovery_outcome: string }>()
+    )?.discovery_outcome
+  ).toBe('generation_failed');
+});
+
 it.each(['proven', 'unbound', 'ambiguous', 'version'])(
   'allows a small track typo only with unique independent album proof %s',
   async (mode) => {

@@ -19,6 +19,7 @@ import {
   approvedArtwork,
   getJob,
   enqueue,
+  publicJob,
   materialRevision,
 } from './store.js';
 import { generateOnce, processRaw } from './generation.js';
@@ -943,6 +944,141 @@ describe('authorization, publication and accepted-state preservation', () => {
 });
 
 describe('preflight, provider persistence and immutable revisions', () => {
+  it('uses the authoritative attempt count when a stale caller resumes after backoff', async () => {
+    const job = await seed('b7'.repeat(32));
+    let stamp = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => stamp);
+    let firstReady!: () => void,
+      secondReady!: () => void,
+      releaseSecond!: () => void;
+    const firstEntered = new Promise<void>((resolve) => {
+      firstReady = resolve;
+    });
+    const secondEntered = new Promise<void>((resolve) => {
+      secondReady = resolve;
+    });
+    const secondRelease = new Promise<void>((resolve) => {
+      releaseSecond = resolve;
+    });
+    let reads = 0;
+    const target = {
+      ...runtime,
+      ARTWORK: {
+        head: runtime.ARTWORK.head.bind(runtime.ARTWORK),
+        put: runtime.ARTWORK.put.bind(runtime.ARTWORK),
+        get: async (key: string) => {
+          const object = await runtime.ARTWORK.get(key);
+          return (
+            object && {
+              arrayBuffer: async () => {
+                reads++;
+                if (reads === 1) {
+                  firstReady();
+                  await secondEntered;
+                } else {
+                  secondReady();
+                  await secondRelease;
+                }
+                return object.arrayBuffer();
+              },
+            }
+          );
+        },
+      },
+    } as unknown as ArtworkEnv;
+    const fetcher = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () =>
+        Response.json(
+          { error: { code: 'rate_limit_exceeded' } },
+          { status: 429, headers: { 'retry-after': '60' } }
+        )
+      );
+    const first = generateOnce(target, job.id, 1);
+    await firstEntered;
+    const second = generateOnce(target, job.id, 1);
+    await first;
+    stamp += 60000;
+    releaseSecond();
+    await second;
+    const saved = (await getJob(runtime, job.id, 1))!;
+    expect(JSON.parse(saved.provenance)).toMatchObject({
+      providerAttempts: 2,
+      providerFailure: { attempt: 2 },
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('retains bounded provider diagnostics and never retries a rejected request', async () => {
+    const job = await seed('a4'.repeat(32));
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json(
+        {
+          error: {
+            code: 'invalid_value',
+            type: 'invalid_request_error',
+            param: 'image',
+            message: 'private prompt and credentials must not be stored',
+          },
+        },
+        { status: 400, headers: { 'x-request-id': 'req_test400' } }
+      )
+    );
+    await generateOnce(runtime, job.id, 1);
+    await generateOnce(runtime, job.id, 1);
+    const saved = (await getJob(runtime, job.id, 1))!;
+    expect(saved.state).toBe('provider_failed');
+    expect(publicJob(saved)).toMatchObject({
+      provider_error: {
+        status: 400,
+        code: 'invalid_value',
+        param: 'image',
+        request_id: 'req_test400',
+        retry_at: null,
+      },
+    });
+    expect(publicJob(saved).provider_error).not.toHaveProperty(
+      'private_message'
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for Retry-After, bounds rate-limit retries, and never retries uncertainty', async () => {
+    const job = await seed('a5'.repeat(32));
+    let stamp = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => stamp);
+    const fetcher = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () =>
+        Response.json(
+          { error: { code: 'rate_limit_exceeded' } },
+          { status: 429, headers: { 'retry-after': '120' } }
+        )
+      );
+    const result = await generateOnce(runtime, job.id, 1);
+    expect(result).toMatchObject({ rawKey: null, retryAfter: 120 });
+    expect((await getJob(runtime, job.id, 1))?.state).toBe('queued');
+    await generateOnce(runtime, job.id, 1);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    stamp += 120000;
+    await generateOnce(runtime, job.id, 1);
+    stamp += 120000;
+    await generateOnce(runtime, job.id, 1);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect((await getJob(runtime, job.id, 1))?.state).toBe('provider_failed');
+    await generateOnce(runtime, job.id, 1);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+
+    const unknown = await seed('a6'.repeat(32));
+    fetcher.mockRejectedValue(new Error('transport lost'));
+    await generateOnce(runtime, unknown.id, 1);
+    await generateOnce(runtime, unknown.id, 1);
+    expect((await getJob(runtime, unknown.id, 1))?.state).toBe(
+      'provider_unknown'
+    );
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
   it('keeps known missing-source failure unsubmitted and uncharged', async () => {
     const job = await seed('2'.repeat(64));
     await runtime.ARTWORK.delete(job.source_key);

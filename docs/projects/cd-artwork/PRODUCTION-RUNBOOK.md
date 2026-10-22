@@ -31,6 +31,26 @@ Normal identical requests reuse a stored job without another source lookup or pa
 
 The Workflow claims submission and daily admission in D1 before a single OpenAI edit request. Known source/preparation errors occur before that claim. Post-submission transport/storage uncertainty is `provider_unknown`; automatic retry never pays again. Raw bytes are persisted before registration. Processor errors retain the raw object.
 
+Known rate-limit rejections with `rate_limit_exceeded` can retry within the same
+job, at most three submissions in total. The Workflow sleeps for exponential
+backoff or the provider's longer `Retry-After`; the database also enforces the
+due time and attempt ceiling. Quota errors, other client rejections, server
+errors, and uncertain submissions do not enter that retry path. Delays longer
+than a day remain held for operator attention.
+
+Admin job summaries include `provider_error`: HTTP status, bounded code/type/
+parameter symbols, request ID, attempt and next retry time. This diagnostic
+field excludes provider messages, request bodies and credentials. Private job
+provenance retains at most 500 characters of provider message for operator
+diagnosis, with the configured key, input prompt, key-shaped strings, Bearer
+values and URLs redacted; it is not returned by job summaries.
+Discovery reflects generation failure, uncertainty, pending retries or review
+instead of leaving a failed job marked queued. Existing stale queue statuses
+are reconciled in bounded batches without submitting generation. A failed or
+uncertain generation permits a new-listen status check after one hour; it does
+not authorize another paid submission. Repair the cause and explicitly replay
+the owned album through the existing automatic endpoint when necessary.
+
 - `POST /jobs/:id/recover` reprocesses stored raw output. It never submits to OpenAI.
 - `POST /jobs/:id/raw` uploads an existing provider-output PNG for a previously submitted uncertain job whose raw evidence was not persisted. It cannot overwrite different immutable raw bytes or an existing candidate.
 - The Image API's synchronous edit response has no guaranteed recovery endpoint after a lost response. If neither provider output nor private raw bytes are recoverable, the uncertain job stays held. A new paid attempt requires a separately explicit new job; it is never an automatic timeout retry.
