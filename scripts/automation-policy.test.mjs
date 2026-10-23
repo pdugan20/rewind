@@ -1385,6 +1385,7 @@ function validatePackages(rootPackage, mcpPackage, problems) {
       axios: '1.20.0',
       'js-yaml@^4.0.0': '4.3.2',
       fflate: '0.8.3',
+      '@modelcontextprotocol/sdk': '1.32.2',
     })
   ) {
     problems.push('root security overrides must stay exact and complete');
@@ -2351,6 +2352,21 @@ test('rejects dependency security override drift', () => {
     readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')
   );
   rootPackage.overrides.sharp = '0.33.5';
+  const problems = [];
+  validatePackages(rootPackage, mcpPackage, problems);
+  assert.ok(
+    problems.includes('root security overrides must stay exact and complete')
+  );
+});
+
+test('rejects vulnerable sdk override drift', () => {
+  const rootPackage = JSON.parse(
+    readFileSync(join(ROOT, 'package.json'), 'utf8')
+  );
+  const mcpPackage = JSON.parse(
+    readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')
+  );
+  rootPackage.overrides['@modelcontextprotocol/sdk'] = '1.31.0';
   const problems = [];
   validatePackages(rootPackage, mcpPackage, problems);
   assert.ok(

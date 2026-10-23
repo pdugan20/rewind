@@ -11,5 +11,8 @@
     "@astrojs/cloudflare": "^14.3.3",
     "@astrojs/mdx": "^7.0.3",
     "astro": "^7.3.5"
+  },
+  "overrides": {
+    "sharp": "0.35.5"
   }
 }
