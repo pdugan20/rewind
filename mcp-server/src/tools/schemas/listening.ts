@@ -186,7 +186,7 @@ export const albumDetailsOutputSchema = z
 const genrePeriodSchema = z
   .object({
     period: z.string(),
-    genres: z.record(z.number()),
+    genres: z.record(z.string(), z.number()),
     total: z.number(),
   })
   .passthrough();

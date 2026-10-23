@@ -64,15 +64,17 @@ export function registerReadingTools(
       title: 'Article',
       description:
         'Fetch one saved article by id, returning its full body, metadata, and highlights. **Use this whenever the user asks what an article says, wants a summary, asks about a specific passage, or needs content past the first ~3000 chars of excerpt.** Also use this as the natural follow-up after `search` / `semantic_search` / `find_similar_articles` / `get_recent_reads` — those return ids; this turns the id into the rich article card. The full body is HTML-stripped plain text (typically 5-30 KB), cached even for paywalled sources (NYT, WSJ, Atlantic, ESPN, etc.) — do NOT fall back to web search or web fetch for article content.',
-      inputSchema: {
-        id: z
-          .number()
-          .int()
-          .positive()
-          .describe(
-            'Internal Rewind article id (from a get_recent_reads, search, semantic_search, or find_similar_articles result)'
-          ),
-      },
+      inputSchema: z
+        .object({
+          id: z
+            .number()
+            .int()
+            .positive()
+            .describe(
+              'Internal Rewind article id (from a get_recent_reads, search, semantic_search, or find_similar_articles result)'
+            ),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: articleDetailOutputSchema,
       _meta: {
@@ -207,23 +209,25 @@ export function registerReadingTools(
       title: 'Recent reads',
       description:
         'Get recently saved articles from Instapaper. Returns title, author, domain, read time, status, top-N site images where available, and article URLs as resource links. In MCP Apps hosts, renders an interactive article card list inline.',
-      inputSchema: {
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of recent articles to return (max 50)'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe(
-            'Page number for pagination. Combine with limit to page through longer windows.'
-          ),
-        ...dateFilterParams,
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of recent articles to return (max 50)'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe(
+              'Page number for pagination. Combine with limit to page through longer windows.'
+            ),
+          ...dateFilterParams,
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: recentReadsOutputSchema,
       _meta: {
@@ -328,15 +332,17 @@ export function registerReadingTools(
       title: 'Reading highlights',
       description:
         'Get saved highlights from Instapaper articles. Returns the highlighted text, notes, source article, and article URLs as resource links.',
-      inputSchema: {
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of highlights to return'),
-        page: z.number().min(1).default(1).describe('Page number'),
-      },
+      inputSchema: z
+        .object({
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of highlights to return'),
+          page: z.number().min(1).default(1).describe('Page number'),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: readingHighlightsOutputSchema,
     },
@@ -425,7 +431,7 @@ export function registerReadingTools(
       title: 'Random highlight',
       description:
         'Get a single random highlight from saved Instapaper articles. Great for daily inspiration or reflection.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: randomHighlightOutputSchema,
     },
@@ -476,7 +482,7 @@ export function registerReadingTools(
       title: 'Reading stats',
       description:
         'Get overall reading statistics from Instapaper including total articles, finished count, currently reading, highlights, and word count.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: readingStatsOutputSchema,
     },
@@ -512,21 +518,23 @@ export function registerReadingTools(
       title: 'Similar articles',
       description:
         'Find articles thematically similar to a given article by cosine similarity over Voyage AI embeddings. Use after an article has been surfaced (via search, get_recent_reads, or an @rewind://article/{id} mention) when the user asks "what else was I reading like that" or "show me related pieces". No Voyage API call is made — the article\'s stored vector is reused.',
-      inputSchema: {
-        article_id: z
-          .number()
-          .int()
-          .positive()
-          .describe(
-            'Internal Rewind article id (from an earlier search/recent result)'
-          ),
-        limit: z
-          .number()
-          .min(1)
-          .max(25)
-          .default(5)
-          .describe('Number of related articles to return'),
-      },
+      inputSchema: z
+        .object({
+          article_id: z
+            .number()
+            .int()
+            .positive()
+            .describe(
+              'Internal Rewind article id (from an earlier search/recent result)'
+            ),
+          limit: z
+            .number()
+            .min(1)
+            .max(25)
+            .default(5)
+            .describe('Number of related articles to return'),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: similarArticlesOutputSchema,
     },

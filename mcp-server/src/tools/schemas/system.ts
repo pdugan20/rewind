@@ -12,6 +12,7 @@ export const healthOutputSchema = z
     api_status: z.string(),
     timestamp: z.string(),
     domains: z.record(
+      z.string(),
       z
         .object({
           status: z.string(),

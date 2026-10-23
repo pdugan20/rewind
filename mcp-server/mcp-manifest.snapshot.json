@@ -7,54 +7,54 @@
         "type": "object",
         "properties": {
           "genre": {
-            "type": "string",
-            "description": "Optional: filter by genre (e.g. 'Horror', 'Comedy', 'Drama')"
+            "description": "Optional: filter by genre (e.g. 'Horror', 'Comedy', 'Drama')",
+            "type": "string"
           },
           "decade": {
-            "type": "string",
-            "description": "Optional: filter by decade (e.g. '1990', '2000')"
+            "description": "Optional: filter by decade (e.g. '1990', '2000')",
+            "type": "string"
           },
           "director": {
-            "type": "string",
-            "description": "Optional: filter by director name"
+            "description": "Optional: filter by director name",
+            "type": "string"
           },
           "year": {
-            "type": "string",
-            "description": "Optional: filter by release year"
+            "description": "Optional: filter by release year",
+            "type": "string"
           },
           "sort": {
-            "type": "string",
-            "description": "Optional: sort by field (default: watched_at). Options: watched_at, title, year, rating"
+            "description": "Optional: sort by field (default: watched_at). Options: watched_at, title, year, rating",
+            "type": "string"
           },
           "order": {
+            "description": "Optional: sort order (default: desc)",
             "type": "string",
             "enum": [
               "asc",
               "desc"
-            ],
-            "description": "Optional: sort order (default: desc)"
+            ]
           },
           "limit": {
+            "default": 10,
+            "description": "Number of movies to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of movies to return"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number"
+            "description": "Page number",
+            "type": "number",
+            "minimum": 1
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -142,7 +142,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -161,7 +161,7 @@
                 "tmdb_rating",
                 "image"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -186,15 +186,15 @@
               "total",
               "total_pages"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "items",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -206,21 +206,22 @@
           "article_id": {
             "type": "integer",
             "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
             "description": "Internal Rewind article id (from an earlier search/recent result)"
           },
           "limit": {
+            "default": 5,
+            "description": "Number of related articles to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 25,
-            "default": 5,
-            "description": "Number of related articles to return"
+            "maximum": 25
           }
         },
         "required": [
           "article_id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -287,15 +288,15 @@
                 "description",
                 "score"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -312,8 +313,8 @@
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -412,8 +413,8 @@
           "workout_type",
           "strava_url"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -430,8 +431,8 @@
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -478,7 +479,7 @@
                 "pace",
                 "heartrate"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -486,8 +487,8 @@
           "activity_id",
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -501,16 +502,16 @@
             "description": "Album ID"
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -546,7 +547,8 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                       },
                       {
                         "type": "null"
@@ -557,7 +559,8 @@
                     "anyOf": [
                       {
                         "type": "integer",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
                       },
                       {
                         "type": "null"
@@ -601,7 +604,7 @@
                       "outer_radius",
                       "hole_radius"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   "alpha": {
                     "type": "string",
@@ -646,7 +649,7 @@
                   "dominant_color",
                   "accent_color"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -716,7 +719,7 @@
                     ]
                   }
                 },
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -737,7 +740,7 @@
               "id",
               "name"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "tracks": {
             "type": "array",
@@ -773,7 +776,7 @@
                 "apple_music_url",
                 "preview_url"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -788,8 +791,8 @@
           "artist",
           "tracks"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -801,14 +804,15 @@
           "id": {
             "type": "integer",
             "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
             "description": "Internal Rewind article id (from a get_recent_reads, search, semantic_search, or find_similar_articles result)"
           }
         },
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -915,7 +919,7 @@
                         ]
                       }
                     },
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   {
                     "type": "null"
@@ -939,7 +943,7 @@
               "saved_at",
               "image"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "highlights": {
             "type": "array",
@@ -968,7 +972,7 @@
                 "note",
                 "created_at"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "highlight_count": {
@@ -980,8 +984,8 @@
           "highlights",
           "highlight_count"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -995,16 +999,16 @@
             "description": "Artist ID"
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -1102,7 +1106,7 @@
                         ]
                       }
                     },
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   {
                     "type": "null"
@@ -1123,7 +1127,7 @@
               "bio_content",
               "image"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "listening_stats": {
             "type": "object",
@@ -1164,7 +1168,7 @@
               "distinct_tracks",
               "distinct_albums"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "sparkline": {
             "anyOf": [
@@ -1196,7 +1200,7 @@
                         "at",
                         "count"
                       ],
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     }
                   }
                 },
@@ -1204,7 +1208,7 @@
                   "granularity",
                   "points"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -1288,7 +1292,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -1307,7 +1311,7 @@
                 "preview_url",
                 "image"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "top_albums": {
@@ -1369,7 +1373,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -1385,7 +1389,7 @@
                 "apple_music_url",
                 "image"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "similar_artists": {
@@ -1441,7 +1445,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -1456,7 +1460,7 @@
                 "similarity_score",
                 "image"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -1468,8 +1472,8 @@
           "top_albums",
           "similar_artists"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -1480,14 +1484,16 @@
         "properties": {
           "id": {
             "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
             "description": "Event id."
           }
         },
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -1540,6 +1546,9 @@
             "anyOf": [
               {
                 "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
                 "additionalProperties": {}
               },
               {
@@ -1600,7 +1609,7 @@
                   "country",
                   "capacity"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -1777,7 +1786,7 @@
                             "conference",
                             "division"
                           ],
-                          "additionalProperties": true
+                          "additionalProperties": {}
                         },
                         {
                           "type": "null"
@@ -1826,7 +1835,7 @@
                               ]
                             }
                           },
-                          "additionalProperties": true
+                          "additionalProperties": {}
                         },
                         {
                           "type": "null"
@@ -1869,7 +1878,7 @@
                               ]
                             }
                           },
-                          "additionalProperties": true
+                          "additionalProperties": {}
                         },
                         {
                           "type": "null"
@@ -1894,7 +1903,7 @@
                     "photo_silo",
                     "photo_full"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 },
                 "team": {
                   "anyOf": [
@@ -1997,7 +2006,7 @@
                         "conference",
                         "division"
                       ],
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -2011,6 +2020,9 @@
                   "anyOf": [
                     {
                       "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
                       "additionalProperties": {}
                     },
                     {
@@ -2022,6 +2034,9 @@
                   "anyOf": [
                     {
                       "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
                       "additionalProperties": {}
                     },
                     {
@@ -2033,6 +2048,9 @@
                   "anyOf": [
                     {
                       "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
                       "additionalProperties": {}
                     },
                     {
@@ -2071,7 +2089,7 @@
                 "decision",
                 "notable"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -2092,8 +2110,8 @@
           "tickets",
           "players"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -2103,60 +2121,68 @@
         "type": "object",
         "properties": {
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number, 1-indexed."
+            "description": "Page number, 1-indexed.",
+            "type": "number",
+            "minimum": 1
           },
           "limit": {
+            "default": 20,
+            "description": "Items per page (max 100).",
             "type": "number",
             "minimum": 1,
-            "maximum": 100,
-            "default": 20,
-            "description": "Items per page (max 100)."
+            "maximum": 100
           },
           "category": {
+            "description": "Top-level category filter.",
             "type": "string",
             "enum": [
               "sports",
               "music",
               "arts"
-            ],
-            "description": "Top-level category filter."
+            ]
           },
           "event_type": {
-            "type": "string",
-            "description": "Specific type, e.g. \"mlb_game\", \"concert\", \"ncaaf_game\"."
+            "description": "Specific type, e.g. \"mlb_game\", \"concert\", \"ncaaf_game\".",
+            "type": "string"
           },
           "season": {
+            "description": "Sports season year (e.g. 2024).",
             "type": "integer",
-            "description": "Sports season year (e.g. 2024)."
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "year": {
+            "description": "Calendar year filter on event_date.",
             "type": "integer",
-            "description": "Calendar year filter on event_date."
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "venue_id": {
+            "description": "Filter by venue id.",
             "type": "integer",
-            "description": "Filter by venue id."
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "attended": {
+            "description": "1 = only attended, 0 = only unattended (purchased but missed). Omit to return both.",
             "type": "integer",
             "minimum": 0,
-            "maximum": 1,
-            "description": "1 = only attended, 0 = only unattended (purchased but missed). Omit to return both."
+            "maximum": 1
           },
           "team": {
-            "type": "string",
-            "description": "Case-insensitive substring match against either team name in event_data. e.g. \"mariners\", \"huskies\", \"storm\". Returns games where this team was either home or away."
+            "description": "Case-insensitive substring match against either team name in event_data. e.g. \"mariners\", \"huskies\", \"storm\". Returns games where this team was either home or away.",
+            "type": "string"
           },
           "team_id": {
+            "description": "Exact match on the league-native team id. e.g. 136 = Seattle Mariners (MLB), 264 = Washington Huskies (ESPN). Use when the natural-language `team` substring is ambiguous.",
             "type": "integer",
-            "description": "Exact match on the league-native team id. e.g. 136 = Seattle Mariners (MLB), 264 = Washington Huskies (ESPN). Use when the natural-language `team` substring is ambiguous."
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -2214,6 +2240,9 @@
                   "anyOf": [
                     {
                       "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
                       "additionalProperties": {}
                     },
                     {
@@ -2274,7 +2303,7 @@
                         "country",
                         "capacity"
                       ],
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -2302,7 +2331,7 @@
                 "venue",
                 "tickets"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -2327,15 +2356,15 @@
               "total",
               "total_pages"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "data",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -2346,19 +2375,21 @@
         "properties": {
           "id": {
             "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
             "description": "Player id."
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -2470,7 +2501,7 @@
                     "id",
                     "name"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 }
               },
               "photo_silo": {
@@ -2509,7 +2540,7 @@
                         ]
                       }
                     },
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   {
                     "type": "null"
@@ -2552,7 +2583,7 @@
                         ]
                       }
                     },
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   {
                     "type": "null"
@@ -2663,7 +2694,7 @@
                       "conference",
                       "division"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   {
                     "type": "null"
@@ -2693,7 +2724,7 @@
               "league",
               "primary_team"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "supported": {
             "type": "boolean"
@@ -2716,6 +2747,9 @@
                     "anyOf": [
                       {
                         "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
                         "additionalProperties": {}
                       },
                       {
@@ -2727,6 +2761,9 @@
                     "anyOf": [
                       {
                         "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
                         "additionalProperties": {}
                       },
                       {
@@ -2742,7 +2779,7 @@
                   "hitter",
                   "pitcher"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -2765,6 +2802,9 @@
                     "type": "array",
                     "items": {
                       "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
                       "additionalProperties": {}
                     }
                   },
@@ -2781,7 +2821,7 @@
                   "fetched_at",
                   "cache_hit"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -2807,6 +2847,9 @@
                     "anyOf": [
                       {
                         "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
                         "additionalProperties": {}
                       },
                       {
@@ -2818,6 +2861,9 @@
                     "anyOf": [
                       {
                         "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
                         "additionalProperties": {}
                       },
                       {
@@ -2829,6 +2875,9 @@
                     "anyOf": [
                       {
                         "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
                         "additionalProperties": {}
                       },
                       {
@@ -2840,6 +2889,9 @@
                     "anyOf": [
                       {
                         "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
                         "additionalProperties": {}
                       },
                       {
@@ -2864,7 +2916,7 @@
                   "fetched_at",
                   "cache_hit"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -2890,6 +2942,9 @@
                 "anyOf": [
                   {
                     "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
                     "additionalProperties": {}
                   },
                   {
@@ -2901,6 +2956,9 @@
                 "anyOf": [
                   {
                     "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
                     "additionalProperties": {}
                   },
                   {
@@ -2917,7 +2975,7 @@
               "hitter",
               "pitcher"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "season_attended_summary": {
             "anyOf": [
@@ -2940,6 +2998,9 @@
                     "anyOf": [
                       {
                         "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
                         "additionalProperties": {}
                       },
                       {
@@ -2951,6 +3012,9 @@
                     "anyOf": [
                       {
                         "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
                         "additionalProperties": {}
                       },
                       {
@@ -2967,7 +3031,7 @@
                   "hitter",
                   "pitcher"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -3001,6 +3065,9 @@
                   "anyOf": [
                     {
                       "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
                       "additionalProperties": {}
                     },
                     {
@@ -3012,6 +3079,9 @@
                   "anyOf": [
                     {
                       "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
                       "additionalProperties": {}
                     },
                     {
@@ -3057,7 +3127,7 @@
                 "notable",
                 "notable_reasons"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "attended_appearance_count": {
@@ -3076,8 +3146,8 @@
           "attended_appearances",
           "attended_appearance_count"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -3088,18 +3158,22 @@
         "properties": {
           "id": {
             "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
             "description": "Player id (from get_attended_players or get_attended_player)."
           },
           "season": {
+            "description": "Optional. Single-season slice. Omit for career across all attended games (recommended — see tool description).",
             "type": "integer",
-            "description": "Optional. Single-season slice. Omit for career across all attended games (recommended — see tool description)."
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -3236,7 +3310,7 @@
                       "conference",
                       "division"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   {
                     "type": "null"
@@ -3250,7 +3324,7 @@
               "primary_position",
               "primary_team"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "hitter": {
             "type": "boolean",
@@ -3318,7 +3392,7 @@
               "avg",
               "slg"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "pitching": {
             "type": "object",
@@ -3376,7 +3450,7 @@
                   "hld",
                   "bs"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               }
             },
             "required": [
@@ -3389,7 +3463,7 @@
               "whip",
               "decisions"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "reason": {
             "type": "string"
@@ -3442,7 +3516,7 @@
                 "final_score",
                 "my_team_won"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -3452,8 +3526,8 @@
           "scope",
           "player"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -3463,33 +3537,36 @@
         "type": "object",
         "properties": {
           "page": {
+            "default": 1,
+            "description": "Page number, 1-indexed.",
             "type": "integer",
             "minimum": 1,
-            "default": 1,
-            "description": "Page number, 1-indexed."
+            "maximum": 9007199254740991
           },
           "limit": {
+            "default": 10,
+            "description": "Items per page (max 50).",
             "type": "integer",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Items per page (max 50)."
+            "maximum": 50
           },
           "name": {
-            "type": "string",
-            "description": "Case-insensitive substring match on full name. e.g. \"julio\", \"kirby\", \"will smith\"."
+            "description": "Case-insensitive substring match on full name. e.g. \"julio\", \"kirby\", \"will smith\".",
+            "type": "string"
           },
           "league": {
-            "type": "string",
-            "description": "Filter by league slug, e.g. \"mlb\", \"nfl\", \"ncaaf\"."
+            "description": "Filter by league slug, e.g. \"mlb\", \"nfl\", \"ncaaf\".",
+            "type": "string"
           },
           "team_id": {
+            "description": "Filter by primary team id (league-native, e.g. 136 = Mariners in MLB).",
             "type": "integer",
-            "description": "Filter by primary team id (league-native, e.g. 136 = Mariners in MLB)."
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -3657,7 +3734,7 @@
                         "conference",
                         "division"
                       ],
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -3706,7 +3783,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -3749,7 +3826,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -3774,7 +3851,7 @@
                 "photo_silo",
                 "photo_full"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -3799,15 +3876,15 @@
               "total",
               "total_pages"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "data",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -3822,6 +3899,8 @@
           },
           "season": {
             "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
             "description": "Season year (e.g. 2024 for the 2024 MLB season)."
           }
         },
@@ -3829,8 +3908,8 @@
           "league",
           "season"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -3903,6 +3982,9 @@
                   "anyOf": [
                     {
                       "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
                       "additionalProperties": {}
                     },
                     {
@@ -3963,7 +4045,7 @@
                         "country",
                         "capacity"
                       ],
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -3991,7 +4073,7 @@
                 "venue",
                 "tickets"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -4003,8 +4085,8 @@
           "losses",
           "data"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4013,7 +4095,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4040,7 +4123,7 @@
                 "category",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "by_event_type": {
@@ -4059,7 +4142,7 @@
                 "event_type",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "by_year": {
@@ -4078,7 +4161,7 @@
                 "year",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -4089,8 +4172,8 @@
           "by_event_type",
           "by_year"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4101,14 +4184,16 @@
         "properties": {
           "year": {
             "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
             "description": "Calendar year, e.g. 2024."
           }
         },
         "required": [
           "year"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4138,7 +4223,7 @@
                 "category",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "by_event_type": {
@@ -4157,7 +4242,7 @@
                 "event_type",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "monthly": {
@@ -4176,7 +4261,7 @@
                 "month",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "top_venues": {
@@ -4206,7 +4291,7 @@
                 "city",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "top_performers": {
@@ -4229,7 +4314,7 @@
                 "name",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "events": {
@@ -4270,7 +4355,7 @@
                 "subtitle",
                 "venue_name"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -4285,8 +4370,8 @@
           "top_performers",
           "events"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4296,20 +4381,20 @@
         "type": "object",
         "properties": {
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4319,6 +4404,9 @@
           },
           "by_format": {
             "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
             "additionalProperties": {
               "type": "number"
             }
@@ -4378,8 +4466,8 @@
           "newest_release_year",
           "added_this_year"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4389,13 +4477,14 @@
         "type": "object",
         "properties": {
           "limit": {
+            "default": 10,
+            "description": "Number of feed items to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of feed items to return"
+            "maximum": 50
           },
           "domain": {
+            "description": "Optional: filter feed to a single domain",
             "type": "string",
             "enum": [
               "listening",
@@ -4403,24 +4492,23 @@
               "watching",
               "collecting",
               "reading"
-            ],
-            "description": "Optional: filter feed to a single domain"
+            ]
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4456,7 +4544,7 @@
                 "title",
                 "subtitle"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -4469,15 +4557,15 @@
             "required": [
               "has_more"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "items",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4486,7 +4574,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4499,6 +4588,9 @@
           },
           "domains": {
             "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
             "additionalProperties": {
               "type": "object",
               "properties": {
@@ -4523,7 +4615,7 @@
                 "last_sync",
                 "items_synced"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -4532,8 +4624,8 @@
           "timestamp",
           "domains"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4543,37 +4635,37 @@
         "type": "object",
         "properties": {
           "group_by": {
+            "default": "month",
+            "description": "Grouping period (default: month)",
             "type": "string",
             "enum": [
               "week",
               "month",
               "year"
-            ],
-            "default": "month",
-            "description": "Grouping period (default: month)"
+            ]
           },
           "limit": {
+            "default": 10,
+            "description": "Max genres to return -- rest grouped as \"Other\" (default 10)",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Max genres to return -- rest grouped as \"Other\" (default 10)"
+            "maximum": 50
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4588,6 +4680,9 @@
                 },
                 "genres": {
                   "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
                   "additionalProperties": {
                     "type": "number"
                   }
@@ -4601,7 +4696,7 @@
                 "genres",
                 "total"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "group_by": {
@@ -4612,8 +4707,8 @@
           "items",
           "group_by"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4623,20 +4718,20 @@
         "type": "object",
         "properties": {
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4675,8 +4770,8 @@
           "years_tracking",
           "scrobbles_per_day"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4685,7 +4780,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4711,7 +4807,7 @@
               "start_date",
               "total_scrobbles"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "longest": {
             "type": "object",
@@ -4741,15 +4837,15 @@
               "end_date",
               "total_scrobbles"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "current",
           "longest"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4763,16 +4859,16 @@
             "description": "Movie ID"
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
         "required": [
           "id"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -4885,7 +4981,7 @@
                     ]
                   }
                 },
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -4934,7 +5030,7 @@
                 "rewatch",
                 "source"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -4955,8 +5051,8 @@
           "image",
           "watch_history"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -4966,13 +5062,13 @@
         "type": "object",
         "properties": {
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5012,7 +5108,7 @@
                       "name",
                       "apple_music_url"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   "album": {
                     "type": "object",
@@ -5065,7 +5161,7 @@
                                 ]
                               }
                             },
-                            "additionalProperties": true
+                            "additionalProperties": {}
                           },
                           {
                             "type": "null"
@@ -5078,7 +5174,7 @@
                       "name",
                       "image"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   },
                   "url": {
                     "type": [
@@ -5107,7 +5203,7 @@
                   "apple_music_url",
                   "preview_url"
                 ],
-                "additionalProperties": true
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -5126,8 +5222,8 @@
           "track",
           "scrobbled_at"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5137,20 +5233,20 @@
         "type": "object",
         "properties": {
           "month": {
+            "description": "Optional: month (1-12). Defaults to current month.",
             "type": "number",
             "minimum": 1,
-            "maximum": 12,
-            "description": "Optional: month (1-12). Defaults to current month."
+            "maximum": 12
           },
           "day": {
+            "description": "Optional: day (1-31). Defaults to current day.",
             "type": "number",
             "minimum": 1,
-            "maximum": 31,
-            "description": "Optional: day (1-31). Defaults to current day."
+            "maximum": 31
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5196,7 +5292,7 @@
                       "title",
                       "subtitle"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": {}
                   }
                 }
               },
@@ -5204,7 +5300,7 @@
                 "year",
                 "items"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -5213,8 +5309,8 @@
           "day",
           "years"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5223,7 +5319,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5260,15 +5357,15 @@
                 "activity_name",
                 "activity_id"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5278,39 +5375,39 @@
         "type": "object",
         "properties": {
           "query": {
-            "type": "string",
-            "description": "Optional: search by title (e.g. 'Princess Bride', 'Kubrick')"
+            "description": "Optional: search by title (e.g. 'Princess Bride', 'Kubrick')",
+            "type": "string"
           },
           "media_type": {
+            "description": "Optional: filter by format (bluray, uhd_bluray, hddvd)",
             "type": "string",
             "enum": [
               "bluray",
               "uhd_bluray",
               "hddvd"
-            ],
-            "description": "Optional: filter by format (bluray, uhd_bluray, hddvd)"
+            ]
           },
           "limit": {
+            "default": 10,
+            "description": "Number of items to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of items to return"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination"
+            "description": "Page number for pagination",
+            "type": "number",
+            "minimum": 1
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5380,7 +5477,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -5449,7 +5546,7 @@
                 "audio_channels",
                 "collected_at"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -5474,15 +5571,15 @@
               "total",
               "total_pages"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "items",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5491,7 +5588,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5515,7 +5613,7 @@
                 "name",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -5523,8 +5621,8 @@
           "total",
           "formats"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5533,7 +5631,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5595,7 +5694,7 @@
               "author",
               "domain"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -5604,8 +5703,8 @@
           "created_at",
           "article"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5615,21 +5714,21 @@
         "type": "object",
         "properties": {
           "limit": {
+            "default": 10,
+            "description": "Number of highlights to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of highlights to return"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number"
+            "description": "Page number",
+            "type": "number",
+            "minimum": 1
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5696,7 +5795,7 @@
                     "author",
                     "domain"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 }
               },
               "required": [
@@ -5705,7 +5804,7 @@
                 "created_at",
                 "article"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -5726,15 +5825,15 @@
               "total",
               "total_pages"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "items",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5743,7 +5842,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5775,8 +5875,8 @@
           "total_word_count",
           "avg_estimated_read_min"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5786,38 +5886,38 @@
         "type": "object",
         "properties": {
           "limit": {
+            "default": 10,
+            "description": "Number of recent tracks to return (default 10, max 50)",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of recent tracks to return (default 10, max 50)"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination. Combine with limit to page through longer windows."
+            "description": "Page number for pagination. Combine with limit to page through longer windows.",
+            "type": "number",
+            "minimum": 1
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -5862,7 +5962,7 @@
                     "apple_music_url",
                     "preview_url"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 },
                 "artist": {
                   "type": "object",
@@ -5878,7 +5978,7 @@
                     "id",
                     "name"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 },
                 "album": {
                   "type": "object",
@@ -5931,7 +6031,7 @@
                               ]
                             }
                           },
-                          "additionalProperties": true
+                          "additionalProperties": {}
                         },
                         {
                           "type": "null"
@@ -5944,7 +6044,7 @@
                     "name",
                     "image"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 },
                 "scrobbled_at": {
                   "type": "string"
@@ -5956,15 +6056,15 @@
                 "album",
                 "scrobbled_at"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -5974,38 +6074,38 @@
         "type": "object",
         "properties": {
           "limit": {
+            "default": 10,
+            "description": "Number of recent articles to return (max 50)",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of recent articles to return (max 50)"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination. Combine with limit to page through longer windows."
+            "description": "Page number for pagination. Combine with limit to page through longer windows.",
+            "type": "number",
+            "minimum": 1
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -6105,7 +6205,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -6128,15 +6228,15 @@
                 "image",
                 "saved_at"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -6146,33 +6246,33 @@
         "type": "object",
         "properties": {
           "limit": {
+            "default": 10,
+            "description": "Number of recent runs to return (max 50)",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of recent runs to return (max 50)"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination. Combine with limit to page through longer windows."
+            "description": "Page number for pagination. Combine with limit to page through longer windows.",
+            "type": "number",
+            "minimum": 1
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -6240,15 +6340,15 @@
                 "state",
                 "is_race"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -6258,38 +6358,38 @@
         "type": "object",
         "properties": {
           "limit": {
+            "default": 10,
+            "description": "Number of recent watches to return (max 50)",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of recent watches to return (max 50)"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination (1-indexed). Combine with limit to page through longer windows like \"last month\"."
+            "description": "Page number for pagination (1-indexed). Combine with limit to page through longer windows like \"last month\".",
+            "type": "number",
+            "minimum": 1
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -6374,7 +6474,7 @@
                               ]
                             }
                           },
-                          "additionalProperties": true
+                          "additionalProperties": {}
                         },
                         {
                           "type": "null"
@@ -6390,7 +6490,7 @@
                     "tmdb_id",
                     "image"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 },
                 "watched_at": {
                   "type": "string"
@@ -6432,15 +6532,15 @@
                 "review",
                 "review_url"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -6449,7 +6549,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -6495,8 +6596,8 @@
           "first_run",
           "eddington_number"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -6505,7 +6606,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -6534,7 +6636,7 @@
               "start",
               "end"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "longest": {
             "type": "object",
@@ -6560,15 +6662,15 @@
               "start",
               "end"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "current",
           "longest"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -6577,7 +6679,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -6628,15 +6731,15 @@
                 "longest_run_mi",
                 "race_count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -6646,6 +6749,8 @@
         "type": "object",
         "properties": {
           "period": {
+            "default": "1month",
+            "description": "Time period for rankings",
             "type": "string",
             "enum": [
               "7day",
@@ -6654,31 +6759,29 @@
               "6month",
               "12month",
               "overall"
-            ],
-            "default": "1month",
-            "description": "Time period for rankings"
+            ]
           },
           "limit": {
+            "default": 10,
+            "description": "Number of albums to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of albums to return"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination"
+            "description": "Page number for pagination",
+            "type": "number",
+            "minimum": 1
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -6742,7 +6845,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -6785,7 +6888,7 @@
                     "granularity",
                     "points"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 }
               },
               "required": [
@@ -6798,7 +6901,7 @@
                 "url",
                 "apple_music_url"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -6806,8 +6909,8 @@
           "period",
           "data"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -6817,6 +6920,8 @@
         "type": "object",
         "properties": {
           "period": {
+            "default": "1month",
+            "description": "Rolling time period for rankings. Use for \"lately\"/\"this week\" style queries. Ignored when date/from/to is supplied.",
             "type": "string",
             "enum": [
               "7day",
@@ -6825,48 +6930,46 @@
               "6month",
               "12month",
               "overall"
-            ],
-            "default": "1month",
-            "description": "Rolling time period for rankings. Use for \"lately\"/\"this week\" style queries. Ignored when date/from/to is supplied."
+            ]
           },
           "limit": {
+            "default": 10,
+            "description": "Number of artists to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of artists to return"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination"
+            "description": "Page number for pagination",
+            "type": "number",
+            "minimum": 1
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           },
           "include_sparklines": {
-            "type": "boolean",
             "default": true,
-            "description": "When true (default), attach a `sparkline` (granularity + zero-filled play-count points) to each artist. Supported for period in {7day, 1month, 3month, 6month, 12month}. Set false to keep responses small."
+            "description": "When true (default), attach a `sparkline` (granularity + zero-filled play-count points) to each artist. Supported for period in {7day, 1month, 3month, 6month, 12month}. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -6930,7 +7033,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -6973,7 +7076,7 @@
                     "granularity",
                     "points"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 }
               },
               "required": [
@@ -6986,7 +7089,7 @@
                 "url",
                 "apple_music_url"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -6994,8 +7097,8 @@
           "period",
           "data"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -7005,6 +7108,8 @@
         "type": "object",
         "properties": {
           "period": {
+            "default": "1month",
+            "description": "Rolling time period for rankings. Use for \"lately\"/\"this week\" style queries. Ignored when date/from/to is supplied.",
             "type": "string",
             "enum": [
               "7day",
@@ -7013,48 +7118,47 @@
               "6month",
               "12month",
               "overall"
-            ],
-            "default": "1month",
-            "description": "Rolling time period for rankings. Use for \"lately\"/\"this week\" style queries. Ignored when date/from/to is supplied."
+            ]
           },
           "limit": {
+            "default": 10,
+            "description": "Number of tracks to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of tracks to return"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination"
+            "description": "Page number for pagination",
+            "type": "number",
+            "minimum": 1
           },
           "artist_id": {
+            "description": "Filter to a single artist. Stable id from get_artist_details or get_top_artists. Composes with period and date filters.",
             "type": "integer",
             "exclusiveMinimum": 0,
-            "description": "Filter to a single artist. Stable id from get_artist_details or get_top_artists. Composes with period and date filters."
+            "maximum": 9007199254740991
           },
           "artist_name": {
+            "description": "Substring match against artist names (case-insensitive). Resolves to the highest-playcount match. Use only if no artist_id is available; passing both is a 400.",
             "type": "string",
-            "minLength": 1,
-            "description": "Substring match against artist names (case-insensitive). Resolves to the highest-playcount match. Use only if no artist_id is available; passing both is a 400."
+            "minLength": 1
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -7124,7 +7228,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -7167,7 +7271,7 @@
                     "granularity",
                     "points"
                   ],
-                  "additionalProperties": true
+                  "additionalProperties": {}
                 }
               },
               "required": [
@@ -7180,7 +7284,7 @@
                 "url",
                 "apple_music_url"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
@@ -7189,8 +7293,8 @@
           "artist_id",
           "data"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -7200,66 +7304,66 @@
         "type": "object",
         "properties": {
           "query": {
-            "type": "string",
-            "description": "Optional: search by artist or album title (e.g. 'Beastie Boys', 'Dark Side')"
+            "description": "Optional: search by artist or album title (e.g. 'Beastie Boys', 'Dark Side')",
+            "type": "string"
           },
           "format": {
-            "type": "string",
-            "description": "Optional: filter by format (e.g. 'Vinyl', 'CD', 'Cassette')"
+            "description": "Optional: filter by format (e.g. 'Vinyl', 'CD', 'Cassette')",
+            "type": "string"
           },
           "genre": {
-            "type": "string",
-            "description": "Optional: filter by genre"
+            "description": "Optional: filter by genre",
+            "type": "string"
           },
           "artist": {
-            "type": "string",
-            "description": "Optional: filter by artist name"
+            "description": "Optional: filter by artist name",
+            "type": "string"
           },
           "sort": {
-            "type": "string",
-            "description": "Optional: sort field (default: date_added). Options: date_added, title, year, artist"
+            "description": "Optional: sort field (default: date_added). Options: date_added, title, year, artist",
+            "type": "string"
           },
           "order": {
+            "description": "Optional: sort order (default: desc)",
             "type": "string",
             "enum": [
               "asc",
               "desc"
-            ],
-            "description": "Optional: sort order (default: desc)"
+            ]
           },
           "limit": {
+            "default": 10,
+            "description": "Number of records to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of records to return"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination"
+            "description": "Page number for pagination",
+            "type": "number",
+            "minimum": 1
           },
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           },
           "include_images": {
-            "type": "boolean",
             "default": true,
-            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small."
+            "description": "Include artwork/poster image content blocks in the response. Default true. Set false to keep responses small.",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -7347,7 +7451,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -7389,7 +7493,7 @@
                 "rating",
                 "discogs_url"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -7414,15 +7518,15 @@
               "total",
               "total_pages"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "items",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -7431,7 +7535,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -7452,15 +7557,15 @@
                 "decade",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -7470,15 +7575,15 @@
         "type": "object",
         "properties": {
           "limit": {
+            "default": 20,
+            "description": "Number of directors to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 100,
-            "default": 20,
-            "description": "Number of directors to return"
+            "maximum": 100
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -7499,15 +7604,15 @@
                 "name",
                 "count"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -7516,7 +7621,8 @@
       "inputSchema": {
         "type": "object",
         "properties": {},
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -7541,15 +7647,15 @@
                 "count",
                 "percentage"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           }
         },
         "required": [
           "items"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -7559,20 +7665,20 @@
         "type": "object",
         "properties": {
           "date": {
-            "type": "string",
-            "description": "Optional: filter to a specific date (YYYY-MM-DD)"
+            "description": "Optional: filter to a specific date (YYYY-MM-DD)",
+            "type": "string"
           },
           "from": {
-            "type": "string",
-            "description": "Optional: start of date range (ISO 8601)"
+            "description": "Optional: start of date range (ISO 8601)",
+            "type": "string"
           },
           "to": {
-            "type": "string",
-            "description": "Optional: end of date range (ISO 8601)"
+            "description": "Optional: end of date range (ISO 8601)",
+            "type": "string"
           }
         },
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -7629,8 +7735,8 @@
           "total_episodes_watched",
           "episodes_this_year"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -7644,6 +7750,7 @@
             "description": "Search query text"
           },
           "domain": {
+            "description": "Optional: filter results to a single domain",
             "type": "string",
             "enum": [
               "listening",
@@ -7651,37 +7758,36 @@
               "watching",
               "collecting",
               "reading"
-            ],
-            "description": "Optional: filter results to a single domain"
+            ]
           },
           "mode": {
+            "description": "Ranking mode. keyword = FTS (default). semantic = cosine-similarity over article embeddings (reading only). hybrid = FTS + semantic via reciprocal rank fusion (reading only).",
             "type": "string",
             "enum": [
               "keyword",
               "semantic",
               "hybrid"
-            ],
-            "description": "Ranking mode. keyword = FTS (default). semantic = cosine-similarity over article embeddings (reading only). hybrid = FTS + semantic via reciprocal rank fusion (reading only)."
+            ]
           },
           "limit": {
+            "default": 10,
+            "description": "Number of results to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 50,
-            "default": 10,
-            "description": "Number of results to return"
+            "maximum": 50
           },
           "page": {
-            "type": "number",
-            "minimum": 1,
             "default": 1,
-            "description": "Page number for pagination"
+            "description": "Page number for pagination",
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
           "query"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -7745,7 +7851,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -7787,7 +7893,7 @@
                 "title",
                 "subtitle"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -7800,15 +7906,15 @@
             "required": [
               "total"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "items",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     },
     {
@@ -7822,18 +7928,18 @@
             "description": "Natural-language description of the article"
           },
           "limit": {
+            "default": 10,
+            "description": "Number of matches to return",
             "type": "number",
             "minimum": 1,
-            "maximum": 25,
-            "default": 10,
-            "description": "Number of matches to return"
+            "maximum": 25
           }
         },
         "required": [
           "query"
         ],
-        "additionalProperties": false,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -7897,7 +8003,7 @@
                           ]
                         }
                       },
-                      "additionalProperties": true
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -7939,7 +8045,7 @@
                 "title",
                 "subtitle"
               ],
-              "additionalProperties": true
+              "additionalProperties": {}
             }
           },
           "pagination": {
@@ -7952,15 +8058,15 @@
             "required": [
               "total"
             ],
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "required": [
           "items",
           "pagination"
         ],
-        "additionalProperties": true,
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": {}
       }
     }
   ],

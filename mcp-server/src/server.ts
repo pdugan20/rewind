@@ -1,3 +1,4 @@
+import { z } from 'zod';
 /**
  * Shared MCP server factory.
  * Used by both the stdio entry point (index.ts) and the remote Worker entry point (worker.ts).
@@ -101,7 +102,7 @@ export function createServer(client: RewindClient): McpServer {
       title: 'API health',
       description:
         'Check the health and sync status of the Rewind API. Returns API status and last sync times for each data domain.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: healthOutputSchema,
     },

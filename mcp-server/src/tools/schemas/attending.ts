@@ -7,7 +7,7 @@
  * tool's return shape, so the declared schema and the TypeScript type
  * cannot drift. Raw MLB Stats API stat-line objects (`batting_line`,
  * `pitching_line`, `season_stats.hitter`, etc.) have dynamic, uncertain
- * keys -- they are modelled as `z.record(z.unknown())` rather than
+ * keys -- they are modelled as `z.record(z.string(), z.unknown())` rather than
  * enumerated.
  *
  * Every object schema uses `.passthrough()` so the JSON Schema advertised
@@ -24,7 +24,7 @@ import { imageSchema, paginationSchema } from './shared.js';
  * A factory: get_attended_player uses it ~16 times, and the JSON Schema
  * converter would emit `$ref`s if they were all the same object.
  */
-const statLineSchema = () => z.record(z.unknown());
+const statLineSchema = () => z.record(z.string(), z.unknown());
 
 /** A venue reference attached to an attended event (null when unknown). */
 const venueSchema = z
@@ -113,7 +113,7 @@ export const attendedEventSchema = z
     subtitle: z.string().nullable(),
     external_id: z.string().nullable(),
     external_source: z.string().nullable(),
-    event_data: z.record(z.unknown()).nullable(),
+    event_data: z.record(z.string(), z.unknown()).nullable(),
     notes: z.string().nullable(),
     attended: z.boolean(),
     venue: venueSchema,
@@ -166,7 +166,7 @@ export const attendedEventDetailOutputSchema = z
     subtitle: z.string().nullable(),
     external_id: z.string().nullable(),
     external_source: z.string().nullable(),
-    event_data: z.record(z.unknown()).nullable(),
+    event_data: z.record(z.string(), z.unknown()).nullable(),
     notes: z.string().nullable(),
     attended: z.boolean(),
     venue: venueSchema,
@@ -332,7 +332,7 @@ export const attendedPlayerStatsOutputSchema = z
  * nested DESIGN.md-shaped payload -- this schema describes that built shape,
  * not the raw `/attending/players/:id` API response. The MLB stat blocks
  * (`season_stats.hitter`, `career.seasons`, `splits.*`, `attended_summary.*`)
- * have dynamic keys and are modelled as `z.record(z.unknown())`. The
+ * have dynamic keys and are modelled as `z.record(z.string(), z.unknown())`. The
  * `season_stats`, `career`, `splits`, and `season_attended_summary` objects
  * are nullable -- absent for non-MLB players or out-of-season.
  */

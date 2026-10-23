@@ -40,7 +40,7 @@ export function registerRunningTools(
       title: 'Running stats',
       description:
         'Get overall running statistics from Strava including total runs, distance, elevation, duration, average pace, and Eddington number.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: runningStatsOutputSchema,
     },
@@ -85,22 +85,24 @@ export function registerRunningTools(
       title: 'Recent runs',
       description:
         'Get recent running activities from Strava. Returns runs with ID, distance, pace, duration, location, and Strava activity resource links for top-N.',
-      inputSchema: {
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of recent runs to return (max 50)'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe(
-            'Page number for pagination. Combine with limit to page through longer windows.'
-          ),
-        ...dateFilterParams,
-      },
+      inputSchema: z
+        .object({
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of recent runs to return (max 50)'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe(
+              'Page number for pagination. Combine with limit to page through longer windows.'
+            ),
+          ...dateFilterParams,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: recentRunsOutputSchema,
     },
@@ -149,7 +151,7 @@ export function registerRunningTools(
       title: 'Personal records',
       description:
         'Get personal running records (PRs) from Strava -- fastest times at standard distances like mile, 5K, 10K, half marathon, marathon.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: personalRecordsOutputSchema,
     },
@@ -204,7 +206,7 @@ export function registerRunningTools(
       title: 'Running streaks',
       description:
         'Get running streak data from Strava -- current consecutive days with runs and the longest streak ever.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: runningStreaksOutputSchema,
     },
@@ -245,13 +247,15 @@ export function registerRunningTools(
       title: 'Run',
       description:
         'Get detailed information about a specific running activity by ID, including distance, pace, heart rate, elevation, calories, and a Strava resource link.',
-      inputSchema: {
-        id: z
-          .number()
-          .describe(
-            'Activity ID (from get_recent_runs or get_personal_records)'
-          ),
-      },
+      inputSchema: z
+        .object({
+          id: z
+            .number()
+            .describe(
+              'Activity ID (from get_recent_runs or get_personal_records)'
+            ),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: activityDetailsOutputSchema,
     },
@@ -303,13 +307,15 @@ export function registerRunningTools(
       title: 'Run splits',
       description:
         'Get per-mile splits for a running activity. Shows pace, elevation, and heart rate for each mile. Get the activity ID from get_recent_runs.',
-      inputSchema: {
-        id: z
-          .number()
-          .describe(
-            'Activity ID (from get_recent_runs or get_personal_records)'
-          ),
-      },
+      inputSchema: z
+        .object({
+          id: z
+            .number()
+            .describe(
+              'Activity ID (from get_recent_runs or get_personal_records)'
+            ),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: activitySplitsOutputSchema,
     },
@@ -359,7 +365,7 @@ export function registerRunningTools(
       title: 'Running by year',
       description:
         'Get per-year summary of running activity: total runs, distance, elevation, duration, average pace, longest run, and race count for every year on record.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: runningYearsOutputSchema,
     },

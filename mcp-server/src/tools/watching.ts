@@ -54,23 +54,25 @@ export function registerWatchingTools(
       title: 'Recent watches',
       description:
         'Get recently watched movies and TV shows from Plex and Letterboxd. Returns titles, ratings, watch dates, top-N posters, and Letterboxd review links where available. In MCP Apps hosts, renders an interactive poster grid inline.',
-      inputSchema: {
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of recent watches to return (max 50)'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe(
-            'Page number for pagination (1-indexed). Combine with limit to page through longer windows like "last month".'
-          ),
-        ...dateFilterParams,
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of recent watches to return (max 50)'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe(
+              'Page number for pagination (1-indexed). Combine with limit to page through longer windows like "last month".'
+            ),
+          ...dateFilterParams,
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: recentWatchesOutputSchema,
       _meta: {
@@ -163,10 +165,12 @@ export function registerWatchingTools(
       title: 'Movie',
       description:
         'Get detailed information about a specific movie by ID, including director, genres, rating, summary, watch history, poster image, and Letterboxd review links for rated watches.',
-      inputSchema: {
-        id: z.number().describe('Movie ID'),
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          id: z.number().describe('Movie ID'),
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: movieDetailsOutputSchema,
     },
@@ -243,7 +247,9 @@ export function registerWatchingTools(
       title: 'Watching stats',
       description:
         'Get overall watching statistics including total movies, watch time, movies this year, top genre, top director, TV show counts, and episode counts. Supports date filtering.',
-      inputSchema: { ...dateFilterParams },
+      inputSchema: z
+        .object({ ...dateFilterParams })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: watchingStatsOutputSchema,
     },
@@ -298,44 +304,46 @@ export function registerWatchingTools(
       title: 'Browse movies',
       description:
         'Browse the movie collection with filters for genre, decade, director, and year. Supports sorting, pagination, and returns top-N posters.',
-      inputSchema: {
-        genre: z
-          .string()
-          .optional()
-          .describe(
-            "Optional: filter by genre (e.g. 'Horror', 'Comedy', 'Drama')"
-          ),
-        decade: z
-          .string()
-          .optional()
-          .describe("Optional: filter by decade (e.g. '1990', '2000')"),
-        director: z
-          .string()
-          .optional()
-          .describe('Optional: filter by director name'),
-        year: z
-          .string()
-          .optional()
-          .describe('Optional: filter by release year'),
-        sort: z
-          .string()
-          .optional()
-          .describe(
-            'Optional: sort by field (default: watched_at). Options: watched_at, title, year, rating'
-          ),
-        order: z
-          .enum(['asc', 'desc'])
-          .optional()
-          .describe('Optional: sort order (default: desc)'),
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of movies to return'),
-        page: z.number().min(1).default(1).describe('Page number'),
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          genre: z
+            .string()
+            .optional()
+            .describe(
+              "Optional: filter by genre (e.g. 'Horror', 'Comedy', 'Drama')"
+            ),
+          decade: z
+            .string()
+            .optional()
+            .describe("Optional: filter by decade (e.g. '1990', '2000')"),
+          director: z
+            .string()
+            .optional()
+            .describe('Optional: filter by director name'),
+          year: z
+            .string()
+            .optional()
+            .describe('Optional: filter by release year'),
+          sort: z
+            .string()
+            .optional()
+            .describe(
+              'Optional: sort by field (default: watched_at). Options: watched_at, title, year, rating'
+            ),
+          order: z
+            .enum(['asc', 'desc'])
+            .optional()
+            .describe('Optional: sort order (default: desc)'),
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of movies to return'),
+          page: z.number().min(1).default(1).describe('Page number'),
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: browseMoviesOutputSchema,
     },
@@ -426,7 +434,7 @@ export function registerWatchingTools(
       title: 'Watching genres',
       description:
         'Get genre breakdown across all watched movies. Returns each genre with movie count and percentage of total watches.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: watchingGenresOutputSchema,
     },
@@ -464,7 +472,7 @@ export function registerWatchingTools(
       title: 'Watching decades',
       description:
         'Get decade breakdown across all watched movies. Returns each decade with movie count.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: watchingDecadesOutputSchema,
     },
@@ -500,14 +508,16 @@ export function registerWatchingTools(
       title: 'Top directors',
       description:
         'Get top directors by watched-movie count. Returns directors ranked by how many of their films you have watched.',
-      inputSchema: {
-        limit: z
-          .number()
-          .min(1)
-          .max(100)
-          .default(20)
-          .describe('Number of directors to return'),
-      },
+      inputSchema: z
+        .object({
+          limit: z
+            .number()
+            .min(1)
+            .max(100)
+            .default(20)
+            .describe('Number of directors to return'),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: watchingDirectorsOutputSchema,
     },
