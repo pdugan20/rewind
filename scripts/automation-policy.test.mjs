@@ -1385,6 +1385,8 @@ function validatePackages(rootPackage, mcpPackage, problems) {
       axios: '1.20.0',
       'js-yaml@^4.0.0': '4.3.2',
       fflate: '0.8.3',
+      '@modelcontextprotocol/sdk': '1.32.2',
+      'zod@>=4 <5': '4.6.7',
     })
   ) {
     problems.push('root security overrides must stay exact and complete');
@@ -1400,6 +1402,11 @@ function validatePackages(rootPackage, mcpPackage, problems) {
       'test:automation-policy must invoke the zero-network Node suite'
     );
   }
+  if (
+    rootPackage.dependencies?.zod !== '4.6.7' ||
+    mcpPackage.dependencies?.zod !== '^4.6.7'
+  )
+    problems.push('runtime Zod must use the patched 4.6.7 release');
   if (mcpPackage.packageManager !== 'npm@11.5.2')
     problems.push('MCP packageManager must pin npm 11.5.2');
   if (mcpPackage.engines?.node !== '>=22.0.0')
@@ -2358,6 +2365,21 @@ test('rejects dependency security override drift', () => {
   );
 });
 
+test('rejects vulnerable sdk override drift', () => {
+  const rootPackage = JSON.parse(
+    readFileSync(join(ROOT, 'package.json'), 'utf8')
+  );
+  const mcpPackage = JSON.parse(
+    readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')
+  );
+  rootPackage.overrides['@modelcontextprotocol/sdk'] = '1.31.0';
+  const problems = [];
+  validatePackages(rootPackage, mcpPackage, problems);
+  assert.ok(
+    problems.includes('root security overrides must stay exact and complete')
+  );
+});
+
 test('rejects component-prefixed release tags', () => {
   const config = JSON.parse(
     readFileSync(join(ROOT, 'release-please-config.json'), 'utf8')
@@ -3087,5 +3109,28 @@ test('artwork classification, source guard, no-op and checkpoint cannot be bypas
     const problems = [];
     validateDeploy(doc, problems);
     assert.ok(problems.length > 0);
+  }
+});
+
+test('rejects vulnerable Zod pins and override downgrades', () => {
+  for (const target of ['root', 'mcp', 'override']) {
+    const rootPackage = JSON.parse(
+      readFileSync(join(ROOT, 'package.json'), 'utf8')
+    );
+    const mcpPackage = JSON.parse(
+      readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')
+    );
+    if (target === 'root') rootPackage.dependencies.zod = '4.4.3';
+    if (target === 'mcp') mcpPackage.dependencies.zod = '^3.23.0';
+    if (target === 'override') rootPackage.overrides['zod@>=4 <5'] = '4.3.6';
+    const problems = [];
+    validatePackages(rootPackage, mcpPackage, problems);
+    assert.ok(
+      problems.includes(
+        target === 'override'
+          ? 'root security overrides must stay exact and complete'
+          : 'runtime Zod must use the patched 4.6.7 release'
+      )
+    );
   }
 });

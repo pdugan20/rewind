@@ -56,48 +56,50 @@ export function registerCollectingTools(
       title: 'Vinyl collection',
       description:
         'Browse the vinyl record collection from Discogs. Returns records with artist, title, year, format, and label, plus top-N cover art and Discogs resource links. Supports search, filters, sort, and pagination.',
-      inputSchema: {
-        query: z
-          .string()
-          .optional()
-          .describe(
-            "Optional: search by artist or album title (e.g. 'Beastie Boys', 'Dark Side')"
-          ),
-        format: z
-          .string()
-          .optional()
-          .describe(
-            "Optional: filter by format (e.g. 'Vinyl', 'CD', 'Cassette')"
-          ),
-        genre: z.string().optional().describe('Optional: filter by genre'),
-        artist: z
-          .string()
-          .optional()
-          .describe('Optional: filter by artist name'),
-        sort: z
-          .string()
-          .optional()
-          .describe(
-            'Optional: sort field (default: date_added). Options: date_added, title, year, artist'
-          ),
-        order: z
-          .enum(['asc', 'desc'])
-          .optional()
-          .describe('Optional: sort order (default: desc)'),
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of records to return'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe('Page number for pagination'),
-        ...dateFilterParams,
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          query: z
+            .string()
+            .optional()
+            .describe(
+              "Optional: search by artist or album title (e.g. 'Beastie Boys', 'Dark Side')"
+            ),
+          format: z
+            .string()
+            .optional()
+            .describe(
+              "Optional: filter by format (e.g. 'Vinyl', 'CD', 'Cassette')"
+            ),
+          genre: z.string().optional().describe('Optional: filter by genre'),
+          artist: z
+            .string()
+            .optional()
+            .describe('Optional: filter by artist name'),
+          sort: z
+            .string()
+            .optional()
+            .describe(
+              'Optional: sort field (default: date_added). Options: date_added, title, year, artist'
+            ),
+          order: z
+            .enum(['asc', 'desc'])
+            .optional()
+            .describe('Optional: sort order (default: desc)'),
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of records to return'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe('Page number for pagination'),
+          ...dateFilterParams,
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: vinylCollectionOutputSchema,
     },
@@ -197,7 +199,9 @@ export function registerCollectingTools(
       title: 'Collection stats',
       description:
         'Get overall collection statistics including total items, format breakdown (vinyl, CD, cassette), unique artists, genre data, and year range. Supports date filtering.',
-      inputSchema: { ...dateFilterParams },
+      inputSchema: z
+        .object({ ...dateFilterParams })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: collectingStatsOutputSchema,
     },
@@ -248,30 +252,32 @@ export function registerCollectingTools(
       title: 'Physical media',
       description:
         'Browse the physical media collection (Blu-ray, 4K UHD, HD DVD). Search by title, filter by format. Returns top-N cover art and pagination.',
-      inputSchema: {
-        query: z
-          .string()
-          .optional()
-          .describe(
-            "Optional: search by title (e.g. 'Princess Bride', 'Kubrick')"
-          ),
-        media_type: z
-          .enum(['bluray', 'uhd_bluray', 'hddvd'])
-          .optional()
-          .describe('Optional: filter by format (bluray, uhd_bluray, hddvd)'),
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of items to return'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe('Page number for pagination'),
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          query: z
+            .string()
+            .optional()
+            .describe(
+              "Optional: search by title (e.g. 'Princess Bride', 'Kubrick')"
+            ),
+          media_type: z
+            .enum(['bluray', 'uhd_bluray', 'hddvd'])
+            .optional()
+            .describe('Optional: filter by format (bluray, uhd_bluray, hddvd)'),
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of items to return'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe('Page number for pagination'),
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: physicalMediaOutputSchema,
     },
@@ -332,7 +338,7 @@ export function registerCollectingTools(
       title: 'Physical media stats',
       description:
         'Get statistics for the physical media collection including total items and breakdown by format (Blu-ray, 4K UHD, HD DVD).',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: physicalMediaStatsOutputSchema,
     },

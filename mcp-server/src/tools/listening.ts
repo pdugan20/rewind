@@ -116,7 +116,9 @@ export function registerListeningTools(
       title: 'Now playing',
       description:
         'Get the track currently playing (or most recently scrobbled) on Last.fm. Returns track + artist + album, album cover image, and Apple Music resource link.',
-      inputSchema: { ...includeImagesParam },
+      inputSchema: z
+        .object({ ...includeImagesParam })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: nowPlayingOutputSchema,
     },
@@ -166,23 +168,25 @@ export function registerListeningTools(
       title: 'Recent listens',
       description:
         'Get recently scrobbled tracks from Last.fm, with top-N album covers and Apple Music resource links. Supports date filtering.',
-      inputSchema: {
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of recent tracks to return (default 10, max 50)'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe(
-            'Page number for pagination. Combine with limit to page through longer windows.'
-          ),
-        ...dateFilterParams,
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of recent tracks to return (default 10, max 50)'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe(
+              'Page number for pagination. Combine with limit to page through longer windows.'
+            ),
+          ...dateFilterParams,
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: recentListensOutputSchema,
     },
@@ -241,7 +245,9 @@ export function registerListeningTools(
       title: 'Listening stats',
       description:
         'Get overall listening statistics from Last.fm including total scrobbles, unique artists, albums, tracks, and daily average. Supports date filtering.',
-      inputSchema: { ...dateFilterParams },
+      inputSchema: z
+        .object({ ...dateFilterParams })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: listeningStatsOutputSchema,
     },
@@ -281,33 +287,35 @@ export function registerListeningTools(
       title: 'Top artists',
       description:
         'Get top listened-to artists for a time window, with top-N artist images and Apple Music links. Use `period` for vague-recent queries ("lately", "this week") — defaults to \'1month\' (rolling 28 days). Use `date`/`from`/`to` for calendar queries ("in February", "last month", "this year") — date filter overrides period when both are supplied. In MCP Apps hosts, renders an interactive artist portrait grid inline.',
-      inputSchema: {
-        period: z
-          .enum(PERIOD_ENUM)
-          .default('1month')
-          .describe(
-            'Rolling time period for rankings. Use for "lately"/"this week" style queries. Ignored when date/from/to is supplied.'
-          ),
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of artists to return'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe('Page number for pagination'),
-        ...dateFilterParams,
-        ...includeImagesParam,
-        include_sparklines: z
-          .boolean()
-          .default(true)
-          .describe(
-            'When true (default), attach a `sparkline` (granularity + zero-filled play-count points) to each artist. Supported for period in {7day, 1month, 3month, 6month, 12month}. Set false to keep responses small.'
-          ),
-      },
+      inputSchema: z
+        .object({
+          period: z
+            .enum(PERIOD_ENUM)
+            .default('1month')
+            .describe(
+              'Rolling time period for rankings. Use for "lately"/"this week" style queries. Ignored when date/from/to is supplied.'
+            ),
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of artists to return'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe('Page number for pagination'),
+          ...dateFilterParams,
+          ...includeImagesParam,
+          include_sparklines: z
+            .boolean()
+            .default(true)
+            .describe(
+              'When true (default), attach a `sparkline` (granularity + zero-filled play-count points) to each artist. Supported for period in {7day, 1month, 3month, 6month, 12month}. Set false to keep responses small.'
+            ),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: topListOutputSchema,
       _meta: {
@@ -387,24 +395,26 @@ export function registerListeningTools(
       title: 'Top albums',
       description:
         'Get top listened-to albums from Last.fm for a given time period, with top-N covers and Apple Music links. In MCP Apps hosts, renders an interactive album cover grid inline.',
-      inputSchema: {
-        period: z
-          .enum(PERIOD_ENUM)
-          .default('1month')
-          .describe('Time period for rankings'),
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of albums to return'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe('Page number for pagination'),
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          period: z
+            .enum(PERIOD_ENUM)
+            .default('1month')
+            .describe('Time period for rankings'),
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of albums to return'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe('Page number for pagination'),
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: topListOutputSchema,
       _meta: {
@@ -474,41 +484,43 @@ export function registerListeningTools(
       title: 'Top tracks',
       description:
         'Top listened-to tracks for a time window, with top-N Apple Music links. Optional `artist_id` or `artist_name` filters to a single artist\'s catalog — useful for \'what X songs have I been listening to lately\' queries. Use `period` for vague-recent queries ("lately", "this week") — defaults to \'1month\' (rolling 28 days). Use `date`/`from`/`to` for calendar queries ("in February", "last month", "this year") — date filter overrides period when both are supplied. In MCP Apps hosts, renders an interactive top-tracks card with a List | By album toggle.',
-      inputSchema: {
-        period: z
-          .enum(PERIOD_ENUM)
-          .default('1month')
-          .describe(
-            'Rolling time period for rankings. Use for "lately"/"this week" style queries. Ignored when date/from/to is supplied.'
-          ),
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of tracks to return'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe('Page number for pagination'),
-        artist_id: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe(
-            'Filter to a single artist. Stable id from get_artist_details or get_top_artists. Composes with period and date filters.'
-          ),
-        artist_name: z
-          .string()
-          .min(1)
-          .optional()
-          .describe(
-            'Substring match against artist names (case-insensitive). Resolves to the highest-playcount match. Use only if no artist_id is available; passing both is a 400.'
-          ),
-        ...dateFilterParams,
-      },
+      inputSchema: z
+        .object({
+          period: z
+            .enum(PERIOD_ENUM)
+            .default('1month')
+            .describe(
+              'Rolling time period for rankings. Use for "lately"/"this week" style queries. Ignored when date/from/to is supplied.'
+            ),
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of tracks to return'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe('Page number for pagination'),
+          artist_id: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe(
+              'Filter to a single artist. Stable id from get_artist_details or get_top_artists. Composes with period and date filters.'
+            ),
+          artist_name: z
+            .string()
+            .min(1)
+            .optional()
+            .describe(
+              'Substring match against artist names (case-insensitive). Resolves to the highest-playcount match. Use only if no artist_id is available; passing both is a 400.'
+            ),
+          ...dateFilterParams,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: topTracksOutputSchema,
       _meta: {
@@ -580,7 +592,7 @@ export function registerListeningTools(
       title: 'Listening streaks',
       description:
         'Get listening streak data from Last.fm -- current consecutive days with scrobbles and the longest streak ever.',
-      inputSchema: {},
+      inputSchema: z.object({}).meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: listeningStreaksOutputSchema,
     },
@@ -635,10 +647,12 @@ export function registerListeningTools(
       title: 'Artist',
       description:
         "Detailed listening profile for one artist: stats, rank, top tracks and albums, similar artists, and a yearly play sparkline. Includes bio, first/last played, and total scrobbles. Use for natural-language queries like 'tell me about my X listening history'. In MCP Apps hosts, renders an interactive artist card inline.",
-      inputSchema: {
-        id: z.number().describe('Artist ID'),
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          id: z.number().describe('Artist ID'),
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: artistDetailsOutputSchema,
       _meta: {
@@ -773,10 +787,12 @@ export function registerListeningTools(
       title: 'Album',
       description:
         'Get detailed information about a specific album by ID: artist, play count, track listing, cover art, and Apple Music link.',
-      inputSchema: {
-        id: z.number().describe('Album ID'),
-        ...includeImagesParam,
-      },
+      inputSchema: z
+        .object({
+          id: z.number().describe('Album ID'),
+          ...includeImagesParam,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: albumDetailsOutputSchema,
     },
@@ -843,21 +859,23 @@ export function registerListeningTools(
       title: 'Listening genres',
       description:
         'Get genre breakdown over time from Last.fm listening history, grouped by week/month/year. Designed for stacked chart visualization.',
-      inputSchema: {
-        group_by: z
-          .enum(['week', 'month', 'year'])
-          .default('month')
-          .describe('Grouping period (default: month)'),
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe(
-            'Max genres to return -- rest grouped as "Other" (default 10)'
-          ),
-        ...dateFilterParams,
-      },
+      inputSchema: z
+        .object({
+          group_by: z
+            .enum(['week', 'month', 'year'])
+            .default('month')
+            .describe('Grouping period (default: month)'),
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe(
+              'Max genres to return -- rest grouped as "Other" (default 10)'
+            ),
+          ...dateFilterParams,
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: listeningGenresOutputSchema,
     },

@@ -69,30 +69,32 @@ export function registerCrossDomainTools(
       title: 'Search',
       description:
         'Search across all domains (listening, running, watching, collecting, reading). Three ranking modes: keyword (default) uses FTS5 full-text search across all domains; semantic uses Voyage AI embeddings for paraphrased / meaning-based recall (reading domain only); hybrid fuses both (reading domain only). Use semantic or hybrid when the user describes what an article was ABOUT rather than quoting its words. **Prefer `mode: hybrid` whenever the user mixes a topic with a recalled keyword or a publisher hint** ("the ESPN piece about Ichiro", "the WSJ article on EVs") — semantic alone does not see source domains and can drop the publisher signal entirely. When a result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card — do not stop at the search-result text response.',
-      inputSchema: {
-        query: z.string().describe('Search query text'),
-        domain: z
-          .enum(['listening', 'running', 'watching', 'collecting', 'reading'])
-          .optional()
-          .describe('Optional: filter results to a single domain'),
-        mode: z
-          .enum(['keyword', 'semantic', 'hybrid'])
-          .optional()
-          .describe(
-            'Ranking mode. keyword = FTS (default). semantic = cosine-similarity over article embeddings (reading only). hybrid = FTS + semantic via reciprocal rank fusion (reading only).'
-          ),
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of results to return'),
-        page: z
-          .number()
-          .min(1)
-          .default(1)
-          .describe('Page number for pagination'),
-      },
+      inputSchema: z
+        .object({
+          query: z.string().describe('Search query text'),
+          domain: z
+            .enum(['listening', 'running', 'watching', 'collecting', 'reading'])
+            .optional()
+            .describe('Optional: filter results to a single domain'),
+          mode: z
+            .enum(['keyword', 'semantic', 'hybrid'])
+            .optional()
+            .describe(
+              'Ranking mode. keyword = FTS (default). semantic = cosine-similarity over article embeddings (reading only). hybrid = FTS + semantic via reciprocal rank fusion (reading only).'
+            ),
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of results to return'),
+          page: z
+            .number()
+            .min(1)
+            .default(1)
+            .describe('Page number for pagination'),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: searchOutputSchema,
     },
@@ -224,17 +226,19 @@ export function registerCrossDomainTools(
       title: 'Semantic search',
       description:
         'Semantic search over the reading domain using Voyage AI embeddings. Use when the user describes the gist or topic of an article they remember rather than quoting exact words — e.g. "article about a former SNL writer" or "piece about tech layoffs". Returns articles ranked by cosine similarity with a score in [0,1]. Reading domain only. **Important: this tool does NOT see source domains** — embeddings only encode title + description + body. If the user mentions a publisher (ESPN, NYT, WSJ, Atlantic, etc.) or a recalled keyword, prefer `search(mode: "hybrid", ...)` so FTS picks up that signal. **If the top scores cluster within ~0.03 of each other, raise `limit` to 15+** — the right match may sit at position 6+ and approximate-nearest-neighbor noise can swap items at the boundary. When the top result is the article the user is asking about, follow up with `get_article(id)` to render the rich inline article card; if the top score is low (~0.4 and below) or you are unsure which match is right, list the top 2-3 candidates and ask the user to disambiguate before rendering.',
-      inputSchema: {
-        query: z
-          .string()
-          .describe('Natural-language description of the article'),
-        limit: z
-          .number()
-          .min(1)
-          .max(25)
-          .default(10)
-          .describe('Number of matches to return'),
-      },
+      inputSchema: z
+        .object({
+          query: z
+            .string()
+            .describe('Natural-language description of the article'),
+          limit: z
+            .number()
+            .min(1)
+            .max(25)
+            .default(10)
+            .describe('Number of matches to return'),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: semanticSearchOutputSchema,
     },
@@ -364,30 +368,32 @@ export function registerCrossDomainTools(
       title: 'Activity feed',
       description:
         'Get the unified activity feed across all domains. Returns a chronological list of recent activities (listens, runs, watches, reads, collection adds). Supports date filtering.',
-      inputSchema: {
-        limit: z
-          .number()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Number of feed items to return'),
-        domain: z
-          .enum(['listening', 'running', 'watching', 'collecting', 'reading'])
-          .optional()
-          .describe('Optional: filter feed to a single domain'),
-        date: z
-          .string()
-          .optional()
-          .describe('Optional: filter to a specific date (YYYY-MM-DD)'),
-        from: z
-          .string()
-          .optional()
-          .describe('Optional: start of date range (ISO 8601)'),
-        to: z
-          .string()
-          .optional()
-          .describe('Optional: end of date range (ISO 8601)'),
-      },
+      inputSchema: z
+        .object({
+          limit: z
+            .number()
+            .min(1)
+            .max(50)
+            .default(10)
+            .describe('Number of feed items to return'),
+          domain: z
+            .enum(['listening', 'running', 'watching', 'collecting', 'reading'])
+            .optional()
+            .describe('Optional: filter feed to a single domain'),
+          date: z
+            .string()
+            .optional()
+            .describe('Optional: filter to a specific date (YYYY-MM-DD)'),
+          from: z
+            .string()
+            .optional()
+            .describe('Optional: start of date range (ISO 8601)'),
+          to: z
+            .string()
+            .optional()
+            .describe('Optional: end of date range (ISO 8601)'),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: feedOutputSchema,
     },
@@ -441,20 +447,22 @@ export function registerCrossDomainTools(
       title: 'On this day',
       description:
         "Get historical 'on this day' items -- what happened on a given date in previous years across all domains. Defaults to today. Great for nostalgia and reflection.",
-      inputSchema: {
-        month: z
-          .number()
-          .min(1)
-          .max(12)
-          .optional()
-          .describe('Optional: month (1-12). Defaults to current month.'),
-        day: z
-          .number()
-          .min(1)
-          .max(31)
-          .optional()
-          .describe('Optional: day (1-31). Defaults to current day.'),
-      },
+      inputSchema: z
+        .object({
+          month: z
+            .number()
+            .min(1)
+            .max(12)
+            .optional()
+            .describe('Optional: month (1-12). Defaults to current month.'),
+          day: z
+            .number()
+            .min(1)
+            .max(31)
+            .optional()
+            .describe('Optional: day (1-31). Defaults to current day.'),
+        })
+        .meta({ additionalProperties: false }),
       annotations: READ_ONLY_ANNOTATIONS,
       outputSchema: onThisDayOutputSchema,
     },
