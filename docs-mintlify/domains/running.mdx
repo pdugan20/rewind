@@ -1,14 +1,14 @@
 ---
 title: Running
 icon: person-running
-description: Track running activities synced from Strava, including distance, pace, elevation, splits, gear, and personal records.
+description: Track running activities from Apple Health and Strava, including distance, pace, elevation, splits, gear, and personal records.
 ---
 
 ## Overview
 
-The Running domain tracks running activities from Strava, including distance, pace, elevation, splits, gear, and personal records.
+The Running domain tracks running activities, including distance, pace, elevation, splits, gear, and personal records. The history through August 2026 came from Strava; new runs come from Apple Health.
 
-Activities sync daily, with new runs arriving in real time via Strava webhooks. Browse every endpoint in the [API reference](/api-reference/running/lifetime-running-statistics).
+An iPhone app sends each run to Rewind shortly after it lands in Apple Health, with its route and heart rate. Rewind calculates mile splits, elevation gain, and best efforts from the route, so these runs appear in the same endpoints as the Strava history. Browse every endpoint in the [API reference](/api-reference/running/lifetime-running-statistics).
 
 ## Charts
 

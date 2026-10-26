@@ -26,6 +26,10 @@ export interface Env {
   STRAVA_CLIENT_SECRET: string;
   STRAVA_WEBHOOK_VERIFY_TOKEN: string;
 
+  // Apple Health (Pulso iPhone app). Bearer token the app sends to
+  // /v1/webhooks/apple-health; ingest answers 503 while it is unset.
+  APPLE_HEALTH_INGEST_TOKEN?: string;
+
   // Plex
   PLEX_URL: string;
   PLEX_TOKEN: string;

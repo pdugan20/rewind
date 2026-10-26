@@ -68,6 +68,12 @@ export const stravaActivities = sqliteTable(
     isRace: integer('is_race').notNull().default(0),
     isDeleted: integer('is_deleted').notNull().default(0),
     stravaUrl: text('strava_url'),
+    // Where the run came from: 'strava', or 'apple_health' for runs that
+    // arrive from the Pulso iPhone app. Apple Health runs use a synthetic
+    // strava_id (see services/apple-health/transforms.ts) and keep the
+    // HealthKit uuid in source_id.
+    source: text('source').notNull().default('strava'),
+    sourceId: text('source_id'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -86,6 +92,7 @@ export const stravaActivities = sqliteTable(
     index('idx_strava_activities_gear_id').on(table.gearId),
     index('idx_strava_activities_workout_type').on(table.workoutType),
     index('idx_strava_activities_is_deleted').on(table.isDeleted),
+    index('idx_strava_activities_source_id').on(table.source, table.sourceId),
   ]
 );
 

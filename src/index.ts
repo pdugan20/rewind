@@ -31,7 +31,6 @@ import {
 import discman from './routes/discman.js';
 import { refreshDiscman } from './services/discman/refresh.js';
 import { syncListening } from './services/lastfm/sync.js';
-import { syncRunning } from './services/strava/sync.js';
 import { retryPendingWebhookEvents } from './services/strava/webhook.js';
 import { syncWatching } from './services/plex/sync.js';
 import { syncLetterboxd } from './services/letterboxd/sync.js';
@@ -317,21 +316,9 @@ export default {
         );
         break;
       }
-      case '15 3 * * *': {
-        const runningRetry = await shouldRetry(db, 'running');
-        if (runningRetry.shouldRetry) {
-          console.log(
-            `[SYNC] Retrying failed running sync (${runningRetry.consecutiveFailures} consecutive failures)`
-          );
-        }
-        console.log('[SYNC] Strava activities');
-        ctx.waitUntil(
-          syncRunning(env, db).catch((e) =>
-            console.log(`[ERROR] Strava cron sync failed: ${e}`)
-          )
-        );
-        break;
-      }
+      // Running has no cron: runs arrive from Apple Health through the Pulso
+      // app (POST /v1/webhooks/apple-health/ingest). The Strava sync stays
+      // available through the admin sync route.
       case '30 3 * * *': {
         const watchingRetry = await shouldRetry(db, 'watching');
         if (watchingRetry.shouldRetry) {
