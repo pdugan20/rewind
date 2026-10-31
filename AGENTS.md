@@ -25,7 +25,7 @@ npm test             # Vitest
 
 ## Agent configuration
 
-- `AGENTS.md` is the canonical cross-agent guide; `CLAUDE.md` is only a compatibility shim.
+- `AGENTS.md` is the canonical cross-agent guide. Claude Code reads it directly, so there is no `CLAUDE.md`.
 - Repository skills live in `.agents/skills`. Claude consumes those same files through symlinks in
   `.claude/skills`; do not maintain a second copy.
 - Keep domain procedures such as adding and finding media project-scoped. General design, delivery, review, and
