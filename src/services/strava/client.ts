@@ -4,6 +4,16 @@ import { getAccessToken } from './auth.js';
 
 const BASE_URL = 'https://www.strava.com/api/v3';
 
+class StravaApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'StravaApiError';
+    this.status = status;
+  }
+}
+
 interface RateLimitState {
   fifteenMinUsage: number;
   fifteenMinLimit: number;
@@ -179,8 +189,9 @@ export class StravaClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `[ERROR] Strava API ${path} failed (${response.status}): ${errorText}`
+      throw new StravaApiError(
+        `[ERROR] Strava API ${path} failed (${response.status}): ${errorText}`,
+        response.status
       );
     }
 
@@ -212,6 +223,23 @@ export class StravaClient {
     const params = new URLSearchParams();
     params.set('include_all_efforts', 'true');
     return this.request<StravaActivity>(`/activities/${id}`, params);
+  }
+
+  /**
+   * Check whether an activity still exists on Strava.
+   * Returns false only when Strava answers 404; any other failure throws,
+   * so callers never treat an outage as a deletion.
+   */
+  async activityExists(id: number): Promise<boolean> {
+    try {
+      await this.request<StravaActivity>(`/activities/${id}`);
+      return true;
+    } catch (error) {
+      if (error instanceof StravaApiError && error.status === 404) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   /**

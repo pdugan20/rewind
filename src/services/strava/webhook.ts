@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { webhookEvents } from '../../db/schema/system.js';
 import type { Env } from '../../types/env.js';
+import { StravaClient } from './client.js';
 import { syncSingleActivity, deleteActivity } from './sync.js';
 
 export interface StravaWebhookEvent {
@@ -81,12 +82,16 @@ export async function processWebhookEvent(
   });
 
   // Process asynchronously to respond within 2 seconds
-  ctx.waitUntil(handleEvent(event, env, db));
+  ctx.waitUntil(handleWebhookEvent(event, env, db));
 
   return true;
 }
 
-async function handleEvent(
+/**
+ * Apply a recorded webhook event. Strava doesn't sign webhook requests, so
+ * delete events are confirmed against the Strava API before any data changes.
+ */
+export async function handleWebhookEvent(
   event: StravaWebhookEvent,
   env: Env,
   db: Database
@@ -103,10 +108,18 @@ async function handleEvent(
         await syncSingleActivity(env, db, event.object_id);
         break;
 
-      case 'delete':
+      case 'delete': {
+        const client = new StravaClient(env, db);
+        if (await client.activityExists(event.object_id)) {
+          console.log(
+            `[INFO] Ignoring delete webhook: activity ${event.object_id} still exists on Strava`
+          );
+          break;
+        }
         console.log(`[SYNC] Webhook: deleted activity ${event.object_id}`);
         await deleteActivity(db, event.object_id);
         break;
+      }
 
       default:
         console.log(`[INFO] Unknown webhook aspect_type: ${event.aspect_type}`);
