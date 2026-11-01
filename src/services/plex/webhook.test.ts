@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { env, SELF } from 'cloudflare:test';
 import { verifyPlexWebhook, type PlexWebhookPayload } from './webhook.js';
 
 function createTestPayload(
@@ -47,6 +48,11 @@ describe('verifyPlexWebhook', () => {
     expect(verifyPlexWebhook(payload, 'wrong-uuid')).toBe(false);
   });
 
+  it('rejects a same-length UUID that differs', () => {
+    const payload = createTestPayload();
+    expect(verifyPlexWebhook(payload, 'test-server-uuiX')).toBe(false);
+  });
+
   it('rejects every payload when the secret is empty', () => {
     const payload = createTestPayload();
     expect(verifyPlexWebhook(payload, '')).toBe(false);
@@ -93,5 +99,21 @@ describe('PlexWebhookPayload structure', () => {
     expect(payload.Metadata.grandparentTitle).toBe('Breaking Bad');
     expect(payload.Metadata.parentIndex).toBe(1);
     expect(payload.Metadata.index).toBe(1);
+  });
+});
+describe('POST /webhooks/plex', () => {
+  it('rejects webhooks when PLEX_WEBHOOK_SECRET is not configured', async () => {
+    expect(
+      (env as unknown as Record<string, unknown>).PLEX_WEBHOOK_SECRET
+    ).toBeFalsy();
+    const form = new FormData();
+    form.set('payload', JSON.stringify(createTestPayload()));
+
+    const res = await SELF.fetch('http://localhost/v1/webhooks/plex', {
+      method: 'POST',
+      body: form,
+    });
+
+    expect(res.status).toBe(403);
   });
 });
