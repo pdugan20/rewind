@@ -241,5 +241,48 @@ describe('Strava Webhook', () => {
       expect(await retryPendingWebhookEvents(env, db, FAR_FUTURE)).toBe(0);
       expect(mocks.deleteActivity).not.toHaveBeenCalled();
     });
+
+    it('recovers an initial attempt that never finished', async () => {
+      // A Strava call that never settles stands in for a Worker killed
+      // mid-attempt: the row stays pending with the attempt already counted.
+      mocks.activityExists.mockReturnValueOnce(new Promise(() => {}));
+      await processWebhookEvent(deleteEvent(11), env, db, {
+        waitUntil: () => {},
+      });
+      expect(await storedEvent(11)).toMatchObject({
+        status: 'pending',
+        attempts: 1,
+      });
+
+      mocks.activityExists.mockResolvedValue(false);
+      expect(await retryPendingWebhookEvents(env, db, FAR_FUTURE)).toBe(1);
+
+      expect(await storedEvent(11)).toMatchObject({
+        status: 'done',
+        attempts: 2,
+      });
+      expect(mocks.deleteActivity).toHaveBeenCalledWith(db, 11);
+    });
+
+    it('gives up when every attempt was interrupted', async () => {
+      mocks.activityExists.mockReturnValueOnce(new Promise(() => {}));
+      await processWebhookEvent(deleteEvent(12), env, db, {
+        waitUntil: () => {},
+      });
+      const row = await storedEvent(12);
+      await db
+        .update(webhookEvents)
+        .set({ attempts: MAX_WEBHOOK_ATTEMPTS })
+        .where(eq(webhookEvents.id, row!.id));
+
+      expect(await retryPendingWebhookEvents(env, db, FAR_FUTURE)).toBe(0);
+
+      expect(await storedEvent(12)).toMatchObject({
+        status: 'failed',
+        nextAttemptAt: null,
+      });
+      // Only the interrupted first attempt reached Strava.
+      expect(mocks.activityExists).toHaveBeenCalledTimes(1);
+    });
   });
 });

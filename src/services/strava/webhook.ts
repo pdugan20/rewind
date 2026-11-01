@@ -104,19 +104,23 @@ export async function processWebhookEvent(
       eventType: event.aspect_type,
       status: 'pending',
       payload: JSON.stringify(event),
+      // Count the attempt before it runs, so one that's killed mid-run
+      // still counts toward MAX_WEBHOOK_ATTEMPTS.
+      attempts: 1,
       nextAttemptAt: new Date(Date.now() + ATTEMPT_LEASE_MS).toISOString(),
     })
     .returning({ id: webhookEvents.id });
 
   // Process asynchronously to respond within 2 seconds
-  ctx.waitUntil(attemptRecordedEvent(env, db, recorded.id, event, 0));
+  ctx.waitUntil(attemptRecordedEvent(env, db, recorded.id, event, 1));
 
   return true;
 }
 
 /**
  * Retry pending Strava events whose next attempt is due. Each row is claimed
- * before it runs so overlapping cron runs don't process it twice.
+ * before it runs so overlapping cron runs don't process it twice, and the
+ * claim counts the attempt so interrupted runs still reach the limit.
  * Returns the number of events attempted.
  */
 export async function retryPendingWebhookEvents(
@@ -144,30 +148,40 @@ export async function retryPendingWebhookEvents(
 
   let attempted = 0;
   for (const row of rows) {
+    if (row.attempts >= MAX_WEBHOOK_ATTEMPTS) {
+      // Every attempt was interrupted before it could record an outcome.
+      await markFailed(
+        db,
+        row.id,
+        `Gave up after ${row.attempts} interrupted attempts`
+      );
+      continue;
+    }
+
+    const attempts = row.attempts + 1;
     const claimed = await db
       .update(webhookEvents)
-      .set({ nextAttemptAt: new Date(now + ATTEMPT_LEASE_MS).toISOString() })
-      .where(and(eq(webhookEvents.id, row.id), due))
+      .set({
+        attempts,
+        nextAttemptAt: new Date(now + ATTEMPT_LEASE_MS).toISOString(),
+      })
+      .where(
+        and(
+          eq(webhookEvents.id, row.id),
+          eq(webhookEvents.attempts, row.attempts),
+          due
+        )
+      )
       .returning({ id: webhookEvents.id });
     if (claimed.length === 0) continue;
 
     const event = parsePayload(row.payload);
     if (!event) {
-      await db
-        .update(webhookEvents)
-        .set({
-          status: 'failed',
-          nextAttemptAt: null,
-          lastError: 'Unreadable event payload',
-        })
-        .where(eq(webhookEvents.id, row.id));
-      console.log(
-        `[ERROR] Strava webhook event ${row.id} has an unreadable payload`
-      );
+      await markFailed(db, row.id, 'Unreadable event payload');
       continue;
     }
 
-    await attemptRecordedEvent(env, db, row.id, event, row.attempts);
+    await attemptRecordedEvent(env, db, row.id, event, attempts);
     attempted++;
   }
 
@@ -175,6 +189,18 @@ export async function retryPendingWebhookEvents(
     console.log(`[SYNC] Retried ${attempted} pending Strava webhook events`);
   }
   return attempted;
+}
+
+async function markFailed(
+  db: Database,
+  id: number,
+  reason: string
+): Promise<void> {
+  await db
+    .update(webhookEvents)
+    .set({ status: 'failed', nextAttemptAt: null, lastError: reason })
+    .where(eq(webhookEvents.id, id));
+  console.log(`[ERROR] Strava webhook event ${id} failed: ${reason}`);
 }
 
 function parsePayload(payload: string | null): StravaWebhookEvent | null {
@@ -188,22 +214,21 @@ function parsePayload(payload: string | null): StravaWebhookEvent | null {
 }
 
 /**
- * Run one attempt at a recorded event and store the outcome: done on success,
- * pending with backoff on failure, failed once attempts run out.
+ * Run an already-counted attempt at a recorded event and store the outcome:
+ * done on success, pending with backoff on failure, failed once attempts run out.
  */
 async function attemptRecordedEvent(
   env: Env,
   db: Database,
   id: number,
   event: StravaWebhookEvent,
-  previousAttempts: number
+  attempts: number
 ): Promise<void> {
-  const attempts = previousAttempts + 1;
   try {
     await handleWebhookEvent(event, env, db);
     await db
       .update(webhookEvents)
-      .set({ status: 'done', attempts, nextAttemptAt: null, lastError: null })
+      .set({ status: 'done', nextAttemptAt: null, lastError: null })
       .where(eq(webhookEvents.id, id));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -213,7 +238,6 @@ async function attemptRecordedEvent(
         .update(webhookEvents)
         .set({
           status: exhausted ? 'failed' : 'pending',
-          attempts,
           nextAttemptAt: exhausted
             ? null
             : new Date(Date.now() + retryDelayMs(attempts)).toISOString(),
