@@ -32,6 +32,7 @@ import discman from './routes/discman.js';
 import { refreshDiscman } from './services/discman/refresh.js';
 import { syncListening } from './services/lastfm/sync.js';
 import { syncRunning } from './services/strava/sync.js';
+import { retryPendingWebhookEvents } from './services/strava/webhook.js';
 import { syncWatching } from './services/plex/sync.js';
 import { syncLetterboxd } from './services/letterboxd/sync.js';
 import { syncCollecting } from './services/discogs/sync.js';
@@ -162,6 +163,13 @@ export default {
         break;
       }
       case '*/15 * * * *': {
+        ctx.waitUntil(
+          retryPendingWebhookEvents(env, db).catch((err) =>
+            console.log(
+              `[ERROR] Strava webhook retry failed: ${err instanceof Error ? err.message : String(err)}`
+            )
+          )
+        );
         console.log('[SYNC] Last.fm scrobble sync');
         const client = new LastfmClient(
           env.LASTFM_API_KEY,

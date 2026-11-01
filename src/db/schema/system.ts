@@ -130,6 +130,13 @@ export const webhookEvents = sqliteTable(
     processedAt: text('processed_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
+    // Durable retry state for Strava events (services/strava/webhook.ts).
+    // Other sources record events after processing them, so they stay 'done'.
+    status: text('status').notNull().default('done'),
+    payload: text('payload'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: text('next_attempt_at'),
+    lastError: text('last_error'),
   },
   (table) => [
     uniqueIndex('idx_webhook_events_unique').on(
@@ -138,6 +145,11 @@ export const webhookEvents = sqliteTable(
     ),
     index('idx_webhook_events_source').on(table.eventSource),
     index('idx_webhook_events_user_id').on(table.userId),
+    index('idx_webhook_events_pending').on(
+      table.eventSource,
+      table.status,
+      table.nextAttemptAt
+    ),
   ]
 );
 

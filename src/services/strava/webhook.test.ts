@@ -1,7 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Database } from '../../db/client.js';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import { env as testEnv } from 'cloudflare:test';
+import { eq } from 'drizzle-orm';
+import { createDb } from '../../db/client.js';
+import { webhookEvents } from '../../db/schema/system.js';
+import { setupTestDb } from '../../test-helpers.js';
 import type { Env } from '../../types/env.js';
-import { handleWebhookEvent, validateSubscription } from './webhook.js';
+import {
+  MAX_WEBHOOK_ATTEMPTS,
+  handleWebhookEvent,
+  processWebhookEvent,
+  retryPendingWebhookEvents,
+  validateSubscription,
+} from './webhook.js';
 import type { StravaWebhookEvent } from './webhook.js';
 
 const mocks = vi.hoisted(() => ({
@@ -22,12 +32,15 @@ vi.mock('./sync.js', () => ({
 }));
 
 const env = {} as Env;
-const db = {} as Database;
+const db = createDb(testEnv.DB);
 
-function deleteEvent(objectId: number): StravaWebhookEvent {
+function deleteEvent(
+  objectId: number,
+  eventTime = 1_700_000_000
+): StravaWebhookEvent {
   return {
     aspect_type: 'delete',
-    event_time: 1_700_000_000,
+    event_time: eventTime,
     object_id: objectId,
     object_type: 'activity',
     owner_id: 1,
@@ -36,9 +49,31 @@ function deleteEvent(objectId: number): StravaWebhookEvent {
   };
 }
 
+/** Collects waitUntil work so tests can await the background attempt. */
+function backgroundContext() {
+  const pending: Promise<unknown>[] = [];
+  return {
+    ctx: { waitUntil: (p: Promise<unknown>) => void pending.push(p) },
+    settle: () => Promise.all(pending),
+  };
+}
+
+async function storedEvent(objectId: number) {
+  const rows = await db.select().from(webhookEvents);
+  return rows.find((row) => row.eventId.startsWith(`${objectId}_`));
+}
+
+const FAR_FUTURE = Date.parse('2100-01-01T00:00:00Z');
+
 describe('Strava Webhook', () => {
-  beforeEach(() => {
+  beforeAll(async () => {
+    await setupTestDb();
+  });
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    mocks.activityExists.mockReset();
+    await db.delete(webhookEvents);
   });
 
   describe('validateSubscription', () => {
@@ -109,11 +144,101 @@ describe('Strava Webhook', () => {
       expect(mocks.deleteActivity).not.toHaveBeenCalled();
     });
 
-    it('keeps the activity when Strava cannot be reached', async () => {
+    it('throws without deleting when Strava cannot be reached', async () => {
       mocks.activityExists.mockRejectedValue(new Error('Strava API failed'));
 
-      await handleWebhookEvent(deleteEvent(42), env, db);
+      await expect(
+        handleWebhookEvent(deleteEvent(42), env, db)
+      ).rejects.toThrow('Strava API failed');
 
+      expect(mocks.deleteActivity).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('durable retry', () => {
+    it('marks an event done once it applies', async () => {
+      mocks.activityExists.mockResolvedValue(false);
+      const { ctx, settle } = backgroundContext();
+
+      expect(await processWebhookEvent(deleteEvent(7), env, db, ctx)).toBe(
+        true
+      );
+      await settle();
+
+      const row = await storedEvent(7);
+      expect(row).toMatchObject({
+        status: 'done',
+        attempts: 1,
+        lastError: null,
+      });
+      expect(mocks.deleteActivity).toHaveBeenCalledWith(db, 7);
+    });
+
+    it('retries a failed delete and applies it on a later run', async () => {
+      mocks.activityExists.mockRejectedValueOnce(
+        new Error('Strava API /activities/8 failed (429)')
+      );
+      const { ctx, settle } = backgroundContext();
+
+      await processWebhookEvent(deleteEvent(8), env, db, ctx);
+      await settle();
+
+      const failed = await storedEvent(8);
+      expect(failed).toMatchObject({ status: 'pending', attempts: 1 });
+      expect(failed?.lastError).toContain('429');
+      expect(Date.parse(failed!.nextAttemptAt!)).toBeGreaterThan(Date.now());
+      expect(mocks.deleteActivity).not.toHaveBeenCalled();
+
+      // Not due yet, so an immediate cron run leaves it alone.
+      expect(await retryPendingWebhookEvents(env, db)).toBe(0);
+
+      mocks.activityExists.mockResolvedValue(false);
+      expect(await retryPendingWebhookEvents(env, db, FAR_FUTURE)).toBe(1);
+
+      expect(await storedEvent(8)).toMatchObject({
+        status: 'done',
+        attempts: 2,
+      });
+      expect(mocks.deleteActivity).toHaveBeenCalledWith(db, 8);
+    });
+
+    it('rejects a redelivered event as a duplicate', async () => {
+      mocks.activityExists.mockResolvedValue(false);
+      const { ctx, settle } = backgroundContext();
+
+      expect(await processWebhookEvent(deleteEvent(9), env, db, ctx)).toBe(
+        true
+      );
+      expect(await processWebhookEvent(deleteEvent(9), env, db, ctx)).toBe(
+        false
+      );
+      await settle();
+
+      expect(mocks.deleteActivity).toHaveBeenCalledTimes(1);
+    });
+
+    it('marks an event failed after the last attempt', async () => {
+      mocks.activityExists.mockRejectedValue(
+        new Error('Strava API down (503)')
+      );
+      const { ctx, settle } = backgroundContext();
+
+      await processWebhookEvent(deleteEvent(10), env, db, ctx);
+      await settle();
+      const row = await storedEvent(10);
+      await db
+        .update(webhookEvents)
+        .set({ attempts: MAX_WEBHOOK_ATTEMPTS - 1 })
+        .where(eq(webhookEvents.id, row!.id));
+
+      await retryPendingWebhookEvents(env, db, FAR_FUTURE);
+
+      expect(await storedEvent(10)).toMatchObject({
+        status: 'failed',
+        attempts: MAX_WEBHOOK_ATTEMPTS,
+        nextAttemptAt: null,
+      });
+      expect(await retryPendingWebhookEvents(env, db, FAR_FUTURE)).toBe(0);
       expect(mocks.deleteActivity).not.toHaveBeenCalled();
     });
   });
