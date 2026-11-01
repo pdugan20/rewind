@@ -77,5 +77,21 @@ describe('export routes', () => {
       expect(contentDisp).toContain('attachment');
       expect(contentDisp).toContain('listening-export');
     });
+
+    it('leaves Strava OAuth tokens out of the running export', async () => {
+      await env.DB.prepare(
+        'INSERT INTO strava_tokens (access_token, refresh_token, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+      )
+        .bind('export-test-access', 'export-test-refresh', 0, 'now', 'now')
+        .run();
+
+      const res = await SELF.fetch('http://localhost/v1/admin/export/running', {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const text = await res.text();
+      expect(text).not.toContain('strava_tokens');
+      expect(text).not.toContain('export-test-refresh');
+    });
   });
 });

@@ -29,7 +29,6 @@ const DOMAIN_TABLES: Record<string, string[]> = {
     'strava_year_summaries',
     'strava_lifetime_stats',
     'strava_splits',
-    'strava_tokens',
   ],
   watching: [
     'movies',

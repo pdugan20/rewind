@@ -112,7 +112,7 @@ May also include a "thumb" file part (JPEG poster).
 
 ### Webhook Verification
 
-Verify webhook source by checking `Account.id` or `Server.uuid` matches expected values. Optionally use a shared secret via `PLEX_WEBHOOK_SECRET`.
+The webhook route compares the payload's `Server.uuid` with `PLEX_WEBHOOK_SECRET` in constant time and rejects every webhook when that secret isn't set.
 
 ### Parsing in Workers
 
