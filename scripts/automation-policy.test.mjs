@@ -39,6 +39,10 @@ const DEPLOY_BOOTSTRAP = '63e89155d5e01821d908ff1cada2b62334245d19';
 const STABLE_SEMVER_CURRENT_VERSION =
   '/^[1-9][0-9]*\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/';
 const ACTION_PINS = new Map([
+  [
+    'pdugan20/.github/.github/workflows/hygiene.yml',
+    'pdugan20/.github/.github/workflows/hygiene.yml@3cf271c5735636662bfeebd8d664d26435c5dce9 # v1.1.0',
+  ],
   ['actions/checkout', `${CHECKOUT} # v7`],
   ['actions/setup-node', `${SETUP_NODE} # v7`],
   ['actions/dependency-review-action', `${DEPENDENCY_REVIEW} # v5.0.0`],
@@ -170,7 +174,8 @@ function validatePermissions(name, document, problems) {
     'deploy.yml': { actions: 'read', contents: 'read' },
     'mcp-server.yml': { actions: 'read', contents: 'read' },
     'pr-lint.yml': { 'pull-requests': 'read' },
-    'release-please.yml': { contents: 'write', 'pull-requests': 'write' },
+    'release-please.yml': { contents: 'read' },
+    'hygiene.yml': { contents: 'read' },
     'security-exceptions.yml': {
       contents: 'read',
       'vulnerability-alerts': 'read',
@@ -186,7 +191,9 @@ function validatePermissions(name, document, problems) {
     const expected =
       name === 'mcp-server.yml' && jobId === 'publish-npm'
         ? { contents: 'read', 'id-token': 'write' }
-        : null;
+        : name === 'release-please.yml' && jobId === 'release-please'
+          ? { contents: 'write', 'pull-requests': 'write' }
+          : null;
     if (!expected || !sameObject(permissionMap(job.permissions), expected)) {
       problems.push(`${name}:${jobId} has an unapproved job permission map`);
     }
@@ -194,7 +201,21 @@ function validatePermissions(name, document, problems) {
 }
 
 function stepRun(step) {
-  return typeof step?.run === 'string' ? step.run : '';
+  // Resolve shell env references to their expressions so existing assertions still
+  // enforce the exact command inputs after moving templates out of the shell.
+  if (typeof step?.run !== 'string') return '';
+  return step.run.replace(/\$([A-Z_][A-Z_0-9]*)\b/g, (reference, name) =>
+    [
+      'WORKFLOW_NAME_VALUE',
+      'EVENT_REF_VALUE',
+      'TRIGGER_HEAD_SHA',
+      'TRUSTED_REF',
+    ].includes(name) &&
+    typeof step.env?.[name] === 'string' &&
+    step.env[name].startsWith('${{')
+      ? step.env[name]
+      : reference
+  );
 }
 
 function validateInstallOrdering(name, document, problems) {
@@ -786,7 +807,11 @@ function validateDeploy(document, problems) {
   `);
   if (
     verification?.name !== 'Verify trusted checkout' ||
-    !sameObject(Object.keys(verification ?? {}).sort(), ['name', 'run']) ||
+    !sameObject(Object.keys(verification ?? {}).sort(), [
+      'env',
+      'name',
+      'run',
+    ]) ||
     !sameObject(normalizeCommands(stepRun(verification)), expectedCommands)
   ) {
     problems.push(
@@ -1094,6 +1119,25 @@ function validateMcpDeploy(document, problems) {
     'MCP classifier',
     problems
   );
+  const verification = (impact?.steps ?? []).find(
+    (step) => step.name === 'Verify trusted checkout'
+  );
+  if (
+    !sameObject(
+      normalizeCommands(stepRun(verification)),
+      normalizeCommands(`
+    test "$(git rev-parse HEAD)" = "\${{ github.event.pull_request.head.sha || github.sha }}"
+    if [ "\${{ github.event_name }}" = "push" ] && [ "\${{ github.ref }}" = "refs/heads/main" ]; then
+      git fetch origin main
+      git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main
+    fi
+  `)
+    )
+  ) {
+    problems.push(
+      'MCP classifier must preserve exact trusted checkout verification'
+    );
+  }
   const classifyRun = (impact?.steps ?? []).map(stepRun).join('\n');
   if (
     !classifyRun.includes('scripts/deploy-impact.mjs') ||
@@ -1450,6 +1494,13 @@ function validateDependabot(document, problems) {
     const entry = get(ecosystem, directory);
     validateSchedule(entry, time, 0, label, problems);
     if (
+      !sameObject(entry.cooldown, {
+        'default-days': ecosystem === 'github-actions' ? 14 : 7,
+      })
+    ) {
+      problems.push(`${label} must preserve its dependency cooldown`);
+    }
+    if (
       ecosystem === 'npm' &&
       !sameObject(entry.groups, {
         'security-patches': {
@@ -1769,6 +1820,7 @@ function validateRepository(root) {
   const expectedNames = [
     'ci.yml',
     'deploy.yml',
+    'hygiene.yml',
     'mcp-server.yml',
     'pr-lint.yml',
     'release-please.yml',
@@ -1792,6 +1844,24 @@ function validateRepository(root) {
     validateActionComments(source, problems);
     validateInstallOrdering(name, document, problems);
   }
+  const hygiene = workflows.get('hygiene.yml');
+  if (
+    !isDeepStrictEqual(hygiene, {
+      name: 'Hygiene',
+      on: { pull_request: null, push: { branches: ['main'] } },
+      permissions: { contents: 'read' },
+      concurrency: {
+        group: '${{ github.workflow }}-${{ github.ref }}',
+        'cancel-in-progress': true,
+      },
+      jobs: {
+        hygiene: {
+          uses: 'pdugan20/.github/.github/workflows/hygiene.yml@3cf271c5735636662bfeebd8d664d26435c5dce9',
+        },
+      },
+    })
+  )
+    problems.push('Hygiene must preserve the shared pinned workflow contract');
   validateCi(workflows.get('ci.yml') ?? {}, problems);
   validateDeploy(workflows.get('deploy.yml') ?? {}, problems);
   validateMcpDeploy(workflows.get('mcp-server.yml') ?? {}, problems);
@@ -3087,5 +3157,32 @@ test('artwork classification, source guard, no-op and checkpoint cannot be bypas
     const problems = [];
     validateDeploy(doc, problems);
     assert.ok(problems.length > 0);
+  }
+});
+
+test('rejects changed shell environment bindings for deployment guards', () => {
+  for (const file of ['deploy.yml', 'mcp-server.yml']) {
+    const current = parseYaml(
+      readFileSync(join(ROOT, '.github/workflows', file), 'utf8')
+    );
+    const verify = current.jobs.impact.steps.find(
+      (step) => step.name === 'Verify trusted checkout'
+    );
+    for (const value of [
+      'attacker-controlled',
+      '${{ github.event.pull_request.title }}',
+    ]) {
+      const fixture = structuredClone(current);
+      const step = fixture.jobs.impact.steps.find(
+        (step) => step.name === verify.name
+      );
+      step.env[Object.keys(verify.env)[0]] = value;
+      const problems = [];
+      (file === 'deploy.yml' ? validateDeploy : validateMcpDeploy)(
+        fixture,
+        problems
+      );
+      assert.ok(problems.length > 0, `${file} must reject ${value}`);
+    }
   }
 });

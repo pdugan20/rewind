@@ -59,8 +59,10 @@ jobs:
           fetch-depth: 0
 
       - name: Verify trusted checkout
+        env:
+          TRUSTED_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
         run: |
-          EXPECTED_REF="${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}"
+          EXPECTED_REF="$TRUSTED_REF"
           if [ "$EXPECTED_REF" = "main" ]; then
             EXPECTED_SHA="$(git rev-parse main)"
           else
@@ -72,6 +74,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
+          package-manager-cache: false
           node-version: '22.18.0'
 
       - name: Download exact triggering-run range
@@ -89,6 +92,8 @@ jobs:
       - name: Validate untrusted triggering-run range
         if: github.event_name == 'workflow_run'
         id: range
+        env:
+          TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           node scripts/deploy-range.mjs validate \
             --directory .deploy-range \
@@ -96,7 +101,7 @@ jobs:
             --expected-workflow "CI" \
             --expected-event "push" \
             --expected-ref "refs/heads/main" \
-            --expected-head "${{ github.event.workflow_run.head_sha }}" \
+            --expected-head "$TRIGGER_HEAD_SHA" \
             --expected-run-id "${{ github.event.workflow_run.id }}" \
             --expected-run-attempt "${{ github.event.workflow_run.run_attempt }}" \
             --output "$GITHUB_OUTPUT"
@@ -105,11 +110,12 @@ jobs:
         if: github.event_name == 'workflow_run'
         id: checkpoint
         env:
+          WORKFLOW_NAME_VALUE: ${{ github.workflow }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           node scripts/deploy-checkpoint.mjs locate \
             --repository "${{ github.repository }}" \
-            --workflow "${{ github.workflow }}" \
+            --workflow "$WORKFLOW_NAME_VALUE" \
             --workflow-file "deploy.yml" \
             --workflow-path ".github/workflows/deploy.yml" \
             --events "workflow_run,workflow_dispatch" \
@@ -175,6 +181,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           ref: ${{ needs.impact.outputs.head_sha }}
           fetch-depth: 0
 
@@ -183,8 +190,8 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
+          package-manager-cache: false
           node-version-file: '.nvmrc'
-          cache: npm
 
       - name: Install npm 11.5.2
         run: npm install --global npm@11.5.2
@@ -235,6 +242,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           ref: ${{ needs.impact.outputs.head_sha }}
           fetch-depth: 0
 
@@ -243,8 +251,8 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
+          package-manager-cache: false
           node-version-file: '.nvmrc'
-          cache: npm
 
       - name: Install npm 11.5.2
         run: npm install --global npm@11.5.2
@@ -299,6 +307,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           ref: ${{ needs.impact.outputs.head_sha }}
           fetch-depth: 0
 
@@ -307,8 +316,8 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
+          package-manager-cache: false
           node-version-file: '.nvmrc'
-          cache: npm
 
       - name: Install npm 11.5.2
         run: npm install --global npm@11.5.2
@@ -361,6 +370,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           ref: ${{ needs.impact.outputs.head_sha }}
           fetch-depth: 0
 
@@ -369,14 +379,17 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
+          package-manager-cache: false
           node-version: '22.18.0'
 
       - name: Write successful Deploy checkpoint
+        env:
+          WORKFLOW_NAME_VALUE: ${{ github.workflow }}
         run: |
           node scripts/deploy-checkpoint.mjs create \
             --output .deploy-checkpoint/deploy-checkpoint.json \
             --repository "${{ github.repository }}" \
-            --workflow "${{ github.workflow }}" \
+            --workflow "$WORKFLOW_NAME_VALUE" \
             --event "${{ github.event_name }}" \
             --ref "refs/heads/main" \
             --head "${{ needs.impact.outputs.head_sha }}" \

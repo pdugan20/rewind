@@ -1,0 +1,11 @@
+rules:
+  dangerous-triggers:
+    ignore:
+      # Deploy validates successful main CI, repository identity, exact SHA ancestry, and artifact identity before use.
+      - deploy.yml:3
+  artipacked:
+    ignore:
+      # The classifier needs checkout credentials for git fetch origin main to verify trusted ancestry.
+      - deploy.yml:56
+      # The classifier needs checkout credentials for git fetch origin main to verify trusted ancestry.
+      - mcp-server.yml:46

@@ -6,11 +6,13 @@ on:
       - main
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   release-please:
+    permissions:
+      contents: write
+      pull-requests: write
     name: Release Please
     runs-on: ubuntu-latest
     steps:
