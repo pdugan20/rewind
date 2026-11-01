@@ -170,12 +170,13 @@ webhooks.openapi(plexWebhookRoute, async (c) => {
     ) as any;
   }
 
-  // Verify webhook source
-  if (
-    c.env.PLEX_WEBHOOK_SECRET &&
-    !verifyPlexWebhook(payload, c.env.PLEX_WEBHOOK_SECRET)
-  ) {
-    console.log('[ERROR] Plex webhook verification failed');
+  // Verify webhook source; fails closed when PLEX_WEBHOOK_SECRET is unset
+  if (!verifyPlexWebhook(payload, c.env.PLEX_WEBHOOK_SECRET)) {
+    console.log(
+      c.env.PLEX_WEBHOOK_SECRET
+        ? '[ERROR] Plex webhook verification failed'
+        : '[ERROR] Plex webhook rejected: PLEX_WEBHOOK_SECRET is not set'
+    );
     return c.json(
       { error: 'Webhook verification failed', status: 403 },
       403

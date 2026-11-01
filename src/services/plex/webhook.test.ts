@@ -47,9 +47,18 @@ describe('verifyPlexWebhook', () => {
     expect(verifyPlexWebhook(payload, 'wrong-uuid')).toBe(false);
   });
 
-  it('accepts any payload when secret is empty', () => {
+  it('rejects every payload when the secret is empty', () => {
     const payload = createTestPayload();
-    expect(verifyPlexWebhook(payload, '')).toBe(true);
+    expect(verifyPlexWebhook(payload, '')).toBe(false);
+  });
+
+  it('rejects a payload without a server UUID', () => {
+    const payload = createTestPayload();
+    const withoutServer = {
+      ...payload,
+      Server: undefined,
+    } as unknown as PlexWebhookPayload;
+    expect(verifyPlexWebhook(withoutServer, 'test-server-uuid')).toBe(false);
   });
 });
 

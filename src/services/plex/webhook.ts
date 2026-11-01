@@ -94,15 +94,26 @@ export async function parsePlexWebhook(
 }
 
 /**
- * Verify webhook source using shared secret.
+ * Verify webhook source using shared secret. Plex doesn't sign webhooks, so
+ * the payload's server UUID is compared with PLEX_WEBHOOK_SECRET. A missing
+ * secret rejects every webhook rather than skipping verification.
  */
 export function verifyPlexWebhook(
   payload: PlexWebhookPayload,
   secret: string
 ): boolean {
-  // Verify using the server UUID as a simple shared-secret check
-  if (!secret) return true;
-  return payload.Server?.uuid === secret;
+  if (!secret) return false;
+  const uuid = payload.Server?.uuid;
+  return typeof uuid === 'string' && constantTimeEqual(uuid, secret);
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 /**
