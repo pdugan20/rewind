@@ -129,11 +129,19 @@ describe('PlexWebhookPayload structure', () => {
   });
 });
 describe('POST /webhooks/plex', () => {
-  const post = (url: string) => {
+  const post = (url: string, payload = createTestPayload()) => {
     const form = new FormData();
-    form.set('payload', JSON.stringify(createTestPayload()));
+    form.set('payload', JSON.stringify(payload));
     return SELF.fetch(url, { method: 'POST', body: form });
   };
+
+  it('accepts a webhook with the correct URL token', async () => {
+    const res = await post(
+      'http://localhost/v1/webhooks/plex?token=test-webhook-token',
+      createTestPayload({ event: 'media.pause' })
+    );
+    expect(res.status).toBe(200);
+  });
 
   it('rejects a webhook without the URL token', async () => {
     expect(
