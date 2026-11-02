@@ -8,6 +8,12 @@
 
 Personal data aggregation service. Syncs data from Strava, Last.fm, Discogs, Plex, Letterboxd, and Instapaper into Cloudflare D1, serves via REST API at `api.rewind.rest` with an image CDN at `cdn.rewind.rest`. MCP server published as `rewind-mcp-server` on npm, deployed as a Cloudflare Worker at `mcp.rewind.rest`.
 
+**Read the nested guide before editing in its directory.** Claude loads it automatically when it
+reads a file there; Codex loads it only when started inside that directory.
+
+- [`mcp-server/AGENTS.md`](mcp-server/AGENTS.md): the MCP package's Node 22 and 24 support,
+  its commands, manifest and docs regeneration, and release-please versioning.
+
 ## Development Commands
 
 ```bash
