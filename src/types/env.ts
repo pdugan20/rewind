@@ -29,7 +29,6 @@ export interface Env {
   // Plex
   PLEX_URL: string;
   PLEX_TOKEN: string;
-  PLEX_WEBHOOK_SECRET: string;
   PLEX_WEBHOOK_TOKEN: string;
   PLEX_OWNER_ACCOUNT_TITLE: string;
 

@@ -112,7 +112,7 @@ May also include a "thumb" file part (JPEG poster).
 
 ### Webhook Verification
 
-The webhook route compares the payload's `Server.uuid` with `PLEX_WEBHOOK_SECRET` in constant time and rejects every webhook when that secret isn't set.
+Plex doesn't sign webhooks, so the webhook URL configured in Plex carries a secret token (`/v1/webhooks/plex?token=…`). The route compares it with `PLEX_WEBHOOK_TOKEN` in constant time and rejects every webhook when that secret isn't set.
 
 ### Parsing in Workers
 

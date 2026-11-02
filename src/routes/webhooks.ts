@@ -9,7 +9,6 @@ import {
 import type { StravaWebhookEvent } from '../services/strava/webhook.js';
 import {
   parsePlexWebhook,
-  verifyPlexWebhook,
   verifyPlexWebhookToken,
   handlePlexWebhook,
 } from '../services/plex/webhook.js';
@@ -171,19 +170,11 @@ webhooks.openapi(plexWebhookRoute, async (c) => {
     ) as any;
   }
 
-  // Verify webhook source with the URL token. During the switch from the
-  // server-UUID check, a request passes if either check succeeds; the UUID
-  // check is removed once Plex sends the token. Both fail closed when unset.
-  const tokenVerified = verifyPlexWebhookToken(
-    c.req.query('token'),
-    c.env.PLEX_WEBHOOK_TOKEN
-  );
-  if (
-    !tokenVerified &&
-    !verifyPlexWebhook(payload, c.env.PLEX_WEBHOOK_SECRET)
-  ) {
+  // Plex doesn't sign webhooks, so the secret token in the configured webhook
+  // URL is the only proof of origin. Fails closed when PLEX_WEBHOOK_TOKEN is unset.
+  if (!verifyPlexWebhookToken(c.req.query('token'), c.env.PLEX_WEBHOOK_TOKEN)) {
     console.log(
-      c.env.PLEX_WEBHOOK_TOKEN || c.env.PLEX_WEBHOOK_SECRET
+      c.env.PLEX_WEBHOOK_TOKEN
         ? '[ERROR] Plex webhook verification failed'
         : '[ERROR] Plex webhook rejected: PLEX_WEBHOOK_TOKEN is not set'
     );
