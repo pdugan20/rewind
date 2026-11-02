@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
-import { verifyPlexWebhook, type PlexWebhookPayload } from './webhook.js';
+import {
+  verifyPlexWebhook,
+  verifyPlexWebhookToken,
+  type PlexWebhookPayload,
+} from './webhook.js';
 
 function createTestPayload(
   overrides: Partial<PlexWebhookPayload> = {}
@@ -68,6 +72,29 @@ describe('verifyPlexWebhook', () => {
   });
 });
 
+describe('verifyPlexWebhookToken', () => {
+  it('accepts the matching token', () => {
+    expect(verifyPlexWebhookToken('url-token-1234', 'url-token-1234')).toBe(
+      true
+    );
+  });
+
+  it('rejects a different token of the same length', () => {
+    expect(verifyPlexWebhookToken('url-token-1235', 'url-token-1234')).toBe(
+      false
+    );
+  });
+
+  it('rejects a missing token', () => {
+    expect(verifyPlexWebhookToken(undefined, 'url-token-1234')).toBe(false);
+  });
+
+  it('rejects every request when no token is configured', () => {
+    expect(verifyPlexWebhookToken('', '')).toBe(false);
+    expect(verifyPlexWebhookToken('anything', undefined)).toBe(false);
+  });
+});
+
 describe('PlexWebhookPayload structure', () => {
   it('creates valid test payload with correct structure', () => {
     const payload = createTestPayload();
@@ -102,18 +129,24 @@ describe('PlexWebhookPayload structure', () => {
   });
 });
 describe('POST /webhooks/plex', () => {
-  it('rejects webhooks when PLEX_WEBHOOK_SECRET is not configured', async () => {
+  const post = (url: string) => {
+    const form = new FormData();
+    form.set('payload', JSON.stringify(createTestPayload()));
+    return SELF.fetch(url, { method: 'POST', body: form });
+  };
+
+  it('rejects a webhook without the URL token', async () => {
     expect(
       (env as unknown as Record<string, unknown>).PLEX_WEBHOOK_SECRET
     ).toBeFalsy();
-    const form = new FormData();
-    form.set('payload', JSON.stringify(createTestPayload()));
+    const res = await post('http://localhost/v1/webhooks/plex');
+    expect(res.status).toBe(403);
+  });
 
-    const res = await SELF.fetch('http://localhost/v1/webhooks/plex', {
-      method: 'POST',
-      body: form,
-    });
-
+  it('rejects a webhook with the wrong URL token', async () => {
+    const res = await post(
+      'http://localhost/v1/webhooks/plex?token=test-webhook-tokeX'
+    );
     expect(res.status).toBe(403);
   });
 });

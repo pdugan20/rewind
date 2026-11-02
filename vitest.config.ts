@@ -40,6 +40,7 @@ export default defineConfig(async () => {
           ],
           bindings: {
             TEST_MIGRATIONS: migrations,
+            PLEX_WEBHOOK_TOKEN: 'test-webhook-token',
           },
         },
       }),
