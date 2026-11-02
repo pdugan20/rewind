@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { env, SELF } from 'cloudflare:test';
-import {
-  verifyPlexWebhook,
-  verifyPlexWebhookToken,
-  type PlexWebhookPayload,
-} from './webhook.js';
+import { SELF } from 'cloudflare:test';
+import { verifyPlexWebhookToken, type PlexWebhookPayload } from './webhook.js';
 
 function createTestPayload(
   overrides: Partial<PlexWebhookPayload> = {}
@@ -40,37 +36,6 @@ function createTestPayload(
     ...overrides,
   };
 }
-
-describe('verifyPlexWebhook', () => {
-  it('accepts matching server UUID', () => {
-    const payload = createTestPayload();
-    expect(verifyPlexWebhook(payload, 'test-server-uuid')).toBe(true);
-  });
-
-  it('rejects non-matching server UUID', () => {
-    const payload = createTestPayload();
-    expect(verifyPlexWebhook(payload, 'wrong-uuid')).toBe(false);
-  });
-
-  it('rejects a same-length UUID that differs', () => {
-    const payload = createTestPayload();
-    expect(verifyPlexWebhook(payload, 'test-server-uuiX')).toBe(false);
-  });
-
-  it('rejects every payload when the secret is empty', () => {
-    const payload = createTestPayload();
-    expect(verifyPlexWebhook(payload, '')).toBe(false);
-  });
-
-  it('rejects a payload without a server UUID', () => {
-    const payload = createTestPayload();
-    const withoutServer = {
-      ...payload,
-      Server: undefined,
-    } as unknown as PlexWebhookPayload;
-    expect(verifyPlexWebhook(withoutServer, 'test-server-uuid')).toBe(false);
-  });
-});
 
 describe('verifyPlexWebhookToken', () => {
   it('accepts the matching token', () => {
@@ -144,10 +109,14 @@ describe('POST /webhooks/plex', () => {
   });
 
   it('rejects a webhook without the URL token', async () => {
-    expect(
-      (env as unknown as Record<string, unknown>).PLEX_WEBHOOK_SECRET
-    ).toBeFalsy();
     const res = await post('http://localhost/v1/webhooks/plex');
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects the matching server UUID without the URL token', async () => {
+    const res = await post(
+      'http://localhost/v1/webhooks/plex?token=test-server-uuid'
+    );
     expect(res.status).toBe(403);
   });
 

@@ -94,20 +94,6 @@ export async function parsePlexWebhook(
 }
 
 /**
- * Verify webhook source using shared secret. Plex doesn't sign webhooks, so
- * the payload's server UUID is compared with PLEX_WEBHOOK_SECRET. A missing
- * secret rejects every webhook rather than skipping verification.
- */
-export function verifyPlexWebhook(
-  payload: PlexWebhookPayload,
-  secret: string
-): boolean {
-  if (!secret) return false;
-  const uuid = payload.Server?.uuid;
-  return typeof uuid === 'string' && constantTimeEqual(uuid, secret);
-}
-
-/**
  * Verify the secret token in the webhook URL (`/v1/webhooks/plex?token=...`).
  * Unlike the server UUID, which travels in every payload, the token is only in
  * the URL configured in Plex, so knowing the server is not enough to forge a
