@@ -10,6 +10,7 @@ import type { StravaWebhookEvent } from '../services/strava/webhook.js';
 import {
   parsePlexWebhook,
   verifyPlexWebhook,
+  verifyPlexWebhookToken,
   handlePlexWebhook,
 } from '../services/plex/webhook.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
@@ -145,7 +146,7 @@ const plexWebhookRoute = createRoute({
   tags: ['Webhooks'],
   summary: 'Plex webhook event receiver',
   description:
-    'Receives Plex webhook events (multipart/form-data). No auth required -- uses its own verification via PLEX_WEBHOOK_SECRET. Body is parsed manually to avoid double-consumption.',
+    'Receives Plex webhook events (multipart/form-data). No auth required -- verified by the secret token in the webhook URL (PLEX_WEBHOOK_TOKEN). Body is parsed manually to avoid double-consumption.',
   'x-internal': true,
   responses: {
     200: {
@@ -170,12 +171,21 @@ webhooks.openapi(plexWebhookRoute, async (c) => {
     ) as any;
   }
 
-  // Verify webhook source; fails closed when PLEX_WEBHOOK_SECRET is unset
-  if (!verifyPlexWebhook(payload, c.env.PLEX_WEBHOOK_SECRET)) {
+  // Verify webhook source with the URL token. During the switch from the
+  // server-UUID check, a request passes if either check succeeds; the UUID
+  // check is removed once Plex sends the token. Both fail closed when unset.
+  const tokenVerified = verifyPlexWebhookToken(
+    c.req.query('token'),
+    c.env.PLEX_WEBHOOK_TOKEN
+  );
+  if (
+    !tokenVerified &&
+    !verifyPlexWebhook(payload, c.env.PLEX_WEBHOOK_SECRET)
+  ) {
     console.log(
-      c.env.PLEX_WEBHOOK_SECRET
+      c.env.PLEX_WEBHOOK_TOKEN || c.env.PLEX_WEBHOOK_SECRET
         ? '[ERROR] Plex webhook verification failed'
-        : '[ERROR] Plex webhook rejected: PLEX_WEBHOOK_SECRET is not set'
+        : '[ERROR] Plex webhook rejected: PLEX_WEBHOOK_TOKEN is not set'
     );
     return c.json(
       { error: 'Webhook verification failed', status: 403 },

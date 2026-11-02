@@ -107,6 +107,20 @@ export function verifyPlexWebhook(
   return typeof uuid === 'string' && constantTimeEqual(uuid, secret);
 }
 
+/**
+ * Verify the secret token in the webhook URL (`/v1/webhooks/plex?token=...`).
+ * Unlike the server UUID, which travels in every payload, the token is only in
+ * the URL configured in Plex, so knowing the server is not enough to forge a
+ * webhook. A missing expected token rejects every request.
+ */
+export function verifyPlexWebhookToken(
+  provided: string | undefined,
+  expected: string | undefined
+): boolean {
+  if (!expected || typeof provided !== 'string') return false;
+  return constantTimeEqual(provided, expected);
+}
+
 function constantTimeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
