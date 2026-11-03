@@ -3,7 +3,9 @@ import type { Database } from '../../db/client.js';
 import { traktTokens } from '../../db/schema/trakt.js';
 import type { Env } from '../../types/env.js';
 
-const TOKEN_URL = 'https://api.trakt.tv/oauth/token';
+// Trakt requires sign-in and token exchanges on auth.trakt.tv from
+// February 1, 2027.
+const TOKEN_URL = 'https://auth.trakt.tv/oauth/token';
 const EXPIRY_BUFFER_SECONDS = 300; // 5 minutes
 
 interface TokenResponse {
