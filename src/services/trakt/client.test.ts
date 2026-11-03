@@ -72,6 +72,37 @@ describe('TraktClient', () => {
     expect(items[0].metadata.media_type).toBe('bluray');
   });
 
+  it('should fetch every page of a paginated collection', async () => {
+    const item = (tmdb: number) => ({
+      collected_at: '2024-06-15T12:00:00.000Z',
+      updated_at: '2024-06-15T12:00:00.000Z',
+      movie: {
+        title: `Movie ${tmdb}`,
+        year: 2000,
+        ids: { trakt: tmdb, slug: `movie-${tmdb}`, imdb: '', tmdb },
+      },
+      metadata: { media_type: 'bluray' },
+    });
+    const page = (items: unknown[], n: number) =>
+      new Response(JSON.stringify(items), {
+        headers: {
+          'x-pagination-page': String(n),
+          'x-pagination-page-count': '2',
+        },
+      });
+
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(page([item(1), item(2)], 1))
+      .mockResolvedValueOnce(page([item(3)], 2));
+
+    const items = await client.getCollection();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(String(fetchSpy.mock.calls[1][0])).toContain('page=2');
+    expect(items.map((i) => i.movie.ids.tmdb)).toEqual([1, 2, 3]);
+  });
+
   it('should send POST with correct body when adding to collection', async () => {
     const mockResult = {
       added: { movies: 1 },
