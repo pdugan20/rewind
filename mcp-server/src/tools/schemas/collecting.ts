@@ -78,7 +78,7 @@ export const vinylCollectionOutputSchema = z
 export const collectingStatsOutputSchema = z
   .object({
     total_items: z.number(),
-    by_format: z.record(z.number()),
+    by_format: z.record(z.string(), z.number()),
     wantlist_count: z.number().nullable(),
     unique_artists: z.number().nullable(),
     estimated_value: z.number().nullable(),
