@@ -99,14 +99,14 @@ Trakt API provides physical movie media collection tracking (Blu-ray, 4K UHD, HD
 
 #### Key Endpoints
 
-| Method | Endpoint                            | Description                  | Key Params                     |
-| ------ | ----------------------------------- | ---------------------------- | ------------------------------ |
-| GET    | /users/{username}/collection/movies | All collected movies         | none                           |
-| POST   | /sync/collection                    | Add items to collection      | movies array                   |
-| POST   | /sync/collection/remove             | Remove items from collection | movies array                   |
-| GET    | /users/{username}/watchlist         | Watchlist items              | none                           |
-| POST   | /oauth/device/code                  | Start device code flow       | client_id                      |
-| POST   | /oauth/device/token                 | Poll for device auth token   | code, client_id, client_secret |
+| Method | Endpoint                            | Description                  | Key Params      |
+| ------ | ----------------------------------- | ---------------------------- | --------------- |
+| GET    | /users/{username}/collection/movies | All collected movies         | none            |
+| POST   | /sync/collection                    | Add items to collection      | movies array    |
+| POST   | /sync/collection/remove             | Remove items from collection | movies array    |
+| GET    | /users/{username}/watchlist         | Watchlist items              | none            |
+| POST   | /oauth/device/code                  | Start device code flow       | client_id       |
+| POST   | /oauth/device/token                 | Poll for device auth token   | code, client_id |
 
 ### Sync Strategy
 
@@ -136,23 +136,23 @@ Physical media items are cross-referenced with the watching domain using `tmdb_i
 
 ### Environment Variables
 
-| Variable            | Description                            |
-| ------------------- | -------------------------------------- |
-| TRAKT_CLIENT_ID     | Trakt OAuth2 application client ID     |
-| TRAKT_CLIENT_SECRET | Trakt OAuth2 application client secret |
+| Variable            | Description                                                |
+| ------------------- | ---------------------------------------------------------- |
+| TRAKT_CLIENT_ID     | Trakt OAuth2 application client ID                         |
+| TRAKT_CLIENT_SECRET | Optional; apps created since October 2026 have none issued |
 
 ### Setup
 
-Initial Trakt authentication uses the OAuth2 device code flow via `scripts/tools/setup-trakt.ts`. The script:
+Initial Trakt authentication uses the OAuth2 device code flow via `scripts/tools/setup-trakt.ts`. The OAuth endpoints are on `https://auth.trakt.tv`; data endpoints stay on `https://api.trakt.tv`. Trakt apps are managed at `https://developer.trakt.tv/apps` and require a linked GitHub account. The script:
 
 1. Requests a device code from `POST /oauth/device/code`
-2. Displays the user code and verification URL (`https://trakt.tv/activate`)
+2. Displays the user code and verification URL (`https://auth.trakt.tv/activate`)
 3. Polls `POST /oauth/device/token` until the user authorizes the app
-4. Stores the access and refresh tokens in the `trakt_tokens` table
+4. Replaces the user's row in the `trakt_tokens` table with the new access and refresh tokens
 
-Run: `npx tsx scripts/tools/setup-trakt.ts`
+Run: `npx tsx scripts/tools/setup-trakt.ts --remote` for production D1, or omit `--remote` for local D1.
 
-Tokens are automatically refreshed during sync when the access token expires.
+Tokens are automatically refreshed during sync when the access token expires. Trakt refresh tokens are single-use, so each refresh stores the new pair.
 
 ## Known Issues
 

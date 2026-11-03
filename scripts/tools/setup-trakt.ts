@@ -6,12 +6,12 @@
  * in their browser, then polls until approved.
  *
  * Prerequisites:
- *   1. Register a Trakt API app at https://trakt.tv/oauth/applications
- *   2. .dev.vars contains TRAKT_CLIENT_ID and TRAKT_CLIENT_SECRET
+ *   1. Register a Trakt API app at https://developer.trakt.tv/apps
+ *   2. .dev.vars contains TRAKT_CLIENT_ID (TRAKT_CLIENT_SECRET is optional)
  *   3. Ensure wrangler is authenticated (`npx wrangler login`)
  *
  * Usage:
- *   npx tsx scripts/setup-trakt.ts
+ *   npx tsx scripts/tools/setup-trakt.ts
  *
  * Options:
  *   --remote    Seed tokens into the remote D1 database (default: local)
@@ -21,7 +21,8 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const TRAKT_BASE_URL = 'https://api.trakt.tv';
+// Trakt requires sign-in flows on auth.trakt.tv from February 1, 2027.
+const TRAKT_AUTH_URL = 'https://auth.trakt.tv';
 const DB_NAME = 'rewind-db';
 // Trakt's Cloudflare firewall rejects requests without a User-Agent.
 const USER_AGENT = 'Rewind/1.0 (personal data aggregator)';
@@ -89,7 +90,7 @@ interface TokenResponse {
 async function requestDeviceCode(
   clientId: string
 ): Promise<DeviceCodeResponse> {
-  const response = await fetch(`${TRAKT_BASE_URL}/oauth/device/code`, {
+  const response = await fetch(`${TRAKT_AUTH_URL}/oauth/device/code`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -116,11 +117,12 @@ async function pollForToken(
   expiresIn: number
 ): Promise<TokenResponse> {
   const deadline = Date.now() + expiresIn * 1000;
+  let pollSeconds = interval;
 
   while (Date.now() < deadline) {
-    await sleep(interval * 1000);
+    await sleep(pollSeconds * 1000);
 
-    const response = await fetch(`${TRAKT_BASE_URL}/oauth/device/token`, {
+    const response = await fetch(`${TRAKT_AUTH_URL}/oauth/device/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -162,8 +164,8 @@ async function pollForToken(
     }
 
     if (response.status === 429) {
-      // Slow down -- increase interval
-      await sleep(1000);
+      // Slow down: keep the longer interval for the rest of the session.
+      pollSeconds += 5;
       continue;
     }
 

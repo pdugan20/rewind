@@ -44,7 +44,9 @@ export interface Env {
 
   // Trakt
   TRAKT_CLIENT_ID: string;
-  TRAKT_CLIENT_SECRET: string;
+  // Optional: Trakt apps created after its October 2026 auth migration are
+  // issued only a client ID.
+  TRAKT_CLIENT_SECRET?: string;
 
   // Google (Calendar + Gmail for the attending domain)
   GOOGLE_CLIENT_ID: string;
