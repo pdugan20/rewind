@@ -1,5 +1,6 @@
 const BASE_URL = 'https://api.trakt.tv';
 const API_VERSION = '2';
+const COLLECTION_PAGE_LIMIT = 250;
 
 export interface TraktMovieIds {
   trakt: number;
@@ -63,6 +64,14 @@ export class TraktClient {
   }
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
+    const { data } = await this.requestWithHeaders<T>(path, options);
+    return data;
+  }
+
+  private async requestWithHeaders<T>(
+    path: string,
+    options?: RequestInit
+  ): Promise<{ data: T; headers: Headers }> {
     const url = `${BASE_URL}${path}`;
     const response = await fetch(url, {
       ...options,
@@ -83,7 +92,7 @@ export class TraktClient {
         `[INFO] Trakt rate limited, waiting ${waitMs}ms before retry`
       );
       await new Promise((resolve) => setTimeout(resolve, waitMs));
-      return this.request<T>(path, options);
+      return this.requestWithHeaders<T>(path, options);
     }
 
     if (!response.ok) {
@@ -93,16 +102,29 @@ export class TraktClient {
       );
     }
 
-    return response.json() as Promise<T>;
+    return { data: (await response.json()) as T, headers: response.headers };
   }
 
   /**
    * Get the user's full movie collection with metadata (format, resolution, HDR, audio).
+   * Trakt paginates this endpoint (100 items by default, 250 max), so every page
+   * is fetched; a partial list would make the sync delete the missing items.
    */
   async getCollection(): Promise<TraktCollectionItem[]> {
-    return this.request<TraktCollectionItem[]>(
-      '/sync/collection/movies?extended=metadata'
-    );
+    const items: TraktCollectionItem[] = [];
+    let page = 1;
+    let pageCount: number;
+    do {
+      const { data, headers } = await this.requestWithHeaders<
+        TraktCollectionItem[]
+      >(
+        `/sync/collection/movies?extended=metadata&page=${page}&limit=${COLLECTION_PAGE_LIMIT}`
+      );
+      items.push(...data);
+      pageCount = Number(headers.get('x-pagination-page-count')) || 1;
+      page++;
+    } while (page <= pageCount);
+    return items;
   }
 
   /**

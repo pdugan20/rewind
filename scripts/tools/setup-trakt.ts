@@ -23,12 +23,14 @@ import { resolve } from 'node:path';
 
 const TRAKT_BASE_URL = 'https://api.trakt.tv';
 const DB_NAME = 'rewind-db';
+// Trakt's Cloudflare firewall rejects requests without a User-Agent.
+const USER_AGENT = 'Rewind/1.0 (personal data aggregator)';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function loadEnvVars(): { clientId: string; clientSecret: string } {
+function loadEnvVars(): { clientId: string; clientSecret?: string } {
   const devVarsPath = resolve(process.cwd(), '.dev.vars');
   const content = readFileSync(devVarsPath, 'utf-8');
   const vars: Record<string, string> = {};
@@ -39,15 +41,15 @@ function loadEnvVars(): { clientId: string; clientSecret: string } {
     }
   }
 
-  if (!vars.TRAKT_CLIENT_ID || !vars.TRAKT_CLIENT_SECRET) {
-    throw new Error(
-      'Missing TRAKT_CLIENT_ID or TRAKT_CLIENT_SECRET in .dev.vars'
-    );
+  if (!vars.TRAKT_CLIENT_ID) {
+    throw new Error('Missing TRAKT_CLIENT_ID in .dev.vars');
   }
 
+  // Apps created after Trakt's October 2026 auth migration are not issued a
+  // client secret; Trakt treats it as optional for token exchanges.
   return {
     clientId: vars.TRAKT_CLIENT_ID,
-    clientSecret: vars.TRAKT_CLIENT_SECRET,
+    clientSecret: vars.TRAKT_CLIENT_SECRET || undefined,
   };
 }
 
@@ -93,6 +95,7 @@ async function requestDeviceCode(
       'Content-Type': 'application/json',
       'trakt-api-version': '2',
       'trakt-api-key': clientId,
+      'User-Agent': USER_AGENT,
     },
     body: JSON.stringify({ client_id: clientId }),
   });
@@ -107,7 +110,7 @@ async function requestDeviceCode(
 
 async function pollForToken(
   clientId: string,
-  clientSecret: string,
+  clientSecret: string | undefined,
   deviceCode: string,
   interval: number,
   expiresIn: number
@@ -123,6 +126,7 @@ async function pollForToken(
         'Content-Type': 'application/json',
         'trakt-api-version': '2',
         'trakt-api-key': clientId,
+        'User-Agent': USER_AGENT,
       },
       body: JSON.stringify({
         code: deviceCode,
@@ -212,13 +216,11 @@ async function main(): Promise<void> {
   const expiresAt = token.created_at + token.expires_in;
   const now = new Date().toISOString();
 
-  const sql = `INSERT INTO trakt_tokens (user_id, access_token, refresh_token, expires_at, created_at, updated_at)
-VALUES (1, '${token.access_token}', '${token.refresh_token}', ${expiresAt}, '${now}', '${now}')
-ON CONFLICT DO UPDATE SET
-  access_token = '${token.access_token}',
-  refresh_token = '${token.refresh_token}',
-  expires_at = ${expiresAt},
-  updated_at = '${now}';`;
+  // trakt_tokens has no unique key on user_id, so ON CONFLICT never fires.
+  // Replace the user's row outright; the Worker reads the first row it finds.
+  const sql = `DELETE FROM trakt_tokens WHERE user_id = 1;
+INSERT INTO trakt_tokens (user_id, access_token, refresh_token, expires_at, created_at, updated_at)
+VALUES (1, '${token.access_token}', '${token.refresh_token}', ${expiresAt}, '${now}', '${now}');`;
 
   console.log(`[INFO] Storing tokens in ${target} D1...`);
   d1Execute(sql, remote);
