@@ -4448,7 +4448,6 @@
           "top_genre",
           "oldest_release_year",
           "newest_release_year",
-          "most_collected_artist",
           "added_this_year"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",

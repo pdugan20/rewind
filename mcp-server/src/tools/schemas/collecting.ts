@@ -85,7 +85,7 @@ export const collectingStatsOutputSchema = z
     top_genre: z.string().nullable(),
     oldest_release_year: z.number().nullable(),
     newest_release_year: z.number().nullable(),
-    most_collected_artist: z.unknown(),
+    most_collected_artist: z.unknown().optional(),
     added_this_year: z.number().nullable(),
   })
   .passthrough();
