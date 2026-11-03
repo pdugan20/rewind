@@ -1431,8 +1431,8 @@ function validatePackages(rootPackage, mcpPackage, problems) {
       fflate: '0.8.3',
       re2js: '2.8.7',
       '@modelcontextprotocol/sdk': '1.32.2',
-      'zod@>=4 <5': '4.6.7',
       'body-parser@^1.0.0': '1.20.9',
+      'zod@>=4 <5': '4.6.7',
     })
   ) {
     problems.push('root security overrides must stay exact and complete');
