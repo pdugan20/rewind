@@ -801,6 +801,39 @@ describe('release version handshake', () => {
   });
 });
 
+describe('tool argument validation', () => {
+  it('keeps defaults and bounds and excludes unknown arguments from API requests', async () => {
+    const { client, server, rewindClient } = await createTestClient();
+    const get = vi.mocked(rewindClient.get);
+    try {
+      const invalid = await client.callTool({
+        name: 'get_recent_listens',
+        arguments: { limit: 51 },
+      });
+      expect(invalid.isError).toBe(true);
+      expect(get).not.toHaveBeenCalled();
+
+      // Zod 4's input JSON Schema permits unknown fields; parsing still strips
+      // them, and only declared arguments may reach the Rewind API.
+      const result = await client.callTool({
+        name: 'get_recent_listens',
+        arguments: { include_images: false, injected: 'unexpected' },
+      });
+      expect(result.isError).not.toBe(true);
+      expect(get).toHaveBeenCalledExactlyOnceWith('/listening/recent', {
+        limit: 10,
+        page: 1,
+        date: undefined,
+        from: undefined,
+        to: undefined,
+      });
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+});
+
 describe('MCP Server', () => {
   let client: Client;
 

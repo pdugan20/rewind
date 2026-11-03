@@ -1421,14 +1421,18 @@ function validatePackages(rootPackage, mcpPackage, problems) {
   if (
     !sameObject(rootPackage.overrides, {
       '@esbuild-kit/core-utils': { esbuild: '0.25.12' },
-      qs: '6.16.0',
-      undici: '7.30.0',
+      qs: '6.16.1',
+      undici: '7.30.1',
       ws: '8.21.3',
       sharp: '0.35.5',
       'adm-zip': '0.6.1',
       axios: '1.20.0',
       'js-yaml@^4.0.0': '4.3.2',
       fflate: '0.8.3',
+      re2js: '2.8.7',
+      '@modelcontextprotocol/sdk': '1.32.2',
+      'body-parser@^1.0.0': '1.20.9',
+      'zod@>=4 <5': '4.6.7',
     })
   ) {
     problems.push('root security overrides must stay exact and complete');

@@ -15,6 +15,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../server.js';
 import { RewindClient } from '../client.js';
+import { collectingStatsOutputSchema } from '../tools/schemas/collecting.js';
 
 // --- Fixtures (minimal valid API responses) -------------------------------
 
@@ -168,5 +169,36 @@ describe('output-schema conformance — collecting', () => {
         '"additionalProperties":false'
       );
     }
+  });
+});
+
+describe('collecting stats compatibility', () => {
+  it('accepts missing, null and populated optional artist metadata', () => {
+    const stats = {
+      total_items: 1,
+      by_format: { vinyl: 1, future_format: 0 },
+      wantlist_count: null,
+      unique_artists: null,
+      estimated_value: null,
+      top_genre: null,
+      oldest_release_year: null,
+      newest_release_year: null,
+      added_this_year: null,
+    };
+    expect(collectingStatsOutputSchema.safeParse(stats).success).toBe(true);
+    for (const most_collected_artist of [null, { name: 'Artist' }]) {
+      expect(
+        collectingStatsOutputSchema.safeParse({
+          ...stats,
+          most_collected_artist,
+        }).success
+      ).toBe(true);
+    }
+    expect(
+      collectingStatsOutputSchema.safeParse({
+        ...stats,
+        by_format: { vinyl: 'invalid' },
+      }).success
+    ).toBe(false);
   });
 });
