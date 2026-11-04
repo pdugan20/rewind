@@ -104,6 +104,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Verify Zod 3 source backport and contracts
+        run: npm run test:zod3-backport
+
       - name: Test documentation checks
         run: npm run test:docs
 
@@ -114,12 +117,10 @@ jobs:
         run: npm exec -- tsx scripts/gen-mcp-reference.ts --check
 
       - name: Validate Mintlify content and configuration
-        run: npm exec -- mint validate
-        working-directory: docs-mintlify
+        run: npm run docs:validate
 
       - name: Check broken links
-        run: npm exec -- mint broken-links --check-anchors --check-redirects
-        working-directory: docs-mintlify
+        run: npm run docs:links
 
       - name: Install landing site dependencies
         run: npm ci --prefix docs-site --ignore-scripts

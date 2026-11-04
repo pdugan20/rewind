@@ -34,6 +34,16 @@ npm run www:build
 
 The Docs Links CI job runs these checks on every PR and main push, including the landing build and assertions that all policy pages render their title, heading, and update date. Policy-route regressions verify that the apex serves those pages without forwarding client credentials. It remains part of the required CI Gate. Automation-policy tests reject removal or conditional/continue-on-error bypass of the new docs steps. Existing product tests independently compare the runtime OpenAPI spec and MCP manifest with their snapshots.
 
+## Mintlify's Zod 3 backport
+
+The locked Mintlify packages still require Zod 3.24.0. Its constrained-collection
+bounds fix is applied during root installation, verified before the `docs:*`
+commands and tested independently in CI. [Backport provenance and rebuild steps](../vendor/README.md)
+are the source of truth. After an install that intentionally ignores scripts, run
+`npm run deps:patch` before the documentation commands. The upstream version-based
+advisory stays visible until the parent packages migrate; do not force Zod 4 into
+these consumers or suppress the alert based only on a passing audit count.
+
 ## When an API changes
 
 1. Update the route's source schema, description, and safe examples. Do not edit the generated JSON as the primary fix.

@@ -336,14 +336,15 @@ function validateCi(document, problems) {
   ) {
     problems.push('Docs must invoke the locally installed tsx generator');
   }
-  if (!docsCommands.includes('npm exec -- mint broken-links')) {
-    problems.push('Docs must invoke exact locally installed Mint');
+  if (!docsCommands.includes('npm run docs:links')) {
+    problems.push('Docs must invoke the guarded locally installed Mint script');
   }
   for (const command of [
     'npm run test:docs',
+    'npm run test:zod3-backport',
     'node scripts/check-docs.mjs',
-    'npm exec -- mint validate',
-    'npm exec -- mint broken-links --check-anchors --check-redirects',
+    'npm run docs:validate',
+    'npm run docs:links',
     'npm ci --prefix docs-site --ignore-scripts',
     'npm run www:build',
   ]) {
@@ -1436,6 +1437,20 @@ function validatePackages(rootPackage, mcpPackage, problems) {
     })
   ) {
     problems.push('root security overrides must stay exact and complete');
+  }
+  for (const [name, command] of Object.entries({
+    postinstall: 'node scripts/patch-zod3.mjs --apply',
+    'deps:patch': 'node scripts/patch-zod3.mjs --apply',
+    'test:zod3-backport': 'node --test scripts/zod3-backport.test.mjs',
+    'docs:dev':
+      'node scripts/patch-zod3.mjs --check && cd docs-mintlify && mint dev',
+    'docs:validate':
+      'node scripts/patch-zod3.mjs --check && cd docs-mintlify && mint validate',
+    'docs:links':
+      'node scripts/patch-zod3.mjs --check && cd docs-mintlify && mint broken-links --check-anchors --check-redirects',
+  })) {
+    if (rootPackage.scripts?.[name] !== command)
+      problems.push(`Zod 3 backport gate must not be bypassed: ${name}`);
   }
   if (rootPackage.scripts?.['lint:claude'] !== 'claudelint') {
     problems.push('lint:claude must invoke the local binary');
@@ -3094,9 +3109,10 @@ test('documentation checks cannot be removed or made optional', () => {
   );
   for (const command of [
     'npm run test:docs',
+    'npm run test:zod3-backport',
     'node scripts/check-docs.mjs',
-    'npm exec -- mint validate',
-    'npm exec -- mint broken-links --check-anchors --check-redirects',
+    'npm run docs:validate',
+    'npm run docs:links',
     'npm run www:build',
   ]) {
     for (const bypass of ['remove', 'if', 'continue-on-error']) {
@@ -3187,6 +3203,36 @@ test('rejects changed shell environment bindings for deployment guards', () => {
         problems
       );
       assert.ok(problems.length > 0, `${file} must reject ${value}`);
+    }
+  }
+});
+
+test('install and Mintlify entry points cannot bypass the source-checked backport', () => {
+  const baseline = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  const mcp = JSON.parse(
+    readFileSync(join(ROOT, 'mcp-server/package.json'), 'utf8')
+  );
+  for (const name of [
+    'postinstall',
+    'deps:patch',
+    'test:zod3-backport',
+    'docs:dev',
+    'docs:validate',
+    'docs:links',
+  ]) {
+    for (const replacement of [
+      undefined,
+      'true',
+      baseline.scripts[name] + ' || true',
+    ]) {
+      const changed = structuredClone(baseline);
+      changed.scripts[name] = replacement;
+      const problems = [];
+      validatePackages(changed, mcp, problems);
+      assert.ok(
+        problems.includes(`Zod 3 backport gate must not be bypassed: ${name}`),
+        `${name}: ${replacement}`
+      );
     }
   }
 });

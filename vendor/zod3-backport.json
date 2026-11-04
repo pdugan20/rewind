@@ -1,0 +1,22 @@
+{
+  "name": "zod",
+  "version": "3.24.0",
+  "upstreamTarball": "https://registry.npmjs.org/zod/-/zod-3.24.0.tgz",
+  "upstreamSHA256": "341676f329d264f43a8c2efeb25ccf7f0f880e2fe7a9d9f1c176c71bd9d66e31",
+  "upstreamFix": "https://github.com/colinhacks/zod/commit/a0ebf970f2d752e5f58527cd2942ff48be4f46bd",
+  "advisory": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+  "files": {
+    "lib/index.mjs": {
+      "upstreamSHA256": "3d8ac4b0c061006b64115d49088432e9d9a9751bde766d78173094e03626edc4",
+      "patchedSHA256": "8a7029fe406ab00dcf4c846fa2e5b9aacdf2a22f99c9d150f8bee8975bde725d"
+    },
+    "lib/index.umd.js": {
+      "upstreamSHA256": "df4b2adb3c99f22cf0b1915109fa27cb1ea2d7064ea0a8a221cd8cd3a9c880ea",
+      "patchedSHA256": "12d5b4c2406aa2333bdde27e4fc5979fca6fb0825b67c020c6cea194b32144e6"
+    },
+    "lib/types.js": {
+      "upstreamSHA256": "c58dcf331018b322ab0837d65bcf1a7fcb05e99effab5e1539d03450d9f5312d",
+      "patchedSHA256": "e04c18c8959740f4174ae933b43df4a5bb1731dd0be7b3f42b72a9e11b115902"
+    }
+  }
+}
