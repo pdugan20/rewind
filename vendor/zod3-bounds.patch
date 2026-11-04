@@ -1,0 +1,111 @@
+--- a/lib/types.js
++++ b/lib/types.js
+@@ -1815,6 +1815,7 @@
+                     exact: true,
+                     message: def.exactLength.message,
+                 });
++                if (tooBig) return parseUtil_1.INVALID;
+                 status.dirty();
+             }
+         }
+@@ -1841,7 +1842,7 @@
+                     exact: false,
+                     message: def.maxLength.message,
+                 });
+-                status.dirty();
++                return parseUtil_1.INVALID;
+             }
+         }
+         if (ctx.common.async) {
+@@ -2673,7 +2674,7 @@
+                 exact: false,
+                 type: "array",
+             });
+-            status.dirty();
++            return parseUtil_1.INVALID;
+         }
+         const items = [...ctx.data]
+             .map((item, itemIndex) => {
+@@ -2872,7 +2873,7 @@
+                     exact: false,
+                     message: def.maxSize.message,
+                 });
+-                status.dirty();
++                return parseUtil_1.INVALID;
+             }
+         }
+         const valueType = this._def.valueType;
+--- a/lib/index.mjs
++++ b/lib/index.mjs
+@@ -2331,6 +2331,7 @@
+                     exact: true,
+                     message: def.exactLength.message,
+                 });
++                if (tooBig) return INVALID;
+                 status.dirty();
+             }
+         }
+@@ -2357,7 +2358,7 @@
+                     exact: false,
+                     message: def.maxLength.message,
+                 });
+-                status.dirty();
++                return INVALID;
+             }
+         }
+         if (ctx.common.async) {
+@@ -3183,7 +3184,7 @@
+                 exact: false,
+                 type: "array",
+             });
+-            status.dirty();
++            return INVALID;
+         }
+         const items = [...ctx.data]
+             .map((item, itemIndex) => {
+@@ -3379,7 +3380,7 @@
+                     exact: false,
+                     message: def.maxSize.message,
+                 });
+-                status.dirty();
++                return INVALID;
+             }
+         }
+         const valueType = this._def.valueType;
+--- a/lib/index.umd.js
++++ b/lib/index.umd.js
+@@ -2337,6 +2337,7 @@
+                         exact: true,
+                         message: def.exactLength.message,
+                     });
++                    if (tooBig) return INVALID;
+                     status.dirty();
+                 }
+             }
+@@ -2363,7 +2364,7 @@
+                         exact: false,
+                         message: def.maxLength.message,
+                     });
+-                    status.dirty();
++                    return INVALID;
+                 }
+             }
+             if (ctx.common.async) {
+@@ -3189,7 +3190,7 @@
+                     exact: false,
+                     type: "array",
+                 });
+-                status.dirty();
++                return INVALID;
+             }
+             const items = [...ctx.data]
+                 .map((item, itemIndex) => {
+@@ -3385,7 +3386,7 @@
+                         exact: false,
+                         message: def.maxSize.message,
+                     });
+-                    status.dirty();
++                    return INVALID;
+                 }
+             }
+             const valueType = this._def.valueType;

@@ -43,9 +43,9 @@
     "www:dev": "cd docs-site && npx astro dev",
     "www:build": "cd docs-site && npx astro build && node ../scripts/check-policy-build.mjs",
     "www:deploy": "cd docs-site && npx astro build && npx wrangler pages deploy dist --project-name rewind-www --commit-dirty=true",
-    "docs:dev": "cd docs-mintlify && mint dev",
-    "docs:validate": "cd docs-mintlify && mint validate",
-    "docs:links": "cd docs-mintlify && mint broken-links --check-anchors --check-redirects",
+    "docs:dev": "node scripts/patch-zod3.mjs --check && cd docs-mintlify && mint dev",
+    "docs:validate": "node scripts/patch-zod3.mjs --check && cd docs-mintlify && mint validate",
+    "docs:links": "node scripts/patch-zod3.mjs --check && cd docs-mintlify && mint broken-links --check-anchors --check-redirects",
     "docs:gen-mcp": "tsx scripts/gen-mcp-reference.ts",
     "prepare": "husky",
     "test:cd-artwork": "vitest run -c vitest.cd-artwork.config.ts && node --test scripts/cd-artwork/pipeline.test.mjs scripts/cd-artwork/build.test.mjs",
@@ -55,7 +55,11 @@
     "deploy:worker": "node scripts/deploy-worker.mjs root",
     "deploy:artwork": "node scripts/deploy-worker.mjs artwork",
     "deployment:source-check": "node scripts/deploy-worker.mjs root --source-check",
-    "deployment:check": "node scripts/deploy-worker.mjs root --check && node scripts/deploy-worker.mjs artwork --check"
+    "deployment:check": "node scripts/deploy-worker.mjs root --check && node scripts/deploy-worker.mjs artwork --check",
+    "vendor:zod3": "node scripts/build-zod3-backport.mjs",
+    "postinstall": "node scripts/patch-zod3.mjs --apply",
+    "deps:patch": "node scripts/patch-zod3.mjs --apply",
+    "test:zod3-backport": "node --test scripts/zod3-backport.test.mjs"
   },
   "lint-staged": {
     "*.{js,ts,tsx}": [

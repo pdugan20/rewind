@@ -68,6 +68,16 @@ images go to OpenAI and reading text to Voyage for embeddings
    provenance, and release automation has the least write access it needs
    (`.github/workflows/release-please.yml`).
 
+## Development-tool validation
+
+The locked Mintlify toolchain uses a source-checked Zod 3 bounds backport applied
+by root installation. The `docs:*` commands and CI verify every installed runtime
+copy before use. It rejects constrained oversized collections before element
+traversal, preserving the tool's Zod 3 API; it is not a global input, issue-count or
+process-memory limit. [Provenance, scope and rebuild instructions](../../vendor/README.md)
+own these details. Upstream version-based advisories remain visible rather than
+being dismissed. Application and MCP dependencies stay on patched Zod 4.
+
 ## Review priorities
 
 Review webhook handlers that write or delete, then authorization and exports, then
