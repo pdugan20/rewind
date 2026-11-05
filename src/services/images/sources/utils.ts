@@ -106,9 +106,21 @@ export function foldAccents(value: string): string {
   return value.normalize('NFKD').replace(/\p{M}/gu, '');
 }
 
+/** Typography-only artist credit key. Preserve every credited participant,
+ * articles and numbers; a conjunction's spelling does not change identity. */
+export function artistCreditKey(value: string): string {
+  return foldAccents(value)
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/['’‘`]/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
 /** An artist name as the Apple Music and iTunes checks compare it. */
 function artistKey(name: string): string {
-  return stripThe(normalize(foldAccents(cleanArtistName(name))));
+  return stripThe(normalize(artistCreditKey(cleanArtistName(name))));
 }
 
 /**

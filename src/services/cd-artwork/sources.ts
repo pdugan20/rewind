@@ -4,6 +4,7 @@ import { artworkArtistMatches } from './identity.js';
 
 export class ArtworkError extends Error {
   sourceAttempts?: Array<{ source: string; outcome: string; code?: string }>;
+  identityEvidence?: Record<string, unknown>;
   constructor(
     public code: string,
     public status = 422,
@@ -150,6 +151,9 @@ export async function catalogIdentityProof(
     title,
     releaseGroupId: group.id,
     releaseDate: group['first-release-date'] ?? record.date ?? null,
+    releaseDateSource: group['first-release-date']
+      ? 'musicbrainz_release_group_earliest'
+      : 'musicbrainz_release',
     live: group['secondary-types']?.includes('Live') === true,
     titleAliasVerified: !!sameAlias,
   };

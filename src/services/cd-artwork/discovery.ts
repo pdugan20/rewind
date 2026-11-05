@@ -73,8 +73,16 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
     retryAfter = 0,
     capacityRetry = false;
   let generationJobId: string | undefined;
+  let catalogIdentity: Record<string, unknown> | undefined;
   try {
     const album = await ownedAlbum(env, row.album_id, row.user_id);
+    catalogIdentity = {
+      name: album.name,
+      artist: album.artist,
+      mbid: album.mbid,
+      artist_mbid: album.artist_mbid,
+      apple_music_id: album.apple_music_id,
+    };
     const control = await env.DB.prepare(
       'SELECT automatic_enabled FROM cd_artwork_control WHERE id=1'
     ).first<{ automatic_enabled: number }>();
@@ -179,6 +187,9 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
       ...(error instanceof ArtworkError && error.sourceAttempts
         ? { source_attempts: error.sourceAttempts }
         : {}),
+      ...(error instanceof ArtworkError && error.identityEvidence
+        ? { identity_evidence: error.identityEvidence }
+        : {}),
     };
     if (outcome === 'catalog_changed') retryAfter = 60;
     if (outcome === 'error')
@@ -196,6 +207,7 @@ export async function checkListeningArtwork(env: ArtworkEnv, checkId: number) {
       JSON.stringify({
         ...(evidence as Record<string, unknown>),
         discovery_policy: DISCOVERY_POLICY,
+        ...(catalogIdentity ? { catalog_identity: catalogIdentity } : {}),
       }),
       now(),
       new Date(Date.now() + Math.max(WEEK, retryAfter * 1000)).toISOString(),

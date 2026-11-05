@@ -79,6 +79,7 @@ const lookup = {
       collectionId: 123,
       collectionName: 'Synthetic album',
       artistName: 'Synthetic artist',
+      trackCount: 1,
       artworkUrl100: 'https://is1-ssl.mzstatic.com/synthetic/100x100bb.jpg',
     },
     {
@@ -94,6 +95,7 @@ const appleAlbum = {
   attributes: {
     name: 'Synthetic album',
     artistName: 'Synthetic artist',
+    trackCount: 1,
     artwork: { url: 'https://is1-ssl.mzstatic.com/synthetic/{w}x{h}bb.jpg' },
   },
   relationships: {
@@ -780,7 +782,7 @@ it('authenticated Apple catalog verifies a cover without requiring a CD edition'
     })
   );
 });
-it('recovers a stale stored catalog ID through a unique album, artist and track proof', async () => {
+it('holds a contradictory stored catalog ID even when search offers a matching album', async () => {
   await play();
   const corrected = structuredClone(appleAlbum);
   corrected.id = '789';
@@ -797,14 +799,17 @@ it('recovers a stale stored catalog ID through a unique album, artist and track 
         : { data: [u.includes('/albums/789?') ? corrected : stale] }
     );
   });
-  const result = await verifiedCover(
-    { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
-    1,
-    1,
-    await ownedAlbum(runtime, 1, 1)
-  );
-  expect(result.discovery.collection_id).toBe('789');
-  expect(result.discovery.observed_track_verified).toBe(true);
+  await expect(
+    verifiedCover(
+      { ...runtime, APPLE_MUSIC_DEVELOPER_TOKEN: 'synthetic-apple-token' },
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1)
+    )
+  ).rejects.toMatchObject({
+    code: 'cover_identity_unverified',
+    identityEvidence: { reason: 'contradictory_stored_catalog_binding' },
+  });
   expect((await ownedAlbum(runtime, 1, 1)).apple_music_id).toBe(123);
 });
 it('accepts featured song credits while keeping collection artist and track membership checks', async () => {
@@ -1111,7 +1116,7 @@ it.each([
       1,
       await ownedAlbum(runtime, 1, 1)
     );
-    if (['proven', 'unbound', 'bound-undated'].includes(mode))
+    if (!['missing-track', 'changed-lookup'].includes(mode))
       expect((await selected).discovery).toMatchObject({
         collection_id: '123',
         observed_track_verified: true,
@@ -1124,15 +1129,21 @@ it.each([
   }
 );
 
-it('wrong album, track or ambiguous search never schedules paid work', async () => {
+it('fresh catalog identity can disambiguate an incomplete search result without scheduling paid work', async () => {
   providers({ searchAmbiguous: true });
   await play();
   await runtime.DB.exec(
     'UPDATE lastfm_albums SET apple_music_id=NULL WHERE id=1;'
   );
-  await expect(
-    verifiedCover(runtime, 1, 1, await ownedAlbum(runtime, 1, 1))
-  ).rejects.toMatchObject({ code: 'cover_identity_ambiguous' });
+  expect(
+    (await verifiedCover(runtime, 1, 1, await ownedAlbum(runtime, 1, 1)))
+      .discovery.collection_id
+  ).toBe('123');
+  expect(
+    (await runtime.DB.prepare('SELECT COUNT(*) n FROM cd_artwork_jobs').first<{
+      n: number;
+    }>())!.n
+  ).toBe(0);
 });
 it('does not fall back to paid cover generation when the retail provider is unavailable', async () => {
   await play();

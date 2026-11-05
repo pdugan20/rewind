@@ -34,6 +34,10 @@ import {
 import { fileUnderCatalogArtist } from '../apple-music/album-attribution.js';
 import { releaseTitleMatches } from '../apple-music/match.js';
 import { VARIOUS_ARTISTS_NAME } from '../lastfm/constants.js';
+import {
+  CATALOG_EVIDENCE_CHANGED,
+  RECOVERABLE_DISCOVERY_CODES,
+} from '../cd-artwork/discovery-policy.js';
 import { resolveOwnedCatalogAlbum } from '../apple-music/resolve-owned-album.js';
 import {
   searchItunes,
@@ -483,8 +487,8 @@ async function applyAlbumPlan(
  * songs is played (the listen trigger, migration 0051). Moved plays count as
  * plays of the compilation, so do both here; otherwise the compilation would
  * wait for another play. The same conditions apply: automatic processing on,
- * not pinned or held for review, not checked recently, and no accepted retail
- * art. Its next play would do this too, so a failure is only logged.
+ * not pinned or held for review, and no accepted retail art. Changed catalog
+ * evidence may reconsider an identity failure during its old cooldown.
  */
 export async function enrollForDiscArt(
   db: Database,
@@ -517,7 +521,18 @@ export async function enrollForDiscArt(
         AND c.pinned=0 AND c.review_hold=0
         AND (SELECT enabled FROM cd_artwork_control WHERE id=1)=1
         AND (c.release_id<>'' OR (c.user_id=1 AND (SELECT automatic_enabled FROM cd_artwork_control WHERE id=1)=1))
-        AND (c.last_checked_at IS NULL OR c.next_check<=strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        AND (c.last_checked_at IS NULL OR c.next_check<=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          OR (c.discovery_outcome IN ('identity_required','source_unavailable')
+            AND c.active_job IS NULL AND c.hidden_job IS NULL
+            AND json_extract(c.discovery_evidence,'$.code') IN (${sql.join(
+              RECOVERABLE_DISCOVERY_CODES.map((code) => sql`${code}`),
+              sql`,`
+            )})
+            AND (${sql.raw(CATALOG_EVIDENCE_CHANGED)})))
+        AND NOT EXISTS (SELECT 1 FROM cd_artwork_jobs pending
+          WHERE pending.user_id=c.user_id AND pending.album_id=c.album_id
+            AND (pending.state IN ('queued','submitted','provider_unknown','pending')
+              OR (pending.state='needs_registration' AND COALESCE(pending.validation_state,'') IN ('','claimed','passed'))))
         AND NOT (COALESCE(j.state,'')='accepted' AND COALESCE(json_extract(j.input,'$.source_kind'),'')='retail')
         AND EXISTS (${eligiblePlay})`);
   } catch (error) {
