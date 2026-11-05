@@ -108,9 +108,67 @@ For a new rollout, review the actual migration and Worker changes before enablin
 
 A stored Apple binding is verified even when a retail scan is available; contradictory metadata stays a hold. Provider outages can use independently verified cover art while retail lookup remains pending with backoff. Migration 0050 enforces one unfinished automatic job per album across source transitions. The retail retry waits for the cover job to finish and then uses the accepted cover as the expected active asset for an upgrade.
 
-Configure the existing `APPLE_MUSIC_DEVELOPER_TOKEN` as an artwork Worker secret to use authenticated Apple Music catalog search and album-owned tracks for cover verification. The public iTunes catalog remains available when that secret is absent. Both paths enforce the same exact artist/album and observed-track checks; credentials are sent only to the Apple Music API and authenticated requests never follow redirects. Renew expiring developer tokens using the existing private signing-key procedure without recording credentials in release evidence.
+Configure the existing `APPLE_MUSIC_DEVELOPER_TOKEN` as an artwork Worker secret to use authenticated Apple Music catalog search and album-owned tracks for cover verification. The public iTunes catalog remains available when that secret is absent. Both paths enforce the same normalized artist/album and observed-track checks; credentials are sent only to the Apple Music API and authenticated requests never follow redirects. Renew expiring developer tokens using the existing private signing-key procedure without recording credentials in release evidence.
 
 Automatic retail searches filter CD/HDCD releases. Later cover upgrades retain the original verified edition first and can inspect alternative CD editions within the same proven release group, capped at three distinct IDs overall. Existing retail art and pins are preserved. Album-cover generation itself never requires a CD release.
+
+## Album identity decisions
+
+Cover verification recognizes supported edition labels and artist-credit typography,
+including `and` and `&`, without removing credited participants. A saved catalog ID
+must still pass fresh artist, album and played-track checks. Contradictory saved
+metadata remains a hold. Live, remix, rerecorded and distinct-title qualifiers are
+not discarded to manufacture an album match.
+
+When search returns several matching editions, discovery verifies their catalog
+tracklists. Identical tracklists or a standard tracklist contained in a deluxe
+edition can supply representative cover artwork. Otherwise at least two distinct
+observed songs must uniquely distinguish the selected album. Repeated plays of
+one song do not count as multiple pieces of evidence. Selection is bounded and
+stable; it does not claim ownership of a particular pressing.
+
+Dates are supporting metadata, not an equality requirement. A release group's
+earliest date can describe a promotional release, while a storefront describes
+a commercial release or reissue. Private discovery evidence retains candidate
+IDs, bounded titles and credits, provider dates, track-match counts, the selection
+rule and symbolic rejection reasons. It excludes credentials and provider error
+messages and is not added to public artwork attachments.
+
+Completed discovery stores the catalog identity used for the attempt. Enrichment
+or scheduled recovery can reconsider an identity/source hold during its old
+cooldown when that identity changes. Timestamps alone do not qualify. Policy
+recovery remains bounded and preserves pins, hidden/review holds, accepted artwork,
+pending checks and unfinished generation. Changing the discovery policy makes
+older eligible failures available to the existing scheduler after an authorized
+release; it does not authorize an immediate historical generation batch.
+
+### Read-only comparison
+
+`scripts/cd-artwork/compare-identity.ts` compares a saved baseline module with the
+working cover verifier using the same private, owner-scoped input snapshot and
+cached catalog responses. The harness has no live D1 client or dispatcher. Its
+network allowlist permits only Apple/iTunes/MusicBrainz catalog GETs; source image
+downloads, artwork APIs and generation requests are denied. Provider errors are
+inconclusive, not matches. This checks cover identity, not retail scan availability,
+image quality or generation success.
+
+Bundle the baseline verifier before editing with the project's installed esbuild,
+export the selected album metadata and at most eight recent observed track names
+per album using SELECT-only queries, then run:
+
+```sh
+node --import tsx scripts/cd-artwork/compare-identity.ts \
+  --snapshot /private/path/snapshot.json \
+  --baseline /private/path/baseline.mjs \
+  --output /private/path/comparison.json \
+  --cache /private/path/catalog-cache \
+  --env-file .dev.vars
+```
+
+Keep inputs, catalog caches and detailed output outside tracked source. Share
+aggregate results and review genuine identity conflicts before authorizing any
+deployment or replay. The comparison itself does not change artwork or listening
+history.
 
 ## Generic fallback publication
 

@@ -17,7 +17,11 @@ import {
   lastfmTracks,
 } from '../../db/schema/lastfm.js';
 import { setupTestDb } from '../../test-helpers.js';
-import { enrichNewAlbums, reviewAlbums } from './album-enrich.js';
+import {
+  enrichNewAlbums,
+  reviewAlbums,
+  enrollForDiscArt,
+} from './album-enrich.js';
 import { enrichBatch } from './enrich.js';
 
 const db = createDb(env.DB);
@@ -32,7 +36,7 @@ beforeAll(setupTestDb);
 beforeEach(async () => {
   minute = 0;
   await env.DB.exec(
-    'DELETE FROM lastfm_album_attribution_audit; DELETE FROM cd_artwork_checks; DELETE FROM cd_artwork_albums; DELETE FROM lastfm_scrobbles; DELETE FROM lastfm_tracks; DELETE FROM lastfm_albums; DELETE FROM lastfm_artists;'
+    'DELETE FROM lastfm_album_attribution_audit; DELETE FROM cd_artwork_events; DELETE FROM cd_artwork_checks; DELETE FROM cd_artwork_albums; DELETE FROM cd_artwork_jobs; DELETE FROM lastfm_scrobbles; DELETE FROM lastfm_tracks; DELETE FROM lastfm_albums; DELETE FROM lastfm_artists;'
   );
   // Disc-art enrollment on play stays off unless a test turns it on.
   await env.DB.exec(
@@ -171,6 +175,130 @@ const playAlbum = async (trackId: number) =>
 const songAlbum = async (trackId: number) =>
   (await db.select().from(lastfmTracks).where(eq(lastfmTracks.id, trackId)))[0]
     .albumId;
+
+it('post-enrichment artwork admission bypasses cooldown only for changed identity evidence', async () => {
+  await env.DB.exec(
+    "UPDATE cd_artwork_control SET automatic_enabled=1,enroll_since='2020-01-01' WHERE id=1"
+  );
+  const song = await played('Synthetic artist', 'Synthetic song', {
+    album: 'Synthetic album',
+  });
+  const albumId = song.split.id;
+  const storedAlbum = await album(albumId);
+  const snapshot = {
+    name: storedAlbum.name,
+    artist: 'Synthetic artist',
+    mbid: storedAlbum.mbid,
+    artist_mbid: null,
+    apple_music_id: storedAlbum.appleMusicId,
+  };
+  await env.DB.exec(
+    "UPDATE cd_artwork_checks SET completed_at='2026-11-01',outcome='identity_required'"
+  );
+  await env.DB.prepare(
+    "UPDATE cd_artwork_albums SET last_checked_at='2026-11-01',next_check='2099-01-01',discovery_outcome='identity_required',discovery_evidence=? WHERE album_id=? AND user_id=1"
+  )
+    .bind(
+      JSON.stringify({
+        code: 'cover_identity_unverified',
+        catalog_identity: snapshot,
+      }),
+      albumId
+    )
+    .run();
+  const count = async () =>
+    (await env.DB.prepare(
+      'SELECT COUNT(*) n FROM cd_artwork_checks WHERE completed_at IS NULL'
+    ).first<{ n: number }>())!.n;
+  await enrollForDiscArt(db, 1, albumId);
+  expect(await count()).toBe(0);
+  await env.DB.prepare(
+    'UPDATE lastfm_albums SET apple_music_id=123 WHERE id=? AND user_id=1'
+  )
+    .bind(albumId)
+    .run();
+  await enrollForDiscArt(db, 1, albumId);
+  await enrollForDiscArt(db, 1, albumId);
+  expect(await count()).toBe(1);
+});
+
+it.each([
+  'accepted_cover',
+  'pending_manual',
+  'hidden',
+  'pinned',
+  'review_hold',
+  'other_owner',
+  'identity_conflict',
+  'disabled',
+])('changed-evidence cooldown bypass preserves %s', async (mode) => {
+  await env.DB.exec(
+    "UPDATE cd_artwork_control SET automatic_enabled=1,enroll_since='2020-01-01' WHERE id=1"
+  );
+  const item = await played('Synthetic artist', 'Synthetic song', {
+    album: 'Synthetic album',
+  });
+  const id = item.split.id;
+  const snapshot = {
+    name: 'Synthetic album',
+    artist: 'Synthetic artist',
+    mbid: null,
+    artist_mbid: null,
+    apple_music_id: null,
+  };
+  await env.DB.exec(
+    "UPDATE cd_artwork_checks SET completed_at='2026-11-01',outcome='identity_required'"
+  );
+  await env.DB.prepare(
+    "UPDATE cd_artwork_albums SET last_checked_at='2026-11-01',next_check='2099-01-01',discovery_outcome='identity_required',discovery_evidence=? WHERE user_id=1 AND album_id=?"
+  )
+    .bind(
+      JSON.stringify({
+        code: 'cover_identity_unverified',
+        catalog_identity: snapshot,
+      }),
+      id
+    )
+    .run();
+  await env.DB.prepare(
+    'UPDATE lastfm_albums SET apple_music_id=123 WHERE user_id=1 AND id=?'
+  )
+    .bind(id)
+    .run();
+  if (mode === 'accepted_cover' || mode === 'pending_manual') {
+    await env.DB.prepare(
+      "INSERT INTO cd_artwork_jobs(id,user_id,album_id,state,input,source_hash,source_key,source_mime,provenance,automatic,created_at,updated_at) VALUES('manual',1,?,?,?, 'hash','key','image/png','{}',0,'2026-01-01','2026-01-01')"
+    )
+      .bind(
+        id,
+        mode === 'accepted_cover' ? 'accepted' : 'queued',
+        JSON.stringify({ source_kind: 'cover' })
+      )
+      .run();
+    if (mode === 'accepted_cover')
+      await env.DB.prepare(
+        "UPDATE cd_artwork_albums SET active_job='manual' WHERE user_id=1 AND album_id=?"
+      )
+        .bind(id)
+        .run();
+  } else {
+    const mutations: Record<string, string> = {
+      hidden: "UPDATE cd_artwork_albums SET hidden_job='hidden'",
+      pinned: 'UPDATE cd_artwork_albums SET pinned=1',
+      review_hold: 'UPDATE cd_artwork_albums SET review_hold=1',
+      other_owner: 'UPDATE lastfm_albums SET user_id=2',
+      identity_conflict: 'UPDATE lastfm_albums SET identity_conflict=1',
+      disabled: 'UPDATE cd_artwork_control SET enabled=0',
+    };
+    await env.DB.exec(mutations[mode]);
+  }
+  await enrollForDiscArt(db, 1, id);
+  expect(
+    (await env.DB.prepare(
+      'SELECT COUNT(*) n FROM cd_artwork_checks WHERE completed_at IS NULL'
+    ).first<{ n: number }>())!.n
+  ).toBe(0);
+});
 
 describe('album checks', () => {
   it('files soundtrack plays under one Various Artists album, including songs that live elsewhere', async () => {

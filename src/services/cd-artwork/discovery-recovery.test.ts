@@ -111,6 +111,59 @@ it('bounds each run and skips already tried policies', async () => {
   expect(await pending()).toHaveLength(4);
   expect((await pending()).some((row) => row.album_id === 5)).toBe(false);
 });
+it('reconsiders changed catalog evidence during cooldown, but not timestamps or unchanged evidence', async () => {
+  await failure(1, 'cover_identity_unverified', DISCOVERY_POLICY);
+  const snapshot = {
+    name: 'Synthetic 1',
+    artist: 'Synthetic 1',
+    mbid: null,
+    artist_mbid: null,
+    apple_music_id: null,
+  };
+  await runtime.DB.prepare(
+    'UPDATE cd_artwork_albums SET discovery_evidence=? WHERE user_id=1 AND album_id=1'
+  )
+    .bind(
+      JSON.stringify({
+        code: 'cover_identity_unverified',
+        discovery_policy: DISCOVERY_POLICY,
+        catalog_identity: snapshot,
+      })
+    )
+    .run();
+  await runtime.DB.exec(
+    "UPDATE lastfm_albums SET updated_at='2026-11-05' WHERE id=1"
+  );
+  await recoverDiscoveryFailures(runtime);
+  expect(await pending()).toEqual([]);
+  await runtime.DB.exec(
+    'UPDATE lastfm_albums SET apple_music_id=123 WHERE id=1'
+  );
+  await recoverDiscoveryFailures(runtime);
+  expect(await pending()).toEqual([{ album_id: 1 }]);
+  await runtime.DB.exec(
+    "UPDATE cd_artwork_checks SET completed_at='2026-11-05',outcome='identity_required' WHERE completed_at IS NULL"
+  );
+  await runtime.DB.prepare(
+    'UPDATE cd_artwork_albums SET discovery_evidence=? WHERE user_id=1 AND album_id=1'
+  )
+    .bind(
+      JSON.stringify({
+        code: 'cover_identity_unverified',
+        discovery_policy: DISCOVERY_POLICY,
+        catalog_identity: { ...snapshot, apple_music_id: 123 },
+      })
+    )
+    .run();
+  await recoverDiscoveryFailures(runtime);
+  expect(await pending()).toEqual([]);
+  // A second meaningful correction is eligible under the same policy.
+  await runtime.DB.exec(
+    'UPDATE lastfm_albums SET apple_music_id=124 WHERE id=1'
+  );
+  await recoverDiscoveryFailures(runtime);
+  expect(await pending()).toEqual([{ album_id: 1 }]);
+});
 it.each([
   'disabled',
   'automatic_disabled',

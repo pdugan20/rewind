@@ -2,6 +2,7 @@ import type { ArtworkEnv } from './types.js';
 import {
   DISCOVERY_POLICY,
   RECOVERABLE_DISCOVERY_CODES,
+  CATALOG_EVIDENCE_CHANGED,
 } from './discovery-policy.js';
 
 // Reuse this predicate for selection AND atomic admission. Recovery operates
@@ -14,22 +15,27 @@ const eligible = `c.user_id=1 AND c.active_job IS NULL AND c.hidden_job IS NULL
     AND a.identity_conflict=0 AND r.identity_conflict=0)
   AND c.discovery_outcome IN ('identity_required','source_unavailable')
   AND json_extract(c.discovery_evidence,'$.code') IN (${RECOVERABLE_DISCOVERY_CODES.map(() => '?').join(',')})
-  AND COALESCE(json_extract(c.discovery_evidence,'$.discovery_policy'),'')<>?
+  AND ((COALESCE(json_extract(c.discovery_evidence,'$.discovery_policy'),'')<>?
+    AND NOT EXISTS (SELECT 1 FROM cd_artwork_events e WHERE e.user_id=c.user_id AND e.album_id=c.album_id
+      AND e.action='discovery-policy-retry' AND json_extract(e.details,'$.policy')=?))
+    OR EXISTS (SELECT 1 FROM lastfm_albums a JOIN lastfm_artists r ON r.id=a.artist_id AND r.user_id=a.user_id
+      WHERE a.id=c.album_id AND a.user_id=c.user_id AND (${CATALOG_EVIDENCE_CHANGED})))
   AND EXISTS (SELECT 1 FROM cd_artwork_checks k WHERE k.user_id=c.user_id AND k.album_id=c.album_id
     AND k.completed_at IS NOT NULL AND k.outcome IN ('identity_required','source_unavailable'))
   AND NOT EXISTS (SELECT 1 FROM cd_artwork_checks k WHERE k.user_id=c.user_id AND k.album_id=c.album_id AND k.completed_at IS NULL)
   AND NOT EXISTS (SELECT 1 FROM cd_artwork_jobs j WHERE j.user_id=c.user_id AND j.album_id=c.album_id
     AND (j.state IN ('queued','submitted','provider_unknown','pending')
       OR (j.state='needs_registration' AND COALESCE(j.validation_state,'') IN ('','claimed','passed'))))
-  AND NOT EXISTS (SELECT 1 FROM cd_artwork_events e WHERE e.user_id=c.user_id AND e.album_id=c.album_id
-    AND e.action='discovery-policy-retry' AND json_extract(e.details,'$.policy')=?)`;
+  `;
 const bindings = [
   ...RECOVERABLE_DISCOVERY_CODES,
   DISCOVERY_POLICY,
   DISCOVERY_POLICY,
 ];
 
-/** At most two stale source failures per scheduled run, once per policy.
+/** At most two stale source failures per scheduled run, once per policy or
+ * meaningful catalog-evidence revision. A completed attempt saves the snapshot
+ * again, so timestamps and repeated identical enrichment cannot re-admit it.
  * The existing unique pending-check index plus a transactional admission/event
  * pair protects concurrent schedulers. No active artwork or history is reset. */
 export async function recoverDiscoveryFailures(env: ArtworkEnv) {
