@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1](https://github.com/pdugan20/rewind/compare/v1.1.0...v1.1.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** patch high-severity dependency alerts ([#384](https://github.com/pdugan20/rewind/issues/384)) ([75413f9](https://github.com/pdugan20/rewind/commit/75413f9c3043d27d1532a945b9d784ddc1189064))
+* **listening:** recover catalog matches and artwork status ([#363](https://github.com/pdugan20/rewind/issues/363)) ([d88a772](https://github.com/pdugan20/rewind/commit/d88a77216cf4cc53151416f3474033dbdc7b8a44))
+* **mcp:** regenerate UI bundles for vite 8.3.2 ([#350](https://github.com/pdugan20/rewind/issues/350)) ([52baca9](https://github.com/pdugan20/rewind/commit/52baca9b89102848a84a7ecca4aa558ac1781992))
+
 ## [1.1.0](https://github.com/pdugan20/rewind/compare/v1.0.1...v1.1.0) (2026-10-12)
 
 
