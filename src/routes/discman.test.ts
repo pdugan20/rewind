@@ -16,6 +16,7 @@ import { DiscmanSnapshot } from '../services/discman/schema.js';
 import {
   buildDiscmanSnapshot,
   publishDiscmanSnapshot,
+  selectRecentAlbums,
 } from '../services/discman/snapshot.js';
 
 const PREVIEW = (n: number) =>
@@ -194,7 +195,7 @@ describe('GET /v1/listening/discman', () => {
     );
   });
 
-  it('lists only albums with accepted disc art, reaching past newer albums without it', async () => {
+  it('lists playable albums whether or not their disc art is ready, skipping unfiled various-artists splits', async () => {
     await seedAlbum({ artist: 'Weezer', album: 'Pinkerton', plays: ['A'] });
     await seedAlbum({
       artist: 'Wilco',
@@ -225,8 +226,65 @@ describe('GET /v1/listening/discman', () => {
     const snapshot = await buildDiscmanSnapshot(db, 1);
     expect(snapshot.albums.map((a) => a.name)).toEqual([
       'Live Through This',
+      'Wowee Zowee',
+      'Star Wars',
       'Pinkerton',
     ]);
+  });
+
+  it('keeps an album with disc art when an unfiled album shares its title', async () => {
+    await seedAlbum({ artist: 'Weezer', album: 'Weezer', plays: ['A'] });
+    await seedAlbum({
+      artist: 'Rivers Cuomo',
+      album: 'Weezer',
+      plays: ['B'],
+      artwork: 'none',
+    });
+    const snapshot = await buildDiscmanSnapshot(db, 1);
+    expect(snapshot.albums.map((a) => [a.artist.name, a.name])).toEqual([
+      ['Weezer', 'Weezer'],
+    ]);
+  });
+
+  it('drops a split whose partner was played just before the candidate window', async () => {
+    await seedAlbum({
+      artist: 'Harry Nilsson',
+      album: 'Reservoir Dogs',
+      plays: ['A'],
+      artwork: 'none',
+    });
+    for (let i = 0; i < 24; i++)
+      await seedAlbum({
+        artist: `Artist ${i}`,
+        album: `Album ${i}`,
+        plays: ['A'],
+      });
+    await seedAlbum({
+      artist: 'Joe Tex',
+      album: 'Reservoir Dogs',
+      plays: ['B'],
+      artwork: 'none',
+    });
+    const candidates = await selectRecentAlbums(db, 1);
+    expect(candidates).toHaveLength(24);
+    const snapshot = await buildDiscmanSnapshot(db, 1);
+    expect(snapshot.albums.map((a) => a.name)).not.toContain('Reservoir Dogs');
+  });
+
+  it('hides two unrelated same-title albums until either has disc art', async () => {
+    await seedAlbum({
+      artist: 'Bad Company',
+      album: 'Rough Diamonds',
+      plays: ['A'],
+      artwork: 'none',
+    });
+    await seedAlbum({
+      artist: 'Other Band',
+      album: 'Rough Diamonds',
+      plays: ['B'],
+      artwork: 'none',
+    });
+    expect((await buildDiscmanSnapshot(db, 1)).albums).toEqual([]);
   });
 
   it('leaves out albums with no preview and fills the shelf from older ones', async () => {
@@ -249,7 +307,7 @@ describe('GET /v1/listening/discman', () => {
     );
   });
 
-  it('publishes an empty shelf when no album has accepted disc art', async () => {
+  it('shelves a playable album before its disc art exists', async () => {
     await seedAlbum({
       artist: 'Bedlam',
       album: 'Reservoir Dogs',
@@ -257,7 +315,7 @@ describe('GET /v1/listening/discman', () => {
       artwork: 'none',
     });
     const snapshot = await buildDiscmanSnapshot(db, 1);
-    expect(snapshot.albums).toEqual([]);
+    expect(snapshot.albums.map((a) => a.name)).toEqual(['Reservoir Dogs']);
   });
 
   it('uses the catalog tracklist in disc/track order with per-song plays', async () => {

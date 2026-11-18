@@ -34,11 +34,10 @@ import {
 } from './schema.js';
 
 const SCAN_BATCH_SIZE = 500;
-// Album-wise listening spends ~10-15 scrobbles per album, so 12 albums with
-// disc art usually resolve in the first few hundred rows. Recent albums whose
-// art is not ready yet (a various-artists soundtrack files each artist as its
-// own album) can push the 12th much further back. The cap bounds that scan,
-// and the scan also ends once every album with art has been found.
+// Album-wise listening spends ~10-15 scrobbles per album, so the candidates
+// usually resolve in the first few hundred rows. Long runs of filtered plays
+// or unfiled various-artists splits can push them further back; the cap
+// bounds that scan.
 const SCAN_LIMIT = 20000;
 /**
  * The shelf only publishes albums a visitor can hear, and whether an album
@@ -54,6 +53,8 @@ interface ScanRow {
   scrobbledAt: string;
   trackFiltered: number | null;
   albumId: number | null;
+  albumName: string | null;
+  albumArtistId: number | null;
   albumFiltered: number | null;
   artistFiltered: number | null;
 }
@@ -64,10 +65,8 @@ interface SelectedAlbum {
 }
 
 /**
- * Albums whose active disc artwork is accepted. The shelf only lists albums a
- * CD player can show; art accepted later appears at the next rebuild. Filtered
- * albums and artists are left out here too, so the scan's early stop counts
- * only albums it could actually select.
+ * Albums whose active disc artwork is accepted. Clients show the others on a
+ * generic disc until their art is accepted.
  */
 async function albumsWithArtwork(
   db: Database,
@@ -86,9 +85,19 @@ async function albumsWithArtwork(
 }
 
 /**
- * Newest-first distinct albums with accepted disc art, skipping filtered
- * tracks, albums and artists. These are shelf candidates; the snapshot keeps
- * the ones with a preview.
+ * Newest-first distinct albums, skipping filtered tracks, albums and artists.
+ * These are shelf candidates; the snapshot keeps the ones with a preview.
+ *
+ * An album without accepted disc art is left out when another candidate has
+ * the same title under a different artist: Last.fm files each artist on a
+ * various-artists soundtrack as its own album, and those splits are filed
+ * under one album over later syncs. Accepted art proves an album was resolved,
+ * so albums with art always stay. Two unrelated same-title albums that both
+ * lack art are hidden together until either has art; that is rare, and the
+ * alternative shows a soundtrack as several one-artist discs.
+ *
+ * The scan finishes the batch in which it reaches the limit, so a split's
+ * partner played just before the window still removes it.
  */
 export async function selectRecentAlbums(
   db: Database,
@@ -96,11 +105,22 @@ export async function selectRecentAlbums(
   limit = DISCMAN_CANDIDATE_LIMIT
 ): Promise<SelectedAlbum[]> {
   const withArtwork = await albumsWithArtwork(db, userId);
-  const wanted = Math.min(limit, withArtwork.size);
-  const selected = new Map<number, SelectedAlbum>();
+  const title = (name: string | null) =>
+    (name ?? '').normalize('NFKC').trim().toLocaleLowerCase('en-US');
+  const selected = new Map<
+    number,
+    SelectedAlbum & { title: string; hasArt: boolean }
+  >();
+  const artistsByTitle = new Map<string, Set<number>>();
+  // Art-less candidates per title, so the kept count updates in constant time
+  // when a second artist turns a title into a split.
+  const artlessByTitle = new Map<string, number>();
+  const isSplit = (albumTitle: string) =>
+    (artistsByTitle.get(albumTitle)?.size ?? 0) >= 2;
+  let keptCount = 0;
   let inspected = 0;
   let cursor: { at: string; id: number } | null = null;
-  while (selected.size < wanted && inspected < SCAN_LIMIT) {
+  while (keptCount < limit && inspected < SCAN_LIMIT) {
     const take = Math.min(SCAN_BATCH_SIZE, SCAN_LIMIT - inspected);
     const cursorCondition: SQL | undefined = cursor
       ? sql<boolean>`(${lastfmScrobbles.scrobbledAt}, ${lastfmScrobbles.id}) < (${cursor.at}, ${cursor.id})`
@@ -111,6 +131,8 @@ export async function selectRecentAlbums(
         scrobbledAt: lastfmScrobbles.scrobbledAt,
         trackFiltered: lastfmTracks.isFiltered,
         albumId: lastfmAlbums.id,
+        albumName: lastfmAlbums.name,
+        albumArtistId: lastfmAlbums.artistId,
         albumFiltered: lastfmAlbums.isFiltered,
         artistFiltered: lastfmArtists.isFiltered,
       })
@@ -144,7 +166,6 @@ export async function selectRecentAlbums(
     for (const row of rows) {
       if (
         row.albumId === null ||
-        !withArtwork.has(row.albumId) ||
         row.trackFiltered === 1 ||
         row.albumFiltered === 1 ||
         row.artistFiltered === null ||
@@ -152,17 +173,39 @@ export async function selectRecentAlbums(
         selected.has(row.albumId)
       )
         continue;
+      const albumTitle = title(row.albumName);
+      const hasArt = withArtwork.has(row.albumId);
       selected.set(row.albumId, {
         albumId: row.albumId,
         lastPlayedAt: row.scrobbledAt,
+        title: albumTitle,
+        hasArt,
       });
-      if (selected.size === wanted) break;
+      if (row.albumArtistId !== null) {
+        const artists = artistsByTitle.get(albumTitle) ?? new Set<number>();
+        const wasSplit = artists.size >= 2;
+        artists.add(row.albumArtistId);
+        artistsByTitle.set(albumTitle, artists);
+        if (!wasSplit && artists.size >= 2)
+          keptCount -= artlessByTitle.get(albumTitle) ?? 0;
+      }
+      if (hasArt) keptCount++;
+      else {
+        artlessByTitle.set(
+          albumTitle,
+          (artlessByTitle.get(albumTitle) ?? 0) + 1
+        );
+        if (!isSplit(albumTitle)) keptCount++;
+      }
     }
     const last = rows.at(-1)!;
     cursor = { at: last.scrobbledAt, id: last.scrobbleId };
     if (rows.length < take) break;
   }
-  return [...selected.values()];
+  return [...selected.values()]
+    .filter((album) => album.hasArt || !isSplit(album.title))
+    .slice(0, limit)
+    .map(({ albumId, lastPlayedAt }) => ({ albumId, lastPlayedAt }));
 }
 
 function httpsUrl(value: string | null, host?: string): string | null {
