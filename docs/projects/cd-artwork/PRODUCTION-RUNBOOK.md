@@ -50,6 +50,10 @@ are reconciled in bounded batches without submitting generation. A failed or
 uncertain generation permits a new-listen status check after one hour; it does
 not authorize another paid submission. Repair the cause and explicitly replay
 the owned album through the existing automatic endpoint when necessary.
+A discovery Workflow that runs out of retail retries after such a failure (for
+example, a moderation-blocked cover while MusicBrainz is unavailable) keeps that
+one-hour window instead of the seven-day outage cooldown, so the next play can
+look for retail artwork again.
 
 An active, visible accepted asset takes precedence over a failed upgrade when
 projecting album readiness. Manual activation updates that projection too.

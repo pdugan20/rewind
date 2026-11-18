@@ -8,7 +8,11 @@ import {
 import { beforeAll, beforeEach, afterEach, it, expect, vi } from 'vitest';
 import type { ArtworkEnv, Job } from './types.js';
 import { now, sha256 } from './types.js';
-import { artworkApp, CdArtworkWorkflow } from '../../cd-artwork-worker.js';
+import {
+  artworkApp,
+  CdArtworkWorkflow,
+  CdDiscoveryWorkflow,
+} from '../../cd-artwork-worker.js';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { createTestApiKey } from '../../test-helpers.js';
 import { clearAuthCache } from '../../lib/auth.js';
@@ -311,6 +315,73 @@ it('a fast generation rejection cannot be overwritten by discovery queue status'
   expect((await checkListeningArtwork(target, check.id)).outcome).toBe(
     'generation_failed'
   );
+  const row = await runtime.DB.prepare(
+    'SELECT discovery_outcome,next_check FROM cd_artwork_albums WHERE album_id=1 AND user_id=1'
+  ).first<{ discovery_outcome: string; next_check: string }>();
+  expect(row?.discovery_outcome).toBe('generation_failed');
+  expect(Date.parse(row!.next_check)).toBeLessThan(Date.now() + 2 * 3600000);
+});
+
+it('a rejected cover keeps the one-hour new-listen window after retail retries run out', async () => {
+  await play();
+  const fetcher = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(async (url) => {
+      await runtime.DB.prepare(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+      ).run();
+      if (String(url).includes('mzstatic.com'))
+        return new Response(new Uint8Array(bytes), {
+          headers: { 'Content-Type': 'image/png' },
+        });
+      return String(url).includes('itunes.apple.com')
+        ? Response.json(lookup)
+        : new Response('', { status: 503 });
+    });
+  const check = (await runtime.DB.prepare(
+    'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
+  ).first<{ id: number }>())!;
+  // The image provider rejects the cover (a moderation block) as soon as it
+  // is submitted; MusicBrainz stays unavailable for every retail retry.
+  const create = vi.fn(async ({ id }: { id: string }) => {
+    await runtime.DB.prepare(
+      "UPDATE cd_artwork_jobs SET state='provider_failed',error_code='provider_http_400' WHERE id=?"
+    )
+      .bind(id)
+      .run();
+    await syncGenerationStatus(runtime, id, 1);
+    return {};
+  });
+  const target = {
+    ...runtime,
+    CD_WORKFLOW: { create },
+  } as unknown as ArtworkEnv;
+  const sleep = vi.fn(async (_name: string, _duration: number) => {});
+  const step = {
+    do: async (
+      _name: string,
+      configOrCallback: unknown,
+      callback?: () => Promise<unknown>
+    ) => (callback ?? (configOrCallback as () => Promise<unknown>))(),
+    sleep,
+  } as unknown as WorkflowStep;
+  await CdDiscoveryWorkflow.prototype.run.call(
+    { env: target } as unknown as CdDiscoveryWorkflow,
+    { payload: { checkId: check.id } } as WorkflowEvent<{ checkId: number }>,
+    step
+  );
+  expect(sleep).toHaveBeenCalledTimes(3);
+  expect(create).toHaveBeenCalledOnce();
+  expect(
+    fetcher.mock.calls.some(([u]) => String(u).includes('/images/edits'))
+  ).toBe(false);
+  expect(
+    await runtime.DB.prepare(
+      'SELECT outcome FROM cd_artwork_checks WHERE id=? AND completed_at IS NOT NULL'
+    )
+      .bind(check.id)
+      .first()
+  ).toEqual({ outcome: 'error' });
   const row = await runtime.DB.prepare(
     'SELECT discovery_outcome,next_check FROM cd_artwork_albums WHERE album_id=1 AND user_id=1'
   ).first<{ discovery_outcome: string; next_check: string }>();
