@@ -430,6 +430,25 @@ it('a refused cover exhausts an album with no retail source', async () => {
   ).rejects.toMatchObject({ code: 'artwork_sources_exhausted', status: 422 });
 });
 
+it('a refused cover stays exhausted when its image CDN serves different bytes', async () => {
+  const fetcher = providers();
+  const job = await selected();
+  await refuse(job.id);
+  // Apple's image CDN can re-encode the same artwork on each download.
+  const original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation(async (url, init) => {
+    if (!String(url).includes('mzstatic.com')) return original(url, init);
+    const pixels = readPixels(bytes);
+    pixels.data[(100 * 1024 + 100) * 4] ^= 1;
+    return new Response(new Uint8Array(png(pixels)), {
+      headers: { 'Content-Type': 'image/png' },
+    });
+  });
+  await expect(
+    selectAutomaticSource(runtime, 1, 1, await ownedAlbum(runtime, 1, 1), '', 1)
+  ).rejects.toMatchObject({ code: 'artwork_sources_exhausted', status: 422 });
+});
+
 it('the generation Workflow sleeps before known rate-limit retries and reports the final failure', async () => {
   const fetcher = providers();
   const target = withKey();
