@@ -591,8 +591,20 @@ export async function selectAutomaticSource(
       reason: string;
     }>();
   const failures = new Map(failed.results.map((row) => [row.source_hash, row]));
+  // The image provider refuses some artwork outright (moderation_blocked).
+  // Resubmitting the same bytes under the same processor cannot succeed, so a
+  // refused source is exhausted: selection moves on to another scan, AudioDB
+  // or the cover instead of reselecting it on every play.
+  const refused = await env.DB.prepare(
+    "SELECT DISTINCT source_hash FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND automatic=1 AND state='provider_failed' AND json_extract(provenance,'$.providerFailure.code')='moderation_blocked' AND json_extract(provenance,'$.processorHash')=?"
+  )
+    .bind(userId, albumId, PROCESSOR_HASH)
+    .all<{ source_hash: string }>();
+  const refusedSources = new Set(refused.results.map((row) => row.source_hash));
   const usable = async (bytes: Uint8Array) => {
-    const failure = failures.get(await sha256(bytes));
+    const hash = await sha256(bytes);
+    if (refusedSources.has(hash)) return false;
+    const failure = failures.get(hash);
     return !failure || (failure.attempts < 2 && failure.retried === 0);
   };
   const renderRetry = async (
@@ -966,7 +978,23 @@ export async function selectAutomaticSource(
     });
     // Available cover evidence can produce a design while retail discovery is
     // pending. Retain the outage and retry; never record retail art as absent.
-    const fallback = await fallbackCover();
+    let fallback: Awaited<ReturnType<typeof fallbackCover>>;
+    try {
+      fallback = await fallbackCover();
+    } catch (coverError) {
+      // A refused or unusable cover cannot stand in for retail discovery that
+      // is only waiting on a provider. Keep the retryable outage, so the
+      // Workflow and later plays keep looking for retail artwork.
+      if (
+        [429, 503].includes(error.status) &&
+        coverError instanceof ArtworkError &&
+        coverError.code === 'artwork_sources_exhausted'
+      ) {
+        error.sourceAttempts = coverError.sourceAttempts;
+        throw error;
+      }
+      throw coverError;
+    }
     return evidenced({
       ...fallback,
       ...([429, 503].includes(error.status)

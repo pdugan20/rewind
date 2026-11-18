@@ -291,6 +291,29 @@ async function selected(retail = false) {
 }
 const withKey = () =>
   ({ ...runtime, OPENAI_API_KEY: 'synthetic-test-key' }) as ArtworkEnv;
+// The image provider's content refusal, as stored on a failed automatic job.
+async function refuse(id: string) {
+  await runtime.DB.prepare(
+    'UPDATE cd_artwork_jobs SET state=\'provider_failed\',error_code=\'provider_http_400\',provenance=json_set(provenance,\'$.providerFailure\',json(\'{"status":400,"code":"moderation_blocked","type":"image_generation_user_error"}\')) WHERE id=?'
+  )
+    .bind(id)
+    .run();
+}
+// Covers verify through iTunes while every MusicBrainz request is unavailable.
+function retailOutage() {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+    ).run();
+    if (String(url).includes('mzstatic.com'))
+      return new Response(new Uint8Array(bytes), {
+        headers: { 'Content-Type': 'image/png' },
+      });
+    return String(url).includes('itunes.apple.com')
+      ? Response.json(lookup)
+      : new Response('', { status: 503 });
+  });
+}
 
 it('a fast generation rejection cannot be overwritten by discovery queue status', async () => {
   providers();
@@ -324,31 +347,14 @@ it('a fast generation rejection cannot be overwritten by discovery queue status'
 
 it('a rejected cover keeps the one-hour new-listen window after retail retries run out', async () => {
   await play();
-  const fetcher = vi
-    .spyOn(globalThis, 'fetch')
-    .mockImplementation(async (url) => {
-      await runtime.DB.prepare(
-        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
-      ).run();
-      if (String(url).includes('mzstatic.com'))
-        return new Response(new Uint8Array(bytes), {
-          headers: { 'Content-Type': 'image/png' },
-        });
-      return String(url).includes('itunes.apple.com')
-        ? Response.json(lookup)
-        : new Response('', { status: 503 });
-    });
+  const fetcher = retailOutage();
   const check = (await runtime.DB.prepare(
     'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
   ).first<{ id: number }>())!;
-  // The image provider rejects the cover (a moderation block) as soon as it
-  // is submitted; MusicBrainz stays unavailable for every retail retry.
+  // The image provider refuses the cover as soon as it is submitted;
+  // MusicBrainz stays unavailable for every retail retry.
   const create = vi.fn(async ({ id }: { id: string }) => {
-    await runtime.DB.prepare(
-      "UPDATE cd_artwork_jobs SET state='provider_failed',error_code='provider_http_400' WHERE id=?"
-    )
-      .bind(id)
-      .run();
+    await refuse(id);
     await syncGenerationStatus(runtime, id, 1);
     return {};
   });
@@ -383,10 +389,45 @@ it('a rejected cover keeps the one-hour new-listen window after retail retries r
       .first()
   ).toEqual({ outcome: 'error' });
   const row = await runtime.DB.prepare(
-    'SELECT discovery_outcome,next_check FROM cd_artwork_albums WHERE album_id=1 AND user_id=1'
-  ).first<{ discovery_outcome: string; next_check: string }>();
-  expect(row?.discovery_outcome).toBe('generation_failed');
+    'SELECT next_check FROM cd_artwork_albums WHERE album_id=1 AND user_id=1'
+  ).first<{ next_check: string }>();
   expect(Date.parse(row!.next_check)).toBeLessThan(Date.now() + 2 * 3600000);
+});
+
+it('a refused cover is not reselected while retail discovery waits on MusicBrainz', async () => {
+  await play();
+  retailOutage();
+  const album = await ownedAlbum(runtime, 1, 1);
+  const cover = await selectAutomaticSource(runtime, 1, 1, album, '', 1);
+  expect(cover.sourceKind).toBe('cover');
+  const { job } = await enqueue(runtime, cover.request, 1, false, {
+    source: cover,
+    expectedActiveJob: null,
+    catalogIdentity: album,
+  });
+  await refuse(job.id);
+  const pending = await selectAutomaticSource(runtime, 1, 1, album, '', 1)
+    .then(() => null)
+    .catch((error: unknown) => error);
+  expect(pending).toMatchObject({
+    code: 'discovery_provider_error',
+    status: 503,
+  });
+  expect((pending as ArtworkError).sourceAttempts).toContainEqual({
+    source: 'cover',
+    outcome: 'unavailable',
+    code: 'artwork_sources_exhausted',
+  });
+});
+
+it('a refused cover exhausts an album with no retail source', async () => {
+  providers();
+  const job = await selected();
+  expect(JSON.parse(job.input).source_kind).toBe('cover');
+  await refuse(job.id);
+  await expect(
+    selectAutomaticSource(runtime, 1, 1, await ownedAlbum(runtime, 1, 1), '', 1)
+  ).rejects.toMatchObject({ code: 'artwork_sources_exhausted', status: 422 });
 });
 
 it('the generation Workflow sleeps before known rate-limit retries and reports the final failure', async () => {
@@ -2199,6 +2240,29 @@ it('tries AudioDB after the bounded CAA render retry is exhausted', async () => 
     source,
     expectedActiveJob: null,
     catalogIdentity: await ownedAlbum(runtime, 1, 1),
+  });
+  expect(next.job.id).not.toBe(job.id);
+  expect(next.job.source_hash).not.toBe(job.source_hash);
+});
+
+it('a refused retail scan falls through to the identity-matched AudioDB disc', async () => {
+  providers({ retail: true, audioDb: true });
+  const job = await selected(true);
+  expect(JSON.parse(job.input).source_kind).toBe('retail');
+  expect(
+    JSON.parse(job.provenance).sourceIdentityEvidence.audiodb
+  ).toBeUndefined();
+  await refuse(job.id);
+  const album = await ownedAlbum(runtime, 1, 1);
+  const source = await selectAutomaticSource(runtime, 1, 1, album, RELEASE, 1);
+  expect(source.sourceKind).toBe('retail');
+  expect(source.discovery.audiodb).toMatchObject({
+    outcome: 'identity_matched_candidate',
+  });
+  const next = await enqueue(runtime, source.request, 1, false, {
+    source,
+    expectedActiveJob: null,
+    catalogIdentity: album,
   });
   expect(next.job.id).not.toBe(job.id);
   expect(next.job.source_hash).not.toBe(job.source_hash);

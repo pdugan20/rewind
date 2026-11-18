@@ -239,14 +239,16 @@ export async function finishCheck(
 ) {
   if (outcome === 'error') {
     const cooldown = new Date(Date.now() + WEEK).toISOString();
-    // A failed or uncertain generation already opened the one-hour new-listen
-    // window (syncGenerationStatus). Running out of retail retries must not
-    // stretch it to the outage cooldown: when the fallback render was
-    // rejected, retail is the album's only remaining source, and the next play
-    // should be able to look for it again. Enqueue still reuses the failed
-    // job, so reopening the window never pays for another render.
+    // A failed or uncertain generation opens a one-hour new-listen window
+    // (syncGenerationStatus). Running out of retail retries must not stretch
+    // it to the outage cooldown: when the fallback render was refused, retail
+    // is the album's only remaining source, and the next play should be able
+    // to look for it again. The condition mirrors syncGenerationStatus: the
+    // album's latest automatic job failed against its current artwork.
+    // Refused and failed sources are reused or skipped, so reopening the
+    // window never pays for another render of the same bytes.
     await env.DB.prepare(
-      "UPDATE cd_artwork_albums SET next_check=CASE WHEN discovery_outcome IN ('generation_failed','generation_unknown') THEN strftime('%Y-%m-%dT%H:%M:%fZ','now','+1 hour') WHEN last_checked_at IS NULL THEN ? ELSE MAX(next_check,?) END,last_checked_at=? WHERE user_id=? AND album_id=? AND release_id=(SELECT release_id FROM cd_artwork_checks WHERE id=?) AND medium_position=(SELECT medium_position FROM cd_artwork_checks WHERE id=?)"
+      "UPDATE cd_artwork_albums SET next_check=CASE WHEN EXISTS(SELECT 1 FROM cd_artwork_jobs j WHERE j.user_id=cd_artwork_albums.user_id AND j.album_id=cd_artwork_albums.album_id AND j.automatic=1 AND j.state IN ('provider_failed','provider_unknown') AND cd_artwork_albums.active_job IS j.expected_active_job AND NOT EXISTS(SELECT 1 FROM cd_artwork_jobs n WHERE n.user_id=j.user_id AND n.album_id=j.album_id AND n.automatic=1 AND n.rowid>j.rowid)) THEN strftime('%Y-%m-%dT%H:%M:%fZ','now','+1 hour') WHEN last_checked_at IS NULL THEN ? ELSE MAX(next_check,?) END,last_checked_at=? WHERE user_id=? AND album_id=? AND release_id=(SELECT release_id FROM cd_artwork_checks WHERE id=?) AND medium_position=(SELECT medium_position FROM cd_artwork_checks WHERE id=?)"
     )
       .bind(
         cooldown,

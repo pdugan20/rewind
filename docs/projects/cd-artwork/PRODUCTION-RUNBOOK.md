@@ -55,6 +55,16 @@ example, a moderation-blocked cover while MusicBrainz is unavailable) keeps that
 one-hour window instead of the seven-day outage cooldown, so the next play can
 look for retail artwork again.
 
+The image provider refuses some artwork outright (`moderation_blocked`). Under
+the same processor version, a refused source is exhausted like a source that
+failed its render retry: selection moves on to another scan, the identity-matched
+AudioDB disc or the cover, and never resubmits those bytes. When the cover is
+exhausted while retail discovery is only waiting on a provider, the check keeps
+the retryable outage instead of declaring the album without a source.
+MusicBrainz requests retry a brief 503 twice through the shared spacing
+reservation before reporting an outage; an explicit Retry-After longer than an
+hour is honored at once.
+
 An active, visible accepted asset takes precedence over a failed upgrade when
 projecting album readiness. Manual activation updates that projection too.
 Reconciliation repairs both historical accepted completions and terminal
