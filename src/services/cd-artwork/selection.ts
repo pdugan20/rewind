@@ -758,9 +758,20 @@ export async function selectAutomaticSource(
         !groups.has(null) &&
         (candidates.group_verified || !candidates.results_truncated)
       ) {
+        // The album's own verified release goes first; the rest keep a
+        // stable ID order.
         const discovered = candidates.candidates
-          .map((c) => c.release_id)
-          .sort();
+          .slice()
+          .sort(
+            (a, b) =>
+              Number(!!b.album_release) - Number(!!a.album_release) ||
+              (a.release_id < b.release_id
+                ? -1
+                : a.release_id > b.release_id
+                  ? 1
+                  : 0)
+          )
+          .map((c) => c.release_id);
         releases = [...new Set([...releases, ...discovered])].slice(0, 3);
       }
     };
