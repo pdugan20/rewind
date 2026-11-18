@@ -141,6 +141,45 @@ it('keeps unidentified self-titled candidates as explicit edition choices', asyn
   );
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
+it('retries brief MusicBrainz 503s before reporting an outage', async () => {
+  let calls = 0;
+  const fetcher = vi.fn(async () => {
+    calls++;
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+    ).run();
+    return calls < 3
+      ? new Response('', { status: 503 })
+      : Response.json({ id: sourceId });
+  });
+  vi.stubGlobal('fetch', fetcher);
+  await expect(
+    providerJson(runtime, 'https://musicbrainz.org/ws/2/release/' + sourceId)
+  ).resolves.toEqual({ id: sourceId });
+  expect(fetcher).toHaveBeenCalledTimes(3);
+});
+it('reports a MusicBrainz outage after bounded retries and honors a long Retry-After at once', async () => {
+  const outage = vi.fn(async () => {
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+    ).run();
+    return new Response('', { status: 503 });
+  });
+  vi.stubGlobal('fetch', outage);
+  await expect(
+    providerJson(runtime, 'https://musicbrainz.org/ws/2/release/' + sourceId)
+  ).rejects.toMatchObject({ code: 'discovery_provider_error', status: 503 });
+  expect(outage).toHaveBeenCalledTimes(3);
+  const limited = vi.fn(
+    async () =>
+      new Response('', { status: 503, headers: { 'Retry-After': '7200' } })
+  );
+  vi.stubGlobal('fetch', limited);
+  await expect(
+    providerJson(runtime, 'https://musicbrainz.org/ws/2/release/' + sourceId)
+  ).rejects.toMatchObject({ retryAfter: 7200 });
+  expect(limited).toHaveBeenCalledTimes(1);
+});
 it('busy callers do not reserve unused provider slots or wait an hour for local capacity', async () => {
   const future = Date.now() + 20000;
   await runtime.DB.prepare(

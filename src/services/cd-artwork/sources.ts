@@ -262,7 +262,32 @@ interface ArchiveImage {
 interface Archive {
   images: ArchiveImage[];
 }
+// MusicBrainz sheds load with brief 503s, and Workers share egress addresses
+// with other clients, so one 503 is often someone else's burst. Retry a couple
+// of times through the shared spacing reservation (which supplies the delay)
+// before reporting an outage. An explicit long Retry-After is not retried.
+const MUSICBRAINZ_RETRIES = 2;
 export async function providerJson<T>(
+  env: ArtworkEnv,
+  url: string
+): Promise<T | null> {
+  const musicBrainz = new URL(url).hostname === 'musicbrainz.org';
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await providerJsonOnce<T>(env, url);
+    } catch (error) {
+      if (
+        !musicBrainz ||
+        attempt >= MUSICBRAINZ_RETRIES ||
+        !(error instanceof ArtworkError) ||
+        error.code !== 'discovery_provider_error' ||
+        error.retryAfter > 3600
+      )
+        throw error;
+    }
+  }
+}
+async function providerJsonOnce<T>(
   env: ArtworkEnv,
   url: string
 ): Promise<T | null> {

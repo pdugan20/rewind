@@ -413,6 +413,13 @@ describe('durable discovery and recovery', () => {
     ]);
     expect((await checks())[0].outcome).toBe('error');
     expect((await checks())[0].completed_at).not.toBeNull();
+    // An outage with nothing generated keeps the full outage cooldown.
+    const row = await runtime.DB.prepare(
+      'SELECT next_check FROM cd_artwork_albums WHERE user_id=1 AND album_id=1'
+    ).first<{ next_check: string }>();
+    expect(Date.parse(row!.next_check) - Date.now()).toBeGreaterThan(
+      6 * 86400000
+    );
   });
   it('uses seconds for local provider capacity and preserves the real outage backoff', async () => {
     await identity();
