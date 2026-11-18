@@ -3003,9 +3003,13 @@ it('scheduled policy recovery follows discovery, validation and publication into
     },
     CD_WORKFLOW: { create },
   } as unknown as ArtworkEnv;
+  // A playable album is shelved before its art exists; publication adds the
+  // art without changing shelf membership.
   expect(
-    (await publishDiscmanSnapshot(createDb(runtime.DB), 1)).albums
-  ).toEqual([]);
+    (await publishDiscmanSnapshot(createDb(runtime.DB), 1)).albums.map(
+      (album) => album.id
+    )
+  ).toEqual([1]);
   await scheduledArtwork(target);
   const check = (await runtime.DB.prepare(
     'SELECT id FROM cd_artwork_checks WHERE completed_at IS NULL'
