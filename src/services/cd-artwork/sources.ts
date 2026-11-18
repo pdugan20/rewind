@@ -171,6 +171,14 @@ async function catalogGroup(
   mbid?: string | null,
   album?: CatalogAlbum
 ) {
+  return (await catalogBinding(env, mbid, album))?.group ?? null;
+}
+/** The bound release group, plus the bound release when the MBID names one. */
+async function catalogBinding(
+  env: ArtworkEnv,
+  mbid?: string | null,
+  album?: CatalogAlbum
+): Promise<{ group: string; release: string | null } | null> {
   if (!mbid || !uuid.test(mbid)) return null;
   const release = await providerJson<Release>(
     env,
@@ -191,7 +199,7 @@ async function catalogGroup(
       throw new ArtworkError('catalog_identity_unresolved');
     if (!release['release-group']?.id)
       throw new ArtworkError('catalog_identity_unresolved');
-    return release['release-group'].id;
+    return { group: release['release-group'].id, release: mbid.toLowerCase() };
   }
   const group = await providerJson<Release>(
     env,
@@ -210,7 +218,7 @@ async function catalogGroup(
     !(await artistIdentityMatches(env, album, group))
   )
     throw new ArtworkError('catalog_identity_unresolved');
-  return group.id;
+  return { group: group.id, release: null };
 }
 async function artistIdentityMatches(
   env: ArtworkEnv,
@@ -467,11 +475,12 @@ export async function resolveEditionCandidates(
   knownRelease?: string
 ) {
   const escape = (s: string) => s.replace(/["\\]/g, ' ');
-  const group = await catalogGroup(
+  const binding = await catalogBinding(
     env,
     album.mbid && uuid.test(album.mbid) ? album.mbid : knownRelease,
     album
   );
+  const group = binding?.group ?? null;
   const artist =
     album.artist_mbid && uuid.test(album.artist_mbid)
       ? `arid:${album.artist_mbid}`
@@ -512,7 +521,16 @@ export async function resolveEditionCandidates(
       }
     }
   }
-  const candidates = matching.map((r) => ({
+  const candidates: Array<{
+    release_id: string;
+    release_group_id: string | null;
+    title: string;
+    country: string | null;
+    date: string | null;
+    identity_type: string;
+    requires_medium_verification: boolean;
+    album_release?: true;
+  }> = matching.map((r) => ({
     release_id: r.id,
     release_group_id: r['release-group']?.id ?? null,
     title: r.title,
@@ -520,7 +538,25 @@ export async function resolveEditionCandidates(
     date: r.date ?? null,
     identity_type: 'representative_release',
     requires_medium_verification: true,
+    ...(r.id.toLowerCase() === binding?.release ? { album_release: true } : {}),
   }));
+  // The album's own release (from its stored MBID) already matched the album
+  // and artist above. Search ranks by text score and can leave it out, so
+  // list it first; source resolution still verifies its medium and artwork.
+  if (
+    binding?.release &&
+    !candidates.some((c) => c.release_id.toLowerCase() === binding.release)
+  )
+    candidates.unshift({
+      release_id: binding.release,
+      release_group_id: binding.group,
+      title: album.name,
+      country: null,
+      date: null,
+      identity_type: 'representative_release',
+      requires_medium_verification: true,
+      album_release: true,
+    });
   return {
     group_verified: !!group,
     results_truncated:

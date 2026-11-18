@@ -117,16 +117,27 @@ it('defers a provider rate limit without interpreting it as the other entity nam
     fetcher.mock.calls.some(([url]) => String(url).includes('/release-group/'))
   ).toBe(false);
 });
-it('restricts candidate search and returned candidates to the verified catalog group', async () => {
+it('restricts candidate search and returned candidates to the verified catalog group, listing the album release first', async () => {
   const fetcher = mock();
+  const { candidates } = await resolveEditionCandidates(runtime, album);
   expect(
-    (await resolveEditionCandidates(runtime, album)).candidates
-  ).toHaveLength(1);
+    candidates.map((c) => [c.release_id, c.album_release ?? false])
+  ).toEqual([
+    [storedId, true],
+    [sourceId, false],
+  ]);
+  expect(candidates.every((c) => c.release_group_id === groupId)).toBe(true);
   const url = String(
     fetcher.mock.calls.find(([url]) => String(url).includes('/release/?'))![0]
   );
   expect(new URL(url).searchParams.get('query')).toContain('rgid:' + groupId);
   expect(new URL(url).searchParams.get('query')).toContain('arid:' + artistId);
+});
+it('adds no album release when the stored MBID names a release group', async () => {
+  mock({ entity: 'release-group' });
+  const { candidates } = await resolveEditionCandidates(runtime, album);
+  expect(candidates.map((c) => c.release_id)).toEqual([sourceId]);
+  expect(candidates.some((c) => c.album_release)).toBe(false);
 });
 it('keeps unidentified self-titled candidates as explicit edition choices', async () => {
   const fetcher = mock();

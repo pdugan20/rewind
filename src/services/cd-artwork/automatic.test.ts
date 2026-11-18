@@ -2245,6 +2245,69 @@ it('tries AudioDB after the bounded CAA render retry is exhausted', async () => 
   expect(next.job.source_hash).not.toBe(job.source_hash);
 });
 
+it("inspects the album's own release before lower-ranked editions of its group", async () => {
+  await play();
+  // Last.fm's MBID names the only pressing with a disc scan, and it sorts
+  // after every release the edition search returns.
+  const own = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+  const others = [1, 2, 3].map(
+    (n) => `0000000${n}-0000-4000-8000-00000000000${n}`
+  );
+  await runtime.DB.prepare('UPDATE lastfm_albums SET mbid=? WHERE id=1')
+    .bind(own)
+    .run();
+  const pressing = (id: string) => ({
+    id,
+    title: 'Synthetic album',
+    status: 'Official',
+    'release-group': { id: GROUP },
+    media: [{ format: 'CD', position: 1 }],
+    'artist-credit': [{ name: 'Synthetic artist' }],
+  });
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    await runtime.DB.prepare(
+      'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+    ).run();
+    const u = String(url);
+    if (u.includes('mzstatic.com') || u.endsWith('synthetic.png'))
+      return new Response(new Uint8Array(bytes), {
+        headers: { 'Content-Type': 'image/png' },
+      });
+    if (u.includes('itunes.apple.com')) return Response.json(lookup);
+    if (u.includes('/release/?'))
+      return Response.json({ count: 3, releases: others.map(pressing) });
+    if (u.includes('musicbrainz.org/ws/2/release/')) {
+      const id = u.split('/release/')[1].slice(0, 36);
+      return Response.json(pressing(id));
+    }
+    if (u.includes('coverartarchive.org'))
+      return Response.json({
+        images: u.includes(own)
+          ? [
+              {
+                id: 9,
+                approved: true,
+                types: ['Medium'],
+                image: 'https://coverartarchive.org/synthetic.png',
+              },
+            ]
+          : [],
+      });
+    if (u.includes('theaudiodb.com/api/')) return Response.json({ album: [] });
+    throw new Error(`Unexpected synthetic provider ${u}`);
+  });
+  const source = await selectAutomaticSource(
+    runtime,
+    1,
+    1,
+    await ownedAlbum(runtime, 1, 1),
+    '',
+    1
+  );
+  expect(source.sourceKind).toBe('retail');
+  expect(source.request.release_id).toBe(own);
+});
+
 it('a refused retail scan falls through to the identity-matched AudioDB disc', async () => {
   providers({ retail: true, audioDb: true });
   const job = await selected(true);
