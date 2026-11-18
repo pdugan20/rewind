@@ -97,6 +97,7 @@ export async function downloadImage(
 interface Release {
   id?: string;
   title: string;
+  status?: string;
   'release-group'?: { id: string };
   media: Array<{ format: string; position: number }>;
   'artist-credit': Array<{
@@ -173,7 +174,9 @@ async function catalogGroup(
 ) {
   return (await catalogBinding(env, mbid, album))?.group ?? null;
 }
-/** The bound release group, plus the bound release when the MBID names one. */
+/** The bound release group, plus the bound release when the MBID names an
+ * official release. A bootleg or promo still binds its group but is never
+ * offered as an edition. */
 async function catalogBinding(
   env: ArtworkEnv,
   mbid?: string | null,
@@ -199,7 +202,10 @@ async function catalogBinding(
       throw new ArtworkError('catalog_identity_unresolved');
     if (!release['release-group']?.id)
       throw new ArtworkError('catalog_identity_unresolved');
-    return { group: release['release-group'].id, release: mbid.toLowerCase() };
+    return {
+      group: release['release-group'].id,
+      release: release.status === 'Official' ? mbid.toLowerCase() : null,
+    };
   }
   const group = await providerJson<Release>(
     env,

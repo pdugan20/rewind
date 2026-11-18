@@ -49,11 +49,13 @@ function mock({
   group = groupId,
   artist = artistId,
   failure = 0,
+  releaseStatus = 'Official',
 }: {
   entity?: string;
   group?: string;
   artist?: string;
   failure?: number;
+  releaseStatus?: string;
 } = {}) {
   const fetcher = vi.fn(async (url: string) => {
     const u = String(url);
@@ -62,7 +64,8 @@ function mock({
     if (u.includes('/release/' + sourceId)) data = release(group, artist);
     else if (u.includes('/release/' + storedId)) {
       if (failure) status = failure;
-      else if (entity === 'release') data = release();
+      else if (entity === 'release')
+        data = { ...release(), status: releaseStatus };
       else status = 404;
     } else if (u.includes('/release-group/' + storedId)) data = { id: groupId };
     else if (u.includes('/release/?'))
@@ -135,6 +138,12 @@ it('restricts candidate search and returned candidates to the verified catalog g
 });
 it('adds no album release when the stored MBID names a release group', async () => {
   mock({ entity: 'release-group' });
+  const { candidates } = await resolveEditionCandidates(runtime, album);
+  expect(candidates.map((c) => c.release_id)).toEqual([sourceId]);
+  expect(candidates.some((c) => c.album_release)).toBe(false);
+});
+it('binds the group of an unofficial stored release without offering it as an edition', async () => {
+  mock({ releaseStatus: 'Bootleg' });
   const { candidates } = await resolveEditionCandidates(runtime, album);
   expect(candidates.map((c) => c.release_id)).toEqual([sourceId]);
   expect(candidates.some((c) => c.album_release)).toBe(false);
