@@ -92,7 +92,12 @@ async function albumsWithArtwork(
  * the same title under a different artist: Last.fm files each artist on a
  * various-artists soundtrack as its own album, and those splits are filed
  * under one album over later syncs. Accepted art proves an album was resolved,
- * so albums with art always stay.
+ * so albums with art always stay. Two unrelated same-title albums that both
+ * lack art are hidden together until either has art; that is rare, and the
+ * alternative shows a soundtrack as several one-artist discs.
+ *
+ * The scan finishes the batch in which it reaches the limit, so a split's
+ * partner played just before the window still removes it.
  */
 export async function selectRecentAlbums(
   db: Database,
@@ -107,14 +112,15 @@ export async function selectRecentAlbums(
     SelectedAlbum & { title: string; hasArt: boolean }
   >();
   const artistsByTitle = new Map<string, Set<number>>();
-  const kept = () =>
-    [...selected.values()].filter(
-      (album) =>
-        album.hasArt || (artistsByTitle.get(album.title)?.size ?? 0) < 2
-    );
+  // Art-less candidates per title, so the kept count updates in constant time
+  // when a second artist turns a title into a split.
+  const artlessByTitle = new Map<string, number>();
+  const isSplit = (albumTitle: string) =>
+    (artistsByTitle.get(albumTitle)?.size ?? 0) >= 2;
+  let keptCount = 0;
   let inspected = 0;
   let cursor: { at: string; id: number } | null = null;
-  while (kept().length < limit && inspected < SCAN_LIMIT) {
+  while (keptCount < limit && inspected < SCAN_LIMIT) {
     const take = Math.min(SCAN_BATCH_SIZE, SCAN_LIMIT - inspected);
     const cursorCondition: SQL | undefined = cursor
       ? sql<boolean>`(${lastfmScrobbles.scrobbledAt}, ${lastfmScrobbles.id}) < (${cursor.at}, ${cursor.id})`
@@ -168,24 +174,36 @@ export async function selectRecentAlbums(
       )
         continue;
       const albumTitle = title(row.albumName);
+      const hasArt = withArtwork.has(row.albumId);
       selected.set(row.albumId, {
         albumId: row.albumId,
         lastPlayedAt: row.scrobbledAt,
         title: albumTitle,
-        hasArt: withArtwork.has(row.albumId),
+        hasArt,
       });
       if (row.albumArtistId !== null) {
         const artists = artistsByTitle.get(albumTitle) ?? new Set<number>();
+        const wasSplit = artists.size >= 2;
         artists.add(row.albumArtistId);
         artistsByTitle.set(albumTitle, artists);
+        if (!wasSplit && artists.size >= 2)
+          keptCount -= artlessByTitle.get(albumTitle) ?? 0;
       }
-      if (kept().length === limit) break;
+      if (hasArt) keptCount++;
+      else {
+        artlessByTitle.set(
+          albumTitle,
+          (artlessByTitle.get(albumTitle) ?? 0) + 1
+        );
+        if (!isSplit(albumTitle)) keptCount++;
+      }
     }
     const last = rows.at(-1)!;
     cursor = { at: last.scrobbledAt, id: last.scrobbleId };
     if (rows.length < take) break;
   }
-  return kept()
+  return [...selected.values()]
+    .filter((album) => album.hasArt || !isSplit(album.title))
     .slice(0, limit)
     .map(({ albumId, lastPlayedAt }) => ({ albumId, lastPlayedAt }));
 }
