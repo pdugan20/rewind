@@ -82,9 +82,10 @@ The accepted PNG is the canonical asset. When available, the `variants` array su
 
 The CD artwork album lookup may also return an optional `fallback_artwork` descriptor for a generic disc when album artwork is unavailable. Its image URLs refer to reviewed PNG or WebP assets served by Rewind; descriptor access follows the authenticated album lookup.
 
-Discman includes albums once approved disc artwork and playable preview audio
-are available. A normal album cover or Apple Music link alone does not complete
-that preparation. Artwork admin jobs report bounded provider error details and
+Discman includes albums once playable preview audio is available, whether or
+not their disc artwork is approved yet. Show the generic `fallback_artwork` disc
+until an album's accepted artwork arrives. An album cover or Apple Music link
+alone does not make an album playable. Artwork admin jobs report bounded provider error details and
 the next retry time. Known rate-limit rejections retry with backoff; rejected or
 uncertain generation remains held for diagnosis rather than appearing queued
 indefinitely.

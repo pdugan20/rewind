@@ -72,9 +72,11 @@ async function seed() {
   return { album, artist, track };
 }
 
-it('scheduled refresh links an owned cover-only album even with an empty disc shelf', async () => {
+it('scheduled refresh links a recent album without disc art and shelves it', async () => {
   const { album, artist, track } = await seed();
-  expect(await selectRecentAlbums(db, 2)).toEqual([]);
+  expect(await selectRecentAlbums(db, 2)).toEqual([
+    expect.objectContaining({ albumId: album.id }),
+  ]);
   const song = {
     id: '800',
     type: 'songs',
@@ -124,7 +126,7 @@ it('scheduled refresh links an owned cover-only album even with an empty disc sh
   expect(syncAlbumTracklists).toHaveBeenCalledWith(
     db,
     'synthetic-token',
-    [],
+    [album.id],
     2
   );
   expect(fetch).toHaveBeenCalledTimes(2);
