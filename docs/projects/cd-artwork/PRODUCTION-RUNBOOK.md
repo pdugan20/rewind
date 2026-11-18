@@ -124,7 +124,7 @@ A stored Apple binding is verified even when a retail scan is available; contrad
 
 Configure the existing `APPLE_MUSIC_DEVELOPER_TOKEN` as an artwork Worker secret to use authenticated Apple Music catalog search and album-owned tracks for cover verification. The public iTunes catalog remains available when that secret is absent. Both paths enforce the same normalized artist/album and observed-track checks; credentials are sent only to the Apple Music API and authenticated requests never follow redirects. Renew expiring developer tokens using the existing private signing-key procedure without recording credentials in release evidence.
 
-Automatic retail searches filter CD/HDCD releases. Later cover upgrades retain the original verified edition first and can inspect alternative CD editions within the same proven release group, capped at three distinct IDs overall. Existing retail art and pins are preserved. Album-cover generation itself never requires a CD release.
+Automatic retail searches filter CD/HDCD releases. When the album's stored MusicBrainz ID names a release that matches the album and artist, that release is inspected first, even if the search omits it; the rest follow in stable ID order. Later cover upgrades retain the original verified edition first and can inspect alternative CD editions within the same proven release group, capped at three distinct IDs overall. Existing retail art and pins are preserved. Album-cover generation itself never requires a CD release.
 
 ## Album identity decisions
 
