@@ -595,13 +595,19 @@ export async function selectAutomaticSource(
   // Resubmitting the same bytes under the same processor cannot succeed, so a
   // refused source is exhausted: selection moves on to another scan, AudioDB
   // or the cover instead of reselecting it on every play.
+  // Match the source URL as well as the bytes: an image CDN can serve the
+  // same artwork as different bytes on each download.
   const refused = await env.DB.prepare(
-    "SELECT DISTINCT source_hash FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND automatic=1 AND state='provider_failed' AND json_extract(provenance,'$.providerFailure.code')='moderation_blocked' AND json_extract(provenance,'$.processorHash')=?"
+    "SELECT DISTINCT source_hash,json_extract(provenance,'$.sourceUrl') AS source_url FROM cd_artwork_jobs WHERE user_id=? AND album_id=? AND automatic=1 AND state='provider_failed' AND json_extract(provenance,'$.providerFailure.code')='moderation_blocked' AND json_extract(provenance,'$.processorHash')=?"
   )
     .bind(userId, albumId, PROCESSOR_HASH)
-    .all<{ source_hash: string }>();
+    .all<{ source_hash: string; source_url: string | null }>();
   const refusedSources = new Set(refused.results.map((row) => row.source_hash));
-  const usable = async (bytes: Uint8Array) => {
+  const refusedUrls = new Set(
+    refused.results.flatMap((row) => (row.source_url ? [row.source_url] : []))
+  );
+  const usable = async (bytes: Uint8Array, url?: string) => {
+    if (url && refusedUrls.has(url)) return false;
     const hash = await sha256(bytes);
     if (refusedSources.has(hash)) return false;
     const failure = failures.get(hash);
@@ -638,7 +644,7 @@ export async function selectAutomaticSource(
         candidate.preparedBytes && candidate.preparedMime
           ? { bytes: candidate.preparedBytes, mime: candidate.preparedMime }
           : await downloadImage(candidate.sourceUrl);
-      if (!(await usable(image.bytes)))
+      if (!(await usable(image.bytes, candidate.sourceUrl)))
         throw new ArtworkError('artwork_sources_exhausted', 422);
       return {
         ...candidate,
@@ -856,7 +862,8 @@ export async function selectAutomaticSource(
             });
             continue;
           }
-          if (!downloaded || !(await usable(downloaded.bytes))) continue;
+          if (!downloaded || !(await usable(downloaded.bytes, image.url)))
+            continue;
           const pixels = readPixels(downloaded.bytes);
           scans.push({
             image,
@@ -911,7 +918,7 @@ export async function selectAutomaticSource(
           // not a demand for a human to approve an album.
           candidate = null;
         }
-        if (candidate && (await usable(candidate.bytes))) {
+        if (candidate && (await usable(candidate.bytes, candidate.sourceUrl))) {
           const request: JobRequest = {
             album_id: albumId,
             release_id: release,
@@ -945,7 +952,7 @@ export async function selectAutomaticSource(
         // Keep one verified cover while checking the remaining bounded retail candidates.
         const front = found.discovery.covers[0];
         const downloaded = await usableSource(front.url);
-        if (downloaded && (await usable(downloaded.bytes)))
+        if (downloaded && (await usable(downloaded.bytes, front.url)))
           cover ??= {
             preparedBytes: downloaded.bytes,
             preparedMime: downloaded.mime,
