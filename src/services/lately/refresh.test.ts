@@ -12,6 +12,7 @@ import { createDb } from '../../db/client.js';
 import { setupTestDb } from '../../test-helpers.js';
 import {
   lastfmAlbums,
+  lastfmAlbumAttributionAudit,
   lastfmArtists,
   lastfmScrobbles,
   lastfmTracks,
@@ -141,6 +142,7 @@ describe('prepared Lately refresh', () => {
     await db.delete(directors);
     await db.delete(lastfmScrobbles);
     await db.delete(lastfmTracks);
+    await db.delete(lastfmAlbumAttributionAudit);
     await db.delete(lastfmAlbums);
     await db.delete(lastfmArtists);
     await db.delete(lastfmFilters);
@@ -312,6 +314,59 @@ describe('prepared Lately refresh', () => {
       .update(lastfmArtists)
       .set({ isFiltered: 1 })
       .where(eq(lastfmArtists.id, artist.id));
+    expect(await musicCard(env.DB, item)).toBeNull();
+  });
+
+  it('uses the artwork of the album a compilation track was filed under', async () => {
+    // Last.fm reports the track artist, so a soundtrack song resolves to its
+    // per-artist album; the cover lives on the Various Artists album it was
+    // filed under.
+    const { artist, album, track } = await seedMusic('Soundtrack Song', false);
+    const [various] = await db
+      .insert(lastfmArtists)
+      .values({ name: 'Various Artists', userId: 1 })
+      .returning();
+    const [release] = await db
+      .insert(lastfmAlbums)
+      .values({ name: album.name, artistId: various.id, userId: 1 })
+      .returning();
+    await seedImage('listening', 'albums', release.id);
+    await db.insert(lastfmAlbumAttributionAudit).values({
+      originalAlbumId: album.id,
+      originalAlbumName: album.name,
+      originalArtistId: artist.id,
+      action: 'FILE_UNDER_VARIOUS_ARTISTS',
+      newAlbumId: release.id,
+      newArtistId: various.id,
+    });
+    const item = {
+      name: track.name,
+      artist: artist.name,
+      album: album.name,
+      scrobbled_at: new Date(base).toISOString(),
+    };
+    const card = await musicCard(env.DB, item);
+    expect(card?.track_id).toBe(track.id);
+    expect(card?.image?.cdn_url).toContain(`/albums/${release.id}/`);
+
+    // A filing that no longer describes the source row is not followed.
+    await db
+      .update(lastfmAlbums)
+      .set({ name: 'Renamed Album' })
+      .where(eq(lastfmAlbums.id, album.id));
+    expect(
+      (await musicCard(env.DB, { ...item, album: 'Renamed Album' }))?.image
+    ).toBeNull();
+    await db
+      .update(lastfmAlbums)
+      .set({ name: album.name })
+      .where(eq(lastfmAlbums.id, album.id));
+
+    // Excluding the release excludes its plays, as stored scrobbles do.
+    await db
+      .update(lastfmAlbums)
+      .set({ isFiltered: 1 })
+      .where(eq(lastfmAlbums.id, release.id));
     expect(await musicCard(env.DB, item)).toBeNull();
   });
 

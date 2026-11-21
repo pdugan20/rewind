@@ -70,6 +70,38 @@ interface MusicMetadata {
   album_filtered: number | null;
 }
 
+interface FiledAlbum {
+  album_id: number;
+  album_name: string;
+  album_filtered: number | null;
+}
+
+/**
+ * The album a per-artist row was filed under. Last.fm reports only the track
+ * artist, so a song from a soundtrack or compilation is found under its own
+ * per-artist album, which has no artwork once the album check files it under
+ * the release's album credit. Uses the same proof as sync's played-album
+ * resolver: the filing must still describe this exact source row.
+ */
+function filedAlbum(db: D1Database, albumId: number) {
+  return db
+    .prepare(
+      `SELECT target.id AS album_id, target.name AS album_name,
+    target.is_filtered AS album_filtered
+    FROM lastfm_album_attribution_audit proof
+    INNER JOIN lastfm_albums source ON source.id = proof.original_album_id
+      AND source.user_id = ? AND source.artist_id = proof.original_artist_id
+      AND source.name = proof.original_album_name
+    INNER JOIN lastfm_albums target ON target.id = proof.new_album_id
+      AND target.user_id = source.user_id
+    WHERE proof.original_album_id = ?
+      AND proof.action IN ('FILE_UNDER_VARIOUS_ARTISTS', 'FILE_UNDER_ALBUM_ARTIST')
+    ORDER BY proof.id DESC LIMIT 1`
+    )
+    .bind(LATELY_OWNER_ID, albumId)
+    .first<FiledAlbum>();
+}
+
 export async function musicCard(
   db: D1Database,
   item: {
@@ -128,7 +160,10 @@ export async function musicCard(
   )
     return null;
   const row = results[0];
-  const album = row?.album_name ?? item.album;
+  const filed = row?.album_id ? await filedAlbum(db, row.album_id) : null;
+  if (filed?.album_filtered) return null;
+  const albumId = filed?.album_id ?? row?.album_id ?? null;
+  const album = filed?.album_name ?? row?.album_name ?? item.album;
   if (
     !isPublicMusic(item.name, album) ||
     isFiltered({
@@ -152,7 +187,7 @@ export async function musicCard(
     artist: item.artist,
     album,
     scrobbled_at: item.scrobbled_at,
-    image: await imageFor(db, 'listening', 'albums', row?.album_id ?? null),
+    image: await imageFor(db, 'listening', 'albums', albumId),
   };
 }
 
