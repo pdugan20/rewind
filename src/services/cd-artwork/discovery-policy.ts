@@ -1,6 +1,6 @@
 /** Change only when source/identity selection improves. Independent of pixel
  * processing: a renderer change must not retry completed catalog failures. */
-export const DISCOVERY_POLICY = 'corroborated-album-identity-v3';
+export const DISCOVERY_POLICY = 'corroborated-album-identity-v4';
 
 /** SQL fragment shared by post-enrichment admission and scheduled recovery.
  * Callers bind c/a/r to the owned artwork, album and artist rows. Old failures
@@ -21,4 +21,5 @@ export const RECOVERABLE_DISCOVERY_CODES = [
   'cover_identity_ambiguous',
   'cover_track_mismatch',
   'edition_medium_ambiguous',
+  'artwork_sources_exhausted',
 ] as const;

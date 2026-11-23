@@ -43,7 +43,8 @@ function catalog(
           ...candidates.find((c) => c.collectionId === id),
           trackCount: counts[id] ?? tracks[id]?.length,
         },
-        ...(tracks[id] ?? []).map((trackName) => ({
+        ...(tracks[id] ?? []).map((trackName, index) => ({
+          trackId: 400 + index,
           wrapperType: 'track',
           collectionId: id,
           trackName,
@@ -275,3 +276,35 @@ it('persists bounded private rejection evidence and the catalog snapshot without
     }>())!.n
   ).toBe(0);
 });
+
+it.each([
+  { observedId: 400, count: 1, accepted: true },
+  { observedId: 401, count: 1, accepted: false },
+  { observedId: 400, count: 2, accepted: false },
+])(
+  'checks the saved single against its sole recorded track ID ($observedId, $count)',
+  async ({ observedId, count, accepted }) => {
+    await runtime.DB.prepare(
+      'UPDATE lastfm_tracks SET apple_music_id=? WHERE id=1'
+    )
+      .bind(observedId)
+      .run();
+    catalog(
+      [collection(123, 'Synthetic album - Single')],
+      { 123: ['First song'] },
+      { 123: count }
+    );
+    const selected = verifiedCover(runtime, 1, 1, {
+      ...album,
+      apple_music_id: 123,
+    });
+    if (accepted)
+      await expect(selected).resolves.toMatchObject({
+        discovery: { observed_track_proof: 'stored_single_track_id' },
+      });
+    else
+      await expect(selected).rejects.toMatchObject({
+        code: 'cover_identity_unverified',
+      });
+  }
+);
