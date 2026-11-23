@@ -3079,3 +3079,83 @@ it('scheduled policy recovery follows discovery, validation and publication into
     fetcher.mock.calls.filter(([url]) => String(url).includes('/images/edits'))
   ).toHaveLength(0);
 });
+
+it.each([true, false])(
+  'checks the release group before using a sibling pressing’s 1200px scan (matching group: %s)',
+  async (sameGroup) => {
+    await play();
+    const other = '22222222-2222-4222-8222-222222222222';
+    const edition = {
+      title: 'Synthetic album',
+      status: 'Official',
+      'release-group': { id: GROUP },
+      media: [{ format: 'CD', position: 1 }],
+      'artist-credit': [{ name: 'Synthetic artist' }],
+    };
+    const fetcher = providers();
+    const original = fetcher.getMockImplementation()!;
+    const thumbnail = 'https://coverartarchive.org/disc-1200.jpg';
+    fetcher.mockImplementation(async (url, init) => {
+      const u = new URL(String(url));
+      await runtime.DB.exec(
+        'UPDATE cd_artwork_control SET provider_next_ms=0 WHERE id=1'
+      );
+      if (u.hostname === 'musicbrainz.org') {
+        if (u.searchParams.has('query'))
+          return Response.json({
+            count: 1,
+            releases: [{ id: other, ...edition }],
+          });
+        const id = u.pathname.split('/').pop();
+        return Response.json({
+          id,
+          ...edition,
+          'release-group': { id: id === other && !sameGroup ? other : GROUP },
+        });
+      }
+      if (u.pathname === '/release/' + RELEASE)
+        return Response.json({ images: [] });
+      if (u.pathname === '/release/' + other)
+        return Response.json({
+          images: [
+            {
+              id: 10,
+              types: ['Medium'],
+              approved: true,
+              image: 'https://coverartarchive.org/oversized.png',
+              thumbnails: { 1200: thumbnail },
+            },
+          ],
+        });
+      if (u.pathname === '/oversized.png')
+        return new Response(null, {
+          headers: { 'Content-Length': String(20 * 1024 * 1024) },
+        });
+      if (u.href === thumbnail) return new Response(new Uint8Array(bytes));
+      if (u.hostname.endsWith('theaudiodb.com'))
+        return Response.json({ album: null });
+      return original(url, init);
+    });
+    const source = await selectAutomaticSource(
+      runtime,
+      1,
+      1,
+      await ownedAlbum(runtime, 1, 1),
+      RELEASE,
+      1
+    );
+    if (!sameGroup) {
+      expect(source.sourceKind).toBe('cover');
+      expect(
+        fetcher.mock.calls.some(([url]) => String(url) === thumbnail)
+      ).toBe(false);
+      return;
+    }
+    expect(source).toMatchObject({
+      sourceKind: 'retail',
+      selectedImageId: '10',
+      sourceUrl: thumbnail,
+      request: { release_id: other },
+    });
+  }
+);

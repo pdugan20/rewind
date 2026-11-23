@@ -40,6 +40,7 @@ interface Collection {
   artworkUrl100?: string;
   wrapperType?: string;
   trackName?: string;
+  trackId?: number | string;
   releaseDate?: string;
   trackCount?: number;
   hasMoreTracks?: boolean;
@@ -155,6 +156,7 @@ async function lookupCoverCatalog(
       collectionId: id,
       artistName: song.attributes?.artistName,
       trackName: song.attributes?.name,
+      trackId: song.id,
     })),
   ];
 }
@@ -207,17 +209,17 @@ async function resolveVerifiedCover(
   evidence: Record<string, unknown>
 ): Promise<SelectedSource> {
   const tracks = await env.DB.prepare(
-    'SELECT t.name FROM lastfm_scrobbles s INDEXED BY idx_lastfm_scrobbles_user_album_date JOIN lastfm_tracks t NOT INDEXED ON t.id=s.track_id AND t.user_id=s.user_id WHERE s.user_id=? AND s.album_recorded=1 AND s.album_id=? AND t.is_filtered=0 ORDER BY s.scrobbled_at DESC LIMIT 8'
+    'SELECT t.name,t.apple_music_id FROM lastfm_scrobbles s INDEXED BY idx_lastfm_scrobbles_user_album_date JOIN lastfm_tracks t NOT INDEXED ON t.id=s.track_id AND t.user_id=s.user_id WHERE s.user_id=? AND s.album_recorded=1 AND s.album_id=? AND t.is_filtered=0 ORDER BY s.scrobbled_at DESC LIMIT 8'
   )
     .bind(userId, albumId)
-    .all<{ name: string }>();
+    .all<{ name: string; apple_music_id: number | null }>();
   let legacyEvidence = false;
   if (!tracks.results.length && allowLegacy) {
     const legacy = await env.DB.prepare(
-      'SELECT t.name FROM lastfm_tracks t INDEXED BY idx_lastfm_tracks_user_album JOIN lastfm_scrobbles s INDEXED BY idx_lastfm_scrobbles_user_track_date ON s.track_id=t.id AND s.user_id=t.user_id WHERE t.user_id=? AND t.album_id=? AND t.is_filtered=0 AND s.album_recorded=0 ORDER BY s.scrobbled_at DESC LIMIT 8'
+      'SELECT t.name,t.apple_music_id FROM lastfm_tracks t INDEXED BY idx_lastfm_tracks_user_album JOIN lastfm_scrobbles s INDEXED BY idx_lastfm_scrobbles_user_track_date ON s.track_id=t.id AND s.user_id=t.user_id WHERE t.user_id=? AND t.album_id=? AND t.is_filtered=0 AND s.album_recorded=0 ORDER BY s.scrobbled_at DESC LIMIT 8'
     )
       .bind(userId, albumId)
-      .all<{ name: string }>();
+      .all<{ name: string; apple_music_id: number | null }>();
     tracks.results.push(...legacy.results);
     legacyEvidence = legacy.results.length > 0;
   }
@@ -266,10 +268,35 @@ async function resolveVerifiedCover(
     const artistVerified =
       !!collection?.artistName &&
       artworkArtistMatches(album.artist, collection.artistName);
+    const songs = lookup.filter(
+      (c) => c.wrapperType === 'track' && String(c.collectionId) === id
+    );
+    // Apple appends a release type to single titles. Only relax that suffix
+    // for the saved collection and its one independently identified song.
+    const single = songs[0];
+    const verifiedSingle =
+      id === String(album.apple_music_id) &&
+      collection?.trackCount === 1 &&
+      !collection.hasMoreTracks &&
+      songs.length === 1 &&
+      single.trackId &&
+      single.trackName &&
+      collection.collectionName?.endsWith(' - Single') &&
+      albumMatches(
+        album.name,
+        collection.collectionName.replace(/ - Single$/, ''),
+        album.artist
+      ) &&
+      tracks.results.some(
+        (track) =>
+          track.apple_music_id != null &&
+          String(track.apple_music_id) === String(single.trackId) &&
+          trackMatches(track.name, single.trackName!)
+      );
     const titleVerified =
       artistVerified &&
       !!collection?.collectionName &&
-      (await titleMatches(collection.collectionName));
+      (!!verifiedSingle || (await titleMatches(collection.collectionName)));
     const diagnostic: Record<string, unknown> = {
       id,
       title: collection?.collectionName?.slice(0, 240) ?? null,
@@ -299,9 +326,6 @@ async function resolveVerifiedCover(
       };
     // Album-level artist identity and track membership are authoritative.
     // Song credits may include guest performers without changing its album.
-    const songs = lookup.filter(
-      (c) => c.wrapperType === 'track' && String(c.collectionId) === id
-    );
     const live =
       proof?.live === true ||
       (stripLive(album.name) !== album.name &&
@@ -333,7 +357,11 @@ async function resolveVerifiedCover(
         for (const member of members) matchedMembers.add(memberKey(member));
     }
     let trackVerified = matchedMembers.size > 0;
-    let trackProof = trackVerified ? 'catalog_member_title' : null;
+    let trackProof = verifiedSingle
+      ? 'stored_single_track_id'
+      : trackVerified
+        ? 'catalog_member_title'
+        : null;
     if (!trackVerified) {
       if (proof === undefined)
         proof = await catalogIdentityProof(env, album, knownRelease);
@@ -746,6 +774,7 @@ export async function selectAutomaticSource(
       ...new Set([...(releaseId ? [releaseId] : []), ...remembered.keys()]),
     ].slice(0, 3);
     let searched = false;
+    let storedGroup: string | null = null;
     const discoverReleases = async () => {
       const candidates = await resolveEditionCandidates(
         env,
@@ -762,6 +791,7 @@ export async function selectAutomaticSource(
       if (
         groups.size === 1 &&
         !groups.has(null) &&
+        (!storedGroup || groups.has(storedGroup)) &&
         (candidates.group_verified || !candidates.results_truncated)
       ) {
         // The album's own verified release goes first; the rest keep a
@@ -785,7 +815,7 @@ export async function selectAutomaticSource(
       if (
         index >= releases.length &&
         !searched &&
-        (!releaseId || revisitEdition)
+        (!releaseId || revisitEdition || storedGroup)
       ) {
         searched = true;
         await discoverReleases();
@@ -815,6 +845,10 @@ export async function selectAutomaticSource(
           continue;
         throw error;
       }
+      if (release === releaseId)
+        storedGroup = found.discovery.release_group_id ?? null;
+      else if (storedGroup && found.discovery.release_group_id !== storedGroup)
+        continue;
       const images = found.discovery.images.filter((image) => {
         const labelled = image.comment?.match(
           /\b(?:cd|disc|disk|medium)\s*[-#:]?\s*(\d+)/i
@@ -840,14 +874,27 @@ export async function selectAutomaticSource(
           .slice(0, 3);
         const scans: Array<{
           image: (typeof images)[number];
+          url: string;
           bytes: Uint8Array;
           mime: string;
           area: number;
         }> = [];
         for (const image of ordered) {
+          // A thumbnail represents the same scan as its original. A refusal of
+          // either URL exhausts both representations.
+          if (
+            refusedUrls.has(image.url) ||
+            (image.thumbnail && refusedUrls.has(image.thumbnail))
+          )
+            continue;
+          let url = image.url;
           let downloaded;
           try {
-            downloaded = await usableSource(image.url);
+            downloaded = await usableSource(url);
+            if (!downloaded && image.thumbnail) {
+              url = image.thumbnail;
+              downloaded = await usableSource(url);
+            }
           } catch (error) {
             if (
               !(error instanceof ArtworkError) ||
@@ -862,11 +909,11 @@ export async function selectAutomaticSource(
             });
             continue;
           }
-          if (!downloaded || !(await usable(downloaded.bytes, image.url)))
-            continue;
+          if (!downloaded || !(await usable(downloaded.bytes, url))) continue;
           const pixels = readPixels(downloaded.bytes);
           scans.push({
             image,
+            url,
             ...downloaded,
             area: pixels.width * pixels.height,
           });
@@ -884,7 +931,7 @@ export async function selectAutomaticSource(
             preparedBytes: chosen.bytes,
             preparedMime: chosen.mime,
             renderRetry: await renderRetry(chosen.bytes),
-            sourceUrl: chosen.image.url,
+            sourceUrl: chosen.url,
             sourceKind: 'retail',
             identityType: 'representative_release',
             selectedImageId: chosen.image.id,

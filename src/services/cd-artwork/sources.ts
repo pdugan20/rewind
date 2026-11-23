@@ -267,6 +267,7 @@ async function artistIdentityMatches(
   return false;
 }
 interface ArchiveImage {
+  thumbnails?: { '1200'?: string };
   id: string | number;
   types: string[];
   image: string;
@@ -426,6 +427,9 @@ export async function resolveSource(
     images: media.map((i) => ({
       id: String(i.id),
       url: i.image.replace(/^http:/, 'https:'),
+      ...(typeof i.thumbnails?.['1200'] === 'string'
+        ? { thumbnail: i.thumbnails['1200'].replace(/^http:/, 'https:') }
+        : {}),
       approved: !!i.approved,
       comment: i.comment ?? null,
       types: i.types,
