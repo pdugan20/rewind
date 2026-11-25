@@ -181,6 +181,21 @@ describe('transformHealthRun', () => {
     expect(byName['2 mile'].moving_time).toBeCloseTo((2 * MILE) / SPEED, -1);
   });
 
+  it('ignores a GPS spike whose reported accuracy looks fine', () => {
+    const base = syntheticRun();
+    const route = base.route!.map((p, i) =>
+      i === 300
+        ? ([p[0], p[1] + 500 / METERS_PER_DEG_LAT, p[2], p[3], p[4]] as const)
+        : p
+    ) as NonNullable<PulsoSample['route']>;
+    const spiked = transformHealthRun({ ...base, route });
+    const byName = Object.fromEntries(
+      spiked.bestEfforts.map((e) => [e.name, e])
+    );
+    expect(byName['400m'].elapsed_time).toBeCloseTo(400 / SPEED, -1);
+    expect(byName.mile.elapsed_time).toBeCloseTo(MILE / SPEED, -1);
+  });
+
   it('keeps summary fields for a run without a route', () => {
     const treadmill = transformHealthRun(
       syntheticRun({ route: undefined, heartRateSeries: undefined })

@@ -148,6 +148,14 @@ function haversineMeters(
   return 6371008.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+type RoutePoint = NonNullable<PulsoSample['route']>[number];
+
+/** Moving between two fixes would take running faster than anyone does. */
+function isImplausibleJump(from: RoutePoint, to: RoutePoint): boolean {
+  const meters = haversineMeters(from[1], from[2], to[1], to[2]);
+  return meters / (to[0] - from[0]) > MAX_PLAUSIBLE_SPEED_MS;
+}
+
 export function buildTrack(
   route: PulsoSample['route'],
   totalDistanceMeters?: number
@@ -169,12 +177,28 @@ export function buildTrack(
     if (deduped.length && deduped[deduped.length - 1][0] === p[0]) continue;
     deduped.push(p);
   }
-  if (deduped.length < 2) return null;
+
+  // A fix that jumps away and straight back is a GPS spike, even when its
+  // reported accuracy passed the filter above. Dropping only the spike keeps
+  // the route intact when the first fix of a run is the bad one.
+  const fixes: typeof points = [];
+  for (let i = 0; i < deduped.length; i++) {
+    const previous = fixes[fixes.length - 1];
+    const next = deduped[i + 1];
+    const isSpike =
+      previous !== undefined &&
+      next !== undefined &&
+      isImplausibleJump(previous, deduped[i]) &&
+      isImplausibleJump(deduped[i], next) &&
+      !isImplausibleJump(previous, next);
+    if (!isSpike) fixes.push(deduped[i]);
+  }
+  if (fixes.length < 2) return null;
 
   const raw: number[] = [0];
-  for (let i = 1; i < deduped.length; i++) {
-    const [, lat0, lng0] = deduped[i - 1];
-    const [, lat1, lng1] = deduped[i];
+  for (let i = 1; i < fixes.length; i++) {
+    const [, lat0, lng0] = fixes[i - 1];
+    const [, lat1, lng1] = fixes[i];
     raw.push(raw[i - 1] + haversineMeters(lat0, lng0, lat1, lng1));
   }
   const routeDistance = raw[raw.length - 1];
@@ -192,8 +216,8 @@ export function buildTrack(
     lat: [],
     lng: [],
   };
-  for (let i = 0; i < deduped.length; i++) {
-    const [t, lat, lng, alt] = deduped[i];
+  for (let i = 0; i < fixes.length; i++) {
+    const [t, lat, lng, alt] = fixes[i];
     track.time.push(t);
     track.distance.push(raw[i] * scale);
     track.lat.push(lat);
@@ -203,7 +227,7 @@ export function buildTrack(
       track.moving.push(0);
       continue;
     }
-    const dt = t - deduped[i - 1][0];
+    const dt = t - fixes[i - 1][0];
     const dd = (raw[i] - raw[i - 1]) * scale;
     const isMoving = dt <= MAX_MOVING_GAP_S && dd / dt >= MIN_MOVING_SPEED_MS;
     track.moving.push(track.moving[i - 1] + (isMoving ? dt : 0));
