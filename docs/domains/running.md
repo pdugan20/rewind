@@ -2,11 +2,33 @@
 
 For current endpoints and response fields, use the [public running guide](../../docs-mintlify/domains/running.mdx) and generated API reference. These notes retain integration decisions and historical operational context; source files remain authoritative.
 
-14+ years of Strava running data since 2011. Activities with GPS routes, pace, heart rate, elevation, splits, gear tracking, and personal records. OAuth 2.0 with refresh token rotation.
+14+ years of running data since 2011. Activities with GPS routes, pace, heart rate, elevation, splits, gear tracking, and personal records.
 
-## Data Source
+## Data Sources
 
-- Strava -- all running activities via OAuth 2.0 API. App registered at <https://www.strava.com/settings/api>
+- Apple Health -- new runs since August 2026, sent by the Pulso iPhone app ([fork](https://github.com/pdugan20/pulso)). This is the live source.
+- Strava -- the history through 2026-08-28, via the OAuth 2.0 API. Strava deactivated the API application on 2026-06-30 for accounts without a subscription (`403 Application Status Inactive`), so the nightly Strava cron was removed. The sync code and webhook remain for a one-off admin sync.
+
+## Apple Health via Pulso
+
+Pulso reads Apple Health on the phone with anchored HealthKit queries and delivers batches to `https://api.rewind.rest/v1/webhooks/apple-health` (`/health`, `/latest`, `/ingest`). The protocol is `docs/PROTOCOL.md` in the Pulso repository; the fork adds `route` and `heartRateSeries` to running workouts and syncs only workouts by default. Code: `src/services/apple-health/` and the routes at the end of `src/routes/webhooks.ts`.
+
+- **Auth**: `APPLE_HEALTH_INGEST_TOKEN` Worker secret, entered as the token in the app's settings. It grants only this ingest. Ingest returns 503 while the secret is unset.
+- **Storage**: runs share `strava_activities` and `strava_splits` with the Strava history, so every running endpoint, stat, streak, and PR covers both. `source = 'apple_health'`, `source_id` is the HealthKit uuid, and `strava_id` is a synthetic id in [2^52, 2^53) derived from that uuid (`healthActivityId`). It stays stable across re-sends and above any real Strava id; `strava_url` is null.
+- **Derived fields**: distance, moving time, and calories come from the workout summary. Mile splits, elevation gain (3 m dead band, unless the workout recorded `HKElevationAscended`), max speed, best efforts, and the polyline come from the GPS route, scaled to the workout distance. Fixes worse than 50 m accuracy are dropped; gaps over 30 s count as pauses. A single fix that jumps away and back faster than 7 m/s is dropped as a GPS spike. City, cadence, and gear are not available.
+- **Duplicates**: a new run starting within five minutes of an existing activity is skipped, and its heart rate fills nulls on the existing row. This covers the overlap with Nike runs that also reached Strava.
+- **Personal records**: best efforts are ranked by elapsed time, like the Strava history, so a stop inside the fastest stretch counts. Moving time is kept alongside. A re-sent run gives up its records before its recalculated efforts are applied, so a corrected route can't keep a time it no longer supports.
+- **Deletions**: Pulso tombstones soft-delete Apple Health runs only, and remove their personal records, search entries, and feed items. Per-run best efforts aren't stored, so a record that a cleared run had replaced can't be restored. That distance stays empty until another run sets it.
+- **Catch-up**: `/latest` reports the end of the newest stored run; a fresh install sends runs from 72 hours before it. "Re-import Full History" in the app re-sends everything, which the duplicate check absorbs.
+- **Freshness**: iOS only allows reading Health while the phone is unlocked, so runs arrive after the next unlock.
+- Each batch containing a run or deletion records a `sync_runs` row with `sync_type = 'apple_health'`.
+
+### Setup
+
+1. Generate a token and store it: `npx wrangler secret put APPLE_HEALTH_INGEST_TOKEN`.
+2. Build Pulso from the fork onto the iPhone with Xcode (team 2DS67Q47ES, bundle `me.patdugan.pulso`).
+3. In Pulso settings, set the server to `https://api.rewind.rest/v1/webhooks/apple-health` and paste the token, then Test Connection.
+4. Grant Health access (workouts, workout routes, heart rate) and tap Sync Now.
 
 ## Strava API
 

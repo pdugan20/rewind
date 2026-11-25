@@ -595,40 +595,13 @@ export async function syncSingleActivity(
 
   // Extract and upsert PRs from best_efforts
   if (activity.best_efforts?.length) {
-    const prs = extractPersonalRecords([
+    await applyPersonalRecords(db, [
       {
         bestEfforts: activity.best_efforts,
         activityId: activity.id,
         activityName: activity.name,
       },
     ]);
-
-    for (const pr of prs) {
-      // Only update if this is actually a faster time
-      const [existing] = await db
-        .select()
-        .from(stravaPersonalRecords)
-        .where(
-          and(
-            eq(stravaPersonalRecords.userId, 1),
-            eq(stravaPersonalRecords.distance, pr.distance)
-          )
-        )
-        .limit(1);
-
-      if (!existing || pr.timeSeconds < existing.timeSeconds) {
-        await db
-          .insert(stravaPersonalRecords)
-          .values({ userId: 1, ...pr })
-          .onConflictDoUpdate({
-            target: [
-              stravaPersonalRecords.userId,
-              stravaPersonalRecords.distance,
-            ],
-            set: pr,
-          });
-      }
-    }
   }
 
   // Recompute stats incrementally for the affected year
@@ -690,4 +663,42 @@ export async function deleteActivity(
   }
 
   console.log(`[SYNC] Activity ${stravaId} soft deleted`);
+}
+
+/**
+ * Record any best efforts that beat the current personal record for their
+ * distance. Shared by the Strava webhook and the Apple Health ingest.
+ */
+export async function applyPersonalRecords(
+  db: Database,
+  activities: Parameters<typeof extractPersonalRecords>[0]
+): Promise<void> {
+  const prs = extractPersonalRecords(activities);
+
+  for (const pr of prs) {
+    // Only update if this is actually a faster time
+    const [existing] = await db
+      .select()
+      .from(stravaPersonalRecords)
+      .where(
+        and(
+          eq(stravaPersonalRecords.userId, 1),
+          eq(stravaPersonalRecords.distance, pr.distance)
+        )
+      )
+      .limit(1);
+
+    if (!existing || pr.timeSeconds < existing.timeSeconds) {
+      await db
+        .insert(stravaPersonalRecords)
+        .values({ userId: 1, ...pr })
+        .onConflictDoUpdate({
+          target: [
+            stravaPersonalRecords.userId,
+            stravaPersonalRecords.distance,
+          ],
+          set: pr,
+        });
+    }
+  }
 }

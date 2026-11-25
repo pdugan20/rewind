@@ -14,6 +14,11 @@ import {
 } from '../services/plex/webhook.js';
 import { TmdbClient } from '../services/watching/tmdb.js';
 import { runPipeline } from '../services/images/pipeline.js';
+import {
+  ingestHealthBatch,
+  latestRunEnd,
+} from '../services/apple-health/ingest.js';
+import type { Env } from '../types/env.js';
 
 const webhooks = createOpenAPIApp();
 
@@ -218,6 +223,173 @@ webhooks.openapi(plexWebhookRoute, async (c) => {
     },
     200
   );
+});
+
+// --- Apple Health (Pulso iPhone app) ---
+//
+// Pulso appends /health, /latest, and /ingest to the base URL configured in
+// the app: https://api.rewind.rest/v1/webhooks/apple-health. /latest and
+// /ingest require APPLE_HEALTH_INGEST_TOKEN as a bearer token; that token
+// only grants this ingest, never Rewind's read or admin API.
+
+const PulsoHealthResponseSchema = z.object({ status: z.literal('ok') });
+const PulsoLatestResponseSchema = z.record(z.string(), z.string());
+const PulsoIngestResponseSchema = z.object({
+  received: z.number(),
+  new: z.number(),
+  updated: z.number(),
+  matched: z.number(),
+  deleted: z.number(),
+  ignored: z.number(),
+});
+
+/** Largest batch accepted after decompression (Pulso caps batches at 8 MB). */
+const MAX_INGEST_BYTES = 16 * 1024 * 1024;
+
+type IngestAuth = 'ok' | 'unconfigured' | 'unauthorized';
+
+async function verifyIngestToken(
+  env: Env,
+  header: string | undefined
+): Promise<IngestAuth> {
+  const expected = env.APPLE_HEALTH_INGEST_TOKEN;
+  if (!expected) return 'unconfigured';
+  const provided = header?.startsWith('Bearer ') ? header.slice(7) : '';
+  const encoder = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(provided)),
+    crypto.subtle.digest('SHA-256', encoder.encode(expected)),
+  ]);
+  // Compare fixed-length digests without an early exit.
+  const left = new Uint8Array(a);
+  const right = new Uint8Array(b);
+  let difference = 0;
+  for (let i = 0; i < left.length; i++) difference |= left[i] ^ right[i];
+  return difference === 0 ? 'ok' : 'unauthorized';
+}
+
+function ingestAuthError(auth: Exclude<IngestAuth, 'ok'>) {
+  return auth === 'unconfigured'
+    ? {
+        body: { error: 'Apple Health ingest is not configured', status: 503 },
+        status: 503 as const,
+      }
+    : { body: { error: 'Unauthorized', status: 401 }, status: 401 as const };
+}
+
+/** Pulso always gzips; plain JSON is accepted too, for curl and tests. */
+async function readIngestBody(request: Request): Promise<unknown> {
+  const raw = new Uint8Array(await request.arrayBuffer());
+  let bytes = raw;
+  if (raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b) {
+    const stream = new Blob([raw])
+      .stream()
+      .pipeThrough(new DecompressionStream('gzip'));
+    bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  if (bytes.length > MAX_INGEST_BYTES) {
+    throw new Error('Batch too large');
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+const appleHealthCheckRoute = createRoute({
+  method: 'get',
+  path: '/webhooks/apple-health/health',
+  operationId: 'checkAppleHealthIngest',
+  'x-hidden': true,
+  tags: ['Webhooks'],
+  summary: 'Apple Health ingest liveness',
+  description:
+    "Liveness probe for the Pulso app's Test Connection button. No auth required.",
+  'x-internal': true,
+  responses: {
+    200: {
+      description: 'Ingest endpoint is reachable',
+      content: { 'application/json': { schema: PulsoHealthResponseSchema } },
+    },
+  },
+});
+
+webhooks.openapi(appleHealthCheckRoute, (c) =>
+  c.json({ status: 'ok' as const }, 200)
+);
+
+const appleHealthLatestRoute = createRoute({
+  method: 'get',
+  path: '/webhooks/apple-health/latest',
+  operationId: 'getAppleHealthLatest',
+  'x-hidden': true,
+  tags: ['Webhooks'],
+  summary: 'Newest run Rewind holds',
+  description:
+    'Returns { "workout": <end time of the newest run> } so a fresh Pulso install only sends recent runs. Requires APPLE_HEALTH_INGEST_TOKEN.',
+  'x-internal': true,
+  responses: {
+    200: {
+      description: 'Newest stored timestamp per Pulso type',
+      content: { 'application/json': { schema: PulsoLatestResponseSchema } },
+    },
+    ...errorResponses(401),
+  },
+});
+
+webhooks.openapi(appleHealthLatestRoute, async (c) => {
+  const auth = await verifyIngestToken(c.env, c.req.header('Authorization'));
+  if (auth !== 'ok') {
+    const error = ingestAuthError(auth);
+    return c.json(error.body, error.status) as any;
+  }
+  const db = createDb(c.env.DB);
+  return c.json(await latestRunEnd(db), 200);
+});
+
+const appleHealthIngestRoute = createRoute({
+  method: 'post',
+  path: '/webhooks/apple-health/ingest',
+  operationId: 'receiveAppleHealthBatch',
+  'x-hidden': true,
+  tags: ['Webhooks'],
+  summary: 'Apple Health batch receiver',
+  description:
+    'Receives Pulso batches (a JSON array of samples and deletion tombstones, usually gzipped) and stores running workouts. Requires APPLE_HEALTH_INGEST_TOKEN. Body is parsed manually to support gzip.',
+  'x-internal': true,
+  responses: {
+    200: {
+      description: 'Batch stored',
+      content: { 'application/json': { schema: PulsoIngestResponseSchema } },
+    },
+    ...errorResponses(400, 401),
+  },
+});
+
+webhooks.openapi(appleHealthIngestRoute, async (c) => {
+  const auth = await verifyIngestToken(c.env, c.req.header('Authorization'));
+  if (auth !== 'ok') {
+    const error = ingestAuthError(auth);
+    return c.json(error.body, error.status) as any;
+  }
+
+  let body: unknown;
+  try {
+    body = await readIngestBody(c.req.raw);
+  } catch (error) {
+    console.log(
+      '[ERROR] Apple Health batch unreadable: ' +
+        (error instanceof Error ? error.message : String(error))
+    );
+    return c.json({ error: 'Invalid batch', status: 400 }, 400) as any;
+  }
+  if (!Array.isArray(body)) {
+    return c.json(
+      { error: 'Batch must be a JSON array', status: 400 },
+      400
+    ) as any;
+  }
+
+  const db = createDb(c.env.DB);
+  const result = await ingestHealthBatch(db, body);
+  return c.json(result, 200);
 });
 
 export default webhooks;

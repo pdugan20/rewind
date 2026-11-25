@@ -5,6 +5,7 @@ graph TD
     subgraph Sources
         LF[Last.fm]
         ST[Strava]
+        AH[Apple Health via Pulso]
         PX[Plex]
         LB[Letterboxd]
         DC[Discogs]
@@ -14,6 +15,7 @@ graph TD
     end
 
     LF & ST & PX & LB & DC & TR & IP & GC -->|Cron Triggers| SW[Sync Workers]
+    AH -->|Webhook| SW
     SW --> D1[(D1 / SQLite)]
     SW --> R2[(R2 Images)]
     R2 -->|ThumbHash + color extraction| CDN[cdn.rewind.rest]
@@ -28,7 +30,7 @@ Data endpoints require a Bearer API key beginning with `rw_`. Scope is stored on
 
 ## Sync and refresh
 
-Cron definitions live in [`wrangler.toml`](../wrangler.toml) and dispatch through the scheduled handler in [`src/index.ts`](../src/index.ts). Cron times are UTC. Strava and Plex also accept verified webhooks. Each provider service owns its incremental sync and retry behavior; sync outcomes are recorded in `sync_runs`.
+Cron definitions live in [`wrangler.toml`](../wrangler.toml) and dispatch through the scheduled handler in [`src/index.ts`](../src/index.ts). Cron times are UTC. Strava and Plex also accept verified webhooks. Running has no cron: new runs arrive from Apple Health through the Pulso iPhone app (see [running notes](domains/running.md)). Each provider service owns its incremental sync and retry behavior; sync outcomes are recorded in `sync_runs`.
 
 The [prepared Lately snapshot](projects/lately/README.md) refreshes independently of full provider sync. The [CD artwork Worker](projects/cd-artwork/PRODUCTION-RUNBOOK.md) has a separate configuration and workflow lifecycle.
 

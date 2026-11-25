@@ -13334,6 +13334,150 @@
         }
       }
     },
+    "/v1/webhooks/apple-health/health": {
+      "get": {
+        "operationId": "checkAppleHealthIngest",
+        "x-hidden": true,
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Apple Health ingest liveness",
+        "description": "Liveness probe for the Pulso app's Test Connection button. No auth required.",
+        "x-internal": true,
+        "responses": {
+          "200": {
+            "description": "Ingest endpoint is reachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/apple-health/latest": {
+      "get": {
+        "operationId": "getAppleHealthLatest",
+        "x-hidden": true,
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Newest run Rewind holds",
+        "description": "Returns { \"workout\": <end time of the newest run> } so a fresh Pulso install only sends recent runs. Requires APPLE_HEALTH_INGEST_TOKEN.",
+        "x-internal": true,
+        "responses": {
+          "200": {
+            "description": "Newest stored timestamp per Pulso type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/apple-health/ingest": {
+      "post": {
+        "operationId": "receiveAppleHealthBatch",
+        "x-hidden": true,
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Apple Health batch receiver",
+        "description": "Receives Pulso batches (a JSON array of samples and deletion tombstones, usually gzipped) and stores running workouts. Requires APPLE_HEALTH_INGEST_TOKEN. Body is parsed manually to support gzip.",
+        "x-internal": true,
+        "responses": {
+          "200": {
+            "description": "Batch stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "received": {
+                      "type": "number"
+                    },
+                    "new": {
+                      "type": "number"
+                    },
+                    "updated": {
+                      "type": "number"
+                    },
+                    "matched": {
+                      "type": "number"
+                    },
+                    "deleted": {
+                      "type": "number"
+                    },
+                    "ignored": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "received",
+                    "new",
+                    "updated",
+                    "matched",
+                    "deleted",
+                    "ignored"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/images/{domain}/{entity_type}/{entity_id}/{size}": {
       "get": {
         "operationId": "getImage",

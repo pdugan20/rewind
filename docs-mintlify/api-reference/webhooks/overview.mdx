@@ -1,21 +1,21 @@
 ---
 title: Webhooks
 sidebarTitle: Webhooks
-description: How Rewind receives inbound events from Strava and Plex to keep your data fresh in near real time.
+description: How Rewind receives inbound events from Strava, Plex, and Apple Health to keep your data fresh in near real time.
 icon: webhook
 ---
 
-Rewind exposes two inbound webhook endpoints so Strava and Plex can push events the moment something happens, instead of waiting for the next cron sync. Finish a run on Strava or a movie on Plex, and the new activity lands in your archive within seconds.
+Rewind exposes inbound webhook endpoints so Strava, Plex, and the Pulso iPhone app can push data the moment something happens, instead of waiting for the next cron sync. Finish a movie on Plex, and the play lands in your archive within seconds; finish a run, and it arrives once your iPhone next syncs Apple Health.
 
 <Note>
-  These are internal integration endpoints. Strava and Plex call them, not you.
-  They take no API key and there is nothing to fetch from them by hand. You
-  configure each one once as the operator, then they run unattended.
+  These are internal integration endpoints. Strava, Plex, and Pulso call them,
+  not you. They take no API key and there is nothing to fetch from them by hand.
+  You configure each one once as the operator, then they run unattended.
 </Note>
 
 ## How they work
 
-Every other Rewind route is something you call with a Bearer token. Webhooks invert that: an external service is the caller and Rewind is the receiver. Because Strava and Plex cannot present a Rewind API key, the auth middleware skips any path under `/v1/webhooks/`, and each endpoint verifies its own source instead. The two endpoints live at `/v1/webhooks/strava` and `/v1/webhooks/plex`.
+Every other Rewind route is something you call with a Bearer token. Webhooks invert that: an external service is the caller and Rewind is the receiver. Because these callers don't hold a Rewind API key, the auth middleware skips any path under `/v1/webhooks/`, and each endpoint verifies its own source instead. The endpoints live at `/v1/webhooks/strava`, `/v1/webhooks/plex`, and `/v1/webhooks/apple-health`.
 
 ## Strava
 
@@ -31,13 +31,24 @@ Once the subscription is active, Strava `POST`s an event for each activity. Rewi
 
 Plex `POST`s a `multipart/form-data` payload to `/v1/webhooks/plex?token=…`. Plex doesn't sign webhooks, so Rewind checks the `token` in the URL against `PLEX_WEBHOOK_TOKEN` (returning `403` otherwise), then ingests only `media.scrobble` plays of movies or episodes from your own account, enriching the title with TMDB metadata and recomputing your watch stats. Everything else, other event types, other media, or plays from other users, is acknowledged with a `200` so Plex stops retrying.
 
+## Apple Health
+
+[Pulso](https://github.com/pdugan20/pulso) is an iPhone app that reads Apple Health and sends new data to a server you choose. Its base URL is `/v1/webhooks/apple-health`, and it calls three paths under it:
+
+- `GET /health` answers the app's Test Connection button and needs no token.
+- `GET /latest` returns `{ "workout": "<end of the newest run>" }`, so a new install only sends runs from about three days before that point.
+- `POST /ingest` receives a gzipped JSON array of samples and deletion tombstones.
+
+Both `/latest` and `/ingest` require `APPLE_HEALTH_INGEST_TOKEN` as a Bearer token and return `503` until it is set. That token works only for these paths, never for Rewind's API. Rewind stores running workouts and ignores every other sample with a `200`, so the app never retries them. Delivery is at least once, and a resent run updates the stored one. A run that starts within five minutes of one Rewind already has, such as a Nike run that also reached Strava, is not stored twice; its heart rate fills in any missing values on the existing run.
+
 ## Configuration
 
-Both endpoints depend on operator-set environment variables, not on anything a reader supplies:
+Each endpoint depends on an operator-set environment variable, not on anything a reader supplies:
 
-| Variable                      | Endpoint | Purpose                                                    |
-| ----------------------------- | -------- | ---------------------------------------------------------- |
-| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Strava   | Matched against `hub.verify_token` during the handshake    |
-| `PLEX_WEBHOOK_TOKEN`          | Plex     | Matched against the `token` in the webhook URL set in Plex |
+| Variable                      | Endpoint     | Purpose                                                    |
+| ----------------------------- | ------------ | ---------------------------------------------------------- |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Strava       | Matched against `hub.verify_token` during the handshake    |
+| `PLEX_WEBHOOK_TOKEN`          | Plex         | Matched against the `token` in the webhook URL set in Plex |
+| `APPLE_HEALTH_INGEST_TOKEN`   | Apple Health | Bearer token the Pulso app sends with each batch           |
 
 To learn what happens once an event is ingested, see the [running](/domains/running) and [watching](/domains/watching) domain pages.
