@@ -344,7 +344,11 @@ export async function ingestHealthBatch(
       })
       .where(eq(syncRuns.id, syncRun.id));
 
-    if (feedItems.length) {
+    // Revalidation hooks need to hear about updated, matched and deleted runs
+    // too, not only new ones.
+    const changed =
+      result.new + result.updated + result.matched + result.deleted;
+    if (changed > 0) {
       await afterSync(db, { domain: 'running', feedItems, searchItems });
     }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import {
   env,
   SELF,
@@ -13,7 +13,7 @@ import {
   stravaSplits,
   stravaPersonalRecords,
 } from '../db/schema/strava.js';
-import { syncRuns } from '../db/schema/system.js';
+import { revalidationHooks, syncRuns } from '../db/schema/system.js';
 import { healthActivityId } from '../services/apple-health/transforms.js';
 import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 
@@ -243,6 +243,30 @@ describe('Apple Health ingest (/v1/webhooks/apple-health)', () => {
     expect(await res.json()).toMatchObject({ new: 1, deleted: 1 });
     expect(await drizzle(env.DB).select().from(stravaPersonalRecords)).toEqual(
       []
+    );
+  });
+
+  it('fires revalidation hooks for a batch that only deletes a run', async () => {
+    const db = drizzle(env.DB);
+    await ingest([
+      run(RUN_UUID, '2026-09-05T08:00:00-07:00', '2026-09-05T08:21:00-07:00'),
+    ]);
+    await db.insert(revalidationHooks).values({
+      url: 'https://example.com/revalidate',
+      domain: 'running',
+      secret: 'test-secret',
+    });
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchSpy);
+    try {
+      await ingest([{ deleted: [RUN_UUID] }]);
+    } finally {
+      vi.unstubAllGlobals();
+      await db.delete(revalidationHooks);
+    }
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://example.com/revalidate',
+      expect.objectContaining({ method: 'POST' })
     );
   });
 
