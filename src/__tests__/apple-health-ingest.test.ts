@@ -95,9 +95,15 @@ describe('Apple Health ingest (/v1/webhooks/apple-health)', () => {
   });
 
   it('fails closed while the ingest token is not configured', async () => {
-    const res = await SELF.fetch(BASE + '/latest', {
-      headers: { Authorization: 'Bearer ' + TOKEN },
-    });
+    const ctx = createExecutionContext();
+    const res = await worker.fetch(
+      new Request(BASE + '/latest', {
+        headers: { Authorization: 'Bearer ' + TOKEN },
+      }),
+      { ...env, APPLE_HEALTH_INGEST_TOKEN: undefined },
+      ctx
+    );
+    await waitOnExecutionContext(ctx);
     expect(res.status).toBe(503);
   });
 
