@@ -3,9 +3,9 @@
  * (protocol: github.com/pdugan20/pulso docs/PROTOCOL.md) and stores running
  * workouts in the running tables alongside the Strava history.
  */
-import { and, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
-import { syncRuns } from '../../db/schema/system.js';
+import { activityFeed, syncRuns } from '../../db/schema/system.js';
 import {
   stravaActivities,
   stravaPersonalRecords,
@@ -133,6 +133,8 @@ export async function ingestHealthBatch(
     const feedItems: FeedItem[] = [];
     const searchItems: SearchItem[] = [];
     const bestEfforts: Parameters<typeof applyPersonalRecords>[1] = [];
+    /** Apple Health runs re-sent in this batch, whose old efforts are stale. */
+    const replacedActivityIds = new Set<number>();
 
     for (const sample of runs) {
       let run: ReturnType<typeof transformHealthRun>;
@@ -221,6 +223,7 @@ export async function ingestHealthBatch(
           target: stravaActivities.stravaId,
           set: activity,
         });
+      if (existing) replacedActivityIds.add(activity.stravaId);
 
       await db
         .delete(stravaSplits)
@@ -279,11 +282,13 @@ export async function ingestHealthBatch(
       }
     }
     const deletedActivityIds = new Set<number>();
+    const deletedFeedSourceIds = new Set<string>();
     for (const ids of chunkForSelectIn(deletedIds, 3)) {
       const rows = await db
         .select({
           id: stravaActivities.id,
           stravaId: stravaActivities.stravaId,
+          sourceId: stravaActivities.sourceId,
           startDateLocal: stravaActivities.startDateLocal,
         })
         .from(stravaActivities)
@@ -308,14 +313,30 @@ export async function ingestHealthBatch(
       for (const row of rows) {
         changedYears.add(new Date(row.startDateLocal).getUTCFullYear());
         deletedActivityIds.add(row.stravaId);
+        const feedSourceId = HEALTH_SOURCE + ':' + row.sourceId;
+        deletedFeedSourceIds.add(feedSourceId);
+        await db.run(
+          sql`DELETE FROM search_index WHERE domain = 'running' AND entity_type = 'activity' AND entity_id = ${String(row.stravaId)}`
+        );
+        await db
+          .delete(activityFeed)
+          .where(
+            and(
+              eq(activityFeed.domain, 'running'),
+              eq(activityFeed.sourceId, feedSourceId)
+            )
+          );
       }
       result.deleted += rows.length;
     }
 
-    // A deleted run can't hold a record. Per-run best efforts aren't stored,
-    // so the record it replaced can't be restored and the distance stays empty
-    // until another run sets it.
-    for (const ids of chunkForSelectIn([...deletedActivityIds], 1)) {
+    // A deleted run can't hold a record, and a re-sent run's old records may
+    // no longer match its corrected route, so both give up their records
+    // before the batch's efforts are applied. Per-run best efforts aren't
+    // stored, so the record a cleared run had replaced can't be restored and
+    // the distance stays empty until another run sets it.
+    const staleRecordHolders = [...replacedActivityIds, ...deletedActivityIds];
+    for (const ids of chunkForSelectIn(staleRecordHolders, 1)) {
       await db
         .delete(stravaPersonalRecords)
         .where(
@@ -349,7 +370,16 @@ export async function ingestHealthBatch(
     const changed =
       result.new + result.updated + result.matched + result.deleted;
     if (changed > 0) {
-      await afterSync(db, { domain: 'running', feedItems, searchItems });
+      // Runs deleted later in the same batch stay out of the feed and search.
+      await afterSync(db, {
+        domain: 'running',
+        feedItems: feedItems.filter(
+          (item) => !deletedFeedSourceIds.has(item.sourceId)
+        ),
+        searchItems: searchItems.filter(
+          (item) => !deletedActivityIds.has(Number(item.entityId))
+        ),
+      });
     }
 
     console.log(

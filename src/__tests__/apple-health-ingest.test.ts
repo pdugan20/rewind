@@ -13,7 +13,11 @@ import {
   stravaSplits,
   stravaPersonalRecords,
 } from '../db/schema/strava.js';
-import { revalidationHooks, syncRuns } from '../db/schema/system.js';
+import {
+  activityFeed,
+  revalidationHooks,
+  syncRuns,
+} from '../db/schema/system.js';
 import { healthActivityId } from '../services/apple-health/transforms.js';
 import { setupTestDb, createTestApiKey } from '../test-helpers.js';
 
@@ -72,6 +76,15 @@ async function ingest(batch: unknown[]) {
   });
 }
 
+async function searchEntries(activityId: number): Promise<number> {
+  const row = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM search_index WHERE domain = 'running' AND entity_id = ?"
+  )
+    .bind(String(activityId))
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
 describe('Apple Health ingest (/v1/webhooks/apple-health)', () => {
   let readKey: string;
 
@@ -86,6 +99,10 @@ describe('Apple Health ingest (/v1/webhooks/apple-health)', () => {
     await db.delete(stravaPersonalRecords);
     await db.delete(stravaActivities);
     await db.delete(syncRuns);
+    await db.delete(activityFeed);
+    await env.DB.prepare(
+      "DELETE FROM search_index WHERE domain = 'running'"
+    ).run();
   });
 
   it('answers the Test Connection probe without a token', async () => {
@@ -244,6 +261,38 @@ describe('Apple Health ingest (/v1/webhooks/apple-health)', () => {
     expect(await drizzle(env.DB).select().from(stravaPersonalRecords)).toEqual(
       []
     );
+    expect(await searchEntries(healthActivityId(RUN_UUID))).toBe(0);
+    expect(await drizzle(env.DB).select().from(activityFeed)).toEqual([]);
+  });
+
+  it('removes a deleted run from search and the feed', async () => {
+    const id = healthActivityId(RUN_UUID);
+    await ingest([
+      run(RUN_UUID, '2026-09-05T08:00:00-07:00', '2026-09-05T08:21:00-07:00'),
+    ]);
+    expect(await searchEntries(id)).toBe(1);
+    expect((await drizzle(env.DB).select().from(activityFeed)).length).toBe(1);
+
+    await ingest([{ deleted: [RUN_UUID] }]);
+    expect(await searchEntries(id)).toBe(0);
+    expect(await drizzle(env.DB).select().from(activityFeed)).toEqual([]);
+  });
+
+  it('clears the records of a re-sent run that lost its route', async () => {
+    const db = drizzle(env.DB);
+    const original = run(
+      RUN_UUID,
+      '2026-09-05T08:00:00-07:00',
+      '2026-09-05T08:21:00-07:00'
+    );
+    await ingest([original]);
+    expect(
+      (await db.select().from(stravaPersonalRecords)).length
+    ).toBeGreaterThan(0);
+
+    const res = await ingest([{ ...original, route: undefined }]);
+    expect(await res.json()).toMatchObject({ updated: 1 });
+    expect(await db.select().from(stravaPersonalRecords)).toEqual([]);
   });
 
   it('fires revalidation hooks for a batch that only deletes a run', async () => {
