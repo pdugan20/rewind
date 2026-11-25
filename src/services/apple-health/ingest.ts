@@ -6,7 +6,11 @@
 import { and, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { syncRuns } from '../../db/schema/system.js';
-import { stravaActivities, stravaSplits } from '../../db/schema/strava.js';
+import {
+  stravaActivities,
+  stravaPersonalRecords,
+  stravaSplits,
+} from '../../db/schema/strava.js';
 import { afterSync } from '../../lib/after-sync.js';
 import type { FeedItem, SearchItem } from '../../lib/after-sync.js';
 import { chunkForInsertValues, chunkForSelectIn } from '../../lib/d1-chunk.js';
@@ -274,10 +278,12 @@ export async function ingestHealthBatch(
         // Not a uuid; nothing of ours can match it.
       }
     }
+    const deletedActivityIds = new Set<number>();
     for (const ids of chunkForSelectIn(deletedIds, 3)) {
       const rows = await db
         .select({
           id: stravaActivities.id,
+          stravaId: stravaActivities.stravaId,
           startDateLocal: stravaActivities.startDateLocal,
         })
         .from(stravaActivities)
@@ -301,12 +307,29 @@ export async function ingestHealthBatch(
         );
       for (const row of rows) {
         changedYears.add(new Date(row.startDateLocal).getUTCFullYear());
+        deletedActivityIds.add(row.stravaId);
       }
       result.deleted += rows.length;
     }
 
-    if (bestEfforts.length) {
-      await applyPersonalRecords(db, bestEfforts);
+    // A deleted run can't hold a record. Per-run best efforts aren't stored,
+    // so the record it replaced can't be restored and the distance stays empty
+    // until another run sets it.
+    for (const ids of chunkForSelectIn([...deletedActivityIds], 1)) {
+      await db
+        .delete(stravaPersonalRecords)
+        .where(
+          and(
+            eq(stravaPersonalRecords.userId, userId),
+            inArray(stravaPersonalRecords.activityStravaId, ids)
+          )
+        );
+    }
+    const liveBestEfforts = bestEfforts.filter(
+      (effort) => !deletedActivityIds.has(effort.activityId)
+    );
+    if (liveBestEfforts.length) {
+      await applyPersonalRecords(db, liveBestEfforts);
     }
     if (changedYears.size > 0) {
       await recomputeStats(db, changedYears);

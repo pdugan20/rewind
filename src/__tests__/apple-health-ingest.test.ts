@@ -222,6 +222,30 @@ describe('Apple Health ingest (/v1/webhooks/apple-health)', () => {
     expect(row.isDeleted).toBe(1);
   });
 
+  it('drops the personal records a deleted run held', async () => {
+    const db = drizzle(env.DB);
+    await ingest([
+      run(RUN_UUID, '2026-09-05T08:00:00-07:00', '2026-09-05T08:21:00-07:00'),
+    ]);
+    expect(
+      (await db.select().from(stravaPersonalRecords)).length
+    ).toBeGreaterThan(0);
+
+    await ingest([{ deleted: [RUN_UUID] }]);
+    expect(await db.select().from(stravaPersonalRecords)).toEqual([]);
+  });
+
+  it('sets no records for a run deleted in the same batch', async () => {
+    const res = await ingest([
+      run(RUN_UUID, '2026-09-05T08:00:00-07:00', '2026-09-05T08:21:00-07:00'),
+      { deleted: [RUN_UUID] },
+    ]);
+    expect(await res.json()).toMatchObject({ new: 1, deleted: 1 });
+    expect(await drizzle(env.DB).select().from(stravaPersonalRecords)).toEqual(
+      []
+    );
+  });
+
   it('rejects a body that is not a JSON array', async () => {
     const res = await call('/ingest', {
       method: 'POST',

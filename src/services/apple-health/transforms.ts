@@ -380,37 +380,41 @@ export interface HealthBestEffort {
   start_date: string;
 }
 
-/** Fastest moving time over each standard distance the run covered. */
+/**
+ * Fastest elapsed time over each standard distance the run covered, with the
+ * moving time of that same stretch. Personal records compare elapsed time,
+ * as they do for the Strava history, so a stop inside the stretch counts.
+ */
 export function computeBestEfforts(track: Track): HealthBestEffort[] {
   const total = track.distance[track.distance.length - 1];
   const efforts: HealthBestEffort[] = [];
   for (const [name, meters] of BEST_EFFORT_DISTANCES) {
     if (meters > total) break;
-    let best: { seconds: number; start: number } | null = null;
+    let best: { elapsed: number; moving: number; start: number } | null = null;
     let cursor = 1;
     for (let i = 0; i < track.distance.length; i++) {
       const target = track.distance[i] + meters;
       if (target > total) break;
-      const end = atDistance(
-        track,
-        track.moving,
-        target,
-        Math.max(cursor, i + 1)
-      );
-      cursor = end.index;
-      const seconds = end.value - track.moving[i];
-      if (seconds <= 0 || meters / seconds > MAX_PLAUSIBLE_SPEED_MS) continue;
-      if (!best || seconds < best.seconds) {
-        best = { seconds, start: track.time[i] };
+      const from = Math.max(cursor, i + 1);
+      const endTime = atDistance(track, track.time, target, from);
+      cursor = endTime.index;
+      const elapsed = endTime.value - track.time[i];
+      if (elapsed <= 0 || meters / elapsed > MAX_PLAUSIBLE_SPEED_MS) continue;
+      if (!best || elapsed < best.elapsed) {
+        const endMoving = atDistance(track, track.moving, target, from);
+        best = {
+          elapsed,
+          moving: endMoving.value - track.moving[i],
+          start: track.time[i],
+        };
       }
     }
     if (best) {
-      const rounded = Math.round(best.seconds);
       efforts.push({
         name,
         distance: meters,
-        elapsed_time: rounded,
-        moving_time: rounded,
+        elapsed_time: Math.round(best.elapsed),
+        moving_time: Math.round(best.moving),
         start_date: new Date(best.start * 1000)
           .toISOString()
           .replace(/\.\d{3}Z$/, 'Z'),

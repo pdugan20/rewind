@@ -169,6 +169,18 @@ describe('transformHealthRun', () => {
     expect(efforts['2 mile']).toBeCloseTo((2 * MILE) / SPEED, -1);
   });
 
+  it('ranks best efforts by elapsed time, so a stop inside one counts', () => {
+    const byName = Object.fromEntries(run.bestEfforts.map((e) => [e.name, e]));
+    // A mile fits before the stop, so both times match.
+    expect(byName.mile.elapsed_time).toBe(byName.mile.moving_time);
+    // Two miles can't avoid the 90 second stop.
+    expect(byName['2 mile'].elapsed_time).toBeCloseTo(
+      (2 * MILE) / SPEED + 90,
+      -1
+    );
+    expect(byName['2 mile'].moving_time).toBeCloseTo((2 * MILE) / SPEED, -1);
+  });
+
   it('keeps summary fields for a run without a route', () => {
     const treadmill = transformHealthRun(
       syntheticRun({ route: undefined, heartRateSeries: undefined })
